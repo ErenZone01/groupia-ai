@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: 001-modulith-event-publication.sql
+      relativeToChangelogFile: true

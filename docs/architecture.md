@@ -18,10 +18,13 @@ type interne ne devienne pas une API par accident. Tout nouveau sous-package
 public doit être exposé explicitement. Aucune classe publique ne doit être
 placée à la racine d'un module métier : Modulith l'exposerait par défaut.
 
-Les dépendances entre modules métier ne sont pas prédéfinies : aucun besoin
-métier ne les justifie encore. Les futures dépendances doivent passer par les
-interfaces publiques et rester acycliques. Ne pas ouvrir les modules ni
-exclure des packages pour faire passer la vérification.
+La fondation initiale ne prédéfinissait pas les dépendances métier. Le graphe
+cible est désormais documenté dans [module-dependencies.md](module-dependencies.md).
+Il impose notamment l'indépendance de shipping vis-à-vis de payment, et celle
+de payment vis-à-vis de ordering et shipping. ordering coordonne les obligations.
+Les annotations actuelles ne matérialisent pas encore toute cette matrice ;
+les futurs slices devront respecter les interfaces publiques et rester acycliques.
+Ne pas ouvrir les modules ni exclure des packages pour faire passer la vérification.
 
 ## Décisions complémentaires à AGENTS.md
 
@@ -110,3 +113,15 @@ L'arborescence complète des sources est disponible dans [source-tree.md](source
   nettoyage Maven a précédé les validations finales.
 - Le test de contexte démarre réellement PostgreSQL avec Testcontainers et
   applique la migration Liquibase avant la validation Hibernate.
+## Conception métier validée (17 septembre 2026)
+
+- [Modèle métier V1](domain-model.md) : agrégats, données, invariants, snapshots et transitions.
+- [Dépendances des modules](module-dependencies.md) : graphe cible et coordination sans cycles.
+- [Règles métier](business-rules.md) : comportements attendus et questions ouvertes par slice.
+- [Registre des ADR](../adr/README.md) : paiement, transport, références intermodules, checkout public et prix évolutifs.
+
+La présente étape est documentaire. Elle ne crée aucune entité, migration métier,
+API, repository ou service. Les résultats Maven consignés plus haut concernent
+la fondation du 16 septembre et ne constituent pas une validation des workflows
+métier futurs. Les prix peuvent évoluer pendant OPEN ; chaque nouveau checkout
+revalide le prix et la cohérence de l'offre, sans réécrire les commandes existantes.

@@ -24,6 +24,9 @@ class TestcontainersConfiguration {
         new SecureRandom().nextBytes(secret);
         String encoded = Base64.getEncoder().encodeToString(secret);
         return registry -> {
+            registry.add("groupia.ordering.expiration.enabled", () -> "false");
+            registry.add("groupia.events.recovery.enabled", () -> "false");
+            registry.add("groupia.payment.webhook-retry.enabled", () -> "false");
             registry.add("groupia.ordering.platform-fee-xof", () -> "300");
             registry.add("groupia.ordering.payment-window-minutes", () -> "30");
             registry.add("groupia.ordering.tracking-lifetime-days", () -> "180");

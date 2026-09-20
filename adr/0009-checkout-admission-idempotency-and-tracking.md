@@ -112,3 +112,14 @@ enrichit son contrat sans dépendance inverse. Aucun événement/consommateur ou
 publication aval n'est introduit : aucun effet secondaire intermodule à exécuter
 après placement dans cette tranche. Le futur workflow devra utiliser la publication
 persistante et des consommateurs idempotents conformément à AGENTS.md.
+
+## Amendement du 20 septembre 2026 — cinquième tranche
+
+[ADR-0010](0010-financial-core-and-settlement.md) concrétise le noyau financier.
+Sur instruction explicite de cette tranche, INITIAL_ORDER est désormais créé
+atomiquement pendant le checkout, via payment::api et sans appel réseau.
+Cette règle remplace la création après commit précédemment envisagée pour
+cette seule obligation. Les futurs effets transport, remboursements et
+notifications ne sont pas inclus dans la transaction de placement.
+Le provider reste abstrait, sa simulation limitée aux tests. Le règlement
+PaymentRequestSettled est fiable et la confirmation Order asynchrone/idempotente.

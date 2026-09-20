@@ -81,6 +81,17 @@ public class Order {
         order.placedAt = p.now(); order.paymentDeadline = p.paymentDeadline();
         return order;
     }
+    public boolean confirmInitialPayment(BigDecimal amount,String currency,Instant settledAt) {
+        if (initialAmountDue.compareTo(amount)!=0 || !this.currency.equals(currency) || settledAt.isBefore(placedAt)) {
+            throw new IllegalStateException("Settlement does not match order");
+        }
+        if (status!=OrderStatus.PENDING_PAYMENT || !settledAt.isBefore(paymentDeadline)) { return false; }
+        status=OrderStatus.CONFIRMED; confirmedAt=settledAt; return true;
+    }
+    public boolean expire(Instant now) {
+        if(status!=OrderStatus.PENDING_PAYMENT || now.isBefore(paymentDeadline)){return false;}
+        status=OrderStatus.EXPIRED; return true;
+    }
     public boolean allowsTrackingAt(Instant now) {
         return trackingTokenRevokedAt == null && now.isBefore(trackingTokenExpiresAt);
     }

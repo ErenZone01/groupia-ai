@@ -51,7 +51,7 @@ class CatalogIntegrationTests {
 
     @BeforeEach
     void setup() throws Exception {
-        jdbc.execute("TRUNCATE TABLE order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
         if (fixtureHash == null) { fixtureHash = passwords.encode("Fixture catalogue 2026!"); }
         userId = account("+221771234567");
         token = token(userId);

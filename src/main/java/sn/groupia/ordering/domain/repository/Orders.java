@@ -2,6 +2,8 @@ package sn.groupia.ordering.domain.repository;
 import java.util.*;
 import sn.groupia.ordering.domain.model.*;
 public interface Orders {
+    Optional<Order> lock(UUID id);
+    List<UUID> expiredCandidates(java.time.Instant now,UUID after,int limit);
     void lockIdempotency(UUID organizationId, String key);
     Optional<Order> findByKey(UUID organizationId, String key);
     void add(Customer customer, Order order);

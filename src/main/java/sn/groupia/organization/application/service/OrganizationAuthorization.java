@@ -15,9 +15,9 @@ import sn.groupia.shared.api.ApiException;
 public class OrganizationAuthorization implements OrganizationAccess {
     private static final Map<OrganizationRole, Set<OrganizationPermission>> PERMISSIONS = Map.of(
             OrganizationRole.OWNER, Set.of(OrganizationPermission.values()),
-            OrganizationRole.MANAGER, Set.of(OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG, OrganizationPermission.VIEW_GROUPINGS, OrganizationPermission.MANAGE_GROUPINGS),
+            OrganizationRole.MANAGER, Set.of(OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG, OrganizationPermission.VIEW_GROUPINGS, OrganizationPermission.MANAGE_GROUPINGS),
             OrganizationRole.OPERATOR, Set.of(OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS),
-            OrganizationRole.VIEWER, Set.of(OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS));
+            OrganizationRole.VIEWER, Set.of(OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS));
 
     private final CurrentUser currentUser;
     private final OrganizationMembers members;
@@ -51,7 +51,7 @@ public class OrganizationAuthorization implements OrganizationAccess {
     // Existing organization reads retain their historical policy; catalogue and grouping operations require an active organization.
     private void requireActiveBusinessOrganization(UUID organizationId, OrganizationPermission permission) {
         if ((permission == OrganizationPermission.VIEW_CATALOG || permission == OrganizationPermission.MANAGE_CATALOG
-                || permission == OrganizationPermission.VIEW_ORDERS || permission == OrganizationPermission.VIEW_GROUPINGS || permission == OrganizationPermission.MANAGE_GROUPINGS)
+                || permission == OrganizationPermission.VIEW_PAYMENTS || permission == OrganizationPermission.VIEW_ORDERS || permission == OrganizationPermission.VIEW_GROUPINGS || permission == OrganizationPermission.MANAGE_GROUPINGS)
                 && organizations.findActiveById(organizationId).isEmpty()) {
             throw new ApiException(404, "ORGANIZATION_NOT_FOUND", "Organisation indisponible.");
         }

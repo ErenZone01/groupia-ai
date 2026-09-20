@@ -45,3 +45,14 @@ Un seul Payment par commande ; état REFUNDED effaçant le succès ; rejet du de
 ## Questions commerciales restantes
 
 Composition du total initial, frais, compte marchand bénéficiaire, délais et réconciliation à la clôture, politique d'annulation et restitution. Voir [registre des questions](../docs/business-rules.md#questions-ouvertes-et-blocage-par-slice). Le paiement fractionné volontaire est hors MVP.
+
+## Amendement du 20 septembre 2026 — cinquième tranche
+
+[ADR-0010](0010-financial-core-and-settlement.md) concrétise le noyau financier.
+Sur instruction explicite de cette tranche, INITIAL_ORDER est désormais créé
+atomiquement pendant le checkout, via payment::api et sans appel réseau.
+Cette règle remplace la création après commit précédemment envisagée pour
+cette seule obligation. Les futurs effets transport, remboursements et
+notifications ne sont pas inclus dans la transaction de placement.
+Le provider reste abstrait, sa simulation limitée aux tests. Le règlement
+PaymentRequestSettled est fiable et la confirmation Order asynchrone/idempotente.

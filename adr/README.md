@@ -25,3 +25,8 @@ des prix/échéances. Il complète ADR-0002/0003/0005 sans les remplacer.
 [ADR-0009](0009-checkout-admission-idempotency-and-tracking.md), daté du 20 septembre 2026 :
 admission du checkout sous verrou, idempotence transactionnelle, secret de suivi
 remis une seule fois, frais configurables et snapshots. Complète ADR-0003/0004/0005.
+
+[ADR-0010](0010-financial-core-and-settlement.md), daté du 20 septembre 2026 :
+noyau financier, obligation initiale atomique au checkout, frontières réseau,
+réceptions et reprise, règlement événementiel, expiration et réconciliation.
+Amende explicitement ADR-0001/0004 pour INITIAL_ORDER et complète ADR-0009.

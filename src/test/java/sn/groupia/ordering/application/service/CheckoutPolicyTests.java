@@ -37,8 +37,8 @@ class CheckoutPolicyTests {
         var input = new CheckoutInput(); var secrets = new CheckoutSecrets(new ObjectMapper());
         var command = new CheckoutCommand(new CheckoutCommand.Contact("Awa","Diop","771234567",null),
                 List.of(new CheckoutCommand.Line(offerId,1,new BigDecimal("1000"),0L)));
-        var before = new CheckoutService(grouping,shipping,orders,input,secrets,new CheckoutPolicy(new BigDecimal("750"),45,90),clock);
-        var after = new CheckoutService(grouping,shipping,orders,input,secrets,new CheckoutPolicy(new BigDecimal("1200"),60,180),clock);
+        var before = new CheckoutService(grouping,shipping,orders,input,secrets,new CheckoutPolicy(new BigDecimal("750"),45,90),clock,mock(sn.groupia.payment.api.PaymentOperations.class));
+        var after = new CheckoutService(grouping,shipping,orders,input,secrets,new CheckoutPolicy(new BigDecimal("1200"),60,180),clock,mock(sn.groupia.payment.api.PaymentOperations.class));
         before.checkout(publicId,UUID.randomUUID().toString(),command);
         after.checkout(publicId,UUID.randomUUID().toString(),command);
         var captured = ArgumentCaptor.forClass(Order.class);

@@ -196,3 +196,19 @@ Les enums conservent les états cibles documentés, y compris OrderStatus.EXPIRE
 et FulfillmentStatus.CANCELLED ; aucune transition vers ces états n'est exposée.
 Contrat complet : [API commandes](ordering-api.md).
 Décisions et limites : [ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).
+
+## Cinquième tranche métier (20 septembre 2026)
+
+La migration 007-payments ajoute PaymentRequest, Payment, PaymentWebhookEvent et
+leurs protections PostgreSQL. Le checkout crée son obligation INITIAL_ORDER dans
+la même transaction. Les appels provider sont séparés des transactions courtes.
+L'unique provider simulé est dans les sources de test ; aucun prestataire réel.
+
+PaymentRequestSettled est publié dans le registre Modulith et consommé dans
+ordering pour confirmer idempotemment. Les reprises et expirations ont des
+schedulers configurables et des verrous PostgreSQL. Les réceptions en échec et
+publications épuisées restent visibles pour investigation. Aucune dépendance
+Maven supplémentaire, aucune exclusion du test de modularité.
+
+Voir [API financière](payment-api.md), [exploitation](payment-operations.md)
+et [ADR-0010](../adr/0010-financial-core-and-settlement.md).

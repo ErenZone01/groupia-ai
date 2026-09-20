@@ -150,3 +150,12 @@ fermeture et changement de prix de part et d'autre de l'admission, rollback
 intégral si insertion d'une ligne échoue. ApplicationModules.verify() inchangé.
 
 Détails des décisions : [ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).
+
+## Extension financière — cinquième tranche
+
+Le checkout crée maintenant INITIAL_ORDER atomiquement via payment::api ; une
+exception annule aussi Customer/Order/OrderItem. L'initiation publique protégée
+POST /api/public/orders/{orderNumber}/payments réutilise le secret de suivi et
+exige une clé d'idempotence distincte du checkout. Le suivi peut évoluer vers
+CONFIRMED après règlement vérifié, ou EXPIRED à l'échéance sans règlement.
+Voir [contrat financier](payment-api.md) et [ADR-0010](../adr/0010-financial-core-and-settlement.md).

@@ -44,3 +44,14 @@ Compte obligatoire ; unicité/fusion globale par téléphone ; accès privé par
 ## Questions restantes
 
 Coordonnées minimales nécessaires au parcours, durée du jeton et politique de récupération/renouvellement avec preuve. Le protocole de rejeu d'un checkout après perte de réponse doit préserver le stockage hashé et ne pas transformer la clé d'idempotence en accès public à une commande.
+
+## Amendement du 20 septembre 2026 — cinquième tranche
+
+[ADR-0010](0010-financial-core-and-settlement.md) concrétise le noyau financier.
+Sur instruction explicite de cette tranche, INITIAL_ORDER est désormais créé
+atomiquement pendant le checkout, via payment::api et sans appel réseau.
+Cette règle remplace la création après commit précédemment envisagée pour
+cette seule obligation. Les futurs effets transport, remboursements et
+notifications ne sont pas inclus dans la transaction de placement.
+Le provider reste abstrait, sa simulation limitée aux tests. Le règlement
+PaymentRequestSettled est fiable et la confirmation Order asynchrone/idempotente.

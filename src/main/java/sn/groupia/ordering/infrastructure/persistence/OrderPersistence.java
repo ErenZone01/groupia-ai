@@ -18,6 +18,15 @@ class OrderPersistence implements Orders {
     OrderPersistence(JpaOrderRepository orders, EntityManager entityManager, JdbcTemplate jdbc) {
         this.orders = orders; this.entityManager = entityManager; this.jdbc = jdbc;
     }
+    @Override public Optional<Order> lock(UUID id) {
+        var order=entityManager.find(Order.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if(order!=null){entityManager.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);}
+        return Optional.ofNullable(order);
+    }
+    @Override public List<UUID> expiredCandidates(java.time.Instant now,UUID after,int limit) {
+        return jdbc.query("select id from orders where status='PENDING_PAYMENT' and payment_deadline<=? and (cast(? as uuid) is null or id>?) order by id limit ?",
+                (rs,row)->rs.getObject(1,UUID.class),java.sql.Timestamp.from(now),after,after,limit);
+    }
     @Override public void lockIdempotency(UUID org, String key) {
         try {
             long lock = ByteBuffer.wrap(MessageDigest.getInstance("SHA-256")

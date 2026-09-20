@@ -21,10 +21,11 @@ public class CheckoutService {
     private final CheckoutSecrets secrets;
     private final CheckoutPolicy policy;
     private final Clock clock;
+    private final sn.groupia.payment.api.PaymentOperations payments;
     CheckoutService(CheckoutAdmission grouping, ShippingEstimator shipping, Orders orders, CheckoutInput input,
-            CheckoutSecrets secrets, CheckoutPolicy policy, Clock clock) {
+            CheckoutSecrets secrets, CheckoutPolicy policy, Clock clock, sn.groupia.payment.api.PaymentOperations payments) {
         this.grouping = grouping; this.shipping = shipping; this.orders = orders; this.input = input;
-        this.secrets = secrets; this.policy = policy; this.clock = clock;
+        this.secrets = secrets; this.policy = policy; this.clock = clock; this.payments = payments;
     }
     public record Result(boolean created, Object body) {}
     @Transactional(timeout = 15)
@@ -45,13 +46,17 @@ public class CheckoutService {
         var quote = grouping.quote(context, lines);
         var estimate = shipping.estimate(quote.shippingTerms(), quote.offers().stream()
                 .map(o -> new ShippingEstimateLine(o.quantity(), o.estimatedUnitWeightKg(), o.estimatedUnitVolumeM3())).toList());
-        var now = clock.instant();
+        var now = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         var customer = Customer.create(context.organizationId(), contact, now);
         String token = secrets.token();
         var order = Order.place(new Order.Placement(quote, customer, contact, orders.nextOrderNumber(),
                 policy.fee(), policy.feeRule(), estimate, key, fingerprint, secrets.hash(token), now,
                 now.plus(policy.paymentWindow()), now.plus(policy.trackingLifetime())));
         orders.add(customer, order);
+        payments.createRequest(new sn.groupia.payment.api.dto.CreatePaymentRequest(order.getOrganizationId(),order.getId(),
+                sn.groupia.payment.api.PaymentPurpose.INITIAL_ORDER,"INITIAL_ORDER:"+order.getId(),
+                order.getInitialAmountDue(),order.getCurrency(),order.getGoodsSubtotal(),order.getPlatformFeeAmount(),
+                order.getInitialShippingChargeAmount(),order.getPaymentDeadline()));
         // The transaction interceptor commits before this result reaches the HTTP controller.
         return new Result(true, OrderViews.receipt(order, token));
     }

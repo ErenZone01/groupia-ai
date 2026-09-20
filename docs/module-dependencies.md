@@ -1,6 +1,6 @@
 # Dépendances autorisées des modules
 
-Statut : graphe cible documenté le 17 septembre, actualisé le 20 septembre 2026 pour les tranches identity/organization, catalog, grouping, ordering et shipping. Les annotations de ces modules encodent désormais leurs dépendances autorisées ; les autres dépendances restent une cible. Le test vérifie frontières, cycles, modules détectés et interfaces publiques.
+Statut : graphe cible documenté le 17 septembre, actualisé le 20 septembre 2026 pour les tranches identity/organization, catalog, grouping, ordering, shipping et payment. Les annotations de ces modules encodent désormais leurs dépendances autorisées ; les autres dépendances restent une cible. Le test vérifie frontières, cycles, modules détectés et interfaces publiques.
 
 ## Sens des flèches
 
@@ -19,8 +19,8 @@ Seuls api, api.dto et api.event, réunis dans l'interface nommée api, sont publ
 | catalog | organization::api, shared::api ; media::api reste une cible future |
 | shipping | shared::api pour le calculateur pur ; organization::api reste une cible future |
 | grouping | organization::api, catalog::api, shipping::api, shared::api |
-| payment | organization::api |
-| ordering | organization::api, grouping::api, shipping::api, shared::api ; payment::api reste une cible future |
+| payment | organization::api, shared::api |
+| ordering | organization::api, grouping::api, shipping::api, shared::api, payment::api |
 | notification | organization::api, grouping::api, ordering::api, shipping::api, payment::api |
 | audit | identity::api, organization::api, media::api, catalog::api, grouping::api, shipping::api, payment::api, ordering::api, notification::api |
 
@@ -45,7 +45,7 @@ grouping peut utiliser les contrats publics de tarification de shipping. shippin
 
 ## Contrats d'événements envisagés
 
-Ces noms désignent des contrats cibles, pas des classes déjà créées. Chaque événement transactionnel comporte eventId, occurredAt, organisation quand applicable, identifiants minimaux et version/révision pertinente. Aucune donnée personnelle inutile.
+Sauf PaymentRequestSettled désormais implémenté, ces noms désignent des contrats cibles. Chaque événement transactionnel comporte eventId, occurredAt, organisation quand applicable, identifiants minimaux et version/révision pertinente. Aucune donnée personnelle inutile.
 
 | Producteur / propriétaire du contrat | Fait | Consommateurs pertinents |
 | --- | --- | --- |
@@ -54,7 +54,8 @@ Ces noms désignent des contrats cibles, pas des classes déjà créées. Chaque
 | grouping | OfferPriceChanged | audit ; ordering seulement si un besoin de projection le justifie |
 | ordering | OrderPlaced / Confirmed / Cancelled / Completed | notification, audit ; traitements locaux ordering |
 | shipping | ShippingAssessmentFinalized / Revised | ordering, audit |
-| payment | PaymentSucceeded / Failed / ReconciliationRequired | ordering, notification, audit |
+| payment | PaymentRequestSettled (implémenté) | ordering (implémenté) ; notification/audit futurs |
+| payment | PaymentSucceeded / Failed / ReconciliationRequired (cibles futures) | notification, audit |
 | payment | PaymentRefundSucceeded / Failed | ordering, audit |
 | notification | NotificationDeliveryRecorded | audit |
 
@@ -68,7 +69,7 @@ Interdiction de faire écouter OrderPlaced à payment ou shipping dans ce graphe
 2. grouping valide la campagne, les offres, les versions/prix et arbitre leurs modifications concurrentes par son API publique.
 3. ordering obtient si nécessaire un devis de shipping à partir de données validées, puis conserve les snapshots et place la commande.
 4. L'admission et le prix accepté sont atomiques avec le placement. Une courte transaction commune, explicitement limitée à cet invariant, est permise dans le monolithe ; aucun accès direct aux repositories voisins.
-5. Après commit, un traitement local persistant de ordering assure idempotemment l'évaluation transport nécessaire puis la demande initiale via leurs APIs. Chaque étape a une clé métier stable et peut reprendre après un succès suivi d'un crash.
+5. INITIAL_ORDER est créée via payment::api dans la transaction de checkout (ADR-0010, amendement explicite). Les futures évaluations transport et obligations supplémentaires restent des étapes idempotentes séparées du placement.
 6. payment confirme les faits prestataires dans sa transaction et publie ses événements. ordering les consomme sans faire régresser une commande expirée/annulée.
 7. shipping publie les calculs finalisés/révisés. ordering rapproche ces faits des obligations et mouvements payment, puis crée si nécessaire une demande SHIPPING_BALANCE ou coordonne une régularisation autorisée.
 8. Les notifications et l'audit se traitent indépendamment. Leur panne n'annule pas un paiement réussi ou une commande déjà placée.
@@ -125,3 +126,16 @@ Le journal grouping_changes est une écriture locale atomique à grouping. Aucun
 Les trois routes publiques autorisées sont désormais le storefront GET, le checkout
 POST et le suivi GET avec secret en header. Les endpoints organisateur restent
 authentifiés et vérifient une permission explicite. Voir API commandes et ADR-0009.
+
+## Contrats utilisés par la cinquième tranche
+
+- ordering → payment::api : PaymentOperations, DTO, PaymentRequestSettled ; dépendances précédentes conservées.
+- payment → organization::api : VIEW_PAYMENTS ; payment → shared::api : erreurs stables.
+- Aucun import ordering/shipping dans payment, aucun lien JPA intermodule.
+- payment.api, api.dto et api.event restent l'interface nommée api fermée explicitement ; le port provider reste interne à payment.
+- shared.infrastructure active async/scheduling et reprend uniquement le registre technique Modulith, sans dépendance métier.
+
+La confirmation par événement remplace toute hypothèse d'appel de Payment vers
+OrderRepository. La création INITIAL_ORDER dans le checkout est l'exception
+atomique explicitement demandée ; initiation/verify s'exécutent hors transaction.
+Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md).

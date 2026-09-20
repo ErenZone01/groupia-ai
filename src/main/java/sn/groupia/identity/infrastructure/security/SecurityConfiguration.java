@@ -87,7 +87,7 @@ class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/groupings/*", "/api/public/orders/track").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/public/groupings/*/checkout").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/public/groupings/*/checkout", "/api/public/orders/*/payments", "/api/payment/webhooks/*").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden))
                 .oauth2ResourceServer(oauth -> oauth

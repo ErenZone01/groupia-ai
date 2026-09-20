@@ -284,3 +284,26 @@ ses workflows cibles ne sont pas implémentés dans cette tranche. Aucun statut
 commercial/logistique ne change après placement.
 
 Voir [API commandes](ordering-api.md) et [ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).
+
+## Cinquième tranche implémentée (20 septembre 2026)
+
+PaymentRequest, Payment et PaymentWebhookEvent sont persistés par 007-payments.
+La demande INITIAL_ORDER est créée dans la transaction de checkout et reprend
+ses montants/ventilation/échéance sans recalcul. Le port PaymentProvider n'a
+qu'une implémentation de test. SHIPPING_BALANCE/SUPERSEDED restent réservés ;
+PaymentRefund et transport persistant ne sont pas implémentés.
+
+Les demandes ont actuellement une échéance obligatoire et CLOSED signifie
+réglée avec settledPaymentId. Payment ajoute initiationKey pour le rejeu client,
+distincte de providerIdempotencyKey. Les réceptions stockent une observation
+financière normalisée en JSONB, une empreinte et une clé technique de déduplication.
+
+L'affectation se fait à l'heure de validation Groupia, avant l'échéance stricte.
+Succès tardifs/doubles restent SUCCEEDED avec réconciliation, sans événement
+normal de règlement supplémentaire. OrderExpiration ferme l'acceptation et
+expire atomiquement les commandes dues non réglées. Une demande déjà réglée
+attend sa confirmation asynchrone sans être expirée entretemps.
+
+Détails concrets, transitions et exceptions documentées :
+[ADR-0010](../adr/0010-financial-core-and-settlement.md),
+[API](payment-api.md), [reprise](payment-operations.md).

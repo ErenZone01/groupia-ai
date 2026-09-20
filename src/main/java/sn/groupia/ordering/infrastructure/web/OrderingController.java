@@ -12,14 +12,24 @@ class OrderingController {
     private final CheckoutService checkout;
     private final OrderQueries queries;
     private final TrackingAttempts attempts;
-    OrderingController(CheckoutService checkout, OrderQueries queries, TrackingAttempts attempts) {
-        this.checkout = checkout; this.queries = queries; this.attempts = attempts;
+    private final OrderPayments payments;
+    OrderingController(CheckoutService checkout, OrderQueries queries, TrackingAttempts attempts, OrderPayments payments) {
+        this.checkout = checkout; this.queries = queries; this.attempts = attempts; this.payments=payments;
     }
     @PostMapping("/api/public/groupings/{publicIdentifier}/checkout")
     ResponseEntity<Object> checkout(@PathVariable UUID publicIdentifier,
             @RequestHeader(value = "Idempotency-Key", required = false) String key, @RequestBody CheckoutCommand command) {
         var result = checkout.checkout(publicIdentifier, key, command);
         return ResponseEntity.status(result.created() ? 201 : 200).header("Cache-Control", "no-store").body(result.body());
+    }
+    record InitiatePayment(String provider) {}
+    @PostMapping("/api/public/orders/{orderNumber}/payments")
+    ResponseEntity<sn.groupia.payment.api.dto.PaymentAttemptView> initiate(@PathVariable String orderNumber,
+            @RequestHeader(value="X-Order-Tracking-Token",required=false) String token,
+            @RequestHeader(value="Idempotency-Key",required=false) String key,
+            @RequestBody InitiatePayment input, HttpServletRequest request) {
+        attempts.check(request.getRemoteAddr());
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(payments.initiate(orderNumber,token,input.provider(),key));
     }
     @GetMapping("/api/public/orders/track")
     ResponseEntity<OrderReceipt> track(@RequestHeader(value = "X-Order-Tracking-Token", required = false) String token,

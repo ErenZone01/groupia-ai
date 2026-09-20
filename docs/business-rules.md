@@ -97,7 +97,7 @@ Ces questions ne remettent pas en cause les décisions validées. Le premier ver
 | Premier parcours et critères | Résolu : inscription, login, création atomique avec OWNER, liste et lecture autorisées, refus inter-organisation |
 | Authentification et premier OWNER | Résolu : téléphone normalisé + mot de passe, JWT ; le créateur authentifié devient OWNER dans la transaction de création |
 | Qui encaisse et pour quel compte marchand ? Frais fixes configurables et total initial sont définis dans la quatrième tranche. | Intégration prestataire |
-| Quelle date de paiement fait foi et comment traiter les paiements en vol à la clôture ? La fenêtre de commande est configurable, 30 minutes par défaut. | Expiration, confirmation et clôture opérationnelle |
+| Date retenue pour INITIAL_ORDER : validation Groupia avant échéance stricte (ADR-0010). La fenêtre reste configurable, 30 minutes par défaut. Le traitement commercial des paiements en vol à la clôture de campagne reste à préciser. | Clôture opérationnelle |
 | Quels tarifs/unités et quelle définition du poids ou volume facturable sont proposés au lancement ? Le gel des conditions de transport après OPEN est désormais fixé par la troisième tranche. | Devis et facturation transport ; les snapshots historiques restent acquis |
 | Quelles annulations sont permises, à quels stades et avec quels frais conservés/restitués ? | Annulation et remboursement |
 | Existe-t-il un plafond de capacité ou un seuil minimal de groupage ? | Vente d'offres concernées si une telle contrainte existe |
@@ -156,3 +156,17 @@ Voir [API groupage](grouping-api.md) et [ADR-0008](../adr/0008-grouping-publicat
 
 Contrat : [API commandes](ordering-api.md). Coordination/rejeu :
 [ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).
+
+## Règles concrétisées par la cinquième tranche
+
+- Checkout et obligation INITIAL_ORDER sont atomiques, y compris en cas d'échec de création de l'obligation.
+- Une clé d'initiation retrouve une tentative ; une tentative incertaine interdit un nouveau débit automatique. FAILED/CANCELLED/EXPIRED certain autorise une nouvelle clé si l'obligation est encore ouverte.
+- Un succès immédiat ou un webhook SUCCEEDED exige une vérification prestataire cohérente. Un timeout ne devient jamais un faux FAILED.
+- À la date de validation Groupia >= expiresAt, un succès réel devient LATE_SUCCESS sans règlement ni réactivation. Un second succès reste SUCCEEDED/DUPLICATE_SUCCESS, sans remplacer l'affectation initiale.
+- La confirmation Order est une conséquence idempotente du règlement de la demande, pas du seul statut d'une tentative.
+- Expiration et fermeture d'acceptation sont atomiques ; un règlement déjà accepté empêche l'expiration pendant une reprise de confirmation.
+- XOF entier validé, ventilation et montants immuables ; aucun remboursement/solde transport opérationnel.
+- VIEW_PAYMENTS est accordé à OWNER/MANAGER/VIEWER ; OPERATOR ne reçoit pas cette lecture financière par défaut.
+- Obligation nulle : stockage autorisé, aucune initiation de débit ni confirmation artificielle ; décision commerciale ultérieure nécessaire si cette configuration est utilisée.
+
+[ADR-0010](../adr/0010-financial-core-and-settlement.md) et [procédures de reprise](payment-operations.md).

@@ -1,5 +1,5 @@
 /**
- * The identity business module. Public contracts belong exclusively to its api packages.
+ * Authentication and account identity. Other modules use only the public api.
  */
-@org.springframework.modulith.ApplicationModule
+@org.springframework.modulith.ApplicationModule(allowedDependencies = "shared::api")
 package sn.groupia.identity;

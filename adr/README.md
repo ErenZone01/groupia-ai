@@ -11,3 +11,9 @@ Les ADR ci-dessous enregistrent les décisions V1 validées le 17 septembre 2026
 | [0005](0005-offer-price-changes.md) | Prix modifiables pendant OPEN avec revalidation et conflit explicite | Accepté |
 
 Une proposition antérieure ne prévaut pas sur ces décisions. Toute modification future doit indiquer quel ADR elle remplace et pourquoi. Aucun ADR de cette série n'implique qu'un workflow métier soit déjà implémenté.
+
+Le [ADR-0006](0006-identity-organization-slice.md), daté du 18 septembre 2026, documente les exigences et décisions d'implémentation de la première tranche identity/organization, dont le contenu technique désormais justifié de shared.
+
+[ADR-0007](0007-catalog-variant-identity-and-concurrency.md), daté du 20 septembre 2026 :
+identité canonique versionnée des variantes et concurrence de l'agrégat catalogue.
+Il complète les décisions précédentes sans les remplacer.

@@ -28,7 +28,7 @@ Ne pas ouvrir les modules ni exclure des packages pour faire passer la vérifica
 
 ## Décisions complémentaires à AGENTS.md
 
-- `shared` est un module technique vide, sans les quatre couches métier et
+- `shared` était initialement une réserve technique vide, sans les quatre couches métier et
   sans dépendance autorisée vers un module métier (`allowedDependencies = {}`).
   Il n'est pas déclaré comme module partagé automatiquement chargé dans tous
   les tests Modulith. Tout futur contenu doit avoir une justification concrète.
@@ -125,3 +125,32 @@ API, repository ou service. Les résultats Maven consignés plus haut concernent
 la fondation du 16 septembre et ne constituent pas une validation des workflows
 métier futurs. Les prix peuvent évoluer pendant OPEN ; chaque nouveau checkout
 revalide le prix et la cohérence de l'offre, sans réécrire les commandes existantes.
+
+## Première tranche métier (18 septembre 2026)
+
+La tranche identity/organization implémente inscription, connexion JWT,
+création atomique d'une organisation avec son OWNER et lectures autorisées.
+Voir [contrat API](identity-organization-api.md), [fichiers](identity-organization-files.md)
+et [ADR-0006](../adr/0006-identity-organization-slice.md).
+
+Deux migrations métier sont ajoutées après le registre technique : 002-identity
+et 003-organizations. Hibernate conserve ddl-auto=validate. shared contient
+maintenant uniquement le support HTTP d'erreurs et une horloge technique ;
+identity et organization déclarent leurs dépendances à ses contrats publics.
+Le lancement nécessite GROUPIA_JWT_SECRET_BASE64, fourni extérieurement et sans
+valeur de repli ; les tests génèrent une clé éphémère dans leur propre contexte.
+## Deuxième tranche métier (20 septembre 2026)
+
+catalog implémente Product et ses ProductVariant dans un seul agrégat versionné.
+Les endpoints sont scoped par organisation et utilisent les permissions centralisées
+VIEW_CATALOG / MANAGE_CATALOG. Les références d'organisation restent scalaires ;
+la relation JPA Product-ProductVariant est interne au module.
+
+La migration 004-catalog ajoute products et product_variants, avec attributs JSONB,
+unicités, FK composée de cohérence organisationnelle et index de lecture.
+Aucune dépendance Maven ajoutée ; aucune modification de ModularityTests.
+Le nettoyage des fixtures identity/organization inclut désormais les nouvelles tables
+afin de respecter leurs FK, sans changer les assertions de la première tranche.
+
+Voir [API catalogue](catalog-api.md) et [ADR-0007](../adr/0007-catalog-variant-identity-and-concurrency.md).
+Aucune fonctionnalité de campagne, offre, achat, transport, paiement ou média.

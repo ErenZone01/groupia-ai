@@ -1,6 +1,6 @@
 # Modèle métier Groupia V1
 
-Statut : modèle validé le 17 septembre 2026, avec précisions d'architecture et points ouverts explicitement identifiés ci-dessous. Ce document décrit la cible ; les entités et workflows ne sont pas encore implémentés.
+Statut : modèle validé le 17 septembre 2026, avec précisions d'architecture et points ouverts explicitement identifiés ci-dessous. Ce document décrit la cible. Les tranches identity/organization (18 septembre 2026) et Product/ProductVariant (20 septembre 2026) sont implémentées ; les autres entités et workflows restent non implémentés. Voir [contrat de cette tranche](identity-organization-api.md).
 
 Les décisions reçues remplacent deux propositions antérieures : les prix des offres peuvent évoluer pendant OPEN ; shipping ne dépend jamais de payment. Les règles détaillées sont dans [business-rules.md](business-rules.md), le graphe dans [module-dependencies.md](module-dependencies.md) et les décisions structurantes dans les [ADR](../adr/README.md).
 
@@ -19,7 +19,7 @@ Les décisions reçues remplacent deux propositions antérieures : les prix des 
 
 ### UserAccount — racine
 
-**Données :** id, identifiant de connexion normalisé, statut du compte, dates de création/modification, version. Les justificatifs d'authentification dépendent du choix identité locale ou fournisseur externe, encore ouvert.
+**Données :** id, phoneNumber E.164 unique, email facultatif, passwordHash BCrypt interne, statut ACTIVE/DISABLED, createdAt, updatedAt, version. Le premier slice utilise une identité locale téléphone/mot de passe et des access tokens JWT. Le hash n'est jamais exposé.
 
 **Responsabilité :** identifier et authentifier un utilisateur organisateur. Aucun panier, Customer ou Order n'appartient à cet agrégat.
 
@@ -27,15 +27,15 @@ Les décisions reçues remplacent deux propositions antérieures : les prix des 
 
 **Relations :** aucune dépendance métier vers organization ou ordering. OrganizationMember référence le compte par UUID.
 
-**Cycle de vie :** compte actif ou désactivé ; inscription, vérification et récupération restent à définir avant le slice d'authentification.
+**Cycle de vie :** inscription en ACTIVE, connexion autorisée pour les comptes actifs. DISABLED est prévu mais aucun endpoint de désactivation n'est exposé. OTP, récupération, MFA et refresh tokens restent hors de la première tranche.
 
 ## organization
 
 ### Organization — racine ; OrganizationMember — entité de gouvernance
 
-**Organization :** id, nom, statut, devise par défaut XOF, dates, version.
+**Organization :** id, nom, statut ACTIVE/ARCHIVED, defaultCurrency XOF, countryCode SN, timezone Africa/Dakar, createdAt, updatedAt, version. Les valeurs par défaut sont fixées par le serveur dans la première tranche.
 
-**OrganizationMember :** id, organizationId, userAccountId, rôle OWNER/MANAGER/OPERATOR/VIEWER, statut ACTIVE/REVOKED, dates d'adhésion/révocation.
+**OrganizationMember :** id, organizationId, userAccountId, rôle OWNER/MANAGER/OPERATOR/VIEWER, statut ACTIVE/REVOKED, dates d'adhésion/révocation, version de concurrence.
 
 **Responsabilité :** propriété des données, adhésions et permissions centralisées.
 
@@ -49,17 +49,19 @@ Les décisions reçues remplacent deux propositions antérieures : les prix des 
 
 ### Product — racine ; ProductVariant — entité du produit
 
-**Product :** id, organizationId, nom, description, statut ACTIVE/ARCHIVED, primaryMediaAssetId facultatif, dates, version.
+**Product :** id, organizationId, nom, description, statut ACTIVE/ARCHIVED, dates, version. primaryMediaAssetId reste une cible future non implémentée dans la tranche catalogue, sans image ni upload.
 
 **ProductVariant :** id, organizationId, productId, SKU facultatif, attributs flexibles JSONB, clé canonique de combinaison, unité vendue, estimations unitaires de poids/volume facultatives, indicateur actif.
 
 **Responsabilité :** décrire un catalogue réutilisable ; Product ne porte aucun prix de campagne autoritaire.
 
-**Invariants :** au moins une variante par produit ; variante DEFAULT pour un produit sans options ; combinaison d'attributs unique au sein du produit ; SKU unique dans l'organisation lorsqu'il existe. Le retrait de la dernière variante est interdit. Les références déjà commercialisées sont archivées plutôt que supprimées. Les variantes demeurent dans l'agrégat Product.
+**Invariants :** au moins une variante active pour un produit ACTIVE ; variante DEFAULT pour un produit sans options ; combinaison d'attributs unique au sein du produit ; SKU unique dans l'organisation lorsqu'il existe. Le retrait de la dernière variante est interdit. Les références déjà commercialisées sont archivées plutôt que supprimées. Les variantes demeurent dans l'agrégat Product.
 
 **Attributs :** color, size, shoeSize, capacity peuvent varier sans colonne par famille de produits. Les clés, types, systèmes de tailles et unités sont validés ; un JSON syntaxiquement valide ne suffit pas. Les montants, devises, identifiants et statuts restent des données structurées distinctes. Une clé canonique évite les variantes doublonnées malgré un ordre différent des attributs.
 
-**Relations :** primaryMediaAssetId vers media ; productId interne au module. Les poids catalogue ne remplacent pas les mesures réelles.
+**Relations :** productId interne au module ; organizationId scalaire avec FK SQL, sans cascade intermodule. La référence vers media reste future. Les poids catalogue ne remplacent pas les mesures réelles.
+
+**Tranche livrée :** attributs textuels normalisés, clé DEFAULT ou v1:SHA-256, unités UNIT/PAIR/SET/PACK, SKU normalisé unique par organisation. Les écritures de variantes contrôlent et incrémentent la version du produit. Produit archivé lisible mais non éditable, aucun hard delete. Voir [API catalogue](catalog-api.md) et [ADR-0007](../adr/0007-catalog-variant-identity-and-concurrency.md).
 
 **Snapshots :** les commandes copient les descriptions, SKU et attributs nécessaires ; une modification du catalogue ne les modifie jamais.
 
@@ -238,7 +240,7 @@ La ventilation du paiement initial est incluse. Un deuxième encaissement non af
 
 ## notification et shared
 
-notification consommera les faits publics et gérera l'idempotence de ses envois ; aucun nouvel agrégat métier n'est requis dans cette étape. shared reste vide et technique ; aucun déplacement d'entités ou d'événements métier pour masquer un cycle.
+notification consommera les faits publics et gérera l'idempotence de ses envois ; aucun nouvel agrégat métier n'est requis dans cette étape. shared contient uniquement le contrat technique d'erreurs, sa traduction HTTP et une horloge injectable, justifiés par ADR-0006. Aucun déplacement d'entités ou d'événements métier pour masquer un cycle.
 
 ## Relations et snapshots récapitulatifs
 

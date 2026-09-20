@@ -1,5 +1,5 @@
 /**
- * The organization business module. Public contracts belong exclusively to its api packages.
+ * Organizations, memberships and centralized organization permissions.
  */
-@org.springframework.modulith.ApplicationModule
+@org.springframework.modulith.ApplicationModule(allowedDependencies = {"identity::api", "shared::api"})
 package sn.groupia.organization;

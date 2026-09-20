@@ -1,6 +1,6 @@
 # Dépendances autorisées des modules
 
-Statut : graphe cible documenté le 17 septembre 2026. Les onze modules existent ; les dépendances métier et contrats décrits ici ne sont pas encore implémentés. Le test actuel vérifie frontières, cycles, modules détectés et interfaces publiques ; il n'encode pas encore cette matrice complète.
+Statut : graphe cible documenté le 17 septembre, actualisé le 20 septembre 2026 pour les tranches identity/organization et catalog. Les annotations de ces trois modules encodent désormais leurs dépendances autorisées ; les autres dépendances restent une cible. Le test vérifie frontières, cycles, modules détectés et interfaces publiques.
 
 ## Sens des flèches
 
@@ -12,11 +12,11 @@ Seuls api, api.dto et api.event, réunis dans l'interface nommée api, sont publ
 
 | Module | Dépendances directes autorisées |
 | --- | --- |
-| shared | aucune ; reste vide |
-| identity | aucune |
-| organization | identity::api |
+| shared | aucune ; support technique uniquement |
+| identity | shared::api |
+| organization | identity::api, shared::api |
 | media | organization::api |
-| catalog | organization::api, media::api |
+| catalog | organization::api, shared::api ; media::api reste une cible future |
 | shipping | organization::api |
 | grouping | organization::api, catalog::api, shipping::api |
 | payment | organization::api |
@@ -24,7 +24,7 @@ Seuls api, api.dto et api.event, réunis dans l'interface nommée api, sont publ
 | notification | organization::api, grouping::api, ordering::api, shipping::api, payment::api |
 | audit | identity::api, organization::api, media::api, catalog::api, grouping::api, shipping::api, payment::api, ordering::api, notification::api |
 
-Une autorisation n'impose pas d'ajouter la dépendance : chaque usage doit répondre au slice en cours. Aucun module ne dépend de shared tant qu'aucun contrat technique n'y est justifié.
+Une autorisation n'impose pas d'ajouter la dépendance : chaque usage doit répondre au slice en cours. identity, organization et catalog utilisent shared::api pour les erreurs HTTP stables. shared fournit aussi une horloge injectable sans dépendance métier. Cette nécessité concrète est consignée dans ADR-0006 ; catalog réutilise ce contrat technique conformément à ADR-0007 ; aucune dépendance vers media n'est ajoutée dans cette tranche.
 
 L'ordre suivant démontre l'absence de cycle ; chaque dépendance pointe vers un module antérieur :
 shared, identity, organization, media, catalog, shipping, grouping, payment, ordering, notification, audit.
@@ -93,8 +93,10 @@ Les FK intermodules sont autorisées dans le PostgreSQL unique, sans cascade de 
 
 ## Vérification future
 
-Les prochains slices devront respecter cette matrice et pourront matérialiser les allowedDependencies nécessaires dans leurs déclarations de modules. Ce chantier documentaire ne change aucune annotation.
+identity, organization et catalog matérialisent déjà leurs allowedDependencies ; les prochains slices devront compléter uniquement leurs propres déclarations conformément à cette matrice. Le test de modularité n'a été ni filtré ni affaibli.
 
 ApplicationModules.of(GroupiaApplication.class).verify() reste dans les tests normaux, sans exclusions ni ouverture artificielle des modules. Il vérifie les dépendances de code, pas les autorisations métier, FK, effets des événements ou règles de concurrence : ces derniers exigent leurs propres tests.
 
 Voir [fondation existante](architecture.md) et [vérification Spring Modulith](https://docs.spring.io/spring-modulith/reference/verification.html).
+
+Décisions et périmètre de la tranche implémentée : [ADR-0006](../adr/0006-identity-organization-slice.md).

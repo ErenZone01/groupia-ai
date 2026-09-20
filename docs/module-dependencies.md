@@ -1,6 +1,6 @@
 # Dépendances autorisées des modules
 
-Statut : graphe cible documenté le 17 septembre, actualisé le 20 septembre 2026 pour les tranches identity/organization et catalog. Les annotations de ces trois modules encodent désormais leurs dépendances autorisées ; les autres dépendances restent une cible. Le test vérifie frontières, cycles, modules détectés et interfaces publiques.
+Statut : graphe cible documenté le 17 septembre, actualisé le 20 septembre 2026 pour les tranches identity/organization, catalog, grouping, ordering et shipping. Les annotations de ces modules encodent désormais leurs dépendances autorisées ; les autres dépendances restent une cible. Le test vérifie frontières, cycles, modules détectés et interfaces publiques.
 
 ## Sens des flèches
 
@@ -17,14 +17,14 @@ Seuls api, api.dto et api.event, réunis dans l'interface nommée api, sont publ
 | organization | identity::api, shared::api |
 | media | organization::api |
 | catalog | organization::api, shared::api ; media::api reste une cible future |
-| shipping | organization::api |
-| grouping | organization::api, catalog::api, shipping::api |
+| shipping | shared::api pour le calculateur pur ; organization::api reste une cible future |
+| grouping | organization::api, catalog::api, shipping::api, shared::api |
 | payment | organization::api |
-| ordering | organization::api, grouping::api, shipping::api, payment::api |
+| ordering | organization::api, grouping::api, shipping::api, shared::api ; payment::api reste une cible future |
 | notification | organization::api, grouping::api, ordering::api, shipping::api, payment::api |
 | audit | identity::api, organization::api, media::api, catalog::api, grouping::api, shipping::api, payment::api, ordering::api, notification::api |
 
-Une autorisation n'impose pas d'ajouter la dépendance : chaque usage doit répondre au slice en cours. identity, organization et catalog utilisent shared::api pour les erreurs HTTP stables. shared fournit aussi une horloge injectable sans dépendance métier. Cette nécessité concrète est consignée dans ADR-0006 ; catalog réutilise ce contrat technique conformément à ADR-0007 ; aucune dépendance vers media n'est ajoutée dans cette tranche.
+Une autorisation n'impose pas d'ajouter la dépendance : chaque usage doit répondre au slice en cours. identity, organization, catalog, grouping, ordering et shipping utilisent shared::api pour les erreurs HTTP stables. shared fournit aussi une horloge injectable sans dépendance métier. Cette nécessité concrète est consignée dans ADR-0006 ; catalog réutilise ce contrat technique conformément à ADR-0007 ; aucune dépendance vers media n'est ajoutée dans cette tranche.
 
 L'ordre suivant démontre l'absence de cycle ; chaque dépendance pointe vers un module antérieur :
 shared, identity, organization, media, catalog, shipping, grouping, payment, ordering, notification, audit.
@@ -93,10 +93,35 @@ Les FK intermodules sont autorisées dans le PostgreSQL unique, sans cascade de 
 
 ## Vérification future
 
-identity, organization et catalog matérialisent déjà leurs allowedDependencies ; les prochains slices devront compléter uniquement leurs propres déclarations conformément à cette matrice. Le test de modularité n'a été ni filtré ni affaibli.
+identity, organization, catalog et grouping matérialisent déjà leurs allowedDependencies ; les prochains slices devront compléter uniquement leurs propres déclarations conformément à cette matrice. Le test de modularité n'a été ni filtré ni affaibli.
 
 ApplicationModules.of(GroupiaApplication.class).verify() reste dans les tests normaux, sans exclusions ni ouverture artificielle des modules. Il vérifie les dépendances de code, pas les autorisations métier, FK, effets des événements ou règles de concurrence : ces derniers exigent leurs propres tests.
 
 Voir [fondation existante](architecture.md) et [vérification Spring Modulith](https://docs.spring.io/spring-modulith/reference/verification.html).
 
 Décisions et périmètre de la tranche implémentée : [ADR-0006](../adr/0006-identity-organization-slice.md).
+
+## Contrats utilisés par la troisième tranche
+
+grouping dépend exactement de :
+- organization::api : permissions VIEW_GROUPINGS/MANAGE_GROUPINGS, acteur autorisé et disponibilité ACTIVE ;
+- catalog::api : CatalogVariants.findByIds(organizationId, variantIds) et CatalogVariantView, sans repository/entité/service interne ;
+- shipping::api : vocabulaires et ShippingTerms, sans calcul, table ou évaluation de transport ;
+- shared::api : erreurs techniques stables.
+
+Le storefront passe par GroupingQueries et un DTO public dédié ; les APIs Java catalog et organization ne sont pas des routes HTTP anonymes. Seul GET /api/public/groupings/{publicIdentifier} est ouvert dans la sécurité. Les données privées restent derrière leurs routes JWT et contrôles de permission.
+
+Le journal grouping_changes est une écriture locale atomique à grouping. Aucun événement/consommateur intermodule supplémentaire n'est créé ; on ne présente pas une publication sans consommateur comme une trace d'audit persistée. Voir ADR-0008.
+
+## Contrats utilisés par la quatrième tranche
+
+- ordering → grouping::api : CheckoutAdmission.lockCampaign puis quote, sous la même transaction ; DTO commerciaux autoritaires sans entités JPA.
+- ordering → organization::api : VIEW_ORDERS pour les lectures organisateur.
+- ordering → shipping::api : ShippingEstimator et ses entrées décimales, calcul pur.
+- ordering → shared::api ; shipping → shared::api : erreurs stables.
+- grouping conserve son graphe : commercialSnapshots dans catalog::api fournit uniquement les données nécessaires aux snapshots ; countryCode dans organization::api fournit le contexte de téléphone.
+- Aucune dépendance directe ordering → catalog, aucune dépendance payment et aucun cycle.
+
+Les trois routes publiques autorisées sont désormais le storefront GET, le checkout
+POST et le suivi GET avec secret en header. Les endpoints organisateur restent
+authentifiés et vérifient une permission explicite. Voir API commandes et ADR-0009.

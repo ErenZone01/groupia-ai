@@ -17,3 +17,11 @@ Le [ADR-0006](0006-identity-organization-slice.md), daté du 18 septembre 2026, 
 [ADR-0007](0007-catalog-variant-identity-and-concurrency.md), daté du 20 septembre 2026 :
 identité canonique versionnée des variantes et concurrence de l'agrégat catalogue.
 Il complète les décisions précédentes sans les remplacer.
+
+[ADR-0008](0008-grouping-publication-and-coordination.md), daté du 20 septembre 2026 :
+publication publique, coordination des campagnes/offres et journal local atomique
+des prix/échéances. Il complète ADR-0002/0003/0005 sans les remplacer.
+
+[ADR-0009](0009-checkout-admission-idempotency-and-tracking.md), daté du 20 septembre 2026 :
+admission du checkout sous verrou, idempotence transactionnelle, secret de suivi
+remis une seule fois, frais configurables et snapshots. Complète ADR-0003/0004/0005.

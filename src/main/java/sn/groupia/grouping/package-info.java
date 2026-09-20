@@ -1,5 +1,3 @@
-/**
- * The grouping business module. Public contracts belong exclusively to its api packages.
- */
-@org.springframework.modulith.ApplicationModule
+/** Campaign and offer contracts are exposed only through api. */
+@org.springframework.modulith.ApplicationModule(allowedDependencies = {"organization::api", "catalog::api", "shipping::api", "shared::api"})
 package sn.groupia.grouping;

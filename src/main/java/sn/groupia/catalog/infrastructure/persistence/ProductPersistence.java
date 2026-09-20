@@ -15,6 +15,10 @@ class ProductPersistence implements Products {
     ProductPersistence(JpaProductRepository repository) { this.repository = repository; }
 
     @Override
+    public List<ProductVariant> findVariants(UUID organizationId, Set<UUID> variantIds) {
+        return repository.findVariants(organizationId, variantIds);
+    }
+    @Override
     public Product save(Product product) {
         try { return repository.saveAndFlush(product); }
         catch (OptimisticLockingFailureException ex) {

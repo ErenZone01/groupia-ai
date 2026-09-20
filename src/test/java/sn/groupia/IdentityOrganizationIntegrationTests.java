@@ -52,7 +52,7 @@ class IdentityOrganizationIntegrationTests {
     @BeforeEach
     void resetDatabase() {
         SecurityContextHolder.clearContext();
-        jdbc.execute("TRUNCATE TABLE product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
     }
 
     @AfterEach
@@ -375,4 +375,3 @@ class IdentityOrganizationIntegrationTests {
     private String bearer(String token) { return "Bearer " + token; }
     private long count(String table) { return jdbc.queryForObject("select count(*) from " + table, Long.class); }
 }
-

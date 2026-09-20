@@ -15,9 +15,9 @@ import sn.groupia.shared.api.ApiException;
 public class OrganizationAuthorization implements OrganizationAccess {
     private static final Map<OrganizationRole, Set<OrganizationPermission>> PERMISSIONS = Map.of(
             OrganizationRole.OWNER, Set.of(OrganizationPermission.values()),
-            OrganizationRole.MANAGER, Set.of(OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG),
-            OrganizationRole.OPERATOR, Set.of(OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG),
-            OrganizationRole.VIEWER, Set.of(OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG));
+            OrganizationRole.MANAGER, Set.of(OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG, OrganizationPermission.VIEW_GROUPINGS, OrganizationPermission.MANAGE_GROUPINGS),
+            OrganizationRole.OPERATOR, Set.of(OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS),
+            OrganizationRole.VIEWER, Set.of(OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS));
 
     private final CurrentUser currentUser;
     private final OrganizationMembers members;
@@ -32,18 +32,26 @@ public class OrganizationAuthorization implements OrganizationAccess {
     @Override
     @Transactional(readOnly = true)
     public void requirePermission(UUID organizationId, OrganizationPermission permission) {
+        requireActorPermission(organizationId, permission);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UUID requireActorPermission(UUID organizationId, OrganizationPermission permission) {
         UUID userId = currentUser.requireActiveUserId();
         var member = members.findByOrganizationAndUser(organizationId, userId);
         if (member.isEmpty() || member.get().getStatus() != MembershipStatus.ACTIVE
                 || !rolesGranting(permission).contains(member.get().getRole())) {
             throw new ApiException(403, "ORGANIZATION_ACCESS_DENIED", "L'accès à cette organisation est interdit.");
         }
-        requireActiveCatalogOrganization(organizationId, permission);
+        requireActiveBusinessOrganization(organizationId, permission);
+        return userId;
     }
 
-    // Existing organization reads retain their historical policy; catalogue operations require an active organization.
-    private void requireActiveCatalogOrganization(UUID organizationId, OrganizationPermission permission) {
-        if ((permission == OrganizationPermission.VIEW_CATALOG || permission == OrganizationPermission.MANAGE_CATALOG)
+    // Existing organization reads retain their historical policy; catalogue and grouping operations require an active organization.
+    private void requireActiveBusinessOrganization(UUID organizationId, OrganizationPermission permission) {
+        if ((permission == OrganizationPermission.VIEW_CATALOG || permission == OrganizationPermission.MANAGE_CATALOG
+                || permission == OrganizationPermission.VIEW_ORDERS || permission == OrganizationPermission.VIEW_GROUPINGS || permission == OrganizationPermission.MANAGE_GROUPINGS)
                 && organizations.findActiveById(organizationId).isEmpty()) {
             throw new ApiException(404, "ORGANIZATION_NOT_FOUND", "Organisation indisponible.");
         }
@@ -55,4 +63,3 @@ public class OrganizationAuthorization implements OrganizationAccess {
                 .map(Map.Entry::getKey).collect(Collectors.toUnmodifiableSet());
     }
 }
-

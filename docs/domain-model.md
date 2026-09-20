@@ -1,6 +1,6 @@
 # Modèle métier Groupia V1
 
-Statut : modèle validé le 17 septembre 2026, avec précisions d'architecture et points ouverts explicitement identifiés ci-dessous. Ce document décrit la cible. Les tranches identity/organization (18 septembre 2026) et Product/ProductVariant (20 septembre 2026) sont implémentées ; les autres entités et workflows restent non implémentés. Voir [contrat de cette tranche](identity-organization-api.md).
+Statut : modèle validé le 17 septembre 2026, avec précisions d'architecture et points ouverts explicitement identifiés ci-dessous. Ce document décrit la cible. Les tranches identity/organization (18 septembre 2026), Product/ProductVariant et GroupingCampaign/GroupingOffer/consultation publique (20 septembre 2026) ainsi que Customer/Order/OrderItem/checkout public (20 septembre 2026) sont implémentées ; les autres entités et workflows restent non implémentés. Voir les contrats [identity/organization](identity-organization-api.md), [catalogue](catalog-api.md), [groupage](grouping-api.md) et [commandes](ordering-api.md).
 
 Les décisions reçues remplacent deux propositions antérieures : les prix des offres peuvent évoluer pendant OPEN ; shipping ne dépend jamais de payment. Les règles détaillées sont dans [business-rules.md](business-rules.md), le graphe dans [module-dependencies.md](module-dependencies.md) et les décisions structurantes dans les [ADR](../adr/README.md).
 
@@ -69,9 +69,9 @@ Les décisions reçues remplacent deux propositions antérieures : les prix des 
 
 ### GroupingCampaign — racine
 
-**Données :** id, organizationId, référence publique, titre, description, statut, devise XOF, transportMode AIR/SEA/ROAD/OTHER, dates d'ouverture/clôture et jalons opérationnels, motif/date d'annulation, version.
+**Données :** id, organizationId, publicIdentifier UUID v4 distinct et stable, slug dérivé du titre, titre, description, statut, devise XOF, closesAt facultatif, openedAt/closedAt/cancelledAt, motif d'annulation privé, createdAt/updatedAt, version. Les jalons logistiques restent futurs.
 
-**Conditions de transport proposées :** méthode PER_KG/PER_CBM/PER_ITEM/FIXED, mode AFTER_FINAL_ASSESSMENT/ESTIMATED_AT_CHECKOUT, tarif, devise, unité facturable et règles applicables. Les contrats de calcul sont publics dans shipping ; les conditions acceptées sont copiées dans chaque commande.
+**Conditions de transport :** originCountry facultatif, transportMode AIR/SEA/ROAD/OTHER, méthode PER_KG/PER_CBM/PER_ITEM/FIXED, mode AFTER_FINAL_ASSESSMENT/ESTIMATED_AT_CHECKOUT, tarif, devise XOF et HALF_UP. Un bloc peut manquer en DRAFT mais doit être complet à l'ouverture, puis reste figé. Les vocabulaires et ShippingTerms sont exposés dans shipping::api, sans calcul ni évaluation de transport dans cette tranche. Les futures commandes conserveront les conditions acceptées.
 
 **Responsabilité :** piloter le cycle de groupage et autoriser les commandes. La campagne n'englobe ni toutes les commandes ni leurs paiements.
 
@@ -81,6 +81,8 @@ Les décisions reçues remplacent deux propositions antérieures : les prix des 
 DRAFT → OPEN → CLOSED → SUPPLIER_ORDERED → IN_TRANSIT → ARRIVED → DISTRIBUTING → COMPLETED.
 
 **Gardes :** CLOSED interdit les nouvelles commandes ; SUPPLIER_ORDERED matérialise le périmètre pris en charge après résolution des paiements concernés ; ARRIVED n'autorise pas automatiquement un retrait ; COMPLETED exige la résolution des commandes et régularisations concernées. CANCELLED est une branche explicite dont les stades autorisés et conséquences financières restent une politique ouverte, pas une transition universelle.
+
+**Tranche implémentée :** DRAFT → OPEN, OPEN → CLOSED et DRAFT/OPEN/CLOSED → CANCELLED uniquement. Une campagne déjà ouverte reste publique après fermeture/annulation si son organisation est ACTIVE. orderable exige OPEN, une offre utilisable et une échéance absente ou strictement future ; aucun scheduler. Titre, description et closesAt restent éditables en DRAFT/OPEN, les prolongations sont journalisées. Voir [API groupage](grouping-api.md).
 
 ### GroupingOffer — racine distincte
 
@@ -92,13 +94,15 @@ DRAFT → OPEN → CLOSED → SUPPLIER_ORDERED → IN_TRANSIT → ARRIVED → DI
 
 **Checkout :** vérifier côté serveur campagne, offre, organisation, devise, quantité et prix/révision observés. Un prix affiché devenu différent produit PRICE_CONFLICT sans commande ni obligation de paiement. Une version incohérente exige une revalidation explicite ; aucune substitution silencieuse. L'acceptation du prix et le placement constituent une seule décision atomique. Voir [ADR-0005](../adr/0005-offer-price-changes.md).
 
-**Relations :** campaignId interne ; productVariantId vers catalog. Pas de dépendance vers ordering.
+**Relations :** campaignId interne ; productVariantId scalaire vers catalog. CatalogVariants fournit les lectures publiques minimales et la disponibilité par organisation. Pas de dépendance vers ordering.
+
+**Coordination livrée :** les offres restent des racines distinctes avec leur version ; toute écriture contrôle aussi la version de campagne dans une transaction commune. grouping_changes conserve atomiquement les changements de prix et d'échéance avec acteur. Ce journal interne ne constitue pas une implémentation de AuditLog ; voir [ADR-0008](../adr/0008-grouping-publication-and-coordination.md).
 
 ## ordering
 
 ### Customer — racine de contact
 
-**Données :** id, organizationId, nom affiché, téléphone normalisé E.164 facultatif, email facultatif, dates, version.
+**Données :** id, organizationId, firstName, lastName, téléphone normalisé E.164 obligatoire, email facultatif, dates, version.
 
 **Responsabilité :** conserver le contact utile aux commandes de l'organisation.
 
@@ -114,7 +118,7 @@ DRAFT → OPEN → CLOSED → SUPPLIER_ORDERED → IN_TRANSIT → ARRIVED → DI
 
 **Responsabilités :** préserver l'achat accepté, piloter les états commercial/logistique et coordonner les obligations de paiement à partir des faits de commande et de transport. OrderItem n'est pas modifiable indépendamment.
 
-**Invariants :** une organisation, campagne et devise ; au moins une ligne ; quantités positives ; offres de la bonne campagne ; calcul serveur de tous les montants ; numéro de ligne unique ; idempotence sans double commande. Les conditions commerciales sont immuables après placement. Le total initial est marchandises + frais + transport initial exigible, selon la politique de frais encore à définir. Un prix commercial initial n'est jamais remplacé par le nouveau prix d'une offre.
+**Invariants :** une organisation, campagne et devise ; au moins une ligne ; quantités positives ; offres de la bonne campagne ; calcul serveur de tous les montants ; numéro de ligne unique ; idempotence sans double commande. Les conditions commerciales sont immuables après placement. Le total initial est marchandises + frais + transport initial exigible, avec frais fixes XOF configurables snapshotés (quatrième tranche). Un prix commercial initial n'est jamais remplacé par le nouveau prix d'une offre.
 
 **OrderStatus :**
 - placement réussi → PENDING_PAYMENT ;
@@ -260,3 +264,23 @@ Snapshots indispensables : descriptions/SKU/attributs/unité/quantité/prix de l
 Les questions de politique non résolues sont centralisées dans [business-rules.md](business-rules.md#questions-ouvertes-et-blocage-par-slice). Elles ne réouvrent pas les décisions ci-dessus. Les guards détaillés d'annulation, échéance, disponibilité et tarification ne doivent pas être inventés pendant l'implémentation.
 
 Hors MVP : multi-devise, panier multicampagne, paiement fractionné volontaire, portefeuille client, retrait partiel, multi-entrepôt, répartition collective du fret et gestion fournisseur complète. La détection des doublons financiers, le traitement des paiements tardifs et la trace des remboursements restent nécessaires.
+
+## Précisions d'implémentation de la quatrième tranche
+
+Customer, Order et OrderItem sont désormais persistés. Customer conserve firstName,
+lastName, phoneE164 obligatoire et email facultatif ; il porte @Version et reste une
+racine de contact sans UserAccount. Une création par checkout, aucune fusion automatique.
+
+Order porte @Version et possède ses lignes (cascade PERSIST interne seulement).
+OrderItem conserve en plus campaignId pour les FK de cohérence, productNameSnapshot,
+productDescriptionSnapshot, commercialLabelSnapshot, variantAttributesSnapshot JSONB,
+skuSnapshot, saleUnitSnapshot, estimatedUnitWeightKgSnapshot,
+estimatedUnitVolumeM3Snapshot et priceRevisionSnapshot. Les quantités, prix et
+total de ligne restent historiques ; la devise provient de la racine.
+
+CustomerContactSnapshot, platformFeeRuleSnapshot et shippingTermsSnapshot sont
+des valeurs JSONB indépendantes des sources mutables. Le motif d'annulation et
+ses workflows cibles ne sont pas implémentés dans cette tranche. Aucun statut
+commercial/logistique ne change après placement.
+
+Voir [API commandes](ordering-api.md) et [ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).

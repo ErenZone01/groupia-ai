@@ -154,3 +154,45 @@ afin de respecter leurs FK, sans changer les assertions de la première tranche.
 
 Voir [API catalogue](catalog-api.md) et [ADR-0007](../adr/0007-catalog-variant-identity-and-concurrency.md).
 Aucune fonctionnalité de campagne, offre, achat, transport, paiement ou média.
+
+## Troisième tranche métier (20 septembre 2026)
+
+grouping implémente GroupingCampaign et GroupingOffer comme racines distinctes,
+les transitions DRAFT/OPEN/CLOSED/CANCELLED demandées et la lecture publique filtrée.
+Le versioning de campagne coordonne aussi les mutations d'offres dans une courte
+transaction. Un journal local conserve atomiquement prix et échéances modifiés.
+
+La migration 005-grouping ajoute grouping_campaigns, grouping_offers et grouping_changes,
+ainsi que la contrainte unique de référence nécessaire sur product_variants. Aucun
+changelog déjà appliqué n'est réécrit. Hibernate reste en ddl-auto=validate.
+
+Les extensions des modules existants restent limitées à leurs contrats publics :
+CatalogVariants pour la lecture minimale par organisation, permissions/disponibilité
+dans organization, vocabulaires et ShippingTerms dans shipping. Aucun workflow,
+table, service de calcul ou endpoint shipping n'est implémenté.
+
+Seul GET /api/public/groupings/{publicIdentifier} devient anonyme. Ses DTO n'exposent
+aucun identifiant interne d'organisation/campagne, membre, acteur ou historique privé.
+ModularityTests est inchangé. Aucune dépendance Maven supplémentaire.
+
+Voir [API groupage](grouping-api.md) et [ADR-0008](../adr/0008-grouping-publication-and-coordination.md).
+
+## Quatrième tranche métier (20 septembre 2026)
+
+ordering implémente Customer et l'agrégat Order/OrderItem, checkout sans compte,
+suivi privé par secret et consultations organisateur avec VIEW_ORDERS.
+La transaction d'admission utilise exclusivement grouping::api pour garder le
+verrou PostgreSQL de campagne jusqu'au commit. Les mêmes clés sont sérialisées
+dans leur organisation et protégées aussi par UNIQUE en base.
+
+shipping expose uniquement un calculateur d'estimation pur. Aucun paiement,
+événement aval, évaluation persistante, scheduler ou notification. L'absence de
+consommateur dans cette tranche rend les tests de reprise d'événements non
+applicables ; les rollback et rejeux du placement sont vérifiés.
+
+Migration 006-ordering, FK scalaires sans cascade, JSONB pour les snapshots.
+Aucune dépendance Maven ajoutée ou modifiée. ModularityTests demeure inchangé.
+Les enums conservent les états cibles documentés, y compris OrderStatus.EXPIRED
+et FulfillmentStatus.CANCELLED ; aucune transition vers ces états n'est exposée.
+Contrat complet : [API commandes](ordering-api.md).
+Décisions et limites : [ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).

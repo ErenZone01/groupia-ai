@@ -96,13 +96,13 @@ Ces questions ne remettent pas en cause les décisions validées. Le premier ver
 | --- | --- |
 | Premier parcours et critères | Résolu : inscription, login, création atomique avec OWNER, liste et lecture autorisées, refus inter-organisation |
 | Authentification et premier OWNER | Résolu : téléphone normalisé + mot de passe, JWT ; le créateur authentifié devient OWNER dans la transaction de création |
-| Quels frais et montants composent le total initial ; qui encaisse et pour quel compte marchand ? | Checkout payant et intégration prestataire |
-| Quelle durée de paiement, quelle date fait foi et comment traiter les paiements en vol à la clôture ? | Expiration, confirmation et clôture opérationnelle |
-| Quels tarifs/unités et quelle définition du poids ou volume facturable sont proposés au lancement ? Les tarifs changent-ils aussi pendant OPEN, avec quelle règle pour les commandes existantes ? | Devis et facturation transport ; les snapshots historiques restent acquis |
+| Qui encaisse et pour quel compte marchand ? Frais fixes configurables et total initial sont définis dans la quatrième tranche. | Intégration prestataire |
+| Quelle date de paiement fait foi et comment traiter les paiements en vol à la clôture ? La fenêtre de commande est configurable, 30 minutes par défaut. | Expiration, confirmation et clôture opérationnelle |
+| Quels tarifs/unités et quelle définition du poids ou volume facturable sont proposés au lancement ? Le gel des conditions de transport après OPEN est désormais fixé par la troisième tranche. | Devis et facturation transport ; les snapshots historiques restent acquis |
 | Quelles annulations sont permises, à quels stades et avec quels frais conservés/restitués ? | Annulation et remboursement |
 | Existe-t-il un plafond de capacité ou un seuil minimal de groupage ? | Vente d'offres concernées si une telle contrainte existe |
 | Comment reconnaître la disponibilité physique et autoriser concrètement le retrait ? | Distribution/retrait |
-| Un montant initial nul est-il autorisé ? Si oui, comment confirmer sans tentative artificielle ? | Checkout des commandes concernées |
+| Un montant initial nul est-il autorisé ? Si oui, comment confirmer sans tentative artificielle ? | Confirmation future des commandes concernées |
 | Comment renouveler/récupérer l'accès privé après perte de jeton, avec quelle preuve ? | Récupération du suivi privé ; pas son principe de jeton hashé |
 
 Avant activation d'un flux événementiel : fixer aussi les paramètres de reprise, l'alerte et le responsable opérationnel. Les détails du fournisseur de paiement et les règles d'authenticité doivent être établis avant son intégration.
@@ -125,3 +125,34 @@ Contrats et politiques techniques de la tranche livrée : [API identity/organiza
 - Les attributs sont des libellés textuels normalisés, les estimations sont décimales positives sans arrondi de stockage. Aucun prix de campagne dans le catalogue.
 
 Contrat et limites : [API catalogue](catalog-api.md), [ADR-0007](../adr/0007-catalog-variant-identity-and-concurrency.md). Les autres parcours restent non implémentés.
+
+## Précisions groupage livrées le 20 septembre 2026
+
+- Les seules transitions exécutables sont DRAFT → OPEN, OPEN → CLOSED et DRAFT/OPEN/CLOSED → CANCELLED ; les étapes logistiques futures ne sont pas simulées.
+- L'ouverture exige au moins une offre active, ses variantes utilisables et des conditions de transport cohérentes. Les références catalogue sont vérifiées via son API publique Java.
+- Les conditions de transport sont figées à OPEN. Titre, description et échéance restent modifiables en DRAFT/OPEN ; une nouvelle échéance OPEN doit être future ou absente.
+- Les prix XOF sont entiers et non négatifs. Les changements de prix incrémentent priceRevision et laissent une trace durable locale avec acteur, avant/après et instant. Les changements d'échéance sont aussi journalisés.
+- En OPEN, la dernière offre active ne peut pas être désactivée, y compris en concurrence. Les offres inactives restent persistées et peuvent être réactivées si leur variante est utilisable.
+- Une campagne jamais ouverte n'est pas publique. Après publication, CLOSED/CANCELLED restent consultables si l'organisation est active ; le motif privé d'annulation reste exclu.
+- orderable est une donnée serveur dérivée : organisation active, présence d'offre utilisable, statut OPEN et now strictement avant closesAt lorsqu'il existe. À échéance dépassée, aucun scheduler n'est requis.
+- Les prix et versions vus publiquement restent des témoins pour le futur checkout, jamais une autorité client. Cette tranche ne place aucune commande.
+
+Voir [API groupage](grouping-api.md) et [ADR-0008](../adr/0008-grouping-publication-and-coordination.md).
+
+## Précisions checkout livrées le 20 septembre 2026
+
+- Customer : prénom, nom, téléphone obligatoire E.164, email facultatif ; aucun compte ni fusion téléphonique.
+- Une nouvelle commande est uniquement PENDING_PAYMENT / NOT_READY. Le pays SN vient de l'organisation, conformément au périmètre actuel.
+- L'admission exige OPEN, organisation active, échéance exclusive non dépassée, offres de la campagne et catalogue utilisable. Prix attendu et priceRevision doivent correspondre ; sinon 409 sans placement.
+- Les offres dupliquées sont refusées ; les lignes sont triées pour l'empreinte. Les montants sont exclusivement recalculés côté serveur.
+- Frais fixes XOF externes (300 par défaut de développement), règle snapshotée. Fenêtre de paiement configurable, 30 minutes par défaut.
+- Les quatre méthodes de transport sont calculées sans arrondi intermédiaire. Le transport initial vaut zéro en AFTER_FINAL_ASSESSMENT ; ESTIMATED_AT_CHECKOUT exige une estimation connue.
+- Une clé d'idempotence dans l'organisation crée au plus une commande et un contact. Le rejeu retourne une référence sans secret ou données privées ; les détails nécessitent le secret de suivi.
+- Le secret aléatoire est remis une fois, hashé seulement en base, limité en durée et révocable. Suivi protégé par limitation locale des essais ; aucun droit par UUID, référence ou téléphone.
+- Les coordonnées, descriptions, attributs, SKU, estimations, quantités, prix, frais/règle et conditions de transport sont historiques.
+- VIEW_ORDERS est accordé aux quatre rôles, avec compte, adhésion et organisation actifs.
+- Les commandes à total nul restent PENDING_PAYMENT comme les autres dans cette tranche ; aucune confirmation artificielle. Leur résolution future demeure une décision de paiement.
+- Aucun événement aval ni obligation financière ne sont créés ici.
+
+Contrat : [API commandes](ordering-api.md). Coordination/rejeu :
+[ADR-0009](../adr/0009-checkout-admission-idempotency-and-tracking.md).

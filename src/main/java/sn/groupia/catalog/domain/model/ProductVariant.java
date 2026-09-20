@@ -52,6 +52,7 @@ public class ProductVariant {
     }
 
     void deactivate(Instant now) { active = false; updatedAt = now; }
+    public Product getProduct() { return product; }
     public UUID getId() { return id; }
     public UUID getOrganizationId() { return organizationId; }
     public String getSku() { return sku; }

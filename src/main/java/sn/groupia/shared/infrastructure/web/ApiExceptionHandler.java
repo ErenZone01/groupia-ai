@@ -13,7 +13,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<Object> applicationFailure(ApiException ex, WebRequest request) {
-        return handleExceptionInternal(ex, problem(ex.status(), ex.code(), ex.getMessage()),
+        var body = problem(ex.status(), ex.code(), ex.getMessage());
+        if (!ex.details().isEmpty()) { body.setProperty("details", ex.details()); }
+        return handleExceptionInternal(ex, body,
                 new HttpHeaders(), HttpStatusCode.valueOf(ex.status()), request);
     }
 

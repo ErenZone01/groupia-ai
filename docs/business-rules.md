@@ -90,12 +90,12 @@ Statut : décisions validées le 17 septembre 2026. Les règles décrivent le co
 
 ## Questions ouvertes et blocage par slice
 
-Ces questions ne remettent pas en cause les décisions validées. Le premier vertical slice n'a pas encore été choisi. Elles ne bloquent pas toutes une première livraison limitée au catalogue.
+Ces questions ne remettent pas en cause les décisions validées. Le premier vertical slice est désormais identity/authentification/organization/OWNER, livré sans les autres fonctionnalités. Téléphone/mot de passe, JWT et création atomique du premier OWNER résolvent les choix d'authentification et de bootstrap. Les questions restantes bloquent seulement les parcours indiqués.
 
 | Question restant à trancher | Slice réellement bloqué |
 | --- | --- |
-| Quel premier parcours complet doit être livré, avec quels critères d'acceptation ? | Planification du premier slice |
-| Quel mode d'authentification organisateur et comment provisionner le premier OWNER ? | Tout parcours organisateur réellement accessible |
+| Premier parcours et critères | Résolu : inscription, login, création atomique avec OWNER, liste et lecture autorisées, refus inter-organisation |
+| Authentification et premier OWNER | Résolu : téléphone normalisé + mot de passe, JWT ; le créateur authentifié devient OWNER dans la transaction de création |
 | Quels frais et montants composent le total initial ; qui encaisse et pour quel compte marchand ? | Checkout payant et intégration prestataire |
 | Quelle durée de paiement, quelle date fait foi et comment traiter les paiements en vol à la clôture ? | Expiration, confirmation et clôture opérationnelle |
 | Quels tarifs/unités et quelle définition du poids ou volume facturable sont proposés au lancement ? Les tarifs changent-ils aussi pendant OPEN, avec quelle règle pour les commandes existantes ? | Devis et facturation transport ; les snapshots historiques restent acquis |
@@ -112,3 +112,16 @@ Avant activation d'un flux événementiel : fixer aussi les paramètres de repri
 Multi-devise ; panier multicampagne ; paiement fractionné volontaire ; portefeuille client ; retrait partiel ; multi-entrepôt ; répartition collective du fret ; gestion fournisseur complète.
 
 Les paiements tardifs, doubles encaissements, réconciliations et traces de remboursement ne sont pas des extensions facultatives du MVP dès que des fonds réels sont engagés.
+
+Contrats et politiques techniques de la tranche livrée : [API identity/organization](identity-organization-api.md) et [ADR-0006](../adr/0006-identity-organization-slice.md).
+
+## Précisions catalogue livrées le 20 septembre 2026
+
+- Pour BR-09, tout produit ACTIVE conserve au moins une variante active ; la désactivation de la dernière est refusée même en concurrence. DEFAULT est créé par le serveur sans variantes explicites et peut être désactivé après ajout d'une autre variante active.
+- Les combinaisons normalisées et SKU restent uniques même après désactivation ou archivage. Un SKU absent est null ; son unicité est limitée à l'organisation.
+- Les variantes restent sous le contrôle de Product : toute écriture exige la version observée de la racine et s'exécute dans sa transaction.
+- Product ARCHIVED reste consultable, avec ses variantes, mais ne peut plus être édité. Aucun hard delete ou endpoint de réactivation.
+- VIEW_CATALOG : les quatre rôles ; MANAGE_CATALOG : OWNER et MANAGER. Compte actif, adhésion ACTIVE et organisation ACTIVE restent requis.
+- Les attributs sont des libellés textuels normalisés, les estimations sont décimales positives sans arrondi de stockage. Aucun prix de campagne dans le catalogue.
+
+Contrat et limites : [API catalogue](catalog-api.md), [ADR-0007](../adr/0007-catalog-variant-identity-and-concurrency.md). Les autres parcours restent non implémentés.

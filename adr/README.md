@@ -34,3 +34,7 @@ Amende explicitement ADR-0001/0004 pour INITIAL_ORDER et complète ADR-0009.
 [ADR-0011](0011-ordering-migration-compatibility.md), daté du 21 septembre 2026 :
 compatibilité ciblée avec la première version déployée de 006-ordering et
 convergence des contraintes par une nouvelle migration 008, sans perte de données.
+
+[ADR-0012](0012-bictorys-sandbox-adapter.md), daté du 22 septembre 2026 :
+adaptateur Bictorys sandbox, charge distincte de transaction, checkout privé,
+preuves financières, authorized/reversed et limite de reprise sans transactionId.

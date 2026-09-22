@@ -1,6 +1,6 @@
 # API financière — cinquième tranche
 
-Le checkout crée automatiquement INITIAL_ORDER avec ses snapshots ; aucun provider n'est appelé. PaymentRequest décrit la dette, Payment une tentative. En production aucun PaymentProvider n'est encore enregistré : une initiation répond 503 PAYMENT_PROVIDER_UNAVAILABLE. SIMULATED existe exclusivement dans les tests PostgreSQL/Testcontainers.
+Le checkout crée automatiquement INITIAL_ORDER avec ses snapshots ; aucun provider n'est appelé. PaymentRequest décrit la dette, Payment une tentative. Bictorys sandbox est enregistré uniquement lorsque BICTORYS_ENABLED=true ; sinon l'initiation répond 503 PAYMENT_PROVIDER_UNAVAILABLE. SIMULATED existe exclusivement dans les tests PostgreSQL/Testcontainers.
 
 ## Initiation privée de l'acheteur
 
@@ -12,7 +12,7 @@ Body : `{ "provider": "nom-du-provider-configuré" }`.
 
 Le token constitue l'autorisation ; le numéro seul ne suffit pas. Organisation, montant, devise, compte marchand et références financières viennent du serveur. Même limite d'essais que le suivi privé. Le token doit être valide, non révoqué, non expiré et correspondre au numéro. La commande doit être PENDING_PAYMENT et avant son échéance. Ce contrôle demeure obligatoire lors d'un rejeu : après confirmation/expiration, la route peut refuser, sans initier un autre débit.
 
-200 retourne uniquement `id`, `status`, `expectedAmount`, `currency`, `reconciliationRequired`, `initiatedAt`. Ce reçu ne donne pas accès aux références prestataire, causes internes, coordonnées ou données organisateur. Un statut CREATED/PENDING avec reconciliationRequired n'est pas une preuve d'échec ; le client ne doit pas réessayer avec une nouvelle clé.
+200 retourne uniquement `id`, `status`, `expectedAmount`, `currency`, `reconciliationRequired`, `initiatedAt`, `checkoutUrl` (nullable). Le lien privé est fourni uniquement pour une tentative PENDING sans anomalie ; il peut contenir un jeton et ne doit pas être journalisé. Ce reçu ne donne pas accès aux références prestataire, causes internes, coordonnées ou données organisateur. Un statut CREATED/PENDING avec reconciliationRequired n'est pas une preuve d'échec ; le client ne doit pas réessayer avec une nouvelle clé.
 
 Même clé : retour de la tentative existante sans second appel initiate. Nouvelle clé : autorisée seulement après un échec/annulation/expiration provider certain, si l'obligation est encore ouverte. Un timeout est durablement réconciliable. Le suivi GET existant affichera CONFIRMED après consommation de PaymentRequestSettled.
 
@@ -20,7 +20,7 @@ Même clé : retour de la tentative existante sans second appel initiate. Nouvel
 
 `POST /api/payment/webhooks/{provider}`
 
-Pas de JWT utilisateur. Corps brut, maximum applicatif 64 Kio ; headers d'authenticité définis par le futur adaptateur. Aucun format de signature universel ni endpoint sandbox n'est exposé. L'adaptateur valide l'authenticité avant parsing. Un provider non configuré répond 503.
+Pas de JWT utilisateur. Corps brut, maximum applicatif 64 Kio ; Bictorys utilise X-Secret-Key, comparé avant parsing. Aucun format de signature universel ni endpoint sandbox n'est exposé. L'adaptateur valide l'authenticité avant parsing. Un provider non configuré répond 503.
 
 202 signifie réception persistée/prise en charge, pas commande confirmée. Un événement authentique incohérent peut donc répondre 202 avec REVIEW_REQUIRED en interne. Authenticité invalide : 401 PAYMENT_AUTHENTICITY_FAILED, empreinte conservée IGNORED, aucun changement financier. Une erreur transactionnelle répond 500 ; la réception initiale reste durable et sera reprise. Une panne DB avant persistance exige la redélivrance par le provider.
 
@@ -51,6 +51,6 @@ La demande expose obligation/ventilation/échéance/acceptation/settledPaymentId
 | État inconnu, échec du traitement | PROVIDER_STATE_UNCERTAIN, PROCESSING_FAILURE |
 | Encaissement tardif, double encaissement | LATE_SUCCESS, DUPLICATE_SUCCESS |
 
-Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md) et [exploitation/reprise](payment-operations.md). Shipping balance réel, remboursements, notifications et intégrations prestataires ne font pas partie de cette tranche.
+Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md) et [exploitation/reprise](payment-operations.md). Shipping balance réel, remboursements et notifications restent hors périmètre. Le premier adaptateur est décrit dans le [guide Bictorys sandbox](bictorys-sandbox.md) et ADR-0012.
 
 Résultats exécutés et couverture : [validation financière](payment-validation.md).

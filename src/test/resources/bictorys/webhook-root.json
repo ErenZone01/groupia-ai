@@ -1,0 +1,14 @@
+{
+  "id": "33e1c83b-7cb0-437b-bc50-a7a58e5660ad",
+  "type": "payment",
+  "merchantReference": "GP-contract",
+  "paymentReference": "GRP-000000000001",
+  "amount": 5000,
+  "currency": "XOF",
+  "status": "succeeded",
+  "timestamp": "2026-03-01T12:05:00Z",
+  "customerObject": {
+    "name": "Fixture",
+    "phone": "+221771234567"
+  }
+}

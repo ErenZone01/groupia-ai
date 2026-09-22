@@ -44,3 +44,31 @@ Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md), [API](payment-api
 - `git diff --check` : aucune erreur.
 
 Logs locaux : target/payment-test.log et target/payment-verify.log. Artefact local : target/groupia-ai-0.0.1-SNAPSHOT.jar. Les fichiers target sont générés, hors sources versionnées. Aucune intégration provider réelle n'a été exécutée ; elle est explicitement hors périmètre.
+
+## Extension Bictorys sandbox — 22 septembre 2026
+
+Résultats réellement exécutés :
+
+- `.\mvnw.cmd test` : BUILD SUCCESS, 324 tests, 0 échec, 0 erreur, 0 ignoré ; 3 min 19 s.
+- `.\mvnw.cmd verify` : BUILD SUCCESS, mêmes 324 tests ; 4 min 48 s ; JAR exécutable produit.
+- `git diff --check` : aucune erreur.
+
+Les 260 cas antérieurs (dont les 3 tests d'upgrade de migration ajoutés après la
+tranche financière initiale) sont conservés. Ajouts : 48 cas de contrat Bictorys,
+16 cas d'intégration Bictorys/PostgreSQL. Les 3 tests d'architecture restent verts,
+sans modification ni exclusion de ModularityTests.
+
+Couverture ajoutée : configuration désactivée/active, sandbox obligatoire,
+requête hosted checkout, contrats 201/202, charge distincte de transaction,
+liens de checkout privés, merchantReference et paymentReference, statuts,
+secret absent/incorrect/correct, racine/data, montant/devise/référence incohérents,
+doublon webhook, succès tardif/double, reversal avant/après succès, timeout,
+4xx/5xx/non-JSON/coupure, statut seul complété par détails, preuves incomplètes,
+course ACK/webhook et conservation de l'alerte reversal après panne réseau.
+Un décorateur de test vérifie explicitement l'absence de transaction dans les
+quatre opérations de l'adaptateur réel. Le serveur HTTP est toujours local.
+
+Logs locaux : target/bictorys-test.log et target/bictorys-verify.log.
+Aucun paiement distant effectué ; la configuration dashboard/tunnel, la livraison
+externe du webhook et le contrat réellement servi au compte sandbox restent à
+valider par le [parcours manuel](bictorys-sandbox.md). Aucune dépendance Maven ajoutée.

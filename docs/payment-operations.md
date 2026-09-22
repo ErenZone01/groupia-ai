@@ -1,6 +1,6 @@
 # Exploitation et reprise financière
 
-Ce noyau n'engage aucun fonds réel : aucun provider runtime n'est installé. Ces procédures décrivent les outils applicatifs/SQL de diagnostic disponibles et les obligations d'exploitation à concrétiser avec la première intégration réelle. Ne jamais corriger un incident en mettant manuellement Payment à SUCCEEDED ou en supprimant une réception/publication.
+Un adaptateur Bictorys sandbox est disponible, désactivé par défaut. Aucun provider de production n'est autorisé. Ces procédures décrivent les outils applicatifs/SQL de diagnostic disponibles et les obligations d'exploitation à concrétiser avec la première intégration réelle. Ne jamais corriger un incident en mettant manuellement Payment à SUCCEEDED ou en supprimant une réception/publication.
 
 ## Ordonnanceurs
 
@@ -60,7 +60,7 @@ Surveiller l'âge et le volume des publications incomplètes, celles FAILED à c
 4. Après correction d'un consumer, l'API FailedEventPublications.resubmit accepte ResubmissionOptions avec un filtre sur l'identifiant exact de publication, une taille bornée et l'âge adapté. Une resoumission manuelle explicitement ciblée peut dépasser le plafond automatique après investigation ; ne pas réinitialiser le compteur en SQL. Ce mécanisme ne fabrique pas de nouvel événement ni de nouveau débit. Vérifier ensuite COMPLETED, confirmedAt et absence de deuxième affectation.
 5. LATE_SUCCESS/DUPLICATE_SUCCESS restent SUCCEEDED, avec leurs motifs, même après un verify confirmant le débit. Leur résolution commerciale/remboursement reste une tranche future ; aucune affectation silencieuse ni réactivation.
 
-Si une panne DB empêchait la toute première réception, le provider doit redélivrer. Si le claim d'initiation existe mais que l'appel n'a peut-être pas eu lieu, vérifier par merchantReference ; un résultat inconnu reste incertain. Ne pas considérer une absence temporaire chez le provider comme un échec définitif sans garantie contractuelle.
+Si une panne DB empêchait la toute première réception, le provider doit redélivrer. Si le claim d'initiation existe mais que l'appel n'a peut-être pas eu lieu, investiguer à partir de merchantReference ; aucun endpoint Bictorys de recherche par cette référence n'est documenté. Sans transactionId, attendre le webhook/redélivrance et vérifier le dashboard ; un résultat inconnu reste incertain. Ne pas considérer une absence temporaire chez le provider comme un échec définitif sans garantie contractuelle.
 
 ## Validation et démarrage
 
@@ -78,7 +78,7 @@ docker compose up -d postgres
 .\mvnw.cmd spring-boot:run
 ```
 
-007-payments est appliquée par Liquibase ; aucun changelog antérieur n'est modifié. Les anciennes commandes reçoivent leurs obligations initiales à partir des snapshots, sans preuve financière inventée. Hibernate conserve ddl-auto=validate. Sans adaptateur runtime, l'initiation reste volontairement indisponible.
+007-payments est appliquée par Liquibase ; aucun changelog antérieur n'est modifié. Les anciennes commandes reçoivent leurs obligations initiales à partir des snapshots, sans preuve financière inventée. Hibernate conserve ddl-auto=validate. Sans activation Bictorys, l'initiation reste indisponible. Voir le [guide sandbox](bictorys-sandbox.md) pour la migration 009 et le parcours de test.
 
 ## Incident de checksum de 006-ordering
 
@@ -89,3 +89,15 @@ Un autre checksum inattendu exige une comparaison avant toute acceptation.
 Si 008 signale des snapshots invalides, conserver les lignes et investiguer ;
 aucune réparation automatique de l'historique financier n'est prévue.
 Voir [ADR-0011](../adr/0011-ordering-migration-compatibility.md).
+
+
+
+
+## Bictorys sandbox
+
+PROVIDER_REVERSAL est persistant : événements ordinaires et erreurs réseau ne
+l'effacent pas. AUTHORIZATION_NOT_CAPTURED exige une preuve de succès explicite ;
+PROVIDER_STATUS_UNKNOWN conserve les états inconnus pour investigation.
+PAYMENT_REFERENCE_MISMATCH indique un numéro de commande incohérent. Aucun de ces
+motifs ne justifie un force-success ou une nouvelle initiation.
+Voir [ADR-0012](../adr/0012-bictorys-sandbox-adapter.md) et le [parcours manuel](bictorys-sandbox.md).

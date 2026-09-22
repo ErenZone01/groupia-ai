@@ -1,0 +1,14 @@
+{
+  "event": "charge.successful",
+  "data": {
+    "id": 932,
+    "amount": 50000,
+    "currency": "XOF",
+    "status": "réussi",
+    "reference": "98329uniwud",
+    "type": "mobile_money",
+    "customer": {
+      "name": "Fixture"
+    }
+  }
+}

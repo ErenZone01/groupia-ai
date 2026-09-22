@@ -16,7 +16,7 @@ class ProviderRegistry {
         providers = Map.copyOf(map);
     }
     PaymentProvider require(String name) {
-        var provider = name==null?null:providers.get(name);
+        var provider = name==null?null:providers.get(name.toUpperCase(Locale.ROOT));
         if (provider == null) { throw new ApiException(503,"PAYMENT_PROVIDER_UNAVAILABLE","Ce fournisseur de paiement est indisponible."); }
         return provider;
     }

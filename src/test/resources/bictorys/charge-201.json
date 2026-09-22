@@ -1,0 +1,7 @@
+{
+  "transactionId": "33e1c83b-7cb0-437b-bc50-a7a58e5660ad",
+  "type": "MobilePaymentObject",
+  "merchantReference": "GP-contract",
+  "link": "https://pay.bictorys.com/link/fixture",
+  "redirectUrl": "https://merchant.example/return"
+}

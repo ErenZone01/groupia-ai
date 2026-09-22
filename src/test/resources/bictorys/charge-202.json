@@ -1,0 +1,6 @@
+{
+  "type": "CheckoutLinkObject",
+  "chargeId": "fbd2053b-638d-4133-957e-3caf63e6b79c",
+  "link": "https://pay.bictorys.com/v1/charges/fbd2053b-638d-4133-957e-3caf63e6b79c?op_token=fixture",
+  "opToken": "fixture"
+}

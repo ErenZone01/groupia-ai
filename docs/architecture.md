@@ -221,3 +221,10 @@ accepte précisément cette version historique et applique 008 pour converger le
 contraintes. Les anciens checksums ne sont pas effacés. Trois tests PostgreSQL
 de mise à niveau complètent les tests de base vierge.
 Voir [ADR-0011](../adr/0011-ordering-migration-compatibility.md).
+
+## Adaptateur Bictorys sandbox
+
+Le premier provider réel est interne à payment.infrastructure.provider.bictorys,
+désactivé par défaut et limité au sandbox. Le noyau décide des effets financiers ;
+le client HTTP s'exécute hors transaction. Voir [ADR-0012](../adr/0012-bictorys-sandbox-adapter.md)
+et [configuration/parcours manuel](bictorys-sandbox.md). Aucune dépendance Maven ajoutée.

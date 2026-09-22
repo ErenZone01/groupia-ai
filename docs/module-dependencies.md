@@ -139,3 +139,7 @@ La confirmation par événement remplace toute hypothèse d'appel de Payment ver
 OrderRepository. La création INITIAL_ORDER dans le checkout est l'exception
 atomique explicitement demandée ; initiation/verify s'exécutent hors transaction.
 Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md).
+
+Bictorys sandbox (ADR-0012) : aucun arc ajouté. Ordering transmet le snapshot de
+contact par PaymentCheckoutContext dans payment::api. Les types Bictorys restent
+internes à payment.infrastructure ; payment ne lit pas ordering.

@@ -38,7 +38,7 @@ public class PaymentTransactions {
     public PaymentRequestView initial(UUID org,UUID order) { return initialEntity(org,order).view(); }
     public boolean cancel(UUID org,UUID order) { return store.lockRequest(initialEntity(org,order).getId()).cancel(clock.instant()); }
     public record Claim(boolean owned,ProviderInstruction instruction,PaymentAttemptView receipt) {}
-    public Claim claim(UUID org,UUID order,String provider,String account,String key) {
+    public Claim claim(UUID org,UUID order,String provider,String account,String key,PaymentCheckoutContext context) {
         if (key==null || !key.strip().matches("[A-Za-z0-9._:-]{16,128}")) {
             throw new ApiException(400,"PAYMENT_IDEMPOTENCY_KEY_REQUIRED","Clé d'initiation invalide ou absente.");
         }
@@ -57,8 +57,9 @@ public class PaymentTransactions {
             throw new ApiException(409,"PAYMENT_INITIATION_CONFLICT","Une tentative est déjà en cours ou doit être réconciliée.");
         }
         var payment=Payment.create(request,provider,account,key,clock.instant());
+        payment.checkoutContext(context);
         store.add(payment); store.flush();
-        return new Claim(true,payment.instruction(request),payment.view());
+        return new Claim(true,payment.instruction(request).withCheckout(context),payment.view());
     }
     public ProviderInstruction reconciliationInstruction(UUID paymentId) {
         var payment=store.payment(paymentId).orElseThrow(()->new ApiException(404,"PAYMENT_NOT_FOUND","Tentative introuvable."));
@@ -76,7 +77,29 @@ public class PaymentTransactions {
         var p0=store.payment(paymentId).orElseThrow();
         var request=store.lockRequest(p0.getPaymentRequestId());
         var payment=store.lockPayment(paymentId);
-        apply(request,payment,observation);
+        apply(request,payment,observation==null?null:observation.correlate(payment.instruction(request)));
+        store.flush(); return payment.view();
+    }
+    public PaymentAttemptView initiationResult(UUID paymentId,ProviderObservation observation) {
+        var initial=store.payment(paymentId).orElseThrow();
+        var request=store.lockRequest(initial.getPaymentRequestId());
+        var payment=store.lockPayment(paymentId);
+        if(observation!=null && observation.metadata()!=null && observation.metadata().chargeId()!=null
+                && observation.providerTransactionId()==null && observation.status()==PaymentStatus.PENDING) {
+            String invalid=validate(request,payment,observation,true);
+            if(invalid!=null){payment.review(invalid);}
+            else if(payment.getStatus()!=PaymentStatus.SUCCEEDED && !"PROVIDER_REVERSAL".equals(payment.getReconciliationReason())) {
+                // A webhook may have committed before this acknowledgement returned.
+                if(payment.getStatus()==PaymentStatus.CREATED && payment.getProviderTransactionId()==null) {
+                    payment.apply(observation,clock.instant());
+                }
+                payment.checkoutDetails(observation.metadata());
+                if(observation.metadata().reviewReason()!=null){payment.review(observation.metadata().reviewReason().name());}
+            }
+        } else {
+            String invalid=apply(request,payment,observation);
+            if(invalid==null && observation!=null){payment.checkoutDetails(observation.metadata());}
+        }
         store.flush(); return payment.view();
     }
     public PaymentAttemptView verifiedInitiationResult(UUID paymentId,ProviderObservation observation,ProviderObservation proof) {
@@ -91,13 +114,16 @@ public class PaymentTransactions {
         } else {apply(r,p,observation);}
         p.checked(clock.instant()); store.flush(); return p.view();
     }
-    private String validate(PaymentRequest r,Payment p,ProviderObservation o) {
+    private String validate(PaymentRequest r,Payment p,ProviderObservation o) { return validate(r,p,o,false); }
+    private String validate(PaymentRequest r,Payment p,ProviderObservation o,boolean chargeAcknowledgement) {
         if (o==null || o.status()==null) { return "PROVIDER_STATE_UNCERTAIN"; }
         if (!p.getMerchantReference().equals(o.merchantReference())) { return "UNKNOWN_REFERENCE"; }
         if (!p.getProvider().equals(o.provider()) || !Objects.equals(p.getProviderAccountReference(),o.providerAccountReference())) { return "PROVIDER_MISMATCH"; }
         if (!r.getId().equals(o.paymentRequestId()) || !r.getOrderId().equals(o.orderId()) || r.getPurpose()!=o.purpose()) { return "TARGET_MISMATCH"; }
+        if(o.metadata()!=null && p.getPaymentReference()!=null && !p.getPaymentReference().equals(o.metadata().paymentReference())) { return "PAYMENT_REFERENCE_MISMATCH"; }
         if (o.amount()==null || p.getExpectedAmount().compareTo(o.amount())!=0 || r.getExpectedAmount().compareTo(o.amount())!=0) { return "AMOUNT_MISMATCH"; }
         if (!p.getCurrency().equals(o.currency()) || !r.getCurrency().equals(o.currency())) { return "CURRENCY_MISMATCH"; }
+        if(chargeAcknowledgement){return null;}
         if (o.providerTransactionId()==null || o.providerTransactionId().isBlank() || o.providerTransactionId().length()>160
                 || (p.getProviderTransactionId()!=null && !p.getProviderTransactionId().equals(o.providerTransactionId()))) { return "TRANSACTION_MISMATCH"; }
         store.coordinate("transaction:"+p.getProvider()+":"+p.getProviderAccountReference()+":"+o.providerTransactionId());
@@ -106,10 +132,14 @@ public class PaymentTransactions {
         return null;
     }
     private String apply(PaymentRequest r,Payment p,ProviderObservation o) {
-        if (p.getStatus()==PaymentStatus.SUCCEEDED && o!=null && o.status()!=PaymentStatus.SUCCEEDED) { return null; }
+        boolean review=o!=null && o.metadata()!=null && o.metadata().reviewReason()!=null;
+        if (!review && p.getStatus()==PaymentStatus.SUCCEEDED && o!=null && o.status()!=PaymentStatus.SUCCEEDED) { return null; }
         String error=validate(r,p,o);
         p.checked(clock.instant());
         if (error!=null) { p.review(error); return error; }
+        p.retainVerifiedTransaction(o);
+        if(review){p.review(o.metadata().reviewReason().name());return p.getReconciliationReason();}
+        if("PROVIDER_REVERSAL".equals(p.getReconciliationReason())){return p.getReconciliationReason();}
         boolean firstSuccess=p.apply(o,clock.instant());
         if (firstSuccess) {
             UUID oldSettlement=r.getSettledPaymentId();
@@ -158,8 +188,9 @@ public class PaymentTransactions {
         var r=store.lockRequest(candidate.get().getPaymentRequestId());
         var p=store.lockPayment(candidate.get().getId());
         e.resolve(p);
-        var raw=e.getObservation();
-        if (p.getStatus()==PaymentStatus.SUCCEEDED && raw.status()!=PaymentStatus.SUCCEEDED) {
+        var raw=e.getObservation().correlate(p.instruction(r));
+        if(verified!=null){verified=verified.correlate(p.instruction(r));}
+        if (p.getStatus()==PaymentStatus.SUCCEEDED && raw.status()!=PaymentStatus.SUCCEEDED && (raw.metadata()==null || raw.metadata().reviewReason()==null)) {
             e.finish("IGNORED",null,clock.instant()); return;
         }
         String invalid=validate(r,p,raw);

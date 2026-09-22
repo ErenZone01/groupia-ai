@@ -17,8 +17,12 @@ public class PaymentService implements PaymentOperations {
     @Override public boolean cancelInitialAcceptance(UUID org,UUID order) { return transactions.cancel(org,order); }
     @Override @Transactional(propagation=Propagation.NEVER)
     public PaymentAttemptView initiateInitial(UUID org,UUID order,String provider,String key) {
+        return initiateInitial(org,order,provider,key,null);
+    }
+    @Override @Transactional(propagation=Propagation.NEVER)
+    public PaymentAttemptView initiateInitial(UUID org,UUID order,String provider,String key,PaymentCheckoutContext context) {
         var adapter=providers.require(provider);
-        var claim=transactions.claim(org,order,adapter.name(),adapter.accountReference(),key);
+        var claim=transactions.claim(org,order,adapter.name(),adapter.accountReference(),key,context);
         if (!claim.owned()) { return claim.receipt(); }
         ProviderObservation result;
         try { result=adapter.initiate(claim.instruction()); }
@@ -29,7 +33,7 @@ public class PaymentService implements PaymentOperations {
             catch(RuntimeException ignored) { /* Durable claim remains available for reconciliation. */ }
             return transactions.verifiedInitiationResult(claim.instruction().paymentId(),result,proof);
         }
-        return transactions.result(claim.instruction().paymentId(),result);
+        return transactions.initiationResult(claim.instruction().paymentId(),result);
     }
     @Transactional(propagation=Propagation.NEVER)
     public PaymentAttemptView reconcile(UUID paymentId) {

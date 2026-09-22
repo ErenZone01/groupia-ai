@@ -10,7 +10,7 @@ import sn.groupia.shared.api.ApiException;
 class OrderPaymentGate {
     private final Orders orders; private final CheckoutSecrets secrets; private final Clock clock;
     OrderPaymentGate(Orders orders,CheckoutSecrets secrets,Clock clock) { this.orders=orders; this.secrets=secrets; this.clock=clock; }
-    record Context(UUID organizationId,UUID orderId) {}
+    record Context(UUID organizationId,UUID orderId,sn.groupia.payment.api.dto.PaymentCheckoutContext checkout) {}
     @Transactional(readOnly=true)
     public Context authorize(String number,String token) {
         if (token==null || !token.matches("[A-Za-z0-9_-]{43}")) { throw invalid(); }
@@ -20,7 +20,9 @@ class OrderPaymentGate {
             throw new ApiException(409,"ORDER_PAYMENT_EXPIRED","Le délai de paiement est dépassé.");
         }
         if (order.getStatus()!=OrderStatus.PENDING_PAYMENT) { throw new ApiException(409,"ORDER_NOT_PAYABLE","La commande ne permet pas une initiation."); }
-        return new Context(order.getOrganizationId(),order.getId());
+        var contact=order.getCustomerContactSnapshot();
+        return new Context(order.getOrganizationId(),order.getId(),new sn.groupia.payment.api.dto.PaymentCheckoutContext(
+                order.getOrderNumber(),contact.firstName()+" "+contact.lastName(),contact.phoneE164(),contact.email()));
     }
     private ApiException invalid() { return new ApiException(404,"ORDER_TRACKING_INVALID","Accès de suivi invalide ou expiré."); }
 }

@@ -30,6 +30,9 @@ public class Payment {
      private Instant providerOccurredAt;
      private Instant confirmedAt;
      private Instant lastCheckedAt;
+    @Column(length=40,updatable=false) private String paymentReference;
+    @Column(length=160) private String providerChargeId;
+    @Column(length=4096) private String checkoutUrl;
     @Version private Long version;
     protected Payment() {}
 
@@ -41,7 +44,19 @@ public class Payment {
         p.initiatedAt = now; p.review("PROVIDER_STATE_UNCERTAIN");
         return p;
     }
-    public void review(String reason) { reconciliationRequired = true; reconciliationReason = reason; }
+    public void checkoutContext(PaymentCheckoutContext context) { if(context!=null){paymentReference=context.orderNumber();} }
+    public String getPaymentReference(){return paymentReference;}
+    public void checkoutDetails(ProviderMetadata details) {
+        if(details!=null){
+            if(details.chargeId()!=null){providerChargeId=details.chargeId();}
+            if(details.checkoutUrl()!=null){checkoutUrl=details.checkoutUrl();}
+        }
+    }
+    public void review(String reason) {
+        reconciliationRequired = true;
+        if(!"PROVIDER_REVERSAL".equals(reconciliationReason)){reconciliationReason = reason;}
+    }
+    public void retainVerifiedTransaction(ProviderObservation observation) { if(providerTransactionId==null){providerTransactionId=observation.providerTransactionId();} }
     public void checked(Instant now) { lastCheckedAt = now; }
     public boolean preventsNewAttempt() {
         return reconciliationRequired || status == PaymentStatus.CREATED || status == PaymentStatus.PENDING || status == PaymentStatus.SUCCEEDED;
@@ -65,9 +80,10 @@ public class Payment {
     }
     public ProviderInstruction instruction(PaymentRequest r) {
         return new ProviderInstruction(id,paymentRequestId,r.getOrderId(),r.getPurpose(),provider,providerAccountReference,
-                merchantReference,providerTransactionId,providerIdempotencyKey,expectedAmount,currency);
+                merchantReference,providerTransactionId,providerIdempotencyKey,expectedAmount,currency,
+                paymentReference==null?null:new PaymentCheckoutContext(paymentReference,null,null,null));
     }
-    public PaymentAttemptView view() { return new PaymentAttemptView(id,status,expectedAmount,currency,reconciliationRequired,initiatedAt); }
+    public PaymentAttemptView view() { return new PaymentAttemptView(id,status,expectedAmount,currency,reconciliationRequired,initiatedAt,status==PaymentStatus.PENDING && !reconciliationRequired?checkoutUrl:null); }
 
     public UUID getId() { return id; }
     public UUID getOrganizationId() { return organizationId; }

@@ -1,6 +1,7 @@
 --liquibase formatted sql
 
 --changeset groupia:006-ordering dbms:postgresql
+--validCheckSum: 9:aa0b0f88a758f6300ff30ca7ca1365aa
 CREATE SEQUENCE order_number_seq AS BIGINT START WITH 1;
 
 CREATE TABLE customers (

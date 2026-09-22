@@ -30,3 +30,7 @@ remis une seule fois, frais configurables et snapshots. Complète ADR-0003/0004/
 noyau financier, obligation initiale atomique au checkout, frontières réseau,
 réceptions et reprise, règlement événementiel, expiration et réconciliation.
 Amende explicitement ADR-0001/0004 pour INITIAL_ORDER et complète ADR-0009.
+
+[ADR-0011](0011-ordering-migration-compatibility.md), daté du 21 septembre 2026 :
+compatibilité ciblée avec la première version déployée de 006-ordering et
+convergence des contraintes par une nouvelle migration 008, sans perte de données.

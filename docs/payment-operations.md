@@ -79,3 +79,13 @@ docker compose up -d postgres
 ```
 
 007-payments est appliquée par Liquibase ; aucun changelog antérieur n'est modifié. Les anciennes commandes reçoivent leurs obligations initiales à partir des snapshots, sans preuve financière inventée. Hibernate conserve ddl-auto=validate. Sans adaptateur runtime, l'initiation reste volontairement indisponible.
+
+## Incident de checksum de 006-ordering
+
+Pour le checksum historique `9:aa0b0f88a758f6300ff30ca7ca1365aa`, la correction
+008 fait partie du changelog : démarrer normalement après mise à jour du code.
+Ne pas effacer DATABASECHANGELOG ou exécuter clear-checksums globalement.
+Un autre checksum inattendu exige une comparaison avant toute acceptation.
+Si 008 signale des snapshots invalides, conserver les lignes et investiguer ;
+aucune réparation automatique de l'historique financier n'est prévue.
+Voir [ADR-0011](../adr/0011-ordering-migration-compatibility.md).

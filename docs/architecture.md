@@ -212,3 +212,12 @@ Maven supplémentaire, aucune exclusion du test de modularité.
 
 Voir [API financière](payment-api.md), [exploitation](payment-operations.md)
 et [ADR-0010](../adr/0010-financial-core-and-settlement.md).
+
+## Correction de mise à niveau (21 septembre 2026)
+
+Un ancien déploiement de 006-ordering avait des contraintes différentes du SQL
+ensuite versionné. Le démarrage Liquibase échouait sur son checksum. La correction
+accepte précisément cette version historique et applique 008 pour converger les
+contraintes. Les anciens checksums ne sont pas effacés. Trois tests PostgreSQL
+de mise à niveau complètent les tests de base vierge.
+Voir [ADR-0011](../adr/0011-ordering-migration-compatibility.md).

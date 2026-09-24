@@ -15,6 +15,7 @@ public class BictorysTestServerConfiguration {
         return new PaymentProvider() {
             public String name(){return adapter.name();}
             public String accountReference(){return adapter.accountReference();}
+            public WebhookSuccessEvidence webhookSuccessEvidence(){return adapter.webhookSuccessEvidence();}
             public ProviderObservation initiate(ProviderInstruction i){outsideTransaction();return adapter.initiate(i);}
             public ProviderObservation verify(ProviderInstruction i){outsideTransaction();return adapter.verify(i);}
             public boolean verifyAuthenticity(byte[] payload,Map<String,String> headers){outsideTransaction();return adapter.verifyAuthenticity(payload,headers);}

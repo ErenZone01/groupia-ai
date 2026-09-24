@@ -99,8 +99,7 @@ class BictorysIntegrationTests {
         return json.writeValueAsString(Map.of("id",providerIds.get(payment),"type","payment","merchantReference",merchant(payment),
                 "paymentReference",checkout.get("orderNumber").asText(),"amount",2300,"currency","XOF","status",status,"timestamp",clock.instant().toString()));
     }
-    private ResultActions deliver(String payload,boolean proof) throws Exception {
-        if(proof){http.reply(200,payload);}
+    private ResultActions deliver(String payload) throws Exception {
         return mvc.perform(post("/api/payment/webhooks/bictorys").contentType(MediaType.APPLICATION_JSON).content(payload)
                 .header("X-Secret-Key","fixture-webhook-secret"));
     }
@@ -130,52 +129,53 @@ class BictorysIntegrationTests {
         assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
         assertThat(http.requests).hasSize(1);
     }
-    @Test void verifiedSuccessFromHostedChargeConfirmsAndDuplicateHasNoExtraEffect() throws Exception {
+    @Test void authenticatedSuccessFromHostedChargeConfirmsAndDuplicateHasNoExtraEffect() throws Exception {
         var id=start();String body=event(id,"succeeded");
-        deliver(body,true).andExpect(status().isAccepted());awaitConfirmed();
-        deliver(body,false).andExpect(status().isAccepted());
+        deliver(body).andExpect(status().isAccepted());awaitConfirmed();
+        deliver(body).andExpect(status().isAccepted());
         assertThat(settlementCount()).isEqualTo(1);assertThat(count("payment_webhook_events")).isEqualTo(1);
         assertThat(jdbc.queryForObject("select provider_transaction_id from payments",String.class)).isEqualTo(providerIds.get(id));
-        assertThat(http.requests.getLast().path()).isEqualTo("/pay/v1/transactions/"+providerIds.get(id)+"/status");
+        assertThat(http.requests).hasSize(1);
     }
     @ParameterizedTest @CsvSource({"amount,AMOUNT_MISMATCH","currency,CURRENCY_MISMATCH","paymentReference,PAYMENT_REFERENCE_MISMATCH"})
     void financialMismatchesAreDecidedByTheExistingCore(String field,String reason) throws Exception {
         var id=start();var node=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
         if(field.equals("amount")){node.put(field,2301);}else{node.put(field,field.equals("currency")?"EUR":"another-order");}
-        deliver(json.writeValueAsString(node),true).andExpect(status().isAccepted());
+        deliver(json.writeValueAsString(node)).andExpect(status().isAccepted());
         assertThat(reason(id)).isEqualTo(reason);assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(settlementCount()).isZero();
     }
     @Test void unknownReferenceAndIncompleteHistoricalEnvelopeRequireReview() throws Exception {
-        var id=start();deliver(event(id,"succeeded").replace(merchant(id),"GP-unknown"),false).andExpect(status().isAccepted());
-        deliver("{\"event\":\"charge.successful\",\"data\":{\"id\":932,\"amount\":2300,\"currency\":\"XOF\",\"status\":\"réussi\",\"reference\":\"display-only\"}}",false).andExpect(status().isAccepted());
+        var id=start();deliver(event(id,"succeeded").replace(merchant(id),"GP-unknown")).andExpect(status().isAccepted());
+        deliver("{\"event\":\"charge.successful\",\"data\":{\"id\":932,\"amount\":2300,\"currency\":\"XOF\",\"status\":\"réussi\",\"reference\":\"display-only\"}}").andExpect(status().isAccepted());
         assertThat(jdbc.queryForObject("select count(*) from payment_webhook_events where processing_status='REVIEW_REQUIRED'",Integer.class)).isEqualTo(2);
         assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
     }
     @Test void reversedPreservesSuccessAndCannotBeErasedByDelayedFailureOrSuccess() throws Exception {
-        var id=start();deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
-        clock.advance(Duration.ofSeconds(1));deliver(event(id,"reversed"),false).andExpect(status().isAccepted());
+        var id=start();deliver(event(id,"succeeded")).andExpect(status().isAccepted());awaitConfirmed();
+        clock.advance(Duration.ofSeconds(1));deliver(event(id,"reversed")).andExpect(status().isAccepted());
         assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
-        deliver(event(id,"failed"),false).andExpect(status().isAccepted());
-        clock.advance(Duration.ofSeconds(1));deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());
+        deliver(event(id,"failed")).andExpect(status().isAccepted());
+        clock.advance(Duration.ofSeconds(1));deliver(event(id,"succeeded")).andExpect(status().isAccepted());
         assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
         assertThat(settlementCount()).isEqualTo(1);assertThat(orderStatus()).isEqualTo("CONFIRMED");
     }
     @Test void authorizedDoesNotInventACapturedMobileMoneyPayment() throws Exception {
-        var id=start();deliver(event(id,"authorized"),false).andExpect(status().isAccepted());
+        var id=start();deliver(event(id,"authorized")).andExpect(status().isAccepted());
         assertThat(reason(id)).isEqualTo("AUTHORIZATION_NOT_CAPTURED");assertThat(settlementCount()).isZero();
-        deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());awaitConfirmed();
     }
     @Test void lateRealSuccessRemainsUnallocated() throws Exception {
         var id=start();clock.advance(Duration.ofMinutes(31));expiration.expireDue();
-        deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());
-        assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");assertThat(reason(id)).isEqualTo("LATE_SUCCESS");
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(reason(id)).isEqualTo("LATE_SUCCESS");
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
         assertThat(orderStatus()).isEqualTo("EXPIRED");assertThat(settlementCount()).isZero();
     }
     @Test void secondRealSuccessIsPreservedAsDuplicate() throws Exception {
-        var first=start();deliver(event(first,"failed"),false).andExpect(status().isAccepted());
-        var second=start();deliver(event(second,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
-        deliver(event(first,"succeeded"),true).andExpect(status().isAccepted());
-        assertThat(paymentStatus(first)).isEqualTo("SUCCEEDED");assertThat(reason(first)).isEqualTo("DUPLICATE_SUCCESS");
+        var first=start();deliver(event(first,"failed")).andExpect(status().isAccepted());
+        var second=start();deliver(event(second,"succeeded")).andExpect(status().isAccepted());awaitConfirmed();
+        deliver(event(first,"succeeded")).andExpect(status().isAccepted());
+        assertThat(paymentStatus(first)).isEqualTo("FAILED");assertThat(reason(first)).isEqualTo("DUPLICATE_SUCCESS");
         assertThat(settlementCount()).isEqualTo(1);
     }
     @Test void providerTimeoutLeavesDurableClaimThatWebhookCanResolve() throws Exception {
@@ -183,14 +183,14 @@ class BictorysIntegrationTests {
         var receipt=read(initiate(key()).andExpect(status().isOk()).andReturn());
         var id=UUID.fromString(receipt.get("id").asText());providerIds.put(id,UUID.randomUUID().toString());
         assertThat(paymentStatus(id)).isEqualTo("CREATED");assertThat(reason(id)).isEqualTo("PROVIDER_STATE_UNCERTAIN");
-        deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());awaitConfirmed();
     }
     @Test void unknownRemoteStatusNeverConfirms() throws Exception {
-        var id=start();deliver(event(id,"mysterious"),false).andExpect(status().isAccepted());
+        var id=start();deliver(event(id,"mysterious")).andExpect(status().isAccepted());
         assertThat(reason(id)).isEqualTo("PROVIDER_STATUS_UNKNOWN");assertThat(settlementCount()).isZero();
     }
     @Test void pendingWebhookBeforeChargeAcknowledgementRetainsTransaction() throws Exception {
-        var id=start();deliver(event(id,"pending"),false).andExpect(status().isAccepted());
+        var id=start();deliver(event(id,"pending")).andExpect(status().isAccepted());
         var instruction=paymentTransactions.reconciliationInstruction(id);
         var acknowledgement=new ProviderObservation("BICTORYS","sandbox",merchant(id),null,requestId(),orderId(),
                 PaymentPurpose.INITIAL_ORDER,new BigDecimal("2300"),"XOF",PaymentStatus.PENDING,null,
@@ -198,13 +198,13 @@ class BictorysIntegrationTests {
                         jdbc.queryForObject("select provider_charge_id from payments",String.class),null));
         paymentTransactions.initiationResult(id,acknowledgement);
         assertThat(paymentTransactions.reconciliationInstruction(id).providerTransactionId()).isEqualTo(instruction.providerTransactionId());
-        deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());awaitConfirmed();
     }
     @Test void reversalBeforeSuccessRemainsVisibleAfterUncertainReconciliation() throws Exception {
-        var id=start();deliver(event(id,"reversed"),false).andExpect(status().isAccepted());
+        var id=start();deliver(event(id,"reversed")).andExpect(status().isAccepted());
         http.reply(500,"unavailable");payments.reconcile(id);
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
-        deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");assertThat(settlementCount()).isZero();
     }
 
@@ -229,7 +229,7 @@ class BictorysIntegrationTests {
             default -> throw new AssertionError(code);
         }
         try(var logs=new ParsingLogs()) {
-            deliver(payload,false).andExpect(status().isAccepted());
+            deliver(payload).andExpect(status().isAccepted());
             var receipt=jdbc.queryForMap("select * from payment_webhook_events");
             assertThat(receipt.get("authenticity_verification_result")).isEqualTo("VALID");
             assertThat(receipt.get("processing_status")).isEqualTo("REVIEW_REQUIRED");
@@ -243,7 +243,7 @@ class BictorysIntegrationTests {
             assertThat(logged.getFormattedMessage()).contains("provider=BICTORYS","receiptId="+receipt.get("id"),"code="+code)
                     .doesNotContain("private@example.test","+221779999999","payload-sensitive-value","customerObject","fixture-webhook-secret",
                             merchant(id),checkout.get("orderNumber").asText(),providerIds.get(id));
-            deliver(payload,false).andExpect(status().isAccepted());
+            deliver(payload).andExpect(status().isAccepted());
             webhooks.retryPending();
             assertThat(count("payment_webhook_events")).isEqualTo(1);
             assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo(code);
@@ -262,17 +262,17 @@ class BictorysIntegrationTests {
             assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("PAYMENT_AUTHENTICITY_FAILED");
             assertThat(paymentStatus(id)).isEqualTo("PENDING");
             assertThat(logs.events()).isEmpty();
-            deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
+            deliver(event(id,"succeeded")).andExpect(status().isAccepted());awaitConfirmed();
             assertThat(logs.events()).isEmpty();
         }
     }
     @Test void redeliveryClarifiesLegacyNullObservationWithoutResolvingPayment() throws Exception {
         var id=start();
         String payload=event(id,"succeeded").replace("\"amount\":2300","\"amount\":\"2300\"");
-        deliver(payload,false).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isAccepted());
         UUID receipt=jdbc.queryForObject("select id from payment_webhook_events",UUID.class);
         jdbc.update("update payment_webhook_events set last_error_code='UNKNOWN_REFERENCE' where id=?",receipt);
-        deliver(payload,false).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isAccepted());
         assertThat(jdbc.queryForObject("select id from payment_webhook_events",UUID.class)).isEqualTo(receipt);
         assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("BICTORYS_INCOMPLETE_EVIDENCE");
         assertThat(jdbc.queryForObject("select payment_id from payment_webhook_events",UUID.class)).isNull();
@@ -280,8 +280,10 @@ class BictorysIntegrationTests {
     }
     @ParameterizedTest
     @ValueSource(strings={"httpFailure","pending","id","merchantReference","paymentReference","amount","currency"})
-    void ignoredTimestampCannotSettleWithoutConsistentServerSuccess(String scenario) throws Exception {
-        var id=start();
+    void manualReconciliationCannotSettleWithoutConsistentServerSuccess(String scenario) throws Exception {
+        var id=startWithKnownTransaction();
+        http.reply(500,"unavailable");payments.reconcile(id);
+        assertThat(payments.reconciliationQueue(100)).contains(id);
         var proof=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
         switch(scenario) {
             case "pending" -> proof.put("status","pending");
@@ -294,24 +296,29 @@ class BictorysIntegrationTests {
             default -> throw new AssertionError(scenario);
         }
         http.reply(scenario.equals("httpFailure")?500:200,json.writeValueAsString(proof));
-        deliver(successWithInvalidTimestamp(id),false).andExpect(status().isAccepted());
-        assertThat(http.requests).hasSize(2);
+        payments.reconcile(id);
+        assertThat(http.requests).hasSize(3);
         assertThat(http.requests.getLast().method()).isEqualTo("GET");
         assertThat(http.requests.getLast().path()).isEqualTo("/pay/v1/transactions/"+providerIds.get(id)+"/status");
         assertThat(paymentStatus(id)).isEqualTo("PENDING");
-        assertThat(reason(id)).isEqualTo("PROVIDER_STATE_UNCERTAIN");
+        String expectedReason=switch(scenario) {
+            case "pending" -> null;
+            case "merchantReference" -> "UNKNOWN_REFERENCE";
+            case "paymentReference" -> "PAYMENT_REFERENCE_MISMATCH";
+            case "amount" -> "AMOUNT_MISMATCH";
+            case "currency" -> "CURRENCY_MISMATCH";
+            default -> "PROVIDER_STATE_UNCERTAIN";
+        };
+        assertThat(reason(id)).isEqualTo(expectedReason);
         assertThat(jdbc.queryForObject("select acceptance_status from payment_requests",String.class)).isEqualTo("OPEN");
         assertThat(jdbc.queryForObject("select settled_payment_id from payment_requests",UUID.class)).isNull();
         assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(settlementCount()).isZero();
-        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("RETRYABLE_FAILURE");
-        assertThat(jdbc.queryForObject("select observation->>'occurredAt' from payment_webhook_events",String.class)).isNull();
-        assertThat(jdbc.queryForObject("select observation->>'providerTransactionId' from payment_webhook_events",String.class))
-                .isEqualTo(providerIds.get(id));
+        assertThat(count("payment_webhook_events")).isZero();
     }
-    @Test void ignoredTimestampSettlesOnlyAfterVerifiedSuccessAndDuplicateIsIdempotent() throws Exception {
+    @Test void authenticatedWebhookSettlesDespitePendingStatusAndDuplicateIsIdempotent() throws Exception {
         var id=start();String payload=successWithInvalidTimestamp(id);
-        http.reply(200,event(id,"succeeded"));
-        deliver(payload,false).andExpect(status().isAccepted());awaitConfirmed();
+        http.reply(200,"{\"id\":null,\"status\":\"pending\"}");
+        deliver(payload).andExpect(status().isAccepted());awaitConfirmed();
         assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");assertThat(reason(id)).isNull();
         assertThat(jdbc.queryForObject("select acceptance_status from payment_requests",String.class)).isEqualTo("CLOSED");
         assertThat(jdbc.queryForObject("select settled_payment_id from payment_requests",UUID.class)).isEqualTo(id);
@@ -319,11 +326,18 @@ class BictorysIntegrationTests {
         assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("PROCESSED");
         assertThat(settlementCount()).isEqualTo(1);
         assertThat(applicationEvents.stream(PaymentRequestSettled.class)).hasSize(1);
-        deliver(payload,false).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isAccepted());
         webhooks.retryPending();
         assertThat(count("payment_webhook_events")).isEqualTo(1);assertThat(settlementCount()).isEqualTo(1);
-        assertThat(http.requests).hasSize(2);
-        assertThat(http.requests.getLast().path()).isEqualTo("/pay/v1/transactions/"+providerIds.get(id)+"/status");
+        assertThat(http.requests).hasSize(1);
+        // A second success with a different fingerprint must also remain idempotent.
+        var beforeOrder=jdbc.queryForObject("select row_to_json(o)::text from orders o",String.class);
+        clock.advance(Duration.ofSeconds(1));
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());
+        assertThat(settlementCount()).isEqualTo(1);
+        assertThat(applicationEvents.stream(PaymentRequestSettled.class)).hasSize(1);
+        assertThat(jdbc.queryForObject("select row_to_json(o)::text from orders o",String.class)).isEqualTo(beforeOrder);
+        assertThat(http.requests).hasSize(1);
         assertThat(orderStatus()).isEqualTo("CONFIRMED");
     }
     @Test void ignoredTimestampCannotBypassAuthentication() throws Exception {
@@ -338,7 +352,7 @@ class BictorysIntegrationTests {
     }
     @Test void ignoredTimestampCannotResolveUnknownMerchantReference() throws Exception {
         var id=start();
-        deliver(successWithInvalidTimestamp(id).replace(merchant(id),"GP-unknown"),false).andExpect(status().isAccepted());
+        deliver(successWithInvalidTimestamp(id).replace(merchant(id),"GP-unknown")).andExpect(status().isAccepted());
         assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("UNKNOWN_REFERENCE");
         assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
         assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
@@ -348,6 +362,86 @@ class BictorysIntegrationTests {
         var node=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
         node.put("timestamp","private@example.test +221779999999 secret-value");
         return json.writeValueAsString(node);
+    }
+    @ParameterizedTest
+    @CsvSource({"id,BICTORYS_INCOMPLETE_EVIDENCE","merchantReference,UNKNOWN_REFERENCE",
+            "paymentReference,PAYMENT_REFERENCE_MISMATCH","amount,BICTORYS_INCOMPLETE_EVIDENCE",
+            "currency,BICTORYS_INCOMPLETE_EVIDENCE","status,BICTORYS_INCOMPLETE_EVIDENCE"})
+    void missingRequiredEvidenceNeverSettles(String field,String expected) throws Exception {
+        var id=start();var node=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
+        node.remove(field);
+        if(field.equals("paymentReference")){node.put("reference",checkout.get("orderNumber").asText());}
+        deliver(json.writeValueAsString(node)).andExpect(status().isAccepted());
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
+        assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo(expected);
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
+        assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(http.requests).hasSize(1);
+    }
+    @Test void transactionAlreadyOwnedByAnotherAttemptRequiresReview() throws Exception {
+        var first=start();deliver(event(first,"failed")).andExpect(status().isAccepted());
+        var second=start();providerIds.put(second,providerIds.get(first));
+        deliver(event(second,"succeeded")).andExpect(status().isAccepted());
+        assertThat(paymentStatus(first)).isEqualTo("FAILED");assertThat(paymentStatus(second)).isEqualTo("PENDING");
+        assertThat(reason(second)).isEqualTo("TRANSACTION_MISMATCH");assertThat(settlementCount()).isZero();
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events where last_error_code='TRANSACTION_MISMATCH'",String.class))
+                .isEqualTo("REVIEW_REQUIRED");
+    }
+    @Test void concurrentDuplicateWebhooksSettleOnce() throws Exception {
+        var id=start();String payload=event(id,"succeeded");
+        var results=race(()->deliver(payload).andReturn(),()->deliver(payload).andReturn());
+        assertThat(results).allSatisfy(r->assertThat(r.getResponse().getStatus()).isEqualTo(202));
+        awaitConfirmed();assertThat(settlementCount()).isEqualTo(1);assertThat(count("payment_webhook_events")).isEqualTo(1);
+        assertThat(http.requests).hasSize(1);
+    }
+    @Test void concurrentTransactionReuseAcrossOrdersHasOnlyOneWinner() throws Exception {
+        var first=start();String firstPayload=event(first,"succeeded");
+        checkout=read(place(key()).andExpect(status().isCreated()).andReturn());
+        var second=start();providerIds.put(second,providerIds.get(first));String secondPayload=event(second,"succeeded");
+        var results=race(()->deliver(firstPayload).andReturn(),()->deliver(secondPayload).andReturn());
+        assertThat(results).allSatisfy(r->assertThat(r.getResponse().getStatus()).isEqualTo(202));
+        await(()->jdbc.queryForObject("select count(*) from orders where status='CONFIRMED'",Integer.class)==1);
+        assertThat(jdbc.queryForObject("select count(*) from payments where status='SUCCEEDED'",Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from payments where reconciliation_reason='TRANSACTION_MISMATCH'",Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from payment_requests where acceptance_status='CLOSED'",Integer.class)).isEqualTo(1);
+        assertThat(settlementCount()).isEqualTo(1);assertThat(http.requests).hasSize(2);
+    }
+    @Test void cancelledRequestCannotBeSettledByWebhook() throws Exception {
+        var id=start();new TransactionTemplate(transactions).executeWithoutResult(s->operations.cancelInitialAcceptance(org,orderId()));
+        deliver(event(id,"succeeded")).andExpect(status().isAccepted());
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(reason(id)).isEqualTo("LATE_SUCCESS");
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
+        assertThat(jdbc.queryForObject("select acceptance_status from payment_requests",String.class)).isEqualTo("CANCELLED");
+        assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(settlementCount()).isZero();
+    }
+    @Test void uncertainPaymentCanStillBeReconciledWithoutWebhook() throws Exception {
+        var id=startWithKnownTransaction();http.reply(500,"unavailable");payments.reconcile(id);
+        assertThat(payments.reconciliationQueue(100)).contains(id);
+        http.reply(200,event(id,"succeeded"));payments.reconcile(id);awaitConfirmed();
+        assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");assertThat(reason(id)).isNull();
+        assertThat(jdbc.queryForObject("select settled_payment_id from payment_requests",UUID.class)).isEqualTo(id);
+        assertThat(settlementCount()).isEqualTo(1);assertThat(count("payment_webhook_events")).isZero();
+        assertThat(http.requests).hasSize(3);
+    }
+    @ParameterizedTest @ValueSource(strings={"receiptProvider","receiptAccount","observationProvider","observationAccount"})
+    void financialCoreRejectsProviderOrAccountMismatch(String field) throws Exception {
+        var id=start();
+        var observation=new ProviderObservation(field.equals("observationProvider")?"OTHER":"BICTORYS",
+                field.equals("observationAccount")?"other":"sandbox",merchant(id),providerIds.get(id),null,null,null,
+                new BigDecimal("2300"),"XOF",PaymentStatus.SUCCEEDED,null,
+                new ProviderMetadata(checkout.get("orderNumber").asText(),null,null,null));
+        UUID receipt=paymentTransactions.receive(field.equals("receiptProvider")?"OTHER":"BICTORYS",
+                field.equals("receiptAccount")?"other":"sandbox",null,"b".repeat(64),"a".repeat(64),true,observation,null);
+        paymentTransactions.processWebhook(receipt,null,false);
+        assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("PROVIDER_MISMATCH");
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");
+        assertThat(settlementCount()).isZero();
+    }
+    private UUID startWithKnownTransaction() throws Exception {
+        String transaction=UUID.randomUUID().toString();
+        http.reply(201,json.writeValueAsString(Map.of("transactionId",transaction,"link","https://pay.bictorys.com/fixture")));
+        UUID id=UUID.fromString(read(initiate(key()).andExpect(status().isOk()).andReturn()).get("id").asText());
+        providerIds.put(id,transaction);return id;
     }
     private static class ParsingLogs implements AutoCloseable {
         private final ch.qos.logback.classic.Logger logger=(ch.qos.logback.classic.Logger)LoggerFactory.getLogger(PaymentWebhooks.class);

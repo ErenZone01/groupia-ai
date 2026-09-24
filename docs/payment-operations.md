@@ -21,6 +21,12 @@ Webhook : au plus 100 réceptions dues par passage ; délais 60, 120, 180, 240 s
 
 ## Publications Spring Modulith
 
+Exception à la vérification distante des retries : pour Bictorys, chaque traitement
+revalide le receipt authentifié et ses preuves financières sans GET. Une défaillance
+DB/publication reste reprise selon les mêmes limites ; un défaut de corrélation ou
+d'éligibilité mène directement en revue. Le GET reste utilisé par la réconciliation
+manuelle, sans nouvelle charge. Les autres providers gardent leur politique par défaut.
+
 PaymentRequestSettled et son entrée event_publication sont écrits dans la même transaction. ApplicationModuleListener effectue la confirmation dans une transaction séparée. Le registre conserve succès/échec et compte les tentatives. Le moniteur Modulith traite les états restés PUBLISHED/PROCESSING/RESUBMITTED au-delà des seuils configurés, notamment après un crash.
 
 PublicationRecovery utilise FailedEventPublications.resubmit avec batchSize=100, maxInFlight=20, minAge=1 minute et filtre completionAttempts<5. Les publications échouées ayant atteint cinq essais restent présentes ; un log ERROR signale leur nombre à chaque passage. Une panne persistante ne déclenche pas une boucle infinie silencieuse.
@@ -89,7 +95,7 @@ sont exclues. Aucune valeur, exception, URL de checkout, coordonnée client ou
 payload brut ne figure dans ce diagnostic. Ce contrôle séparé n'alimente jamais
 la validation financière. La tolérance du timestamp des webhooks `SUCCEEDED`
 est décrite dans le [guide Bictorys](bictorys-sandbox.md#timestamp-du-webhook-succeeded) :
-elle conserve l'obligation de preuve serveur et ne modifie pas ces diagnostics
+elle conserve les contrôles d'authenticité et financiers et ne modifie pas ces diagnostics
 pour les autres erreurs de parsing.
 
 Une redélivrance identique conserve le même receipt et ne multiplie pas les essais.
@@ -105,7 +111,7 @@ ne permet pas de retrouver leur erreur exacte. Aucune migration n'est nécessair
 2. Pour une tentative incertaine, PaymentService.reconciliationQueue(limit 1..100) permet un inventaire borné ; PaymentService.reconcile(paymentId) appelle uniquement verify hors transaction puis valide/enregistre idempotemment. Pas d'appel automatique initiate, pas de nouveau débit. Ces méthodes sont internes à payment, sans endpoint public/admin dans cette tranche. Un futur outil d'exploitation doit passer par un contrat autorisé, sans contourner les frontières Modulith.
 3. PaymentWebhooks.retry(id)/retryPending reprend les réceptions encore RECEIVED/RETRYABLE_FAILURE arrivées à échéance. REVIEW_REQUIRED n'est pas automatiquement rejoué. Pour une réception épuisée liée à un paiement connu, reconcile(paymentId) peut résoudre l'état financier après correction ; la réception conserve son historique d'investigation.
 4. Après correction d'un consumer, l'API FailedEventPublications.resubmit accepte ResubmissionOptions avec un filtre sur l'identifiant exact de publication, une taille bornée et l'âge adapté. Une resoumission manuelle explicitement ciblée peut dépasser le plafond automatique après investigation ; ne pas réinitialiser le compteur en SQL. Ce mécanisme ne fabrique pas de nouvel événement ni de nouveau débit. Vérifier ensuite COMPLETED, confirmedAt et absence de deuxième affectation.
-5. LATE_SUCCESS/DUPLICATE_SUCCESS restent SUCCEEDED, avec leurs motifs, même après un verify confirmant le débit. Leur résolution commerciale/remboursement reste une tranche future ; aucune affectation silencieuse ni réactivation.
+5. Les succès déjà confirmés conservent SUCCEEDED et leurs éventuels motifs LATE_SUCCESS/DUPLICATE_SUCCESS. Pour les nouveaux webhooks Bictorys, une demande inéligible entraîne REVIEW_REQUIRED avec le motif approprié avant toute nouvelle confirmation de la tentative. Leur résolution commerciale/remboursement reste une tranche future ; aucune affectation silencieuse ni réactivation. Voir [ADR-0014](../adr/0014-bictorys-authoritative-webhooks.md).
 
 Si une panne DB empêchait la toute première réception, le provider doit redélivrer. Si le claim d'initiation existe mais que l'appel n'a peut-être pas eu lieu, investiguer à partir de merchantReference ; aucun endpoint Bictorys de recherche par cette référence n'est documenté. Sans transactionId, attendre le webhook/redélivrance et vérifier le dashboard ; un résultat inconnu reste incertain. Ne pas considérer une absence temporaire chez le provider comme un échec définitif sans garantie contractuelle.
 

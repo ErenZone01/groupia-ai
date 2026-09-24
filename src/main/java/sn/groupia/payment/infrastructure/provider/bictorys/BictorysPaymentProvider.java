@@ -14,6 +14,7 @@ public final class BictorysPaymentProvider implements PaymentProvider {
     BictorysPaymentProvider(BictorysClient client,BictorysProperties properties){this.client=client;this.properties=properties;}
     @Override public String name(){return "BICTORYS";}
     @Override public String accountReference(){return "sandbox";}
+    @Override public WebhookSuccessEvidence webhookSuccessEvidence(){return WebhookSuccessEvidence.AUTHENTICATED_WEBHOOK;}
     @Override public ProviderObservation initiate(ProviderInstruction instruction) {
         var contact=instruction.checkout();
         if(contact==null || contact.orderNumber()==null || contact.customerName()==null || contact.phone()==null) {

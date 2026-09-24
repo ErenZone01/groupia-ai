@@ -96,7 +96,7 @@ class BictorysContractTests {
         var event=provider.parse(fixture("webhook-data"));
         assertThat(event.providerEventId()).isNull();assertThat(event.observation().providerTransactionId()).isEqualTo("932");
         assertThat(event.observation().merchantReference()).isNull();
-        assertThat(event.observation().metadata().paymentReference()).isEqualTo("98329uniwud");
+        assertThat(event.observation().metadata().paymentReference()).isNull();
     }
     @Test void rootTransactionIdIsNotAProviderEventId()throws Exception {
         var event=provider.parse(fixture("webhook-root"));
@@ -119,7 +119,7 @@ class BictorysContractTests {
             assertThat(logs.list.getFirst().getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
             assertThat(logs.list.getFirst().getThrowableProxy()).isNull();
             assertThat(logs.list.getFirst().getFormattedMessage()).isEqualTo(
-                    "provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_VERIFIED_SUCCESS");
+                    "provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_AUTHENTICATED_SUCCESS");
             assertThat(logs.list.getFirst().getArgumentArray()).isNullOrEmpty();
         } finally {logger.detachAppender(logs);logs.stop();}
     }

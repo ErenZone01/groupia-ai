@@ -19,8 +19,9 @@ public class PaymentTransactions {
     private final FinancialStore store;
     private final ApplicationEventPublisher events;
     private final Clock clock;
-    PaymentTransactions(FinancialStore store,ApplicationEventPublisher events,Clock clock) {
-        this.store=store; this.events=events; this.clock=clock;
+    private final ProviderRegistry providers;
+    PaymentTransactions(FinancialStore store,ApplicationEventPublisher events,Clock clock,ProviderRegistry providers) {
+        this.store=store; this.events=events; this.clock=clock; this.providers=providers;
     }
     @Transactional(propagation=Propagation.MANDATORY)
     public PaymentRequestView create(CreatePaymentRequest c) {
@@ -132,18 +133,21 @@ public class PaymentTransactions {
         return null;
     }
     private String apply(PaymentRequest r,Payment p,ProviderObservation o) {
+        return apply(r,p,o,clock.instant());
+    }
+    private String apply(PaymentRequest r,Payment p,ProviderObservation o,Instant now) {
         boolean review=o!=null && o.metadata()!=null && o.metadata().reviewReason()!=null;
         if (!review && p.getStatus()==PaymentStatus.SUCCEEDED && o!=null && o.status()!=PaymentStatus.SUCCEEDED) { return null; }
         String error=validate(r,p,o);
-        p.checked(clock.instant());
+        p.checked(now);
         if (error!=null) { p.review(error); return error; }
         p.retainVerifiedTransaction(o);
         if(review){p.review(o.metadata().reviewReason().name());return p.getReconciliationReason();}
         if("PROVIDER_REVERSAL".equals(p.getReconciliationReason())){return p.getReconciliationReason();}
-        boolean firstSuccess=p.apply(o,clock.instant());
+        boolean firstSuccess=p.apply(o,now);
         if (firstSuccess) {
             UUID oldSettlement=r.getSettledPaymentId();
-            String reason=r.allocate(p.getId(),clock.instant());
+            String reason=r.allocate(p.getId(),now);
             if (reason!=null) { p.review(reason); return reason; }
             if (oldSettlement==null) {
                 events.publishEvent(new PaymentRequestSettled(UUID.randomUUID(),p.getConfirmedAt(),r.getOrganizationId(),
@@ -173,7 +177,7 @@ public class PaymentTransactions {
     public record WebhookWork(String provider,ProviderObservation observation,ProviderInstruction instruction,boolean pending) {}
     public WebhookWork prepareWebhook(UUID id) {
         var e=store.webhook(id).orElseThrow();
-        var p=resolved(e);
+        var p=resolved(e).filter(candidate->matchesReceipt(e,candidate));
         var instruction=p.isEmpty()?null:p.get().instruction(store.lockRequest(p.get().getPaymentRequestId()));
         return new WebhookWork(e.getProvider(),e.getObservation(),instruction,e.pending()
                 && (e.getNextAttemptAt()==null || !clock.instant().isBefore(e.getNextAttemptAt())));
@@ -181,16 +185,22 @@ public class PaymentTransactions {
     private Optional<Payment> resolved(PaymentWebhookEvent e) {
         var o=e.getObservation();
         if (o==null || o.merchantReference()==null) { return Optional.empty(); }
-        return store.byMerchant(o.merchantReference()).filter(p->p.getProvider().equals(e.getProvider())
-                && Objects.equals(p.getProviderAccountReference(),e.getProviderAccountReference()));
+        return store.byMerchant(o.merchantReference());
+    }
+    private boolean matchesReceipt(PaymentWebhookEvent e,Payment p) {
+        return p.getProvider().equals(e.getProvider()) && Objects.equals(p.getProviderAccountReference(),e.getProviderAccountReference());
     }
     public void processWebhook(UUID id,ProviderObservation verified,boolean verificationFailed) {
         var e=store.lockWebhook(id);
         if (!e.pending() || (e.getNextAttemptAt()!=null && clock.instant().isBefore(e.getNextAttemptAt()))) { return; }
+        if (!"VALID".equals(e.getAuthenticityVerificationResult())) {
+            e.finish("REVIEW_REQUIRED","PAYMENT_AUTHENTICITY_FAILED",clock.instant()); return;
+        }
         var candidate=resolved(e);
         if (candidate.isEmpty()) { e.finish("REVIEW_REQUIRED","UNKNOWN_REFERENCE",clock.instant()); return; }
         var r=store.lockRequest(candidate.get().getPaymentRequestId());
         var p=store.lockPayment(candidate.get().getId());
+        if(!matchesReceipt(e,p)) { e.finish("REVIEW_REQUIRED","PROVIDER_MISMATCH",clock.instant()); return; }
         e.resolve(p);
         var raw=e.getObservation().correlate(p.instruction(r));
         if(verified!=null){verified=verified.correlate(p.instruction(r));}
@@ -199,13 +209,22 @@ public class PaymentTransactions {
         }
         String invalid=validate(r,p,raw);
         if (invalid!=null) { p.review(invalid); e.finish("REVIEW_REQUIRED",invalid,clock.instant()); return; }
+        // One decision instant for eligibility and allocation prevents crossing the deadline between them.
+        Instant decisionAt=clock.instant();
         if (raw.status()==PaymentStatus.SUCCEEDED) {
-            if (verificationFailed || verified==null || verified.status()!=PaymentStatus.SUCCEEDED || !Objects.equals(raw.providerTransactionId(),verified.providerTransactionId()) || validate(r,p,verified)!=null) {
+            if(providers.acceptsAuthenticatedWebhook(e.getProvider(),e.getProviderAccountReference())) {
+                String rejection=null;
+                if(p.getPaymentReference()==null || raw.metadata()==null || raw.metadata().paymentReference()==null
+                        || !p.getPaymentReference().equals(raw.metadata().paymentReference())) { rejection="PAYMENT_REFERENCE_MISMATCH"; }
+                else if(!raw.providerTransactionId().matches("[A-Za-z0-9_-]{1,160}")) { rejection="TRANSACTION_MISMATCH"; }
+                else { rejection=r.settlementRejection(p.getId(),decisionAt); }
+                if(rejection!=null) { p.review(rejection); e.finish("REVIEW_REQUIRED",rejection,clock.instant()); return; }
+            } else if (verificationFailed || verified==null || verified.status()!=PaymentStatus.SUCCEEDED || !Objects.equals(raw.providerTransactionId(),verified.providerTransactionId()) || validate(r,p,verified)!=null) {
                 if (p.getStatus()!=PaymentStatus.SUCCEEDED) { p.review("PROVIDER_STATE_UNCERTAIN"); }
                 e.retry("PROVIDER_STATE_UNCERTAIN",clock.instant()); return;
             }
         }
-        String result=apply(r,p,raw);
+        String result=apply(r,p,raw,decisionAt);
         e.finish(result==null?"PROCESSED":"REVIEW_REQUIRED",result,clock.instant());
     }
     @Transactional(readOnly=true)

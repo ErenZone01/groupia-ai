@@ -47,14 +47,14 @@ final class BictorysWebhookParser {
                 if(!webhook || state.status()!=PaymentStatus.SUCCEEDED) {
                     throw new BictorysException("BICTORYS_INVALID_TIMESTAMP");
                 }
-                // This observation remains unverified: PaymentWebhooks must obtain server proof before settlement.
+                // Receipt authenticity and all financial references must still be validated before settlement.
                 LoggerFactory.getLogger(BictorysWebhookParser.class).warn(
-                        "provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_VERIFIED_SUCCESS");
+                        "provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_AUTHENTICATED_SUCCESS");
             }
         }
         String reference=text(node,"paymentReference");
         // Historical data.reference is a display reference only, never a merchantReference fallback.
-        if(reference==null){reference=text(node,"reference");}
+        if(reference==null && (!webhook || state.status()!=PaymentStatus.SUCCEEDED)){reference=text(node,"reference");}
         return new ProviderObservation("BICTORYS","sandbox",text(node,"merchantReference"),id,null,null,null,
                 node.get("amount").decimalValue(),currency,state.status(),occurred,
                 new ProviderMetadata(reference,null,null,state.review()));

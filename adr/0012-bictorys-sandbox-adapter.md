@@ -2,6 +2,10 @@
 Date : 22 septembre 2026. Décisions d'implémentation de la tranche Bictorys.
 Complète ADR-0010 ; précise sa limite de réconciliation sans identifiant transaction.
 
+Amendé par [ADR-0014](0014-bictorys-authoritative-webhooks.md) pour la preuve des
+webhooks Bictorys et l'éligibilité préalable au règlement. Les décisions ci-dessous
+décrivent l'intégration initiale ; l'obligation de GET ne s'applique plus à ces webhooks.
+
 ## Frontières
 Bictorys reste dans payment.infrastructure.provider.bictorys. PaymentProvider est
 le port de traduction ; aucun type externe dans domain/api. Montants, unicités,

@@ -130,3 +130,59 @@ Logs locaux : `target/bictorys-timestamp-test.log` et `target/bictorys-timestamp
 La première passe ciblée avait signalé deux nouvelles assertions utilisant le
 nom SQL `status` au lieu de `acceptance_status` ; elles ont été corrigées avant
 les deux suites complètes réussies. Aucun changement de schéma n'a été nécessaire.
+
+## Webhook Bictorys comme preuve principale — 24 septembre 2026
+
+La politique provider par défaut conserve la preuve serveur ; Bictorys opte
+explicitement pour le webhook authentifié. Les tests Bictorys existants ont été
+adaptés au nouveau contrat : aucun GET en traitement webhook, preuves serveur
+testées en réconciliation, succès tardif/doublon de paiement conservé en revue
+avant confirmation d'une nouvelle tentative. Le noyau simulé conserve ses tests
+de vérification serveur obligatoire.
+
+15 cas supplémentaires couvrent les six champs obligatoires absents (dont le
+refus du repli `reference`), transaction déjà attribuée, doublons concurrents,
+collision de transaction entre deux commandes concurrentes, demande annulée,
+réconciliation d'un paiement incertain sans webhook et quatre incohérences
+provider/compte entre receipt, observation et paiement. Le test de succès prépare
+une réponse `/status` avec `id=null/status=pending` et vérifie qu'aucun GET n'est
+envoyé. Il vérifie également CLOSED, settledPaymentId, un seul événement et une
+seule confirmation même avec un second corps de webhook différent.
+
+La première passe ciblée a détecté quatre fixtures de receipt utilisant une clé
+UUID au lieu d'un hash hexadécimal de 64 caractères. Elles ont été corrigées sans
+modifier la contrainte PostgreSQL. Aucun test n'est exclu, aucune migration ni
+réparation de données existantes n'est ajoutée. Les appels Bictorys de ces tests
+sont exclusivement servis par le stub HTTP local.
+
+Résultats exécutés :
+
+- `.\mvnw.cmd test` : BUILD SUCCESS, 384 tests, 0 échec, 0 erreur, 0 ignoré ; 4 min 09 s.
+- `.\mvnw.cmd verify` : BUILD SUCCESS, mêmes 384 tests ; 4 min 16 s ; JAR exécutable produit.
+- Les trois tests de modularité passent sans exclusion.
+- `git diff --check` : aucune erreur.
+
+Logs : `target/bictorys-authoritative-test.log`, `target/bictorys-authoritative-verify.log`.
+
+Fichiers de cette modification (chemins relatifs au dépôt) :
+
+```text
+src/main/java/sn/groupia/payment/domain/service/WebhookSuccessEvidence.java (ajout)
+src/main/java/sn/groupia/payment/domain/service/PaymentProvider.java
+src/main/java/sn/groupia/payment/domain/model/PaymentRequest.java
+src/main/java/sn/groupia/payment/application/service/ProviderRegistry.java
+src/main/java/sn/groupia/payment/application/service/PaymentWebhooks.java
+src/main/java/sn/groupia/payment/application/service/PaymentTransactions.java
+src/main/java/sn/groupia/payment/infrastructure/provider/bictorys/BictorysPaymentProvider.java
+src/main/java/sn/groupia/payment/infrastructure/provider/bictorys/BictorysWebhookParser.java
+src/test/java/sn/groupia/BictorysIntegrationTests.java
+src/test/java/sn/groupia/payment/infrastructure/provider/bictorys/BictorysContractTests.java
+src/test/java/sn/groupia/payment/infrastructure/provider/bictorys/BictorysTestServerConfiguration.java
+adr/0014-bictorys-authoritative-webhooks.md (ajout)
+adr/0012-bictorys-sandbox-adapter.md
+adr/README.md
+docs/bictorys-sandbox.md
+docs/payment-api.md
+docs/payment-operations.md
+docs/payment-validation.md
+```

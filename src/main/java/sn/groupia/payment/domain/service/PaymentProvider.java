@@ -5,6 +5,8 @@ public interface PaymentProvider {
     String name();
     /** Server-selected merchant account, never trusted from public input. */
     String accountReference();
+    /** Static adapter metadata; financial validation remains mandatory for either policy. */
+    default WebhookSuccessEvidence webhookSuccessEvidence() { return WebhookSuccessEvidence.SERVER_VERIFICATION; }
     ProviderObservation initiate(ProviderInstruction instruction);
     ProviderObservation verify(ProviderInstruction instruction);
     boolean verifyAuthenticity(byte[] payload, Map<String, String> headers);

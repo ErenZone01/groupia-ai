@@ -53,7 +53,8 @@ public class PaymentWebhooks {
         var work=transactions.prepareWebhook(id);
         if (!work.pending()) { return; }
         ProviderObservation proof=null; boolean failed=false;
-        if (work.observation()!=null && work.observation().status()==PaymentStatus.SUCCEEDED && work.instruction()!=null) {
+        if (work.observation()!=null && work.observation().status()==PaymentStatus.SUCCEEDED && work.instruction()!=null
+                && !providers.acceptsAuthenticatedWebhook(work.provider(),work.instruction().providerAccountReference())) {
             try { proof=providers.require(work.provider()).verify(work.instruction().withTransactionId(work.observation().providerTransactionId())); }
             catch (RuntimeException ex) { failed=true; }
         }

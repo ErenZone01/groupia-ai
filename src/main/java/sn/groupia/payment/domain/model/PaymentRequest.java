@@ -58,9 +58,16 @@ public class PaymentRequest {
     }
     /** Returns the reason for preserving a real success without allocating it. */
     public String allocate(UUID paymentId, Instant now) {
+        String rejection=settlementRejection(paymentId,now);
+        if(rejection!=null){return rejection;}
+        if(settledPaymentId!=null){return null;}
+        settledPaymentId = paymentId; acceptanceStatus = AcceptanceStatus.CLOSED; closedAt = now;
+        return null;
+    }
+    /** Read-only eligibility check, shared by allocation and authoritative webhook validation. */
+    public String settlementRejection(UUID paymentId, Instant now) {
         if (settledPaymentId != null) { return settledPaymentId.equals(paymentId) ? null : "DUPLICATE_SUCCESS"; }
         if (!now.isBefore(expiresAt) || acceptanceStatus != AcceptanceStatus.OPEN) { return "LATE_SUCCESS"; }
-        settledPaymentId = paymentId; acceptanceStatus = AcceptanceStatus.CLOSED; closedAt = now;
         return null;
     }
     public boolean cancel(Instant now) {

@@ -24,7 +24,7 @@ Pas de JWT utilisateur. Corps brut, maximum applicatif 64 Kio ; Bictorys utilise
 
 202 signifie réception persistée/prise en charge, pas commande confirmée. Un événement authentique incohérent peut donc répondre 202 avec REVIEW_REQUIRED en interne. Authenticité invalide : 401 PAYMENT_AUTHENTICITY_FAILED, empreinte conservée IGNORED, aucun changement financier. Une erreur transactionnelle répond 500 ; la réception initiale reste durable et sera reprise. Une panne DB avant persistance exige la redélivrance par le provider.
 
-Le serveur déduplique les eventId fiables dans leur périmètre provider/compte. Sans eventId, l'empreinte évite le rejeu du même corps, et les verrous/invariants empêchent le double règlement de corps différents. Un succès exige une vérification auprès du provider et une égalité exacte montant/devise/références.
+Le serveur déduplique les eventId fiables dans leur périmètre provider/compte. Sans eventId, l'empreinte évite le rejeu du même corps, et les verrous/invariants empêchent le double règlement de corps différents. Par défaut, un succès exige une vérification serveur auprès du provider. Pour Bictorys, le webhook authentifié constitue la preuve principale après validation exacte des références, montants, devises, provider/compte, unicité de transaction et éligibilité de la demande. Aucun GET ne conditionne ce règlement ; la réconciliation reste disponible séparément. Voir [ADR-0014](../adr/0014-bictorys-authoritative-webhooks.md).
 
 ## Consultation organisateur
 

@@ -21,7 +21,7 @@ Maven Surefire force `groupia.payment.bictorys.enabled=false` avant l'évaluatio
 - 201 : `transactionId`, `link`, éventuellement merchantReference/statut. 202 : `chargeId`, `link`, éventuellement `opToken`. Les fixtures suivent les schémas ConfirmationLinkObject/CheckoutLinkObject de la référence API. `chargeId` est distinct de `transactionId`.
 - Le reçu privé expose `checkoutUrl` lorsque la tentative est PENDING et sans anomalie. URL HTTPS Bictorys validée, persistée pour le rejeu d'initiation. Elle peut contenir un jeton d'opération : ne pas la journaliser ni la partager. Les redirects ne sont pas configurés ; `redirectUrl` seul n'est ni un lien de checkout fiable ni une preuve de règlement.
 - Une réponse d'initiation est un accusé de réception, jamais une confirmation financière. Les champs attendus utilisés pour représenter cet accusé ne servent pas de preuve de débit.
-- Vérification : `GET /pay/v1/transactions/{transactionId}/status`. Si cette réponse ne contient que le statut, lecture complémentaire documentée `GET /pay/v1/transactions/{transactionId}` pour obtenir les preuves financières. Les deux doivent être cohérentes. Aucun appel `GET /pay/v1/charges/{id}` ; aucun polling permanent.
+- Réconciliation ponctuelle : `GET /pay/v1/transactions/{transactionId}/status`. Si cette réponse ne contient que le statut, lecture complémentaire documentée `GET /pay/v1/transactions/{transactionId}` pour obtenir les preuves financières. Les deux doivent être cohérentes. Aucun de ces GET ne conditionne l'acceptation d'un webhook Bictorys authentifié et intégralement validé. Aucun appel `GET /pay/v1/charges/{id}` ; aucun polling permanent.
 - Réponse incomplète/contradictoire, HTTP 4xx/5xx, HTML, coupure ou timeout : état incertain, jamais FAILED déduit d'un transport. Aucun retry automatique du POST d'initiation. Claim commité avant appel, résultat dans une transaction distincte.
 
 La documentation présente des exemples parfois divergents (notamment redirectUrl/link et statut seul/détails). Les contrats testés sont précisés dans les fixtures. Le premier essai sandbox doit confirmer les réponses réellement servies au compte ; si elles divergent, conserver l'anomalie, anonymiser un exemple et adapter explicitement le contrat, sans assouplir les vérifications financières.
@@ -30,7 +30,7 @@ La documentation présente des exemples parfois divergents (notamment redirectUr
 
 | Bictorys | Traitement Groupia |
 | --- | --- |
-| success, succeeded ; réussi dans l'exemple historique | Candidat SUCCEEDED, vérification serveur et contrôles financiers obligatoires |
+| success, succeeded ; réussi dans l'exemple historique | Candidat SUCCEEDED, authenticité et contrôles financiers complets obligatoires |
 | pending, processing | PENDING |
 | failed | FAILED ; ne régresse pas un succès |
 | cancelled | CANCELLED ; ne régresse pas un succès |
@@ -42,7 +42,7 @@ La documentation présente des exemples parfois divergents (notamment redirectUr
 
 Route : `POST /api/payment/webhooks/bictorys`. `X-Secret-Key` comparé avec MessageDigest.isEqual sur les octets UTF-8, avant parsing. Header absent/incorrect : 401 PAYMENT_AUTHENTICITY_FAILED ; seule l'empreinte de réception est conservée, aucun effet financier. Une réception authentique persistée répond 202 : cela ne signifie pas que le paiement est confirmé. Secrets, payload brut et customerObject ne sont pas stockés dans les réceptions ni journalisés.
 
-Forme racine : id, merchantReference, paymentReference, amount numérique, currency, status, timestamp ISO facultatif ; type payment lorsqu'il est présent. Variante historique : event=charge.successful et objet data, avec id numérique ou texte, amount, currency, status et reference. Le type historique mobile_money est accepté. data.reference est une référence lisible, jamais un remplacement de merchantReference. L'exemple historique dépourvu de merchantReference est conservé en UNKNOWN_REFERENCE, sans confirmation automatique. Un objet data arbitraire est rejeté.
+Forme racine : id, merchantReference, paymentReference, amount numérique, currency, status, timestamp ISO facultatif ; type payment lorsqu'il est présent. Variante historique : event=charge.successful et objet data, avec id numérique ou texte, amount, currency, status et reference. Le type historique mobile_money est accepté. data.reference ne remplace ni merchantReference ni paymentReference pour un succès webhook. L'exemple historique dépourvu de merchantReference est conservé en UNKNOWN_REFERENCE, sans confirmation automatique. Un objet data arbitraire est rejeté.
 
 `id` est l'identifiant de transaction, `event` un type d'événement : aucun des deux n'est un identifiant unique de livraison. providerEventId reste null pour ces contrats. Déduplication par empreinte puis idempotence financière existante. Même secret valide : montant, devise, référence, cible et transaction doivent correspondre ; les incohérences sont enregistrées pour investigation.
 
@@ -51,15 +51,16 @@ Forme racine : id, merchantReference, paymentReference, amount numérique, curre
 Un timestamp textuel valide reste lu avec `Instant.parse()`. Si cette lecture
 échoue sur un webhook normalisé `SUCCEEDED`, `occurredAt` reste null et toutes
 les autres preuves sont conservées. Le WARN émis contient uniquement les constantes
-`provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_VERIFIED_SUCCESS`.
-Cette action décrit la tolérance de parsing, pas un succès déjà vérifié.
+`provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_AUTHENTICATED_SUCCESS`.
+Cette action décrit la tolérance de parsing, pas un règlement déjà effectué.
 
-Le traitement exige toujours l'authentification, la résolution par
-`merchantReference`, puis `verify(transactionId)` côté serveur. Identifiant de
-transaction, références marchand/commande, montant, devise et statut serveur
-`SUCCEEDED` doivent correspondre avant le règlement. Une panne, un statut
-`PENDING` ou une preuve incompatible laisse le paiement en attente avec anomalie,
-sans événement `PaymentRequestSettled` ni confirmation de commande.
+Le traitement exige l'authentification, la résolution par `merchantReference`,
+puis la corrélation et la validation financière sous verrous. Provider et compte,
+identifiant de transaction valide/unique, références marchand/commande explicites,
+montants et devises attendus et statut `SUCCEEDED` doivent correspondre. La demande
+doit encore être éligible. Aucune dépendance à `/status` ou aux détails de transaction :
+un statut ponctuel PENDING ne bloque plus un webhook fiable. Une preuve webhook
+incompatible impose une revue sans règlement. Voir [ADR-0014](../adr/0014-bictorys-authoritative-webhooks.md).
 
 Tous les autres statuts conservent `BICTORYS_INVALID_TIMESTAMP` et la revue
 manuelle. Les contrôles de type des champs restent identiques. La tolérance est

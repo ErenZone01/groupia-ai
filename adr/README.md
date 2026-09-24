@@ -42,3 +42,7 @@ preuves financières, authorized/reversed et limite de reprise sans transactionI
 [ADR-0013](0013-openapi-and-postman-workflow.md), daté du 22 septembre 2026 :
 contrats OpenAPI, documentation GET accessible, parcours Postman local en phases,
 clés de reprise conservées et négatifs séparés. Aucune règle métier modifiée.
+
+[ADR-0014](0014-bictorys-authoritative-webhooks.md), daté du 24 septembre 2026 :
+webhook Bictorys authentifié et intégralement validé comme preuve principale,
+politique explicite par provider, réconciliation conservée et éligibilité préalable.

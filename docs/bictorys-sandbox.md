@@ -46,6 +46,30 @@ Forme racine : id, merchantReference, paymentReference, amount numérique, curre
 
 `id` est l'identifiant de transaction, `event` un type d'événement : aucun des deux n'est un identifiant unique de livraison. providerEventId reste null pour ces contrats. Déduplication par empreinte puis idempotence financière existante. Même secret valide : montant, devise, référence, cible et transaction doivent correspondre ; les incohérences sont enregistrées pour investigation.
 
+### Timestamp du webhook SUCCEEDED
+
+Un timestamp textuel valide reste lu avec `Instant.parse()`. Si cette lecture
+échoue sur un webhook normalisé `SUCCEEDED`, `occurredAt` reste null et toutes
+les autres preuves sont conservées. Le WARN émis contient uniquement les constantes
+`provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_VERIFIED_SUCCESS`.
+Cette action décrit la tolérance de parsing, pas un succès déjà vérifié.
+
+Le traitement exige toujours l'authentification, la résolution par
+`merchantReference`, puis `verify(transactionId)` côté serveur. Identifiant de
+transaction, références marchand/commande, montant, devise et statut serveur
+`SUCCEEDED` doivent correspondre avant le règlement. Une panne, un statut
+`PENDING` ou une preuve incompatible laisse le paiement en attente avec anomalie,
+sans événement `PaymentRequestSettled` ni confirmation de commande.
+
+Tous les autres statuts conservent `BICTORYS_INVALID_TIMESTAMP` et la revue
+manuelle. Les contrôles de type des champs restent identiques. La tolérance est
+limitée aux webhooks : le parsing des réponses serveur de `verify()` reste strict.
+Aucune date de succès n'est inventée à partir de la chaîne invalide.
+
+Aucune reprise des anciennes lignes n'est ajoutée : un receipt déjà en
+`REVIEW_REQUIRED` y reste, même en cas de redélivrance identique dédupliquée.
+Cette modification ne force aucun paiement existant et ne modifie aucune migration.
+
 Un reversal reste visible même après un succès/échec tardif ou une vérification indisponible. Aucun remboursement ni changement de commande automatique. Les reprises et limites à cinq essais des réceptions restent celles du [runbook financier](payment-operations.md).
 
 ## Premier paiement sandbox de bout en bout
@@ -156,8 +180,8 @@ observation nulle et aucun effet financier. Relever son UUID, `last_error_code` 
 le WARN `Webhook parsing failed` : les noms de champs et leurs types permettent
 de comparer la variante réelle au contrat attendu sans copier le payload ni les
 secrets. Une redélivrance identique peut préciser un ancien receipt ambigu
-`UNKNOWN_REFERENCE` sans observation. Les règles de parsing restent strictement
-identiques ; l'adaptation du contrat réel fera l'objet d'une modification distincte.
+`UNKNOWN_REFERENCE` sans observation. La seule tolérance introduite ensuite
+concerne le timestamp textuel d'un webhook `SUCCEEDED`, selon les règles ci-dessus.
 Voir les limites et les codes dans le [runbook](payment-operations.md#échecs-de-parsing-des-webhooks-authentiques).
 
 Un opérateur habilité peut appeler la méthode interne PaymentService.reconcile(paymentId) depuis un outil d'exploitation contrôlé ; elle effectue uniquement les GET documentés, hors transaction, et repasse par les invariants financiers. Aucun endpoint public de force-success ou de réconciliation administrative n'a été ajouté. Les requêtes SQL de diagnostic en lecture seule sont dans le [runbook](payment-operations.md).

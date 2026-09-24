@@ -1,6 +1,9 @@
 package sn.groupia.payment.infrastructure.provider.bictorys;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import org.slf4j.LoggerFactory;
+import sn.groupia.payment.api.PaymentStatus;
 import tools.jackson.databind.*;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.core.StreamReadFeature;
@@ -24,8 +27,9 @@ final class BictorysWebhookParser {
         }
         return root;
     }
-    ProviderObservation parse(byte[] body) {return observation(transactionNode(body));}
-    ProviderObservation observation(JsonNode node) {
+    ProviderObservation parse(byte[] body) {return observation(transactionNode(body),true);}
+    ProviderObservation observation(JsonNode node) {return observation(node,false);}
+    private ProviderObservation observation(JsonNode node,boolean webhook) {
         String id=identifier(node,"id"),status=text(node,"status"),currency=text(node,"currency");
         if(id==null || status==null || currency==null || !node.path("amount").isNumber()) {
             throw new BictorysException("BICTORYS_INCOMPLETE_EVIDENCE");
@@ -38,7 +42,15 @@ final class BictorysWebhookParser {
         Instant occurred=null;
         String timestamp=text(node,"timestamp");
         if(timestamp!=null) {
-            try {occurred=Instant.parse(timestamp);}catch(RuntimeException ex){throw new BictorysException("BICTORYS_INVALID_TIMESTAMP");}
+            try {occurred=Instant.parse(timestamp);}
+            catch(DateTimeParseException ex) {
+                if(!webhook || state.status()!=PaymentStatus.SUCCEEDED) {
+                    throw new BictorysException("BICTORYS_INVALID_TIMESTAMP");
+                }
+                // This observation remains unverified: PaymentWebhooks must obtain server proof before settlement.
+                LoggerFactory.getLogger(BictorysWebhookParser.class).warn(
+                        "provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_VERIFIED_SUCCESS");
+            }
         }
         String reference=text(node,"paymentReference");
         // Historical data.reference is a display reference only, never a merchantReference fallback.

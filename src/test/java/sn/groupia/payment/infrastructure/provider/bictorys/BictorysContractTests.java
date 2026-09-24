@@ -102,6 +102,47 @@ class BictorysContractTests {
         var event=provider.parse(fixture("webhook-root"));
         assertThat(event.providerEventId()).isNull();assertThat(event.observation().metadata().paymentReference()).isEqualTo("GRP-000000000001");
     }
+    @Test void succeededWebhookKeepsValidIsoTimestamp()throws Exception {
+        assertThat(provider.parse(fixture("webhook-root")).observation().occurredAt())
+                .isEqualTo(java.time.Instant.parse("2026-03-01T12:05:00Z"));
+    }
+    @Test void succeededWebhookIgnoresUnparseableTimestampWithoutLoggingItsValue()throws Exception {
+        var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(BictorysWebhookParser.class);
+        var logs=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        logs.start();logger.addAppender(logs);
+        try {
+            var expected=provider.parse(fixture("webhook-root")).observation();
+            var actual=provider.parse(invalidTimestamp(body("webhook-root"))).observation();
+            assertThat(actual.occurredAt()).isNull();
+            assertThat(actual).usingRecursiveComparison().ignoringFields("occurredAt").isEqualTo(expected);
+            assertThat(logs.list).hasSize(1);
+            assertThat(logs.list.getFirst().getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+            assertThat(logs.list.getFirst().getThrowableProxy()).isNull();
+            assertThat(logs.list.getFirst().getFormattedMessage()).isEqualTo(
+                    "provider=BICTORYS code=BICTORYS_INVALID_TIMESTAMP action=IGNORED_FOR_VERIFIED_SUCCESS");
+            assertThat(logs.list.getFirst().getArgumentArray()).isNullOrEmpty();
+        } finally {logger.detachAppender(logs);logs.stop();}
+    }
+    @ParameterizedTest @ValueSource(strings={"failed","cancelled","expired","pending","authorized","reversed","unexpected"})
+    void otherStatusesStillRejectUnparseableTimestamp(String status)throws Exception {
+        assertThatThrownBy(()->provider.parse(invalidTimestamp(body("webhook-root").replace("succeeded",status))))
+                .hasMessage("BICTORYS_INVALID_TIMESTAMP");
+    }
+    @ParameterizedTest @ValueSource(strings={"id","amount","currency","status","paymentReference","merchantReference"})
+    void ignoredTimestampDoesNotRelaxFinancialFieldTypes(String field)throws Exception {
+        var node=(tools.jackson.databind.node.ObjectNode)parser.root(invalidTimestamp(body("webhook-root")));
+        node.putObject(field).put("sensitive","never-coerce");
+        assertThatThrownBy(()->provider.parse(node.toString().getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(BictorysException.class);
+    }
+    @Test void serverVerificationStillRejectsUnparseableTimestamp()throws Exception {
+        http.reply(200,new String(invalidTimestamp(body("webhook-root")),StandardCharsets.UTF_8));
+        assertThatThrownBy(()->provider.verify(instruction)).hasMessage("BICTORYS_INVALID_TIMESTAMP");
+    }
+    private byte[] invalidTimestamp(String body) {
+        return body.replace("2026-03-01T12:05:00Z","private@example.test +221779999999 secret-value")
+                .getBytes(StandardCharsets.UTF_8);
+    }
     @ParameterizedTest @ValueSource(strings={"{}","[]","not-json","{\"data\":{}}","{\"id\":\"a\",\"id\":\"b\"}"})
     void undocumentedOrMalformedShapesAreRejected(String body) {
         assertThatThrownBy(()->provider.parse(body.getBytes(StandardCharsets.UTF_8))).isInstanceOf(BictorysException.class);

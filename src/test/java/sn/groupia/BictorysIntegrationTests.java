@@ -223,7 +223,7 @@ class BictorysIntegrationTests {
             case "BICTORYS_UNKNOWN_ENVELOPE" -> payload=json.writeValueAsString(Map.of("event","undocumented","data",node));
             case "BICTORYS_INCOMPLETE_EVIDENCE" -> {node.put("amount","2300");payload=json.writeValueAsString(node);}
             case "BICTORYS_UNSUPPORTED_EVENT" -> {node.put("type","refund");payload=json.writeValueAsString(node);}
-            case "BICTORYS_INVALID_TIMESTAMP" -> {node.put("timestamp","private@example.test");payload=json.writeValueAsString(node);}
+            case "BICTORYS_INVALID_TIMESTAMP" -> {node.put("status","failed");node.put("timestamp","private@example.test");payload=json.writeValueAsString(node);}
             case "BICTORYS_INVALID_FIELD" -> {node.putObject("currency").put("secret","payload-sensitive-value");payload=json.writeValueAsString(node);}
             case "BICTORYS_INVALID_IDENTIFIER" -> {node.put("id","+221779999999");payload=json.writeValueAsString(node);}
             default -> throw new AssertionError(code);
@@ -277,6 +277,77 @@ class BictorysIntegrationTests {
         assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("BICTORYS_INCOMPLETE_EVIDENCE");
         assertThat(jdbc.queryForObject("select payment_id from payment_webhook_events",UUID.class)).isNull();
         assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
+    }
+    @ParameterizedTest
+    @ValueSource(strings={"httpFailure","pending","id","merchantReference","paymentReference","amount","currency"})
+    void ignoredTimestampCannotSettleWithoutConsistentServerSuccess(String scenario) throws Exception {
+        var id=start();
+        var proof=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
+        switch(scenario) {
+            case "pending" -> proof.put("status","pending");
+            case "id" -> proof.put("id","different-transaction");
+            case "merchantReference" -> proof.put("merchantReference","GP-other");
+            case "paymentReference" -> proof.put("paymentReference","GRP-other");
+            case "amount" -> proof.put("amount",2301);
+            case "currency" -> proof.put("currency","EUR");
+            case "httpFailure" -> { }
+            default -> throw new AssertionError(scenario);
+        }
+        http.reply(scenario.equals("httpFailure")?500:200,json.writeValueAsString(proof));
+        deliver(successWithInvalidTimestamp(id),false).andExpect(status().isAccepted());
+        assertThat(http.requests).hasSize(2);
+        assertThat(http.requests.getLast().method()).isEqualTo("GET");
+        assertThat(http.requests.getLast().path()).isEqualTo("/pay/v1/transactions/"+providerIds.get(id)+"/status");
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");
+        assertThat(reason(id)).isEqualTo("PROVIDER_STATE_UNCERTAIN");
+        assertThat(jdbc.queryForObject("select acceptance_status from payment_requests",String.class)).isEqualTo("OPEN");
+        assertThat(jdbc.queryForObject("select settled_payment_id from payment_requests",UUID.class)).isNull();
+        assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(settlementCount()).isZero();
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("RETRYABLE_FAILURE");
+        assertThat(jdbc.queryForObject("select observation->>'occurredAt' from payment_webhook_events",String.class)).isNull();
+        assertThat(jdbc.queryForObject("select observation->>'providerTransactionId' from payment_webhook_events",String.class))
+                .isEqualTo(providerIds.get(id));
+    }
+    @Test void ignoredTimestampSettlesOnlyAfterVerifiedSuccessAndDuplicateIsIdempotent() throws Exception {
+        var id=start();String payload=successWithInvalidTimestamp(id);
+        http.reply(200,event(id,"succeeded"));
+        deliver(payload,false).andExpect(status().isAccepted());awaitConfirmed();
+        assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");assertThat(reason(id)).isNull();
+        assertThat(jdbc.queryForObject("select acceptance_status from payment_requests",String.class)).isEqualTo("CLOSED");
+        assertThat(jdbc.queryForObject("select settled_payment_id from payment_requests",UUID.class)).isEqualTo(id);
+        assertThat(jdbc.queryForObject("select observation->>'occurredAt' from payment_webhook_events",String.class)).isNull();
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("PROCESSED");
+        assertThat(settlementCount()).isEqualTo(1);
+        assertThat(applicationEvents.stream(PaymentRequestSettled.class)).hasSize(1);
+        deliver(payload,false).andExpect(status().isAccepted());
+        webhooks.retryPending();
+        assertThat(count("payment_webhook_events")).isEqualTo(1);assertThat(settlementCount()).isEqualTo(1);
+        assertThat(http.requests).hasSize(2);
+        assertThat(http.requests.getLast().path()).isEqualTo("/pay/v1/transactions/"+providerIds.get(id)+"/status");
+        assertThat(orderStatus()).isEqualTo("CONFIRMED");
+    }
+    @Test void ignoredTimestampCannotBypassAuthentication() throws Exception {
+        var id=start();
+        mvc.perform(post("/api/payment/webhooks/bictorys").contentType(MediaType.APPLICATION_JSON)
+                .content(successWithInvalidTimestamp(id)).header("X-Secret-Key","wrong-secret"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("PAYMENT_AUTHENTICITY_FAILED"));
+        assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("PAYMENT_AUTHENTICITY_FAILED");
+        assertThat(jdbc.queryForObject("select observation from payment_webhook_events",String.class)).isNull();
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
+        assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(http.requests).hasSize(1);
+    }
+    @Test void ignoredTimestampCannotResolveUnknownMerchantReference() throws Exception {
+        var id=start();
+        deliver(successWithInvalidTimestamp(id).replace(merchant(id),"GP-unknown"),false).andExpect(status().isAccepted());
+        assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("UNKNOWN_REFERENCE");
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
+        assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");assertThat(http.requests).hasSize(1);
+    }
+    private String successWithInvalidTimestamp(UUID id) throws Exception {
+        var node=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
+        node.put("timestamp","private@example.test +221779999999 secret-value");
+        return json.writeValueAsString(node);
     }
     private static class ParsingLogs implements AutoCloseable {
         private final ch.qos.logback.classic.Logger logger=(ch.qos.logback.classic.Logger)LoggerFactory.getLogger(PaymentWebhooks.class);

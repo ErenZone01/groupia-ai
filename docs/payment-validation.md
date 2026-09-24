@@ -98,3 +98,35 @@ par Maven avant le run réussi ; aucune assertion ni suite n'a été désactivé
 Le parser Bictorys, les preuves financières exigées et les dépendances Maven sont
 inchangés. Aucun appel distant Bictorys n'a été effectué : la variante effectivement
 livrée par le sandbox sera diagnostiquée à sa prochaine livraison authentique.
+
+## Tolérance du timestamp des webhooks SUCCEEDED — 24 septembre 2026
+
+26 cas ajoutés : 16 tests de contrat et 10 tests d'intégration PostgreSQL/HTTP local.
+Ils couvrent le timestamp ISO valide, sa conservation, le timestamp textuel non
+parsable avec `occurredAt=null`, le WARN strictement constant sans arguments ou
+exception, les sept statuts non-SUCCEEDED, les types des six champs financiers et
+le maintien du parsing strict des réponses serveur.
+
+La chaîne complète est testée avec un échec HTTP de `verify`, un statut serveur
+PENDING et cinq incohérences indépendantes (transaction, référence marchand,
+référence commande, montant, devise). Aucun de ces cas ne règle la demande ni ne
+confirme la commande. Une preuve serveur cohérente ferme la demande, publie un
+seul `PaymentRequestSettled` et confirme la commande ; la livraison dupliquée
+reste idempotente. Mauvais secret et référence marchand inconnue sont aussi couverts.
+
+Le cas existant de rejet du timestamp utilise désormais un webhook FAILED,
+conformément à la nouvelle règle ; ses assertions d'absence de modification
+financière sont conservées. Aucune migration ni réparation des lignes existantes
+n'est introduite. Tous les échanges provider de cette validation sont locaux.
+
+Résultats exécutés :
+
+- `.\mvnw.cmd test` : BUILD SUCCESS, 369 tests, 0 échec, 0 erreur, 0 ignoré ; 2 min 37 s.
+- `.\mvnw.cmd verify` : BUILD SUCCESS, mêmes 369 tests ; 2 min 35 s ; JAR exécutable produit.
+- Les trois tests de modularité sont conservés et passent sans exclusion.
+- `git diff --check` : aucune erreur.
+
+Logs locaux : `target/bictorys-timestamp-test.log` et `target/bictorys-timestamp-verify.log`.
+La première passe ciblée avait signalé deux nouvelles assertions utilisant le
+nom SQL `status` au lieu de `acceptance_status` ; elles ont été corrigées avant
+les deux suites complètes réussies. Aucun changement de schéma n'a été nécessaire.

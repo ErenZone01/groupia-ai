@@ -87,7 +87,10 @@ ASCII/underscores (1 à 64 caractères) sont remplacés par un marqueur. Les cl�
 sensibles connues, dont `customerObject`, `checkoutUrl`, les secrets et les headers,
 sont exclues. Aucune valeur, exception, URL de checkout, coordonnée client ou
 payload brut ne figure dans ce diagnostic. Ce contrôle séparé n'alimente jamais
-la validation financière et n'assouplit pas le parser Bictorys.
+la validation financière. La tolérance du timestamp des webhooks `SUCCEEDED`
+est décrite dans le [guide Bictorys](bictorys-sandbox.md#timestamp-du-webhook-succeeded) :
+elle conserve l'obligation de preuve serveur et ne modifie pas ces diagnostics
+pour les autres erreurs de parsing.
 
 Une redélivrance identique conserve le même receipt et ne multiplie pas les essais.
 Décision de compatibilité : elle peut préciser un ancien `UNKNOWN_REFERENCE`

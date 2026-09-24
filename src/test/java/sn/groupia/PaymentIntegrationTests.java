@@ -520,6 +520,18 @@ class PaymentIntegrationTests {
     private String orderStatus(){return jdbc.queryForObject("select status from orders",String.class);}
     private long settlementCount(){return jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled'",Long.class);}
     private long count(String table){return jdbc.queryForObject("select count(*) from "+table,Long.class);}
+
+    @Test void authenticUnclassifiedParseFailureHasSafeFallback() throws Exception {
+        var id=start();
+        byte[] payload="{\"private@example.test\":\"secret-value\"".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        webhooks.receive("SIMULATED",payload,Map.of("X-Test-Signature",provider.signature(payload)));
+        assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("WEBHOOK_PARSE_FAILED");
+        assertThat(jdbc.queryForObject("select processing_status from payment_webhook_events",String.class)).isEqualTo("REVIEW_REQUIRED");
+        assertThat(jdbc.queryForObject("select observation from payment_webhook_events",String.class)).isNull();
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
+    }
+
+
     private String key(){return UUID.randomUUID().toString();}
     private String secret(){return checkout.get("trackingToken").asText();}
     private String paymentPath(){return "/api/public/orders/"+checkout.get("orderNumber").asText()+"/payments";}

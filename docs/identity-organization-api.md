@@ -96,7 +96,7 @@ Content-Type applicatif ProblemDetail (application/problem+json), avec status, t
 | 405 / 415 | METHOD_NOT_ALLOWED / UNSUPPORTED_MEDIA_TYPE | protocole HTTP invalide |
 | 500 | INTERNAL_ERROR | échec inattendu, sans détail technique ni stack trace |
 
-Pour un non-membre, UUID inconnu et organisation existante inaccessible répondent tous deux 403 ; aucun test d'existence préalable ne révèle la différence. Les autres routes restent protégées par défaut, notamment la documentation OpenAPI et Actuator.
+Pour un non-membre, UUID inconnu et organisation existante inaccessible répondent tous deux 403 ; aucun test d'existence préalable ne révèle la différence. Les autres routes restent protégées par défaut, notamment Actuator. Depuis ADR-0013, seuls les GET de documentation OpenAPI/Swagger sont également accessibles sans JWT.
 
 ## Tests et décisions
 
@@ -121,3 +121,9 @@ Les deux commandes demandées ont été exécutées avec succès :
 Répartition : 34 cas de la tranche identity/organization sur PostgreSQL/Testcontainers, 3 tests d'architecture existants et 1 test de démarrage du contexte existant. Le test `ApplicationModules.of(GroupiaApplication.class).verify()` reste inchangé et s'exécute normalement, sans exclusion de module.
 
 Les journaux locaux sont dans `target/final-slice-test.log` et `target/final-slice-verify.log` (non versionnés). Les erreurs SQL provoquées par les tests de doublon, de FK et de rollback sont attendues.
+
+## Documentation HTTP — évolution du 22 septembre 2026
+
+Les GET OpenAPI et Swagger UI sont désormais accessibles sans JWT pour documenter
+et importer les contrats ; Actuator et les routes organisateur restent protégés.
+Voir [ADR-0013](../adr/0013-openapi-and-postman-workflow.md) et le [parcours Postman](../postman/README.md).

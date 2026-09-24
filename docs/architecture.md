@@ -228,3 +228,10 @@ Le premier provider réel est interne à payment.infrastructure.provider.bictory
 désactivé par défaut et limité au sandbox. Le noyau décide des effets financiers ;
 le client HTTP s'exécute hors transaction. Voir [ADR-0012](../adr/0012-bictorys-sandbox-adapter.md)
 et [configuration/parcours manuel](bictorys-sandbox.md). Aucune dépendance Maven ajoutée.
+
+## Contrats HTTP et Postman
+
+Voir [ADR-0013](../adr/0013-openapi-and-postman-workflow.md) et le
+[guide Postman](../postman/README.md). Springdoc 3.1.0 expose une spec OpenAPI 3.0.1,
+avec JWT, suivi privé et secret provider documentés par opération. Les contrôles
+métier restent inchangés ; seule la documentation GET est publique.

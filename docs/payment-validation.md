@@ -72,3 +72,29 @@ Logs locaux : target/bictorys-test.log et target/bictorys-verify.log.
 Aucun paiement distant effectué ; la configuration dashboard/tunnel, la livraison
 externe du webhook et le contrat réellement servi au compte sandbox restent à
 valider par le [parcours manuel](bictorys-sandbox.md). Aucune dépendance Maven ajoutée.
+
+## Observabilité du parsing webhook — 24 septembre 2026
+
+14 cas ajoutés aux 329 tests présents avant cette correction : les sept codes
+Bictorys, secret incorrect puis succès valide, précision d'un ancien receipt
+ambigu à la redélivrance, fallback du provider simulé et quatre cas de diagnostic
+structurel sécurisé. Les tests vérifient notamment l'égalité des lignes Payment
+et Order avant/après erreur, l'absence de publication de règlement, la déduplication,
+l'observation nulle, le code persisté et les logs sans données sensibles.
+
+Les 131 tests ciblés passent. La commande `.\mvnw.cmd test` passe avec 343 tests,
+0 échec, 0 erreur, 0 ignoré (3 min 08 s), dont les trois tests de modularité
+inchangés. Log : `target/webhook-observability-test.log`.
+
+`.\mvnw.cmd verify` : BUILD SUCCESS, mêmes 343 tests sans échec, erreur ou ignoré
+(2 min 50 s), JAR exécutable produit. Log : `target/webhook-observability-verify.log`.
+`git diff --check` : aucune erreur.
+
+La première exécution complète a rencontré une classe de test remplacée pendant
+le run et contenant `Unresolved compilation problem: TestcontainersConfiguration
+cannot be resolved to a type`. Les classes de test générées ont été reconstruites
+par Maven avant le run réussi ; aucune assertion ni suite n'a été désactivée.
+
+Le parser Bictorys, les preuves financières exigées et les dépendances Maven sont
+inchangés. Aucun appel distant Bictorys n'a été effectué : la variante effectivement
+livrée par le sandbox sera diagnostiquée à sa prochaine livraison authentique.

@@ -38,3 +38,7 @@ convergence des contraintes par une nouvelle migration 008, sans perte de donné
 [ADR-0012](0012-bictorys-sandbox-adapter.md), daté du 22 septembre 2026 :
 adaptateur Bictorys sandbox, charge distincte de transaction, checkout privé,
 preuves financières, authorized/reversed et limite de reprise sans transactionId.
+
+[ADR-0013](0013-openapi-and-postman-workflow.md), daté du 22 septembre 2026 :
+contrats OpenAPI, documentation GET accessible, parcours Postman local en phases,
+clés de reprise conservées et négatifs séparés. Aucune règle métier modifiée.

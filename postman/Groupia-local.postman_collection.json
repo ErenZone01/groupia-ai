@@ -1,0 +1,1492 @@
+{
+  "info": {
+    "name": "Groupia Local — E2E",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Workflow local A (creation et initiation), B (apres paiement manuel) ou N (negatifs). Variables de run a conserver. Aucun appel direct Bictorys ni webhook simule. Voir README.md."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const phase=pm.environment.get(\"runPhase\") || \"A\";",
+          "if(![\"A\",\"B\",\"N\"].includes(phase)) { pm.execution.setNextRequest(null); throw new Error(\"runPhase doit valoir A, B ou N.\"); }",
+          "if(!pm.info.requestName.startsWith(phase+\" |\")) { pm.execution.skipRequest(); }",
+          "else {",
+          " if(!/^http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/?$/.test(pm.environment.get(\"baseUrl\") || \"\")) {",
+          "   pm.execution.setNextRequest(null);throw new Error(\"baseUrl doit designer Groupia local, jamais Bictorys.\");",
+          " }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "let document;",
+          "try { document=pm.response.json(); } catch(e) { pm.execution.setNextRequest(null);throw new Error(\"Reponse JSON attendue : verifier le serveur Groupia.\"); }",
+          "const forbidden=/^(password|passwordHash|password_hash|apiKey|api_key|webhookSecret|webhook_secret|privateKey|private_key|providerIdempotencyKey|trackingTokenHash|tracking_token_hash|authorization|x-secret-key)$/i;",
+          "const found=[];",
+          "function scan(value) { if(value && typeof value===\"object\") { Object.keys(value).forEach(key=>{if(forbidden.test(key))found.push(key);scan(value[key]);}); } }",
+          "if(!pm.info.requestName.endsWith(\"Setup et OpenAPI\"))scan(document);",
+          "pm.test(\"Aucun champ de secret interne dans la reponse\",()=>pm.expect(found.length).to.eql(0));",
+          "if(found.length) {pm.execution.setNextRequest(null);throw new Error(\"Champ sensible interne expose.\");}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Health / Setup",
+      "item": [
+        {
+          "name": "A | Setup et OpenAPI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v3/api-docs",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "for(const name of [\"phoneNumber\",\"password\"]) {if(!pm.environment.get(name)){pm.execution.setNextRequest(null);throw new Error(\"Renseigner localement \"+name+\" dans Groupia Local.\");}}",
+                  "",
+                  "if(pm.environment.get(\"checkoutIdempotencyKey\") && pm.environment.get(\"newScenario\")!==\"true\") {",
+                  " pm.execution.setNextRequest(null);throw new Error(\"Scenario precedent conserve. Utiliser B/N, ou reprendre la requete exacte avec sa cle. Pour un nouvel achat volontaire seulement : newScenario=true.\");",
+                  "}",
+                  "[\"accessToken\",\"organizationId\",\"productId\",\"variantId\",\"campaignId\",\"campaignPublicIdentifier\",\"offerId\",\"campaignVersion\",\"priceRevision\",\"orderId\",\"orderNumber\",\"trackingToken\",\"paymentRequestId\",\"paymentId\",\"providerTransactionId\",\"checkoutUrl\",\"idempotencyKey\",\"checkoutIdempotencyKey\",\"paymentIdempotencyKey\",\"checkoutBody\",\"initialAmountDue\",\"negativeCampaignId\",\"negativeCampaignPublicIdentifier\",\"negativeCampaignVersion\",\"negativeOfferId\",\"negativeIdempotencyKey\",\"trackingAttempts\"].forEach(k=>pm.environment.set(k,\"\"));",
+                  "pm.environment.set(\"newScenario\",\"false\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "check(\"Specification OpenAPI 3\", /^3\\./.test(r.openapi));check(\"Route checkout documentee\",Boolean(r.paths[\"/api/public/groupings/{publicIdentifier}/checkout\"]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "A | Register ou compte existant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "for(const name of [\"phoneNumber\",\"password\"]) {if(!pm.environment.get(name)){pm.execution.setNextRequest(null);throw new Error(\"Renseigner localement \"+name+\" dans Groupia Local.\");}}",
+                  "",
+                  "pm.variables.set(\"requestBody\", JSON.stringify({phoneNumber:pm.environment.get(\"phoneNumber\"),password:pm.environment.get(\"password\"),...(pm.environment.get(\"email\")?{email:pm.environment.get(\"email\")}:{})}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "",
+                  "check(\"Inscription creee ou telephone deja inscrit\",pm.response.code===201 || (pm.response.code===409 && r.code===\"PHONE_ALREADY_REGISTERED\"));",
+                  "if(pm.response.code===201)check(\"Compte actif avec ID\",Boolean(r.id) && r.status===\"ACTIVE\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "for(const name of [\"phoneNumber\",\"password\"]) {if(!pm.environment.get(name)){pm.execution.setNextRequest(null);throw new Error(\"Renseigner localement \"+name+\" dans Groupia Local.\");}}",
+                  "",
+                  "pm.variables.set(\"requestBody\", JSON.stringify({phoneNumber:pm.environment.get(\"phoneNumber\"),password:pm.environment.get(\"password\")}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "save(\"accessToken\",r.accessToken);check(\"Bearer JWT\",r.tokenType===\"Bearer\" && r.expiresIn>0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Health authentifie",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "check(\"Application UP\",r.status===\"UP\");"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "02 - Organization",
+      "item": [
+        {
+          "name": "A | Creer organization",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", \"{\\\"name\\\":\\\"Groupia E2E Test\\\"}\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(201);",
+                  "save(\"organizationId\",r.id);check(\"Organisation XOF active\",r.status===\"ACTIVE\" && r.defaultCurrency===\"XOF\");"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "03 - Catalog",
+      "item": [
+        {
+          "name": "A | Creer produit et variante DEFAULT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/products",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", \"{\\\"name\\\":\\\"Produit Test Groupia\\\"}\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(201);",
+                  "save(\"productId\",r.id);check(\"Organisation correcte\",r.organizationId===pm.environment.get(\"organizationId\"));check(\"Variante par defaut unique\",r.variants.length===1);save(\"variantId\",r.variants[0].id);check(\"Variante active\",r.variants[0].active===true);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "04 - Grouping",
+      "item": [
+        {
+          "name": "A | Creer campagne DRAFT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/grouping-campaigns",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", \"{\\\"title\\\":\\\"Campagne E2E Groupia\\\",\\\"shippingTerms\\\":{\\\"transportMode\\\":\\\"AIR\\\",\\\"shippingPricingMethod\\\":\\\"FIXED\\\",\\\"shippingCollectionMode\\\":\\\"AFTER_FINAL_ASSESSMENT\\\",\\\"shippingRate\\\":1000,\\\"shippingCurrency\\\":\\\"XOF\\\"}}\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(201);",
+                  "save(\"campaignId\",r.id);save(\"campaignPublicIdentifier\",r.publicIdentifier);pm.environment.set(\"campaignVersion\",r.version);check(\"Campagne DRAFT\",r.status===\"DRAFT\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Ajouter offre 1000 XOF",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/grouping-campaigns/{{campaignId}}/offers",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", JSON.stringify({campaignVersion:Number(pm.environment.get(\"campaignVersion\")),productVariantId:pm.environment.get(\"variantId\"),unitPrice:1000}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "check(\"Offre unique\",r.offers.length===1);save(\"offerId\",r.offers[0].id);pm.environment.set(\"campaignVersion\",r.version);pm.environment.set(\"priceRevision\",r.offers[0].priceRevision);check(\"Prix 1000 XOF\",r.offers[0].unitPrice===1000 && r.offers[0].currency===\"XOF\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Ouvrir campagne",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/grouping-campaigns/{{campaignId}}/open",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", JSON.stringify({version:Number(pm.environment.get(\"campaignVersion\"))}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "pm.environment.set(\"campaignVersion\",r.version);check(\"Campagne OPEN\",r.status===\"OPEN\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Storefront public",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/groupings/{{campaignPublicIdentifier}}",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "check(\"Offre publique disponible\",r.offers.some(o=>o.offerId===pm.environment.get(\"offerId\") && o.unitPrice===1000));check(\"Devise XOF\",r.currency===\"XOF\");"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "05 - Public Checkout",
+      "item": [
+        {
+          "name": "A | Checkout public",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutIdempotencyKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/groupings/{{campaignPublicIdentifier}}/checkout",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(!pm.environment.get(\"checkoutIdempotencyKey\"))pm.environment.set(\"checkoutIdempotencyKey\",pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "pm.environment.set(\"idempotencyKey\",pm.environment.get(\"checkoutIdempotencyKey\"));",
+                  "if(!pm.environment.get(\"checkoutBody\"))pm.environment.set(\"checkoutBody\",JSON.stringify({",
+                  "contact:{firstName:pm.environment.get(\"firstName\"),lastName:pm.environment.get(\"lastName\"),phone:pm.environment.get(\"phoneNumber\"),...(pm.environment.get(\"email\")?{email:pm.environment.get(\"email\")}:{})},",
+                  "lines:[{offerId:pm.environment.get(\"offerId\"),quantity:1,expectedUnitPrice:1000,expectedPriceRevision:Number(pm.environment.get(\"priceRevision\"))}]",
+                  "}));",
+                  "",
+                  "pm.variables.set(\"requestBody\", pm.environment.get(\"checkoutBody\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "",
+                  "check(\"Checkout cree ou rejeu connu\",pm.response.code===201 || (pm.response.code===200 && r.replayed===true));",
+                  "if(pm.response.code===201){save(\"orderNumber\",r.orderNumber);save(\"trackingToken\",r.trackingToken);pm.environment.set(\"initialAmountDue\",r.initialAmountDue);check(\"Commande PENDING_PAYMENT XOF montant positif\",r.status===\"PENDING_PAYMENT\" && r.currency===\"XOF\" && r.initialAmountDue>0);}",
+                  "else{check(\"Token deja conserve pour cette commande\",r.orderNumber===pm.environment.get(\"orderNumber\") && Boolean(pm.environment.get(\"trackingToken\"))); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Tracking avant paiement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Order-Tracking-Token",
+                "value": "{{trackingToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orders/track",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "check(\"Commande attendue encore PENDING_PAYMENT\",r.orderNumber===pm.environment.get(\"orderNumber\") && r.status===\"PENDING_PAYMENT\");check(\"Token non reexpose\",!r.trackingToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Payments",
+      "item": [
+        {
+          "name": "A | Retrouver ID interne commande",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/orders?campaignId={{campaignId}}&size=100",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "const order=r.items.find(o=>o.orderNumber===pm.environment.get(\"orderNumber\"));check(\"Commande retrouvee\",Boolean(order));save(\"orderId\",order.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Retrouver obligation initiale",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/payment-requests?size=100",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "const obligation=r.items.find(p=>p.orderId===pm.environment.get(\"orderId\") && p.purpose===\"INITIAL_ORDER\");check(\"Obligation retrouvee\",Boolean(obligation));save(\"paymentRequestId\",obligation.id);check(\"Obligation ouverte et coherente\",obligation.acceptanceStatus===\"OPEN\" && obligation.expectedAmount===Number(pm.environment.get(\"initialAmountDue\")) && obligation.currency===\"XOF\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Initier paiement Bictorys",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Order-Tracking-Token",
+                "value": "{{trackingToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{paymentIdempotencyKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orders/{{orderNumber}}/payments",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(!pm.environment.get(\"paymentIdempotencyKey\"))pm.environment.set(\"paymentIdempotencyKey\",pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "pm.environment.set(\"idempotencyKey\",pm.environment.get(\"paymentIdempotencyKey\"));",
+                  "",
+                  "pm.variables.set(\"requestBody\", \"{\\\"provider\\\":\\\"bictorys\\\"}\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "save(\"paymentId\",r.id);check(\"Paiement en attente sans anomalie\",r.status===\"PENDING\" && !r.reconciliationRequired);check(\"Montant et devise attendus\",r.expectedAmount===Number(pm.environment.get(\"initialAmountDue\")) && r.currency===\"XOF\");save(\"checkoutUrl\",r.checkoutUrl);check(\"Checkout HTTPS Bictorys\",/^https:\\/\\/pay(\\.test)?\\.bictorys\\.com\\//.test(r.checkoutUrl));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A | Recu financier et pause manuelle",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/payment-requests/{{paymentRequestId}}",
+            "description": "Fin PHASE A. Conserver les variables du Runner. Ouvrir checkoutUrl manuellement, payer sur Bictorys sandbox, puis runPhase=B. Aucun webhook simule."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "",
+                  "const attempt=r.attempts.find(a=>a.id===pm.environment.get(\"paymentId\"));",
+                  "check(\"Tentative BICTORYS retrouvee\",Boolean(attempt) && attempt.provider===\"BICTORYS\");",
+                  "pm.environment.set(\"providerTransactionId\",attempt.providerTransactionId || \"\");",
+                  "check(\"Checkout pret pour paiement manuel\",Boolean(pm.environment.get(\"checkoutUrl\")));",
+                  "pm.execution.setNextRequest(null);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "07 - Order Tracking",
+      "item": [
+        {
+          "name": "B | Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "for(const name of [\"phoneNumber\",\"password\"]) {if(!pm.environment.get(name)){pm.execution.setNextRequest(null);throw new Error(\"Renseigner localement \"+name+\" dans Groupia Local.\");}}",
+                  "",
+                  "pm.environment.set(\"trackingAttempts\",\"0\");",
+                  "pm.variables.set(\"requestBody\", JSON.stringify({phoneNumber:pm.environment.get(\"phoneNumber\"),password:pm.environment.get(\"password\")}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "save(\"accessToken\",r.accessToken);check(\"Bearer JWT\",r.tokenType===\"Bearer\" && r.expiresIn>0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B | Attendre confirmation privee",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Order-Tracking-Token",
+                "value": "{{trackingToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orders/track",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(!pm.environment.get(\"trackingToken\") || !pm.environment.get(\"paymentId\")){pm.execution.setNextRequest(null);throw new Error(\"Executer PHASE A puis conserver ses variables.\");}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "",
+                  "check(\"Commande attendue et XOF\",r.orderNumber===pm.environment.get(\"orderNumber\") && r.currency===\"XOF\");",
+                  "const attempt=Number(pm.environment.get(\"trackingAttempts\") || 0)+1;pm.environment.set(\"trackingAttempts\",attempt);",
+                  "if(r.status===\"PENDING_PAYMENT\" && attempt<12){pm.execution.setNextRequest(pm.info.requestId);}",
+                  "else {check(\"Commande CONFIRMED apres webhook (12 lectures maximum)\",r.status===\"CONFIRMED\");}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B | Verifier reglement final",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/payment-requests/{{paymentRequestId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "",
+                  "check(\"Obligation reglee par la tentative\",r.request.acceptanceStatus===\"CLOSED\" && r.request.settledPaymentId===pm.environment.get(\"paymentId\"));",
+                  "const attempt=r.attempts.find(a=>a.id===pm.environment.get(\"paymentId\"));",
+                  "check(\"Succes financier sans anomalie\",Boolean(attempt) && attempt.status===\"SUCCEEDED\" && !attempt.reconciliationRequired);",
+                  "check(\"Montant confirme exact en XOF\",attempt.confirmedAmount===r.request.expectedAmount && attempt.confirmedCurrency===\"XOF\");",
+                  "save(\"providerTransactionId\",attempt.providerTransactionId);pm.execution.setNextRequest(null);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "08 - Negative Tests",
+      "item": [
+        {
+          "name": "N | Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "for(const name of [\"phoneNumber\",\"password\"]) {if(!pm.environment.get(name)){pm.execution.setNextRequest(null);throw new Error(\"Renseigner localement \"+name+\" dans Groupia Local.\");}}",
+                  "",
+                  "pm.variables.set(\"requestBody\", JSON.stringify({phoneNumber:pm.environment.get(\"phoneNumber\"),password:pm.environment.get(\"password\")}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "save(\"accessToken\",r.accessToken);check(\"Bearer JWT\",r.tokenType===\"Bearer\" && r.expiresIn>0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Organization sans JWT",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(401);",
+                  "check(\"Authentification requise\",r.code===\"AUTHENTICATION_REQUIRED\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Mauvais tracking token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Order-Tracking-Token",
+                "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/orders/track",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(404);",
+                  "check(\"Suivi prive refuse\",r.code===\"ORDER_TRACKING_INVALID\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Replay checkout identique",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutIdempotencyKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/groupings/{{campaignPublicIdentifier}}/checkout",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", pm.environment.get(\"checkoutBody\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "check(\"Meme commande sans nouveau token\",r.replayed===true && r.orderNumber===pm.environment.get(\"orderNumber\") && !r.trackingToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Meme cle contenu different",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutIdempotencyKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/groupings/{{campaignPublicIdentifier}}/checkout",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", JSON.stringify({...JSON.parse(pm.environment.get(\"checkoutBody\")),lines:JSON.parse(pm.environment.get(\"checkoutBody\")).lines.map(l=>({...l,quantity:2}))}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(409);",
+                  "check(\"Conflit idempotence explicite\",r.code===\"IDEMPOTENCY_KEY_REUSED\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Creer campagne negative DRAFT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/grouping-campaigns",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", \"{\\\"title\\\":\\\"Campagne negative E2E DRAFT\\\",\\\"shippingTerms\\\":{\\\"transportMode\\\":\\\"AIR\\\",\\\"shippingPricingMethod\\\":\\\"FIXED\\\",\\\"shippingCollectionMode\\\":\\\"AFTER_FINAL_ASSESSMENT\\\",\\\"shippingRate\\\":1000,\\\"shippingCurrency\\\":\\\"XOF\\\"}}\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(201);",
+                  "save(\"negativeCampaignId\",r.id);save(\"negativeCampaignPublicIdentifier\",r.publicIdentifier);pm.environment.set(\"negativeCampaignVersion\",r.version);check(\"Fixture DRAFT\",r.status===\"DRAFT\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Ajouter offre negative",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/organizations/{{organizationId}}/grouping-campaigns/{{negativeCampaignId}}/offers",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestBody\", JSON.stringify({campaignVersion:Number(pm.environment.get(\"negativeCampaignVersion\")),productVariantId:pm.environment.get(\"variantId\"),unitPrice:1000}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(200);",
+                  "save(\"negativeOfferId\",r.offers[0].id);check(\"Campagne reste DRAFT\",r.status===\"DRAFT\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "N | Refuser checkout campagne non OPEN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{negativeIdempotencyKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/groupings/{{negativeCampaignPublicIdentifier}}/checkout",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{requestBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"negativeIdempotencyKey\",pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "pm.variables.set(\"requestBody\", JSON.stringify({...JSON.parse(pm.environment.get(\"checkoutBody\")),lines:[{offerId:pm.environment.get(\"negativeOfferId\"),quantity:1,expectedUnitPrice:1000,expectedPriceRevision:0}]}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r=pm.response.json();",
+                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
+                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
+                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
+                  "",
+                  "status(409);",
+                  "check(\"Campagne non commandable\",r.code===\"GROUPING_NOT_ORDERABLE\");pm.execution.setNextRequest(null);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

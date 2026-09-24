@@ -24,16 +24,28 @@ public class PaymentWebhooks {
         try { authentic=adapter.verifyAuthenticity(payload,headers); }
         catch (RuntimeException ex) { authentic=false; }
         NormalizedWebhook event=null;
+        String parsingError=null;
         if (authentic) {
             try { event=adapter.parse(payload); }
-            catch (RuntimeException ignored) { /* Only fingerprint survives malformed payloads. */ }
+            catch (RuntimeException failure) { parsingError=WebhookParsingFailure.safeCode(failure); }
+            if (parsingError==null && (event==null || event.observation()==null)) { parsingError=WebhookParsingFailure.FALLBACK_CODE; }
         }
         String eventId=event==null?null:event.providerEventId();
-        if (eventId!=null && (eventId.isBlank() || eventId.length()>160)) { eventId=null; event=null; }
+        if (eventId!=null && (eventId.isBlank() || eventId.length()>160)) { parsingError="WEBHOOK_INVALID_EVENT_ID"; }
+        if (parsingError!=null) { eventId=null; event=null; }
         String evidence=authentic && eventId!=null?"id:"+eventId:"hash:"+fingerprint;
         String dedup=hash(json.writeValueAsBytes(Arrays.asList(adapter.name(),adapter.accountReference(),authentic,evidence)));
-        UUID id=transactions.receive(adapter.name(),adapter.accountReference(),eventId,dedup,fingerprint,authentic,event==null?null:event.observation());
+        UUID id=null;
+        try {
+            id=transactions.receive(adapter.name(),adapter.accountReference(),eventId,dedup,fingerprint,authentic,event==null?null:event.observation(),parsingError);
+        } finally {
+            if (parsingError!=null) {
+                LoggerFactory.getLogger(getClass()).warn("Webhook parsing failed provider={} receiptId={} code={} shape={}",
+                        adapter.name(),id,parsingError,WebhookParsingDiagnostics.inspect(payload));
+            }
+        }
         if (!authentic) { throw new ApiException(401,"PAYMENT_AUTHENTICITY_FAILED","Authenticité du webhook invalide."); }
+        if (parsingError!=null) { return id; }
         retry(id);
         return id;
     }

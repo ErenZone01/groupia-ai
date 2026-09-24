@@ -1,6 +1,7 @@
 package sn.groupia;
 
 import java.math.BigDecimal;
+import org.slf4j.LoggerFactory;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -206,6 +207,86 @@ class BictorysIntegrationTests {
         deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");assertThat(settlementCount()).isZero();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings={"BICTORYS_INVALID_JSON","BICTORYS_UNKNOWN_ENVELOPE","BICTORYS_INCOMPLETE_EVIDENCE",
+            "BICTORYS_UNSUPPORTED_EVENT","BICTORYS_INVALID_TIMESTAMP","BICTORYS_INVALID_FIELD","BICTORYS_INVALID_IDENTIFIER"})
+    void authenticatedParsingFailureIsRetainedWithoutFinancialChanges(String code) throws Exception {
+        var id=start();
+        String beforePayment=jdbc.queryForObject("select row_to_json(p)::text from payments p where id=?",String.class,id);
+        String beforeOrder=jdbc.queryForObject("select row_to_json(o)::text from orders o",String.class);
+        var node=(tools.jackson.databind.node.ObjectNode)json.readTree(event(id,"succeeded"));
+        node.putObject("customerObject").put("phone","+221779999999").put("email","private@example.test").put("secret","payload-sensitive-value");
+        String payload;
+        switch(code) {
+            case "BICTORYS_INVALID_JSON" -> payload="{\"customerObject\":\"private@example.test\"";
+            case "BICTORYS_UNKNOWN_ENVELOPE" -> payload=json.writeValueAsString(Map.of("event","undocumented","data",node));
+            case "BICTORYS_INCOMPLETE_EVIDENCE" -> {node.put("amount","2300");payload=json.writeValueAsString(node);}
+            case "BICTORYS_UNSUPPORTED_EVENT" -> {node.put("type","refund");payload=json.writeValueAsString(node);}
+            case "BICTORYS_INVALID_TIMESTAMP" -> {node.put("timestamp","private@example.test");payload=json.writeValueAsString(node);}
+            case "BICTORYS_INVALID_FIELD" -> {node.putObject("currency").put("secret","payload-sensitive-value");payload=json.writeValueAsString(node);}
+            case "BICTORYS_INVALID_IDENTIFIER" -> {node.put("id","+221779999999");payload=json.writeValueAsString(node);}
+            default -> throw new AssertionError(code);
+        }
+        try(var logs=new ParsingLogs()) {
+            deliver(payload,false).andExpect(status().isAccepted());
+            var receipt=jdbc.queryForMap("select * from payment_webhook_events");
+            assertThat(receipt.get("authenticity_verification_result")).isEqualTo("VALID");
+            assertThat(receipt.get("processing_status")).isEqualTo("REVIEW_REQUIRED");
+            assertThat(receipt.get("last_error_code")).isEqualTo(code);
+            assertThat(receipt.get("observation")).isNull();assertThat(receipt.get("payment_id")).isNull();
+            assertThat(receipt.get("next_attempt_at")).isNull();
+            assertThat(logs.events()).hasSize(1);
+            var logged=logs.events().getFirst();
+            assertThat(logged.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+            assertThat(logged.getThrowableProxy()).isNull();
+            assertThat(logged.getFormattedMessage()).contains("provider=BICTORYS","receiptId="+receipt.get("id"),"code="+code)
+                    .doesNotContain("private@example.test","+221779999999","payload-sensitive-value","customerObject","fixture-webhook-secret",
+                            merchant(id),checkout.get("orderNumber").asText(),providerIds.get(id));
+            deliver(payload,false).andExpect(status().isAccepted());
+            webhooks.retryPending();
+            assertThat(count("payment_webhook_events")).isEqualTo(1);
+            assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo(code);
+            assertThat(jdbc.queryForObject("select attempt_count from payment_webhook_events",Integer.class)).isEqualTo(1);
+        }
+        assertThat(jdbc.queryForObject("select row_to_json(p)::text from payments p where id=?",String.class,id)).isEqualTo(beforePayment);
+        assertThat(jdbc.queryForObject("select row_to_json(o)::text from orders o",String.class)).isEqualTo(beforeOrder);
+        assertThat(settlementCount()).isZero();assertThat(http.requests).hasSize(1);
+    }
+    @Test void invalidSecretIsNotParsedOrLoggedAndValidPayloadStillConfirms() throws Exception {
+        var id=start();
+        try(var logs=new ParsingLogs()) {
+            mvc.perform(post("/api/payment/webhooks/bictorys").contentType(MediaType.APPLICATION_JSON)
+                    .content("{private@example.test").header("X-Secret-Key","wrong-secret"))
+                    .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("PAYMENT_AUTHENTICITY_FAILED"));
+            assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("PAYMENT_AUTHENTICITY_FAILED");
+            assertThat(paymentStatus(id)).isEqualTo("PENDING");
+            assertThat(logs.events()).isEmpty();
+            deliver(event(id,"succeeded"),true).andExpect(status().isAccepted());awaitConfirmed();
+            assertThat(logs.events()).isEmpty();
+        }
+    }
+    @Test void redeliveryClarifiesLegacyNullObservationWithoutResolvingPayment() throws Exception {
+        var id=start();
+        String payload=event(id,"succeeded").replace("\"amount\":2300","\"amount\":\"2300\"");
+        deliver(payload,false).andExpect(status().isAccepted());
+        UUID receipt=jdbc.queryForObject("select id from payment_webhook_events",UUID.class);
+        jdbc.update("update payment_webhook_events set last_error_code='UNKNOWN_REFERENCE' where id=?",receipt);
+        deliver(payload,false).andExpect(status().isAccepted());
+        assertThat(jdbc.queryForObject("select id from payment_webhook_events",UUID.class)).isEqualTo(receipt);
+        assertThat(jdbc.queryForObject("select last_error_code from payment_webhook_events",String.class)).isEqualTo("BICTORYS_INCOMPLETE_EVIDENCE");
+        assertThat(jdbc.queryForObject("select payment_id from payment_webhook_events",UUID.class)).isNull();
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");assertThat(settlementCount()).isZero();
+    }
+    private static class ParsingLogs implements AutoCloseable {
+        private final ch.qos.logback.classic.Logger logger=(ch.qos.logback.classic.Logger)LoggerFactory.getLogger(PaymentWebhooks.class);
+        private final ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender=new ch.qos.logback.core.read.ListAppender<>();
+        ParsingLogs(){appender.start();logger.addAppender(appender);}
+        List<ch.qos.logback.classic.spi.ILoggingEvent> events(){return appender.list.stream().filter(e->e.getMessage().startsWith("Webhook parsing failed")).toList();}
+        public void close(){logger.detachAppender(appender);appender.stop();}
+    }
+
+
     private UUID start() throws Exception {
         queueCharge();
         UUID id=UUID.fromString(read(initiate(key()).andExpect(status().isOk()).andReturn()).get("id").asText());

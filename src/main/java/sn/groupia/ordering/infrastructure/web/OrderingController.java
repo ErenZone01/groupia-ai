@@ -17,6 +17,12 @@ class OrderingController {
         this.checkout = checkout; this.queries = queries; this.attempts = attempts; this.payments=payments;
     }
     @PostMapping("/api/public/groupings/{publicIdentifier}/checkout")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="201", description="Created; private tracking token returned once",
+            content=@io.swagger.v3.oas.annotations.media.Content(schema=@io.swagger.v3.oas.annotations.media.Schema(implementation=OrderReceipt.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="200", description="Idempotent replay; no tracking token returned",
+            content=@io.swagger.v3.oas.annotations.media.Content(schema=@io.swagger.v3.oas.annotations.media.Schema(implementation=OrderReplay.class)))
+    })
     ResponseEntity<Object> checkout(@PathVariable UUID publicIdentifier,
             @RequestHeader(value = "Idempotency-Key", required = false) String key, @RequestBody CheckoutCommand command) {
         var result = checkout.checkout(publicIdentifier, key, command);

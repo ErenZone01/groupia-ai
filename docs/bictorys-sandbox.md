@@ -150,6 +150,16 @@ Attendu : Order CONFIRMED ; demande CLOSED avec settledPaymentId ; tentative SUC
 
 ### 6. Diagnostic et vérification ponctuelle
 
+Après redémarrage avec la correction d'observabilité, une livraison authentique
+non parsable reste en `REVIEW_REQUIRED` avec un code `BICTORYS_*` précis, une
+observation nulle et aucun effet financier. Relever son UUID, `last_error_code` et
+le WARN `Webhook parsing failed` : les noms de champs et leurs types permettent
+de comparer la variante réelle au contrat attendu sans copier le payload ni les
+secrets. Une redélivrance identique peut préciser un ancien receipt ambigu
+`UNKNOWN_REFERENCE` sans observation. Les règles de parsing restent strictement
+identiques ; l'adaptation du contrat réel fera l'objet d'une modification distincte.
+Voir les limites et les codes dans le [runbook](payment-operations.md#échecs-de-parsing-des-webhooks-authentiques).
+
 Un opérateur habilité peut appeler la méthode interne PaymentService.reconcile(paymentId) depuis un outil d'exploitation contrôlé ; elle effectue uniquement les GET documentés, hors transaction, et repasse par les invariants financiers. Aucun endpoint public de force-success ou de réconciliation administrative n'a été ajouté. Les requêtes SQL de diagnostic en lecture seule sont dans le [runbook](payment-operations.md).
 
 Si aucun transactionId n'est connu (réponse 202 avec chargeId seul, timeout avant réponse), aucun GET de statut n'est inventé à partir de la charge ou de merchantReference. Attendre la livraison/redélivrance du webhook authentique et investiguer dans le dashboard. La recherche API par merchantReference promise comme souhait général dans ADR-0010 n'est pas documentée pour ce provider ; cette limite est explicitée par ADR-0012. Ne jamais conclure FAILED ni renvoyer une charge pour contourner cette incertitude.

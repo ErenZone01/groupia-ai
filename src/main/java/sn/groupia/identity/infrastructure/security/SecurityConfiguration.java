@@ -85,6 +85,7 @@ class SecurityConfiguration {
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/swagger-config", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/groupings/*", "/api/public/orders/track").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/public/groupings/*/checkout", "/api/public/orders/*/payments", "/api/payment/webhooks/*").permitAll()

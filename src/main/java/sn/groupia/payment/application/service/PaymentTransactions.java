@@ -153,11 +153,15 @@ public class PaymentTransactions {
         return p.isReconciliationRequired()?p.getReconciliationReason():null;
     }
     public UUID receive(String provider,String account,String eventId,String key,String fingerprint,
-            boolean authentic,ProviderObservation observation) {
+            boolean authentic,ProviderObservation observation,String parsingError) {
         store.coordinate("webhook:"+key);
         var old=store.byWebhookKey(key);
-        if (old.isPresent()) { return old.get().getId(); }
+        if (old.isPresent()) {
+            if (parsingError!=null) { store.lockWebhook(old.get().getId()).parsingFailed(parsingError,clock.instant()); }
+            return old.get().getId();
+        }
         var event=PaymentWebhookEvent.receive(provider,account,eventId,key,fingerprint,authentic,observation,clock.instant());
+        if (parsingError!=null) { event.parsingFailed(parsingError,clock.instant()); }
         store.add(event); store.flush(); return event.getId();
     }
     public void webhookFailure(UUID id) {

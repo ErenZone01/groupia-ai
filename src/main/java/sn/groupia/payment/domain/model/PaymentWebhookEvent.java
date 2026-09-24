@@ -39,6 +39,14 @@ public class PaymentWebhookEvent {
         return e;
     }
     public void resolve(Payment p) { paymentId = p.getId(); organizationId = p.getOrganizationId(); }
+    public void parsingFailed(String code, Instant now) {
+        // A redelivery can clarify a legacy null-observation UNKNOWN_REFERENCE receipt.
+        // Never rewrite a receipt that already carries financial evidence or an explicit diagnosis.
+        if ("VALID".equals(authenticityVerificationResult) && observation==null && paymentId==null
+                && (pending() || ("REVIEW_REQUIRED".equals(processingStatus) && "UNKNOWN_REFERENCE".equals(lastErrorCode)))) {
+            finish("REVIEW_REQUIRED",code,now);
+        }
+    }
     public void finish(String status, String error, Instant now) {
         attemptCount++; processingStatus = status; lastErrorCode = error;
         nextAttemptAt = null; processedAt = now;

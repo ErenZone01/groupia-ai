@@ -1,0 +1,93 @@
+:host {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  z-index: 30;
+}
+aside {
+  --focus: var(--accent);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--s8) var(--s4) var(--s5);
+  background: linear-gradient(165deg, var(--sidebar), var(--sidebar-deep));
+  color: var(--sidebar-text);
+}
+.brand {
+  color: inherit;
+  padding-left: var(--s3);
+}
+.tagline {
+  color: var(--sidebar-muted);
+  font-size: var(--text-xs);
+  line-height: 1.8;
+  margin: var(--s3) var(--s3) var(--s10);
+}
+.eyebrow {
+  font-size: var(--text-xs);
+  color: var(--sidebar-muted);
+  padding: 0 var(--s3);
+  margin-bottom: var(--s3);
+}
+nav {
+  display: grid;
+  gap: var(--s2);
+}
+nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  color: var(--sidebar-muted);
+  padding: var(--s3);
+  border-radius: var(--radius-sm);
+  min-height: 46px;
+  font-size: var(--text-sm);
+}
+nav a:hover {
+  background: var(--primary-strong);
+  color: var(--sidebar-text);
+}
+nav a.active {
+  background: var(--primary-strong);
+  color: var(--sidebar-text);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.together {
+  margin-top: auto;
+  padding: var(--s10) var(--s3) var(--s8);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+}
+.together g-icon {
+  color: var(--accent);
+  margin-bottom: var(--s3);
+}
+.together span {
+  display: block;
+  color: var(--sidebar-muted);
+  font-size: var(--text-xs);
+  margin-top: var(--s3);
+}
+.shop {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s3) var(--s2);
+  border-top: 1px solid var(--primary-strong);
+  color: var(--sidebar-text);
+}
+.shop span {
+  flex: 1;
+}
+.shop strong {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.shop small {
+  color: var(--sidebar-muted);
+  font-size: var(--text-xs);
+}
+.shop > g-icon {
+  width: 14px;
+}

@@ -104,3 +104,15 @@ header {
     font-size: var(--text-xs);
   }
 }
+
+.profile strong {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 1023px) {
+  .logout {
+    display: none;
+  }
+}

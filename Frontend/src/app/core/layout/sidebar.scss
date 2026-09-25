@@ -91,3 +91,15 @@ nav a.active {
 .shop > g-icon {
   width: 14px;
 }
+
+.shop span {
+  min-width: 0;
+}
+.shop strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+aside {
+  overflow-y: auto;
+}

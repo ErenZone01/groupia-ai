@@ -1,7 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeService, ThemePreference } from '../theme/theme.service';
-import { profileName } from '../config/profile';
+import { BoutiqueContextService } from '../boutique/boutique-context.service';
+import { AuthService } from '../auth/auth.service';
+import { Button } from '../../shared/ui/button';
 import { navigation } from '../config/navigation';
 import { SearchInput } from '../../shared/forms/search-input';
 import { Select } from '../../shared/forms/select';
@@ -10,9 +12,9 @@ import { Brand } from '../../shared/ui/brand';
 import { Icon } from '../../shared/ui/icon';
 @Component({
   selector: 'g-topbar',
-  imports: [RouterLink, SearchInput, Select, Avatar, Brand, Icon],
+  imports: [RouterLink, SearchInput, Select, Avatar, Brand, Icon, Button],
   template: `<header>
-    <a class="mobile-brand" routerLink="/accueil"><g-brand /></a>
+    <a class="mobile-brand" routerLink="/app/accueil"><g-brand /></a>
     <div class="search">
       <g-search-input
         label="Rechercher une page"
@@ -45,12 +47,13 @@ import { Icon } from '../../shared/ui/icon';
           <option value="system">Système</option>
         </select></label
       ><span class="divider"></span
-      ><a routerLink="/boutique" class="profile" aria-label="Ouvrir ma boutique"
-        ><g-avatar [name]="name" /><span
-          ><strong>{{ name }}</strong
+      ><a routerLink="/app/boutique" class="profile" aria-label="Ouvrir ma boutique"
+        ><g-avatar [name]="context.selected()?.name || 'Ma boutique'" /><span
+          ><strong>{{ context.selected()?.name || 'Ma boutique' }}</strong
           ><small>Gérante</small></span
         ></a
       >
+      <button gButton variant="ghost" class="logout" (click)="auth.logout()">Se déconnecter</button>
     </div>
   </header>`,
   styleUrl: './topbar.scss',
@@ -58,7 +61,8 @@ import { Icon } from '../../shared/ui/icon';
 export class Topbar {
   readonly theme = inject(ThemeService);
   readonly query = signal('');
-  readonly name = profileName;
+  readonly context = inject(BoutiqueContextService);
+  readonly auth = inject(AuthService);
   readonly results = computed(() =>
     navigation.filter((item) =>
       item.label.toLocaleLowerCase('fr').includes(this.query().toLocaleLowerCase('fr')),

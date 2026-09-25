@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { environment } from './core/config/environment';
 export const routes: Routes = [
   {
     path: 'connexion',
@@ -8,23 +7,32 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/auth.page').then((m) => m.AuthPage),
   },
   {
-    path: 'g/:publicId',
+    path: 'inscription',
+    title: 'Créer mon compte · Groupia',
+    data: { register: true },
+    loadComponent: () => import('./features/auth/auth.page').then((m) => m.AuthPage),
+  },
+  {
+    path: 'public/groupages/:publicIdentifier',
     title: 'Votre groupage · Groupia',
     loadComponent: () =>
       import('./features/public-groupage/public-groupage.page').then((m) => m.PublicGroupagePage),
   },
   {
+    path: 'g/:publicId',
+    loadComponent: () =>
+      import('./features/public-groupage/public-groupage.page').then((m) => m.PublicGroupagePage),
+  },
+  {
     path: 'g/:publicId/commander',
-    title: 'Commander · Groupia',
     loadComponent: () => import('./features/checkout/checkout.page').then((m) => m.CheckoutPage),
   },
   {
     path: 'suivi',
-    title: 'Suivre ma commande · Groupia',
     loadComponent: () => import('./features/tracking/tracking.page').then((m) => m.TrackingPage),
   },
   {
-    path: '',
+    path: 'app',
     canActivate: [authGuard],
     canActivateChild: [authGuard],
     loadComponent: () => import('./core/layout/manager-layout').then((m) => m.ManagerLayout),
@@ -43,7 +51,7 @@ export const routes: Routes = [
           import('./features/boutique/boutique.page').then((m) => m.BoutiquePage),
       },
       {
-        path: 'catalogue',
+        path: 'products',
         title: 'Produits · Groupia',
         loadComponent: () => import('./features/catalog/catalog.page').then((m) => m.CatalogPage),
       },
@@ -52,6 +60,18 @@ export const routes: Routes = [
         title: 'Groupages · Groupia',
         loadComponent: () =>
           import('./features/groupages/groupages.page').then((m) => m.GroupagesPage),
+      },
+      {
+        path: 'groupages/nouveau',
+        title: 'Créer un groupage · Groupia',
+        loadComponent: () =>
+          import('./features/groupages/groupage-wizard.page').then((m) => m.GroupageWizardPage),
+      },
+      {
+        path: 'groupages/:id',
+        title: 'Mon groupage · Groupia',
+        loadComponent: () =>
+          import('./features/groupages/groupage-detail.page').then((m) => m.GroupageDetailPage),
       },
       {
         path: 'commandes',
@@ -64,17 +84,20 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/payments/payments.page').then((m) => m.PaymentsPage),
       },
-      ...(environment.preview
-        ? [
-            {
-              path: 'atelier',
-              title: 'Atelier · Groupia',
-              loadComponent: () =>
-                import('./features/dashboard/ui-showcase.page').then((m) => m.UiShowcasePage),
-            },
-          ]
-        : []),
+      {
+        path: 'atelier',
+        title: 'Atelier · Groupia',
+        loadComponent: () =>
+          import('./features/dashboard/ui-showcase.page').then((m) => m.UiShowcasePage),
+      },
     ],
   },
-  { path: '**', redirectTo: 'accueil' },
+  { path: 'accueil', redirectTo: 'app/accueil', pathMatch: 'full' },
+  { path: 'catalogue', redirectTo: 'app/products', pathMatch: 'full' },
+  { path: 'groupages', redirectTo: 'app/groupages', pathMatch: 'full' },
+  { path: 'boutique', redirectTo: 'app/boutique', pathMatch: 'full' },
+  { path: 'commandes', redirectTo: 'app/commandes', pathMatch: 'full' },
+  { path: 'paiements', redirectTo: 'app/paiements', pathMatch: 'full' },
+  { path: '', pathMatch: 'full', redirectTo: 'app/accueil' },
+  { path: '**', redirectTo: 'app/accueil' },
 ];

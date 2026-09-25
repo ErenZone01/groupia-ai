@@ -183,3 +183,69 @@ svg {
     flex-direction: column;
   }
 }
+
+.form-stack {
+  display: grid;
+  gap: var(--s3);
+}
+.form-stack label,
+.field-grid label {
+  display: grid;
+  gap: var(--s2);
+}
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: var(--s5);
+  margin: var(--s5) 0;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-top: var(--s5);
+}
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+.section-heading h2,
+.section-heading h3 {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.form-error {
+  color: var(--danger-text);
+  padding: var(--s3);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  margin: var(--s4) 0;
+}
+.notice {
+  padding: var(--s4);
+  background: var(--surface-alt);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  margin: var(--s4) 0;
+}
+.preserve {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+h1 {
+  overflow-wrap: anywhere;
+}
+g-skeleton {
+  display: block;
+  margin: var(--s4) 0;
+}
+@media (max-width: 599px) {
+  .actions .g-button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

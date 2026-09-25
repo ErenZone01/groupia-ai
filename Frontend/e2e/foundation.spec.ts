@@ -1,7 +1,16 @@
+import { mockApi, session } from './api-mock';
 import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }, info) => {
+  if (!info.title.startsWith('production:')) {
+    await session(page);
+    await mockApi(page);
+  }
+});
 for (const width of [360, 768, 1024, 1440])
   for (const theme of ['light', 'dark']) {
-    test(`dashboard ${width}px ${theme}: lisible sans débordement ni API`, async ({ page }) => {
+    test(`dashboard ${width}px ${theme}: lisible sans débordement ni fixture métier`, async ({
+      page,
+    }) => {
       const calls: string[] = [];
       page.on('request', (r) => {
         if (new URL(r.url()).pathname.startsWith('/api/')) calls.push(r.url());
@@ -9,13 +18,13 @@ for (const width of [360, 768, 1024, 1440])
       await page.setViewportSize({ width, height: 1000 });
       await page.addInitScript((mode) => localStorage.setItem('groupia.theme', mode), theme);
       await page.goto('/accueil');
-      await expect(page.getByRole('heading', { name: 'Bonjour Awa !' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Bonjour !' })).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
       await expect(page.locator('g-stat-card')).toHaveCount(4);
-      expect(calls).toHaveLength(0);
+      expect(calls.every((url) => new URL(url).pathname === '/api/organizations')).toBe(true);
       if (width === 360 || width === 1440)
         await page.screenshot({
           path: `artifacts/dashboard-${width}-${theme}.png`,
@@ -53,7 +62,7 @@ test('préférence thème persistée et système respecté', async ({ page }) =>
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 test('onglets et toggle accessibles au clavier', async ({ page }) => {
-  await page.goto('/atelier');
+  await page.goto('/app/atelier');
   await page.getByRole('tab', { name: 'Aperçu' }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Détails' })).toBeFocused();

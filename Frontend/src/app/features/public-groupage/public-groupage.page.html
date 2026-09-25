@@ -1,0 +1,102 @@
+<header>
+  <g-brand /><select
+    gSelect
+    aria-label="Thème"
+    [value]="theme.preference()"
+    (change)="theme.setPreference($any($event.target).value)"
+  >
+    <option value="light">Clair</option>
+    <option value="dark">Sombre</option>
+    <option value="system">Système</option>
+  </select>
+</header>
+<main>
+  @if (loading()) {
+    <g-skeleton /><g-skeleton />
+  }
+  @if (error()) {
+    <g-empty-state title="Ce groupage n’est pas accessible" [description]="error()"
+      ><button gButton (click)="load()">Réessayer</button></g-empty-state
+    >
+  }
+  @if (data(); as group) {
+    <section class="intro">
+      <p class="eyebrow">À plusieurs, c’est encore mieux</p>
+      <h1>{{ group.title }}</h1>
+      <p class="preserve">{{ group.description }}</p>
+      <p class="muted">{{ dateLabel(group.closesAt) }}</p>
+      <g-badge [tone]="group.orderable ? 'positive' : 'warning'">{{
+        group.orderable ? 'Ouvert aux commandes' : 'Indisponible'
+      }}</g-badge>
+    </section>
+    @if (!group.orderable) {
+      <p class="notice" role="status">{{ reason() }}</p>
+    }
+    <div class="products">
+      @for (offer of group.offers; track offer.offerId) {
+        <g-card
+          ><g-badge
+            [tone]="
+              offer.active && offer.catalog?.usable && group.orderable ? 'positive' : 'neutral'
+            "
+            >{{
+              offer.active && offer.catalog?.usable && group.orderable
+                ? 'Disponible'
+                : 'Indisponible'
+            }}</g-badge
+          >
+          <h2>{{ offer.commercialLabel || offer.catalog?.productName || 'Produit' }}</h2>
+          <p class="muted">{{ variantLabel(offer.catalog?.attributes) }}</p>
+          <p class="preserve">{{ offer.catalog?.productDescription }}</p>
+          <p class="price">{{ money(offer.unitPrice, offer.currency) }}</p>
+          <button
+            gButton
+            [disabled]="!group.orderable || !offer.active || !offer.catalog?.usable"
+            (click)="selection.add(group, offer)"
+          >
+            Ajouter à ma sélection
+          </button></g-card
+        >
+      } @empty {
+        <g-empty-state
+          title="Aucun produit disponible"
+          description="La sélection de ce groupage n’est pas encore disponible."
+          icon="box"
+        />
+      }
+    </div>
+    <section class="selection" aria-label="Ma sélection">
+      <h2>
+        Ma sélection <span aria-live="polite">({{ selection.count() }})</span>
+      </h2>
+      @if (selection.count()) {
+        <ul>
+          @for (item of selection.items(); track item.offer.offerId) {
+            <li>
+              <span
+                >{{ item.offer.commercialLabel || item.offer.catalog?.productName }} ×
+                {{ item.quantity }}</span
+              ><button
+                gButton
+                variant="ghost"
+                [attr.aria-label]="
+                  'Retirer une unité de ' +
+                  (item.offer.commercialLabel || item.offer.catalog?.productName)
+                "
+                (click)="selection.remove(item.offer.offerId!)"
+              >
+                Retirer
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted">Choisissez les produits qui vous plaisent.</p>
+      }
+      <p class="notice">
+        Votre sélection reste sur cette page. La commande et le paiement seront disponibles
+        prochainement.
+      </p>
+    </section>
+  }
+</main>

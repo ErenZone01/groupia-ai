@@ -1,7 +1,9 @@
+import { apiTestProviders } from '../../testing/api-test';
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from './auth.service';
 describe('AuthService', () => {
   beforeEach(() => {
+    TestBed.configureTestingModule({ providers: apiTestProviders() });
     sessionStorage.clear();
     localStorage.clear();
   });

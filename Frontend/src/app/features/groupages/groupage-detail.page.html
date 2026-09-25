@@ -1,0 +1,161 @@
+<a routerLink="/app/groupages">← Tous les groupages</a>
+@if (loading()) {
+  <g-skeleton /><g-skeleton />
+}
+@if (error()) {
+  <p role="alert" class="form-error">{{ error() }}</p>
+}
+@if (store.stale()) {
+  <p role="alert" class="notice">Actualisez le groupage avant toute nouvelle modification.</p>
+  <button gButton (click)="load()">Actualiser</button>
+}
+@if (!loading() && store.current(); as group) {
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Votre groupage</p>
+      <h1>{{ group.title }}</h1>
+      <p>{{ dateLabel(group.closesAt) }}</p>
+    </div>
+    <g-badge [tone]="group.status === 'OPEN' ? 'positive' : 'neutral'">{{
+      statusLabel(group.status)
+    }}</g-badge>
+  </div>
+  @if (group.status === 'OPEN' && publicUrl()) {
+    <section class="share" aria-label="Partager le groupage">
+      <h2>{{ published ? 'Votre groupage est en ligne 🎉' : 'Votre lien public' }}</h2>
+      <a [href]="publicUrl()" target="_blank" rel="noopener">{{ publicUrl() }}</a>
+      <div class="actions">
+        <button gButton variant="secondary" (click)="copy()">Copier le lien</button
+        ><a gButton [routerLink]="['/public/groupages', group.publicIdentifier]"
+          >Voir comme une cliente</a
+        >
+      </div>
+    </section>
+  }
+  <g-tabs id="groupage-sections" [tabs]="tabs" [(active)]="tab" label="Sections du groupage">
+    <g-card>
+      @if (tab() === 'overview') {
+        <div class="summary">
+          <h2>Aperçu</h2>
+          <p class="preserve">{{ group.description || 'Aucune description' }}</p>
+          <p>{{ group.offers?.length ?? 0 }} produit(s) dans ce groupage</p>
+          <h3>Livraison</h3>
+          <p>
+            {{ optionLabel(transportOptions, group.shippingTerms?.transportMode) }} ·
+            {{ optionLabel(pricingOptions, group.shippingTerms?.shippingPricingMethod) }}
+          </p>
+          <p>
+            {{ optionLabel(collectionOptions, group.shippingTerms?.shippingCollectionMode) }} ·
+            {{ money(group.shippingTerms?.shippingRate) }}
+          </p>
+        </div>
+        <div class="actions">
+          @if (group.status === 'DRAFT') {
+            <button
+              gButton
+              [loading]="store.busy()"
+              [disabled]="store.stale()"
+              (click)="perform('open')"
+            >
+              Publier le groupage
+            </button>
+          }
+          @if (group.status === 'OPEN') {
+            <button
+              gButton
+              variant="secondary"
+              [disabled]="store.busy() || store.stale()"
+              (click)="confirmingClose.set(true)"
+            >
+              Fermer les commandes
+            </button>
+          }
+        </div>
+        @if (confirmingClose()) {
+          <div class="notice" role="group" aria-label="Confirmation de fermeture">
+            <p>
+              Fermer les commandes de ce groupage ? Les clientes ne pourront plus choisir de
+              produits.
+            </p>
+            <div class="actions">
+              <button gButton [loading]="store.busy()" (click)="perform('close')">
+                Confirmer la fermeture</button
+              ><button
+                gButton
+                variant="ghost"
+                [disabled]="store.busy()"
+                (click)="confirmingClose.set(false)"
+              >
+                Garder ouvert
+              </button>
+            </div>
+          </div>
+        }
+      }
+      @if (tab() === 'products') {
+        <div class="section-heading">
+          <h2>Produits du groupage</h2>
+          @if (editable()) {
+            <button
+              gButton
+              [disabled]="store.busy() || store.stale()"
+              (click)="adding.set(!adding())"
+            >
+              {{ adding() ? 'Masquer l’ajout' : 'Ajouter un produit' }}
+            </button>
+          }
+        </div>
+        @if (catalogError()) {
+          <p role="status">{{ catalogError() }}</p>
+          <button gButton variant="ghost" (click)="load()">Actualiser les produits</button>
+        }
+        @for (offer of group.offers; track offer.id) {
+          <article class="product">
+            <div class="section-heading">
+              <h3>{{ label(offer) }}</h3>
+              <g-badge [tone]="offer.active ? 'positive' : 'neutral'">{{
+                offer.active ? 'Actif' : 'Inactif'
+              }}</g-badge>
+            </div>
+            <p class="muted">{{ variant(offer) }}</p>
+            <p class="price">{{ money(offer.unitPrice, offer.currency) }}</p>
+            @if (editable()) {
+              <g-offer-price-editor [offer]="offer" [organizationId]="context.selectedId()!" />
+            }
+          </article>
+        } @empty {
+          <g-empty-state
+            title="Aucun produit dans ce groupage"
+            description="Ajoutez votre première sélection depuis le catalogue."
+          />
+        }
+        @if (adding() && editable()) {
+          <g-product-picker
+            [organizationId]="context.selectedId()!"
+            [excluded]="excluded()"
+            [disabled]="store.busy() || store.stale()"
+            (added)="add($event)"
+          />
+        }
+      }
+      @if (tab() === 'orders') {
+        <g-empty-state
+          title="Les commandes arrivent bientôt"
+          description="Cette section sera connectée au prochain sprint."
+          icon="orders"
+        />
+      }
+      @if (tab() === 'settings') {
+        @if (editable()) {
+          <g-groupage-settings [campaign]="group" [organizationId]="context.selectedId()!" />
+        } @else {
+          <g-empty-state
+            title="Paramètres en lecture seule"
+            description="Ce groupage ne peut plus être modifié dans son état actuel."
+          />
+        }
+      }</g-card
+  ></g-tabs>
+} @else if (!loading()) {
+  <button gButton (click)="load()">Réessayer</button>
+}

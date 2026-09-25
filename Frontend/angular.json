@@ -57,14 +57,6 @@
                 {
                   "replace": "src/app/core/config/environment.ts",
                   "with": "src/app/core/config/environment.development.ts"
-                },
-                {
-                  "replace": "src/app/features/dashboard/dashboard.data.ts",
-                  "with": "src/app/features/dashboard/dashboard.data.development.ts"
-                },
-                {
-                  "replace": "src/app/core/config/profile.ts",
-                  "with": "src/app/core/config/profile.development.ts"
                 }
               ]
             }

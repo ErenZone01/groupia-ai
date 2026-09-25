@@ -1,137 +1,64 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
+import { apiMessage } from '../../core/http/api-error';
 import { Brand } from '../../shared/ui/brand';
 import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/forms/input';
-import { environment } from '../../core/config/environment';
+import { Select } from '../../shared/forms/select';
+import { ThemeService } from '../../core/theme/theme.service';
+import { ToastService } from '../../shared/feedback/toast.service';
 @Component({
   selector: 'g-auth-page',
-  imports: [RouterLink, Brand, Button, Input],
-  template: `<main>
-    <section class="welcome">
-      <g-brand />
-      <p class="eyebrow">Bienvenue chez vous</p>
-      <h1>Votre boutique.<br />Vos groupages.<br /><em>De belles opportunités.</em></h1>
-      <p>Un espace simple pour rapprocher vos clientes et faire grandir votre activité.</p>
-      <span class="seal">Ensemble, on va plus loin.</span>
-    </section>
-    <section class="form">
-      <div>
-        <h2>Ravie de vous retrouver</h2>
-        <p class="muted">Connectez-vous à votre espace Groupia.</p>
-        <form (submit)="$event.preventDefault()">
-          <label for="phone">Numéro de téléphone</label
-          ><input
-            gInput
-            id="phone"
-            type="tel"
-            autocomplete="username"
-            placeholder="+221 77 123 45 67"
-          /><label for="password">Mot de passe</label
-          ><input
-            gInput
-            id="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder="Votre mot de passe"
-          /><button gButton type="submit" [disabled]="true" aria-describedby="availability">
-            Se connecter
-          </button>
-          <p id="availability" class="muted">La connexion n’est pas encore disponible.</p>
-        </form>
-        @if (preview) {
-          <a gButton variant="secondary" routerLink="/accueil">Ouvrir l’aperçu de développement</a>
-        }
-      </div>
-    </section>
-  </main>`,
-  styles: `
-    main {
-      min-height: 100dvh;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-    .welcome {
-      background: var(--sidebar);
-      color: var(--sidebar-text);
-      padding: var(--s12);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: var(--s6);
-    }
-    .welcome g-brand {
-      margin-bottom: var(--s10);
-    }
-    .welcome .eyebrow {
-      color: var(--sidebar-muted);
-    }
-    .welcome h1 {
-      font-size: clamp(2rem, 4vw, 3.6rem);
-      line-height: 1.25;
-    }
-    .welcome em {
-      font-style: normal;
-      color: var(--accent);
-    }
-    .welcome > p:not(.eyebrow) {
-      color: var(--sidebar-muted);
-      max-width: 40ch;
-    }
-    .seal {
-      font-size: var(--text-xs);
-      margin-top: var(--s8);
-    }
-    .form {
-      padding: var(--s8);
-      display: grid;
-      place-items: center;
-    }
-    .form > div {
-      max-width: 360px;
-      width: 100%;
-    }
-    .form h2 {
-      font-size: var(--text-xl);
-      margin-bottom: var(--s2);
-    }
-    form {
-      display: grid;
-      gap: var(--s3);
-      margin: var(--s8) 0;
-    }
-    form label:not(:first-child) {
-      margin-top: var(--s3);
-    }
-    form button {
-      margin-top: var(--s4);
-    }
-    form p {
-      font-size: var(--text-xs);
-    }
-    @media (max-width: 767px) {
-      main {
-        grid-template-columns: 1fr;
-      }
-      .welcome {
-        padding: var(--s8);
-        gap: var(--s3);
-      }
-      .welcome g-brand {
-        margin-bottom: var(--s4);
-      }
-      .welcome h1 {
-        font-size: var(--text-2xl);
-      }
-      .seal {
-        display: none;
-      }
-      .form {
-        padding: var(--s8) var(--s5);
-      }
-    }
-  `,
+  imports: [FormsModule, RouterLink, Brand, Button, Input, Select],
+  templateUrl: './auth.page.html',
+  styleUrl: './auth.page.scss',
 })
 export class AuthPage {
-  readonly preview = environment.preview;
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly toast = inject(ToastService);
+  readonly theme = inject(ThemeService);
+  readonly registerMode = this.route.snapshot.data['register'] === true;
+  readonly expired = this.route.snapshot.queryParamMap.has('expired');
+  readonly busy = signal(false);
+  readonly error = signal('');
+  phoneNumber = '';
+  password = '';
+  email = '';
+  async submit() {
+    if (this.busy()) return;
+    if (
+      this.registerMode &&
+      (Array.from(this.password).length < 15 || new TextEncoder().encode(this.password).length > 72)
+    ) {
+      this.error.set('Choisissez au moins 15 caractères, dans la limite de 72 octets UTF-8.');
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      if (this.registerMode) {
+        await this.auth.register({
+          phoneNumber: this.phoneNumber.trim(),
+          password: this.password,
+          ...(this.email.trim() ? { email: this.email.trim() } : {}),
+        });
+        this.password = '';
+        this.toast.show('Votre compte est créé. Vous pouvez vous connecter.');
+        await this.router.navigateByUrl('/connexion');
+      } else {
+        await this.auth.login({ phoneNumber: this.phoneNumber.trim(), password: this.password });
+        this.password = '';
+        const target = this.route.snapshot.queryParamMap.get('returnUrl');
+        await this.router.navigateByUrl(target?.startsWith('/app/') ? target : '/app/accueil');
+      }
+    } catch (e) {
+      this.error.set(apiMessage(e));
+    } finally {
+      this.busy.set(false);
+    }
+  }
 }

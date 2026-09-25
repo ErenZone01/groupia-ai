@@ -3,20 +3,15 @@ import { RouterOutlet } from '@angular/router';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { MobileBottomNav } from './mobile-bottom-nav';
-import { environment } from '../config/environment';
+import { BoutiqueGate } from './boutique-gate';
 @Component({
   selector: 'g-manager-layout',
-  imports: [RouterOutlet, Sidebar, Topbar, MobileBottomNav],
+  imports: [RouterOutlet, Sidebar, Topbar, MobileBottomNav, BoutiqueGate],
   template: `<a class="skip" href="#main-content">Aller au contenu</a><g-sidebar />
     <div class="workspace">
       <g-topbar />
       <main id="main-content" tabindex="-1">
-        @if (preview) {
-          <div class="preview">
-            <span class="dot"></span>Aperçu · données de démonstration locales
-          </div>
-        }
-        <router-outlet />
+        <g-boutique-gate><router-outlet /></g-boutique-gate>
       </main>
       <footer>Groupia<span>Les groupages qui rapprochent les opportunités.</span></footer>
     </div>
@@ -92,6 +87,4 @@ import { environment } from '../config/environment';
     }
   `,
 })
-export class ManagerLayout {
-  readonly preview = environment.preview;
-}
+export class ManagerLayout {}

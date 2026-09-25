@@ -1,112 +1,175 @@
-# Groupia — fondation frontend
+# Groupia — premier parcours métier frontend
 
-Application Angular **22.2.0**, standalone, Router, HttpClient et Signals. Cette tranche prépare l’architecture et l’interface ; elle ne met en œuvre aucun workflow métier. Le backend et les migrations restent indépendants.
+Angular **22.2.0**, composants standalone, Signals, Router, HttpClient, SCSS. La fondation et le design system sont conservés. Le backend Spring Boot et les migrations SQL ne sont pas modifiés.
 
-## Lancer et vérifier
+## Démarrer
 
-Pré-requis : Node ^22.22.3, ^24.15.0 ou >=26, et npm. Validation effectuée avec Node 24.16.0 et npm 11.10.0.
+Pré-requis : Node ^22.22.3, ^24.15.0 ou >=26. Versions de validation : Node 24.16.0, npm 11.10.0.
 
 ```powershell
 cd Frontend
 npm ci
 npm start
-# http://localhost:4200/accueil
+```
+
+Ouvrir http://localhost:4200/connexion. Le backend doit être lancé séparément sur http://localhost:8080. Le proxy de développement transfère `/api/...` et `/v3/api-docs` à Spring Boot. En production, configurer le reverse proxy sur la même origine et le fallback des routes vers index.html.
+
+Il n’y a plus de connexion simulée ni de fixtures métier dans l’application. Les données de test sont exclusivement dans les tests unitaires et `e2e/api-mock.ts`. Le tableau de bord conserve des emplacements vides tant que ses métriques ne sont pas exposées par une API.
+
+## Parcours livré
+
+1. **Connexion et inscription** : formulaires réels, déconnexion et expiration automatique. L’inscription renvoie un compte, puis redirige vers la connexion ; elle ne fabrique pas de session.
+2. **Boutique** : chargement des boutiques autorisées ; onboarding si aucune ; sélection automatique de l’unique boutique, ou sélecteur dans Ma boutique. Seul l’identifiant choisi est mémorisé et il est revalidé sur chaque nouvelle session.
+3. **Catalogue** : liste paginée, description, statut traduit, variantes réelles, création simple ou avec options. Une variante sans attributs s’affiche « Standard ». SKU facultatif ; les clés canoniques ne sont jamais affichées.
+4. **Groupages** : liste paginée et wizard Informations → Livraison → Produits → Vérification. Enregistrement en brouillon ou publication.
+5. **Détail** : aperçu, produits, paramètres et placeholder Commandes. Ajout de produits, modification du prix, publication, fermeture avec confirmation et partage du lien public.
+6. **Page cliente** : données publiques réelles, disponibilités, sélection locale par quantité. Aucun appel de checkout ou de paiement.
+
+Routes principales :
+
+| Route | Accès |
+| --- | --- |
+| /connexion, /inscription | Public |
+| /app/accueil | Authentifié |
+| /app/boutique | Authentifié |
+| /app/products | Authentifié |
+| /app/groupages | Authentifié |
+| /app/groupages/nouveau | Authentifié |
+| /app/groupages/:id | Authentifié |
+| /public/groupages/:publicIdentifier | Public, sans JWT |
+
+Les anciens liens /accueil, /catalogue, /groupages, /boutique, /commandes et /paiements redirigent vers le nouvel espace /app. /g/:publicId reste un alias de la vitrine. Toutes les pages métier sont lazy-loaded. /app/atelier conserve la démonstration des composants, protégée par la connexion.
+
+## Génération OpenAPI
+
+Générateur : [ng-openapi-gen 1.1.0](https://github.com/cyclosproject/ng-openapi-gen), verrouillé dans package-lock.json. Il génère des services HttpClient et des modèles compatibles Angular standalone.
+
+```powershell
+# Récupère le contrat réel sur http://localhost:8080/v3/api-docs,
+# enregistre openapi.json puis régénère les modèles et services.
+npm run api:generate
+
+# Régénération hors ligne depuis le snapshot versionné, sans appel réseau.
+npm run api:generate:snapshot
+
+# Facultatif : autre URL du contrat
+$env:GROUPIA_OPENAPI_URL = 'http://localhost:8080/v3/api-docs'
+npm run api:generate
+```
+
+- `openapi.json` est le contrat backend, pas une copie de DTO écrite à la main.
+- `ng-openapi-gen.json` et `tools/generate-api.mjs` pilotent la génération.
+- `src/app/api/generated` contient **53 modèles et 7 services générés**. Ne pas modifier ni reformater ces fichiers à la main.
+- `GroupiaApi` fournit des noms stables à l’application ; les suffixes d’opérations générés par Spring restent confinés dans cet adaptateur.
+- Spring déclare plusieurs réponses structurées en `*/*`. Le script utilise l’option officielle `customizedResponseType` pour les décoder en JSON. Le contrat source reste intact.
+- `provideApiConfiguration('')` utilise les URLs relatives. L’interceptor s’applique au client généré.
+- Des contrats commandes/paiements apparaissent dans la génération complète, mais aucun de ces parcours n’est implémenté ou appelé.
+
+**Provenance du snapshot initial** : export réel `Backend/target/groupia-openapi.json`, produit le 24 septembre 2026 par `OpenApiIntegrationTests` via GET /v3/api-docs. Le serveur local refusait les connexions sur 8080 lors de cette tranche. Les endpoints et invariants utilisés ont aussi été relus dans les controllers/domaines actuels. Rafraîchir avec `npm run api:generate` au prochain démarrage du backend.
+
+## Architecture et fichiers principaux
+
+```text
+src/app/
+├── api/
+│   ├── generated/                     sorties du générateur
+│   └── groupia-api.ts                  façade des services générés
+├── core/
+│   ├── auth/auth.service.ts           login/register/session/logout/expiration
+│   ├── boutique/boutique-context.service.ts
+│   ├── http/
+│   │   ├── auth.interceptor.ts        Bearer limité à l’API privée
+│   │   └── api-error.ts               messages français sûrs
+│   ├── guards/auth.guard.ts
+│   ├── layout/                        layout existant + gate Boutique
+│   ├── config/                        navigation et environnements
+│   └── theme/                         fondation conservée
+├── features/
+│   ├── auth/                          connexion et inscription
+│   ├── boutique/                      onboarding, sélection, déconnexion
+│   ├── catalog/
+│   │   ├── catalog.page.ts
+│   │   ├── catalog.store.ts
+│   │   ├── product-form.ts
+│   │   └── variant-editor.ts
+│   ├── groupages/
+│   │   ├── groupages.page.ts
+│   │   ├── groupage-wizard.page.*
+│   │   ├── groupage-detail.page.*
+│   │   ├── groupage.store.ts
+│   │   ├── product-picker.ts
+│   │   ├── shipping-fields.ts
+│   │   ├── groupage-settings.ts
+│   │   └── offer-price-editor.ts
+│   └── public-groupage/
+│       ├── public-groupage.page.*
+│       └── public-selection.service.ts
+├── shared/                            composants existants + toasts + formatage
+└── testing/                           configuration HTTP des tests
+```
+
+Aucun service UI générique ne porte de règle métier. Les stores des features possèdent leur état ; le contexte Boutique est partagé par Signals. Les requêtes catalogue/détail périmées ne remplacent pas des réponses plus récentes. Le contexte ignore les réponses d’une session déconnectée.
+
+## Endpoints réellement appelés
+
+| Méthode | Chemin |
+| --- | --- |
+| POST | /api/auth/login |
+| POST | /api/auth/register |
+| GET, POST | /api/organizations |
+| GET, POST | /api/organizations/{organizationId}/products |
+| GET | /api/organizations/{organizationId}/products/{productId} |
+| GET, POST | /api/organizations/{organizationId}/grouping-campaigns |
+| GET, PUT | /api/organizations/{organizationId}/grouping-campaigns/{campaignId} |
+| POST | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers |
+| PUT | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers/{offerId} |
+| POST | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/open |
+| POST | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/close |
+| GET | /api/public/groupings/{publicIdentifier} |
+
+Les identifiants de boutique viennent du contexte autorisé, jamais d’une saisie manuelle.
+
+## Décisions et limites explicites
+
+- Authentification : mémoire + sessionStorage ; pas de refresh-token, pas de token affiché ou journalisé. Un 401 privé invalide uniquement la session qui a émis la requête. Les requêtes publiques ne reçoivent pas le JWT. Le backend reste l’autorité pour les droits.
+- Aucun prénom n’est inventé : les APIs de ce sprint ne fournissent pas de profil/prénom. Le layout affiche le nom réel de la boutique.
+- Livraison : AIR / SEA / ROAD / OTHER, PER_KG / PER_CBM / PER_ITEM / FIXED, ESTIMATED_AT_CHECKOUT / **AFTER_FINAL_ASSESSMENT**, XOF et HALF_UP, conformément au backend. Le tarif est requis ; zéro n’est permis que pour le forfait.
+- Le backend exige des estimations de poids/volume pour l’encaissement estimé au kg/m³. Le formulaire des variantes propose ces champs ; l’erreur métier explique leur absence.
+- Le catalogue ne porte pas de prix. « Prix dans ce groupage » appartient à chaque variante sélectionnée.
+- Les montants entiers sont limités à la précision sûre de JavaScript ; aucune incrémentation de version côté client, aucun succès métier anticipé.
+- Après chaque mutation, CampaignView remplace l’état précédent. Les appels create → add → open sont séquentiels. Après conflit de version/prix, le groupage est relu sans rejouer automatiquement la mutation. Si cette relecture échoue, les mutations sont bloquées jusqu’à actualisation.
+- La création multi-requêtes n’est pas une transaction frontend : en cas d’échec après création, le brouillon et les produits déjà ajoutés sont conservés, avec un lien pour reprendre. Pas de retry automatique des POST sans clé d’idempotence exposée.
+- Les résumés catalogue ne contiennent ni description ni variantes. La page lit donc les détails par lots de 6 ; le détail d’un groupage parcourt le catalogue pour retrouver les noms des variantes. Cela évite d’inventer un endpoint. Un endpoint d’enrichissement ou un cache pourra réduire ces lectures plus tard.
+- `orderable=false` désactive la sélection. Les variantes inactives ou inutilisables ne peuvent pas être ajoutées. Une actualisation au retour sur la page retire les éléments indisponibles ou dont le prix a changé. La sélection reste en mémoire et n’est pas une commande.
+- Les dates utilisent le fuseau de l’appareil et sont envoyées en ISO UTC.
+- Les maquettes et palettes restent conservées. Aucun Material, NgRx ou bibliothèque UI lourde.
+
+## Vérification
+
+```powershell
 npm test
 npm run build -- --configuration production
 npx playwright install chromium
 npm run test:e2e
 ```
 
-Les tests navigateur démarrent et arrêtent leurs propres serveurs sur 4200 et 4300. Libérer ces ports avant de les lancer. Le build de production doit exister avant `test:e2e`. `npm run format` applique Prettier.
+Les tests navigateur démarrent un serveur development sur **4201** et un serveur local du build production sur **4300**, puis les arrêtent. Le serveur utilisateur sur 4200 peut rester ouvert.
 
-## Architecture créée
+Les E2E interceptent toutes les APIs avec des données réservées aux tests. Ils ne créent aucune donnée dans PostgreSQL, n’appellent pas Bictorys et vérifient les corps des mutations, les versions serveur et l’absence de JWT public. Ces tests ne constituent pas une recette live du backend.
 
-```text
-Frontend/
-├── maquettes/                    références visuelles fournies, conservées
-├── public/                       favicon et initialisation du thème avant Angular
-├── src/
-│   ├── app/
-│   │   ├── core/
-│   │   │   ├── auth/             session JWT
-│   │   │   ├── http/             interceptor Bearer
-│   │   │   ├── guards/           protection de l’espace gérante
-│   │   │   ├── theme/            clair, sombre, système
-│   │   │   ├── layout/           Sidebar, Topbar, MobileBottomNav, ManagerLayout
-│   │   │   └── config/           environnements, profil et navigation
-│   │   ├── shared/
-│   │   │   ├── ui/               Button, IconButton, Card, Badge, Avatar, StatCard, Tabs
-│   │   │   ├── forms/            Input, Select, Toggle, SearchInput
-│   │   │   ├── feedback/         Skeleton, EmptyState, écran d’attente de feature
-│   │   │   └── utils/            initiales
-│   │   ├── features/
-│   │   │   ├── auth/
-│   │   │   ├── dashboard/
-│   │   │   ├── boutique/
-│   │   │   ├── catalog/
-│   │   │   ├── groupages/
-│   │   │   ├── orders/
-│   │   │   ├── payments/
-│   │   │   ├── public-groupage/
-│   │   │   ├── checkout/
-│   │   │   └── tracking/
-│   │   └── api/generated/        emplacement documenté du futur client OpenAPI
-│   └── styles/_tokens.scss       palettes et tokens sémantiques
-├── e2e/                          vérifications Chromium
-├── tools/serve-production.cjs    serveur local réservé aux tests
-└── proxy.conf.json               proxy local vers Spring Boot :8080
-```
+Captures locales dans `artifacts/`, rapport Playwright dans `playwright-report/` (ignorés par Git). npm run format exclut les sorties générées via .prettierignore.
 
-Les dix features sont chargées avec `loadComponent`. L’espace gérante utilise un layout commun et un guard sur la route parente et ses enfants. Les pages publiques `/g/:publicId`, `/g/:publicId/commander` et `/suivi` sont accessibles sans session.
+## Suite prévue
 
-Les composants purement UI n’importent aucun service métier. Input, Select et Button sont des directives sur des éléments HTML natifs, pour conserver labels, formulaires et comportements clavier. Les onglets prennent en charge les flèches, Home et End. Les contrôles ont un focus visible, des états désactivés et, pour les boutons, un état de chargement.
+Commandes côté gérante puis checkout public. Restent ensuite les paiements, les métriques réelles du dashboard et les améliorations catalogue nécessaires aux futurs parcours. Aucun checkout ou paiement n’est anticipé dans ce sprint.
 
-## Design et aperçu
+## Résultats de validation — 25 septembre 2026
 
-Les palettes demandées sont centralisées dans les CSS custom properties. Les composants utilisent ces variables ; Poppins est livrée localement avec l’application, sans appel à Google Fonts. La sidebar apparaît à partir de 1024 px ; en dessous, la navigation inférieure contient Accueil, Groupages, Commandes et Boutique.
+- `npm test` : **85 tests réussis**, 14 fichiers.
+- `npm run test:e2e` : **31 tests navigateur réussis**, Chromium ; parcours mobile/desktop, 360 px, tablette, light/dark, clavier et build production.
+- `npm run build -- --configuration production` : **réussi**, budgets respectés ; bundle initial 297,06 kB (transfert estimé 82,96 kB).
+- `npm run api:generate:snapshot` : réussi ; génération reproductible vérifiée par comparaison des empreintes des fichiers.
+- `git diff --check` : réussi. Aucun fichier backend ni migration SQL modifié.
+- Dépendance directe ajoutée : `ng-openapi-gen@1.1.0` (développement).
 
-Le script `public/theme-init.js` applique le thème avant le démarrage d’Angular. ThemeService persiste le choix dans localStorage, suit le système lorsque ce mode est choisi et synchronise les onglets. Un stockage indisponible ne bloque pas l’application.
-
-`npm start` active un aperçu visuel avec des données locales, signalé dans l’interface. Les fichiers `*.development.ts` sont sélectionnés uniquement par les remplacements de la configuration development. Le dashboard de production ne contient aucune fixture métier : il affiche des emplacements vides. Aucun appel métier HTTP n’est effectué dans cette tranche.
-
-`/atelier` permet de manipuler les composants en développement. Les maquettes ont servi de référence à la composition, aux cartes, à la navigation et aux thèmes ; les placeholders des autres features ne simulent pas de fonctionnalités terminées.
-
-## Authentification préparée
-
-AuthService conserve le jeton en mémoire et dans **sessionStorage**, pour la durée de l’onglet. Aucun jeton n’est écrit dans localStorage ou dans les logs. L’expiration est vérifiée à la restauration et à chaque utilisation. Si le stockage est indisponible, la session reste en mémoire. Le contrat `acceptSession(accessToken, expiresIn)` devra être appelé par le futur adaptateur de connexion ; ce n’est pas un DTO backend.
-
-L’interceptor joint Bearer seulement à l’origine et au chemin de l’API configurée, hors routes anonymes auth/public. Un 401 invalide la session concernée, sans effacer une session plus récente. Le guard reste actif en production ; seul l’aperçu de développement permet l’accès sans connexion. L’autorisation réelle restera toujours à la charge du backend.
-
-La page connexion est un écran préparatoire : le bouton est désactivé jusqu’au branchement réel. Aucun endpoint d’authentification, rafraîchissement de jeton ou DTO métier n’a été inventé.
-
-## Dépendances
-
-- Angular core/common/compiler/forms/platform-browser/router **22.2.0**.
-- RxJS **7.8.2**, tslib **2.8.1**, Poppins **5.3.0**.
-- Outils : Angular CLI/build/compiler-cli **22.2.0**, TypeScript **6.0.3**.
-- Tests : Vitest **4.1.11**, jsdom **28.1.0**, Playwright **1.63.0**.
-- Formatage : Prettier **3.9.9**.
-
-Les versions résolues sont verrouillées dans package-lock.json. Aucune bibliothèque UI lourde. Les quelques icônes sont des SVG locaux encapsulés dans Icon ; Lucide Angular n’est pas nécessaire à cette tranche.
-
-## Connexions à réaliser dans les prochaines tranches
-
-1. Verrouiller un générateur compatible Angular 22 et générer le client depuis `/v3/api-docs` dans `api/generated`.
-2. Brancher la connexion réelle, le profil, l’expiration de session dans les parcours et la déconnexion.
-3. Relier le dashboard et les features aux lectures API, puis ajouter leurs états chargement/erreur/vide.
-4. Implémenter séparément les parcours boutique, catalogue, groupages, commandes, paiements, commande publique et suivi.
-5. Définir la configuration de déploiement de l’API et le fallback SPA côté hébergement.
-
-Aucune modification Spring Boot, SQL, Redis, Kafka ou RabbitMQ dans cette tranche.
-
-## Vérification de cette tranche — 25 septembre 2026
-
-- `npm test` : **50 tests réussis**, 7 fichiers, aucun échec.
-- `npm run build -- --configuration production` : **réussi**, bundle initial 269,77 kB (transfert estimé 73,08 kB).
-- `npm run test:e2e` : **12 tests Chromium réussis**, aucun échec.
-- Tailles vérifiées : 360, 768, 1024 et 1440 px, en clair et sombre ; aucun débordement horizontal sur le dashboard.
-- Navigation mobile, focus clavier, onglets, toggle, persistance du thème, changement du thème système, guard de production et route publique vérifiés.
-- Aucune requête métier `/api/` sur le dashboard d’aperçu. Contrôle des bundles de production : aucun des noms ou montants des fixtures recherchées.
-- Captures produites par les tests : `artifacts/dashboard-{360|1440}-{light|dark}.png` ; dossier local ignoré par Git. Rendus mobile clair et desktop clair/sombre inspectés visuellement.
-
-Ces contrôles couvrent la fondation frontend, pas les parcours métier ni une certification WCAG complète.
+Le backend sur `localhost:8080` était indisponible pendant cette validation. Le client utilise l’export OpenAPI réel produit par les tests du backend le 24 septembre 2026, conservé dans `openapi.json`. La recette avec le serveur réel reste à effectuer ; les tests navigateur ci-dessus utilisent des réponses HTTP simulées, isolées des écrans applicatifs. Dès que le backend tourne, `npm run api:generate` permet de régénérer directement depuis `/v3/api-docs`.

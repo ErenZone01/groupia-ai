@@ -1,0 +1,92 @@
+<main>
+  <section class="welcome">
+    <g-brand />
+    <p class="eyebrow">Bienvenue chez vous</p>
+    <h1>Votre boutique.<br />Vos groupages.<br /><em>De belles opportunités.</em></h1>
+    <p>Un espace simple pour rapprocher vos clientes et faire grandir votre activité.</p>
+  </section>
+  <section class="form">
+    <div>
+      <label class="theme"
+        ><span class="sr-only">Thème</span
+        ><select
+          gSelect
+          aria-label="Thème"
+          [value]="theme.preference()"
+          (change)="theme.setPreference($any($event.target).value)"
+        >
+          <option value="light">Clair</option>
+          <option value="dark">Sombre</option>
+          <option value="system">Système</option>
+        </select></label
+      >
+      <h2>{{ registerMode ? 'Créer mon compte' : 'Ravie de vous retrouver' }}</h2>
+      <p class="muted">
+        {{
+          registerMode ? 'Ouvrez votre espace Groupia.' : 'Connectez-vous à votre espace Groupia.'
+        }}
+      </p>
+      @if (expired) {
+        <p role="status" class="notice">Votre session a expiré. Connectez-vous à nouveau.</p>
+      }
+      <form #form="ngForm" (ngSubmit)="submit()" class="form-stack">
+        <label for="phone">Numéro de téléphone</label
+        ><input
+          gInput
+          id="phone"
+          name="phone"
+          type="tel"
+          autocomplete="username"
+          required
+          maxlength="40"
+          [(ngModel)]="phoneNumber"
+          placeholder="+221…"
+        />
+        @if (registerMode) {
+          <label for="email">Email <span class="muted">(facultatif)</span></label
+          ><input
+            gInput
+            id="email"
+            name="email"
+            type="email"
+            email
+            maxlength="254"
+            autocomplete="email"
+            [(ngModel)]="email"
+          />
+        }
+        <label for="password">Mot de passe</label
+        ><input
+          gInput
+          id="password"
+          name="password"
+          type="password"
+          required
+          maxlength="72"
+          [autocomplete]="registerMode ? 'new-password' : 'current-password'"
+          [(ngModel)]="password"
+          [attr.aria-describedby]="registerMode ? 'password-help' : null"
+        />
+        @if (registerMode) {
+          <p id="password-help" class="muted">
+            Au moins 15 caractères. Une phrase longue est idéale. Maximum 72 octets UTF-8.
+          </p>
+        }
+        @if (error()) {
+          <p role="alert" class="form-error">{{ error() }}</p>
+        }
+        <button
+          gButton
+          type="submit"
+          [loading]="busy()"
+          [disabled]="form.invalid || !phoneNumber.trim()"
+        >
+          {{ registerMode ? 'Créer mon compte' : 'Se connecter' }}
+        </button>
+      </form>
+      <a [routerLink]="registerMode ? '/connexion' : '/inscription'">{{
+        registerMode ? 'J’ai déjà un compte' : 'Créer un compte'
+      }}</a>
+    </div>
+  </section>
+</main>

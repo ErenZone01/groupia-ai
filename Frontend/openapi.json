@@ -1,0 +1,5091 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "Groupia API",
+    "description" : "Organization actions require JWT, active membership and explicit permission. Order access requires a private tracking token.",
+    "version" : "V1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/organizations/{organizationId}/products/{productId}" : {
+      "get" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "update",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateProduct"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/products/{productId}/variants/{variantId}" : {
+      "put" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "updateVariant",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "variantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VariantChange"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}" : {
+      "get" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateCampaign"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers/{offerId}" : {
+      "put" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "updateOffer",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateOffer"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/public/orders/{orderNumber}/payments" : {
+      "post" : {
+        "tags" : [ "ordering-controller" ],
+        "operationId" : "initiate",
+        "parameters" : [ {
+          "name" : "orderNumber",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 16,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InitiatePayment"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentAttemptView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Tracking rate limit",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Payment provider unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "OrderTrackingToken" : [ ]
+        } ]
+      }
+    },
+    "/api/public/groupings/{publicIdentifier}/checkout" : {
+      "post" : {
+        "tags" : [ "ordering-controller" ],
+        "operationId" : "checkout",
+        "parameters" : [ {
+          "name" : "publicIdentifier",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 16,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckoutCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created; private tracking token returned once",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrderReceipt"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "Idempotent replay; no tracking token returned",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrderReplay"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/payment/webhooks/{provider}" : {
+      "post" : {
+        "tags" : [ "payment-controller" ],
+        "operationId" : "webhook",
+        "parameters" : [ {
+          "name" : "provider",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "headers",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/HttpHeaders"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "byte"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Payment provider unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "413" : {
+            "description" : "Webhook exceeds 64 KiB",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "202" : {
+            "description" : "Receipt retained; not proof of financial success"
+          }
+        },
+        "security" : [ {
+          "ProviderWebhookSecret" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations" : {
+      "get" : {
+        "tags" : [ "organization-controller" ],
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 1000000,
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 100,
+            "minimum" : 1,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/OrganizationView"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "organization-controller" ],
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateOrganizationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrganizationView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/products" : {
+      "get" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 1000000,
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 100,
+            "minimum" : 1,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductPage"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "create_1",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateProduct"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/products/{productId}/variants" : {
+      "post" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "addVariant",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VariantChange"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/products/{productId}/variants/{variantId}/deactivate" : {
+      "post" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "deactivateVariant",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "variantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VersionInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/products/{productId}/archive" : {
+      "post" : {
+        "tags" : [ "catalog-controller" ],
+        "operationId" : "archive",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VersionInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns" : {
+      "get" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "list_2",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 1000000,
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 100,
+            "minimum" : 1,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignPage"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "create_2",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateCampaign"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/open" : {
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "open",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CampaignVersion"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers" : {
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "addOffer",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddOffer"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers/{offerId}/deactivate" : {
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "deactivate",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OfferVersions"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers/{offerId}/activate" : {
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "activate",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OfferVersions"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/close" : {
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "close",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CampaignVersion"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/cancel" : {
+      "post" : {
+        "tags" : [ "grouping-controller" ],
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CancelCampaign"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/auth/register" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserAccountView"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/auth/login" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccessToken"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/public/orders/track" : {
+      "get" : {
+        "tags" : [ "ordering-controller" ],
+        "operationId" : "track",
+        "parameters" : [ ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrderReceipt"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Tracking rate limit",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "OrderTrackingToken" : [ ]
+        } ]
+      }
+    },
+    "/api/public/groupings/{publicIdentifier}" : {
+      "get" : {
+        "tags" : [ "public-grouping-controller" ],
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "name" : "publicIdentifier",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicGroupingView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/organizations/{organizationId}" : {
+      "get" : {
+        "tags" : [ "organization-controller" ],
+        "operationId" : "get_3",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrganizationView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/payment-requests" : {
+      "get" : {
+        "tags" : [ "payment-controller" ],
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/payment-requests/{id}" : {
+      "get" : {
+        "tags" : [ "payment-controller" ],
+        "operationId" : "get_4",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/orders" : {
+      "get" : {
+        "tags" : [ "ordering-controller" ],
+        "operationId" : "list_4",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrderPage"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/orders/{orderId}" : {
+      "get" : {
+        "tags" : [ "ordering-controller" ],
+        "operationId" : "get_5",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrganizerOrderView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "UpdateProduct" : {
+        "required" : [ "name", "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 5000,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "ProductVariantView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "productId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sku" : {
+            "type" : "string"
+          },
+          "attributes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "canonicalVariantKey" : {
+            "type" : "string"
+          },
+          "saleUnit" : {
+            "type" : "string"
+          },
+          "estimatedUnitWeightKg" : {
+            "type" : "number"
+          },
+          "estimatedUnitVolumeM3" : {
+            "type" : "number"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ProductView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "variants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProductVariantView"
+            }
+          }
+        }
+      },
+      "VariantChange" : {
+        "required" : [ "variant", "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "variant" : {
+            "$ref" : "#/components/schemas/VariantInput"
+          }
+        }
+      },
+      "VariantInput" : {
+        "type" : "object",
+        "properties" : {
+          "sku" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "attributes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "saleUnit" : {
+            "type" : "string"
+          },
+          "estimatedUnitWeightKg" : {
+            "type" : "number"
+          },
+          "estimatedUnitVolumeM3" : {
+            "type" : "number"
+          }
+        }
+      },
+      "ShippingInput" : {
+        "type" : "object",
+        "properties" : {
+          "originCountry" : {
+            "type" : "string"
+          },
+          "transportMode" : {
+            "type" : "string"
+          },
+          "shippingPricingMethod" : {
+            "type" : "string"
+          },
+          "shippingCollectionMode" : {
+            "type" : "string"
+          },
+          "shippingRate" : {
+            "type" : "number"
+          },
+          "shippingCurrency" : {
+            "type" : "string"
+          },
+          "roundingRule" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UpdateCampaign" : {
+        "required" : [ "title", "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 5000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "closesAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shippingTerms" : {
+            "$ref" : "#/components/schemas/ShippingInput"
+          }
+        }
+      },
+      "CampaignView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "publicIdentifier" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "closesAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shippingTerms" : {
+            "$ref" : "#/components/schemas/ShippingTerms"
+          },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "closedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancellationReason" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "offers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OfferView"
+            }
+          }
+        }
+      },
+      "OfferView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "productVariantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "commercialLabel" : {
+            "type" : "string"
+          },
+          "unitPrice" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "priceRevision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ShippingTerms" : {
+        "type" : "object",
+        "properties" : {
+          "originCountry" : {
+            "type" : "string"
+          },
+          "transportMode" : {
+            "type" : "string",
+            "enum" : [ "AIR", "SEA", "ROAD", "OTHER" ]
+          },
+          "shippingPricingMethod" : {
+            "type" : "string",
+            "enum" : [ "PER_KG", "PER_CBM", "PER_ITEM", "FIXED" ]
+          },
+          "shippingCollectionMode" : {
+            "type" : "string",
+            "enum" : [ "ESTIMATED_AT_CHECKOUT", "AFTER_FINAL_ASSESSMENT" ]
+          },
+          "shippingRate" : {
+            "type" : "number"
+          },
+          "shippingCurrency" : {
+            "type" : "string"
+          },
+          "roundingRule" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UpdateOffer" : {
+        "required" : [ "campaignVersion", "unitPrice", "version" ],
+        "type" : "object",
+        "properties" : {
+          "campaignVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "commercialLabel" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "unitPrice" : {
+            "type" : "number"
+          }
+        }
+      },
+      "InitiatePayment" : {
+        "type" : "object",
+        "properties" : {
+          "provider" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PaymentAttemptView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "CREATED", "PENDING", "SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED" ]
+          },
+          "expectedAmount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "reconciliationRequired" : {
+            "type" : "boolean"
+          },
+          "initiatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "checkoutUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CheckoutCommand" : {
+        "type" : "object",
+        "properties" : {
+          "contact" : {
+            "$ref" : "#/components/schemas/Contact"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Line"
+            }
+          }
+        }
+      },
+      "Contact" : {
+        "type" : "object",
+        "properties" : {
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Line" : {
+        "type" : "object",
+        "properties" : {
+          "offerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expectedUnitPrice" : {
+            "type" : "number"
+          },
+          "expectedPriceRevision" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "OrderLineView" : {
+        "type" : "object",
+        "properties" : {
+          "lineNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "productNameSnapshot" : {
+            "type" : "string"
+          },
+          "productDescriptionSnapshot" : {
+            "type" : "string"
+          },
+          "commercialLabelSnapshot" : {
+            "type" : "string"
+          },
+          "variantAttributesSnapshot" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "skuSnapshot" : {
+            "type" : "string"
+          },
+          "saleUnitSnapshot" : {
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unitPriceSnapshot" : {
+            "type" : "number"
+          },
+          "lineTotal" : {
+            "type" : "number"
+          },
+          "estimatedUnitWeightKgSnapshot" : {
+            "type" : "number"
+          },
+          "estimatedUnitVolumeM3Snapshot" : {
+            "type" : "number"
+          }
+        }
+      },
+      "OrderReceipt" : {
+        "type" : "object",
+        "properties" : {
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "fulfillmentStatus" : {
+            "type" : "string"
+          },
+          "goodsSubtotal" : {
+            "type" : "number"
+          },
+          "platformFeeAmount" : {
+            "type" : "number"
+          },
+          "estimatedShippingAmount" : {
+            "type" : "number"
+          },
+          "initialShippingChargeAmount" : {
+            "type" : "number"
+          },
+          "initialAmountDue" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "paymentDeadline" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "placedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderLineView"
+            }
+          },
+          "trackingToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OrderReplay" : {
+        "type" : "object",
+        "properties" : {
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "replayed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ContentDisposition" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "filename" : {
+            "type" : "string"
+          },
+          "charset" : {
+            "type" : "string"
+          },
+          "inline" : {
+            "type" : "boolean"
+          },
+          "formData" : {
+            "type" : "boolean"
+          },
+          "attachment" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "HttpHeaders" : {
+        "type" : "object",
+        "properties" : {
+          "connection" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "ifModifiedSince" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "contentType" : {
+            "$ref" : "#/components/schemas/MediaType"
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "empty" : {
+            "type" : "boolean"
+          },
+          "location" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "host" : {
+            "type" : "object",
+            "properties" : {
+              "hostString" : {
+                "type" : "string"
+              },
+              "address" : {
+                "type" : "object",
+                "properties" : {
+                  "hostAddress" : {
+                    "type" : "string"
+                  },
+                  "address" : {
+                    "type" : "string",
+                    "format" : "byte"
+                  },
+                  "hostName" : {
+                    "type" : "string"
+                  },
+                  "linkLocalAddress" : {
+                    "type" : "boolean"
+                  },
+                  "multicastAddress" : {
+                    "type" : "boolean"
+                  },
+                  "anyLocalAddress" : {
+                    "type" : "boolean"
+                  },
+                  "loopbackAddress" : {
+                    "type" : "boolean"
+                  },
+                  "siteLocalAddress" : {
+                    "type" : "boolean"
+                  },
+                  "mcglobal" : {
+                    "type" : "boolean"
+                  },
+                  "mcnodeLocal" : {
+                    "type" : "boolean"
+                  },
+                  "mclinkLocal" : {
+                    "type" : "boolean"
+                  },
+                  "mcsiteLocal" : {
+                    "type" : "boolean"
+                  },
+                  "mcorgLocal" : {
+                    "type" : "boolean"
+                  },
+                  "canonicalHostName" : {
+                    "type" : "string"
+                  }
+                }
+              },
+              "port" : {
+                "type" : "integer",
+                "format" : "int32"
+              },
+              "unresolved" : {
+                "type" : "boolean"
+              },
+              "hostName" : {
+                "type" : "string"
+              }
+            }
+          },
+          "all" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "writeOnly" : true
+          },
+          "lastModified" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "date" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accept" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MediaType"
+            }
+          },
+          "acceptCharset" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "ifNoneMatch" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "acceptLanguageAsLocales" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "cacheControl" : {
+            "type" : "string"
+          },
+          "origin" : {
+            "type" : "string"
+          },
+          "contentDisposition" : {
+            "$ref" : "#/components/schemas/ContentDisposition"
+          },
+          "range" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpRange"
+            }
+          },
+          "ifUnmodifiedSince" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accessControlMaxAge" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "contentLanguage" : {
+            "type" : "string"
+          },
+          "acceptLanguage" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "properties" : {
+                "range" : {
+                  "type" : "string"
+                },
+                "weight" : {
+                  "type" : "number",
+                  "format" : "double"
+                }
+              }
+            }
+          },
+          "basicAuth" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "acceptPatch" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MediaType"
+            }
+          },
+          "bearerAuth" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "pragma" : {
+            "type" : "string"
+          },
+          "ifMatch" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "upgrade" : {
+            "type" : "string"
+          },
+          "vary" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "expires" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "allow" : {
+            "uniqueItems" : true,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpMethod"
+            }
+          },
+          "etag" : {
+            "type" : "string"
+          },
+          "accessControlRequestHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlRequestMethod" : {
+            "$ref" : "#/components/schemas/HttpMethod"
+          },
+          "accessControlAllowHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlExposeHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlAllowCredentials" : {
+            "type" : "boolean"
+          },
+          "accessControlAllowMethods" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpMethod"
+            }
+          },
+          "accessControlAllowOrigin" : {
+            "type" : "string"
+          }
+        }
+      },
+      "HttpMethod" : {
+        "type" : "object"
+      },
+      "HttpRange" : {
+        "type" : "object"
+      },
+      "MediaType" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "subtype" : {
+            "type" : "string"
+          },
+          "parameters" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "qualityValue" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "charset" : {
+            "type" : "string"
+          },
+          "wildcardSubtype" : {
+            "type" : "boolean"
+          },
+          "subtypeSuffix" : {
+            "type" : "string"
+          },
+          "wildcardType" : {
+            "type" : "boolean"
+          },
+          "concrete" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CreateOrganizationRequest" : {
+        "required" : [ "name" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "OrganizationView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "defaultCurrency" : {
+            "type" : "string"
+          },
+          "countryCode" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "CreateProduct" : {
+        "required" : [ "name" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 5000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "variants" : {
+            "maxItems" : 100,
+            "minItems" : 0,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VariantInput"
+            }
+          }
+        }
+      },
+      "VersionInput" : {
+        "required" : [ "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CreateCampaign" : {
+        "required" : [ "title" ],
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 5000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "closesAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shippingTerms" : {
+            "$ref" : "#/components/schemas/ShippingInput"
+          }
+        }
+      },
+      "CampaignVersion" : {
+        "required" : [ "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AddOffer" : {
+        "required" : [ "campaignVersion", "productVariantId", "unitPrice" ],
+        "type" : "object",
+        "properties" : {
+          "campaignVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productVariantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "commercialLabel" : {
+            "maxLength" : 160,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "unitPrice" : {
+            "type" : "number"
+          }
+        }
+      },
+      "OfferVersions" : {
+        "required" : [ "campaignVersion", "version" ],
+        "type" : "object",
+        "properties" : {
+          "campaignVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CancelCampaign" : {
+        "required" : [ "reason", "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "RegisterRequest" : {
+        "required" : [ "password", "phoneNumber" ],
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "maxLength" : 40,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 72,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "email" : {
+            "maxLength" : 254,
+            "minLength" : 0,
+            "pattern" : ".*\\S.*",
+            "type" : "string",
+            "format" : "email"
+          }
+        }
+      },
+      "UserAccountView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "phoneNumber" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "LoginRequest" : {
+        "required" : [ "password", "phoneNumber" ],
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "maxLength" : 40,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 72,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "AccessToken" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CatalogVariantView" : {
+        "type" : "object",
+        "properties" : {
+          "productVariantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "productDescription" : {
+            "type" : "string"
+          },
+          "attributes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "saleUnit" : {
+            "type" : "string"
+          },
+          "estimatedUnitWeightKg" : {
+            "type" : "number"
+          },
+          "estimatedUnitVolumeM3" : {
+            "type" : "number"
+          },
+          "usable" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PublicGroupingView" : {
+        "type" : "object",
+        "properties" : {
+          "publicIdentifier" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "orderable" : {
+            "type" : "boolean"
+          },
+          "closesAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "shippingTerms" : {
+            "$ref" : "#/components/schemas/ShippingTerms"
+          },
+          "offers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicOfferView"
+            }
+          }
+        }
+      },
+      "PublicOfferView" : {
+        "type" : "object",
+        "properties" : {
+          "offerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "productVariantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "commercialLabel" : {
+            "type" : "string"
+          },
+          "unitPrice" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "priceRevision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "catalog" : {
+            "$ref" : "#/components/schemas/CatalogVariantView"
+          }
+        }
+      },
+      "ProductPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProductSummary"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ProductSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Page" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PaymentRequestView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PaymentRequestView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "purpose" : {
+            "type" : "string",
+            "enum" : [ "INITIAL_ORDER", "SHIPPING_BALANCE" ]
+          },
+          "businessReference" : {
+            "type" : "string"
+          },
+          "expectedAmount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "goodsAmount" : {
+            "type" : "number"
+          },
+          "feeAmount" : {
+            "type" : "number"
+          },
+          "shippingAmount" : {
+            "type" : "number"
+          },
+          "acceptanceStatus" : {
+            "type" : "string",
+            "enum" : [ "OPEN", "CLOSED", "CANCELLED", "SUPERSEDED" ]
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "settledPaymentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "closedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Attempt" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "providerTransactionId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "CREATED", "PENDING", "SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED" ]
+          },
+          "expectedAmount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "confirmedAmount" : {
+            "type" : "number"
+          },
+          "confirmedCurrency" : {
+            "type" : "string"
+          },
+          "reconciliationRequired" : {
+            "type" : "boolean"
+          },
+          "reconciliationReason" : {
+            "type" : "string"
+          },
+          "initiatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastCheckedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Detail" : {
+        "type" : "object",
+        "properties" : {
+          "request" : {
+            "$ref" : "#/components/schemas/PaymentRequestView"
+          },
+          "attempts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Attempt"
+            }
+          }
+        }
+      },
+      "OrderPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderSummary"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "OrderSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "campaignId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "fulfillmentStatus" : {
+            "type" : "string"
+          },
+          "initialAmountDue" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "placedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "CustomerContact" : {
+        "type" : "object",
+        "properties" : {
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "phoneE164" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OrganizerOrderView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "campaignId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "customerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "customerContactSnapshot" : {
+            "$ref" : "#/components/schemas/CustomerContact"
+          },
+          "order" : {
+            "$ref" : "#/components/schemas/OrderReceipt"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CampaignPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CampaignSummary"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "CampaignSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "publicIdentifier" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "closesAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "GroupiaProblem" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "Stable application error code"
+          },
+          "errors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "properties" : {
+                "field" : {
+                  "type" : "string"
+                },
+                "message" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : true
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "BearerJWT" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      },
+      "OrderTrackingToken" : {
+        "type" : "apiKey",
+        "description" : "Private token returned once at checkout. Never place it in a URL.",
+        "name" : "X-Order-Tracking-Token",
+        "in" : "header"
+      },
+      "ProviderWebhookSecret" : {
+        "type" : "apiKey",
+        "description" : "Bictorys server webhook only. Never put provider credentials in Postman.",
+        "name" : "X-Secret-Key",
+        "in" : "header"
+      }
+    }
+  }
+}

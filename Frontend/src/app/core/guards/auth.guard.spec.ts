@@ -1,3 +1,4 @@
+import { apiTestProviders } from '../../testing/api-test';
 import { TestBed } from '@angular/core/testing';
 import {
   ActivatedRouteSnapshot,
@@ -10,7 +11,7 @@ import { AuthService } from '../auth/auth.service';
 describe('authGuard (production configuration)', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.configureTestingModule({ providers: apiTestProviders() });
   });
   const run = () =>
     TestBed.runInInjectionContext(() =>

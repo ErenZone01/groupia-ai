@@ -1,1 +1,1 @@
-export const environment = { production: false, preview: true, apiBaseUrl: '/api' } as const;
+export const environment = { production: false, preview: false, apiBaseUrl: '/api' } as const;

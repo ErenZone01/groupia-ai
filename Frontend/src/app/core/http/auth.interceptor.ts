@@ -26,7 +26,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         error.status === 401 &&
         auth.token() === token
       )
-        auth.clear();
+        auth.expire();
       return throwError(() => error);
     }),
   );

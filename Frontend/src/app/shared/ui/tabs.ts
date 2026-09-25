@@ -55,6 +55,15 @@ export interface TabItem {
     button:hover:not(:disabled) {
       background: var(--surface-alt);
     }
+    @media (max-width: 599px) {
+      [role='tablist'] {
+        gap: var(--s1);
+      }
+      button {
+        font-size: var(--text-xs);
+        padding: var(--s3) var(--s1);
+      }
+    }
     [role='tabpanel'] {
       padding-top: var(--s4);
     }

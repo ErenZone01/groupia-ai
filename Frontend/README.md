@@ -1,4 +1,6 @@
-# Groupia — premier parcours métier frontend
+# Groupia — parcours gérante et cliente
+
+Le parcours public panier → coordonnées → paiement → suivi est documenté dans [le bilan et la recette manuelle](docs/public-checkout.md).
 
 Angular **22.2.0**, composants standalone, Signals, Router, HttpClient, SCSS. La fondation et le design system sont conservés. Le backend Spring Boot et les migrations SQL ne sont pas modifiés.
 
@@ -23,7 +25,7 @@ Il n’y a plus de connexion simulée ni de fixtures métier dans l’applicatio
 3. **Catalogue** : liste paginée, description, statut traduit, variantes réelles, création simple ou avec options. Une variante sans attributs s’affiche « Standard ». SKU facultatif ; les clés canoniques ne sont jamais affichées.
 4. **Groupages** : liste paginée et wizard Informations → Livraison → Produits → Vérification. Enregistrement en brouillon ou publication.
 5. **Détail** : aperçu, produits, paramètres et placeholder Commandes. Ajout de produits, modification du prix, publication, fermeture avec confirmation et partage du lien public.
-6. **Page cliente** : données publiques réelles, disponibilités, sélection locale par quantité. Aucun appel de checkout ou de paiement.
+6. **Page cliente** : vitrine, panier persistant dans la session, coordonnées sans compte, checkout idempotent, préparation Bictorys et suivi serveur. Voir docs/public-checkout.md.
 
 Routes principales :
 
@@ -37,6 +39,8 @@ Routes principales :
 | /app/groupages/nouveau | Authentifié |
 | /app/groupages/:id | Authentifié |
 | /public/groupages/:publicIdentifier | Public, sans JWT |
+| /public/groupages/:publicIdentifier/cart, /checkout | Public, sans JWT |
+| /public/order | Public, token de suivi en session |
 
 Les anciens liens /accueil, /catalogue, /groupages, /boutique, /commandes et /paiements redirigent vers le nouvel espace /app. /g/:publicId reste un alias de la vitrine. Toutes les pages métier sont lazy-loaded. /app/atelier conserve la démonstration des composants, protégée par la connexion.
 
@@ -140,7 +144,7 @@ Les identifiants de boutique viennent du contexte autorisé, jamais d’une sais
 - Après chaque mutation, CampaignView remplace l’état précédent. Les appels create → add → open sont séquentiels. Après conflit de version/prix, le groupage est relu sans rejouer automatiquement la mutation. Si cette relecture échoue, les mutations sont bloquées jusqu’à actualisation.
 - La création multi-requêtes n’est pas une transaction frontend : en cas d’échec après création, le brouillon et les produits déjà ajoutés sont conservés, avec un lien pour reprendre. Pas de retry automatique des POST sans clé d’idempotence exposée.
 - Les résumés catalogue ne contiennent ni description ni variantes. La page lit donc les détails par lots de 6 ; le détail d’un groupage parcourt le catalogue pour retrouver les noms des variantes. Cela évite d’inventer un endpoint. Un endpoint d’enrichissement ou un cache pourra réduire ces lectures plus tard.
-- `orderable=false` désactive la sélection. Les variantes inactives ou inutilisables ne peuvent pas être ajoutées. Une actualisation au retour sur la page retire les éléments indisponibles ou dont le prix a changé. La sélection reste en mémoire et n’est pas une commande.
+- `orderable=false` désactive la sélection. Les variantes inactives ou inutilisables ne peuvent pas être ajoutées. Les snapshots du panier sont conservés. Une offre indisponible bloque le checkout ; un nouveau prix nécessite un accord explicite. Le panier reste dans la session et n’est vidé qu’après confirmation du suivi.
 - Les dates utilisent le fuseau de l’appareil et sont envoyées en ISO UTC.
 - Les maquettes et palettes restent conservées. Aucun Material, NgRx ou bibliothèque UI lourde.
 
@@ -161,7 +165,7 @@ Captures locales dans `artifacts/`, rapport Playwright dans `playwright-report/`
 
 ## Suite prévue
 
-Commandes côté gérante puis checkout public. Restent ensuite les paiements, les métriques réelles du dashboard et les améliorations catalogue nécessaires aux futurs parcours. Aucun checkout ou paiement n’est anticipé dans ce sprint.
+Commandes côté gérante, métriques réelles du dashboard, récupération sécurisée du suivi et évolutions catalogue. Le checkout et le suivi public sont désormais implémentés ; leur recette sandbox manuelle est décrite dans docs/public-checkout.md.
 
 ## Résultats de validation — 25 septembre 2026
 

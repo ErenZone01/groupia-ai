@@ -1,6 +1,6 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PublicGroupingView } from '../../api/generated/models';
 import { GroupiaApi } from '../../api/groupia-api';
 import { apiMessage } from '../../core/http/api-error';
@@ -16,8 +16,8 @@ import { EmptyState } from '../../shared/feedback/empty-state';
 import { money, dateLabel, variantLabel } from '../../shared/utils/display';
 @Component({
   selector: 'g-public-groupage-page',
-  providers: [PublicSelectionService],
-  imports: [Brand, Card, Badge, Button, Select, Skeleton, EmptyState],
+
+  imports: [RouterLink, Brand, Card, Badge, Button, Select, Skeleton, EmptyState],
   templateUrl: './public-groupage.page.html',
   styles: `
     header {
@@ -62,6 +62,33 @@ import { money, dateLabel, variantLabel } from '../../shared/utils/display';
       font-weight: 600;
       color: var(--primary);
     }
+    .cart-bar {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--s3);
+      padding: var(--s4);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-top: var(--s5);
+    }
+    @media (max-width: 1023px) {
+      main {
+        padding-bottom: calc(var(--s8) + 120px);
+      }
+      .cart-bar {
+        position: fixed;
+        left: var(--s3);
+        right: var(--s3);
+        bottom: var(--s3);
+        z-index: 10;
+        padding-bottom: calc(var(--s4) + env(safe-area-inset-bottom));
+      }
+    }
     .selection {
       margin-top: var(--s8);
       padding: var(--s5);
@@ -103,7 +130,11 @@ export class PublicGroupagePage {
   private request = 0;
   constructor() {
     const sub = this.route.paramMap.subscribe(() => {
-      this.selection.clear();
+      this.selection.select(
+        this.route.snapshot.paramMap.get('publicIdentifier') ??
+          this.route.snapshot.paramMap.get('publicId') ??
+          '',
+      );
       void this.load();
     });
     const focus = () => void this.load(false);
@@ -135,7 +166,6 @@ export class PublicGroupagePage {
       if (seq === this.request) {
         this.error.set(apiMessage(e));
         this.data.set(null);
-        this.selection.clear();
       }
     } finally {
       if (seq === this.request) this.loading.set(false);

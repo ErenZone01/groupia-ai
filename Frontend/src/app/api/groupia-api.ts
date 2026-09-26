@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import {
   CatalogControllerService,
   GroupingControllerService,
@@ -54,7 +54,7 @@ export class GroupiaApi {
     return firstValueFrom(this.grouping.close({ organizationId, campaignId, body }));
   }
   publicGrouping(publicIdentifier: string) {
-    return firstValueFrom(this.publicApi.get2({ publicIdentifier }));
+    return firstValueFrom(this.publicApi.get2({ publicIdentifier }).pipe(timeout(15000)));
   }
   async allProducts(organizationId: string) {
     const result: ProductView[] = [];

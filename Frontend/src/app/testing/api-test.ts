@@ -1,3 +1,4 @@
+import { orderTrackingInterceptor } from '../core/http/order-tracking.interceptor';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -6,6 +7,6 @@ import { authInterceptor } from '../core/http/auth.interceptor';
 export const apiTestProviders = () => [
   provideRouter([]),
   provideApiConfiguration(''),
-  provideHttpClient(withInterceptors([authInterceptor])),
+  provideHttpClient(withInterceptors([authInterceptor, orderTrackingInterceptor])),
   provideHttpClientTesting(),
 ];

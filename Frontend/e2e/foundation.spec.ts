@@ -77,5 +77,5 @@ test('production: guard actif, routes publiques anonymes', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeDisabled();
   await expect(page.getByText('Awa')).toHaveCount(0);
   await page.goto('http://127.0.0.1:4300/suivi');
-  await expect(page.getByRole('heading', { name: 'Suivre ma commande' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Votre suivi' })).toBeVisible();
 });

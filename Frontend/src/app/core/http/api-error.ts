@@ -1,5 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  INVALID_CUSTOMER_CONTACT: 'Vérifiez vos coordonnées, notamment le téléphone avec son indicatif.',
+  INVALID_ORDER_QUANTITY: 'Vérifiez la quantité de chaque article.',
+  INVALID_ORDER_LINES: 'Votre panier doit contenir entre 1 et 100 produits.',
+  IDEMPOTENCY_KEY_REUSED: 'Cette tentative correspond à un autre contenu. Vérifiez votre panier.',
+  GROUPING_NOT_ORDERABLE: 'Ce groupage ne reçoit plus de commandes.',
+  ORDER_PAYMENT_EXPIRED: 'Le délai de paiement est expiré. Actualisez le suivi.',
   INVALID_CREDENTIALS: 'Le numéro ou le mot de passe est incorrect.',
   PHONE_ALREADY_REGISTERED: 'Ce numéro possède déjà un compte. Connectez-vous.',
   INVALID_PHONE_NUMBER: 'Vérifiez le numéro de téléphone, avec son indicatif.',

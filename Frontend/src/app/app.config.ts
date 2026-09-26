@@ -1,3 +1,4 @@
+import { orderTrackingInterceptor } from './core/http/order-tracking.interceptor';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -9,6 +10,6 @@ export const appConfig: ApplicationConfig = {
     provideApiConfiguration(''),
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'enabled' })),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, orderTrackingInterceptor])),
   ],
 };

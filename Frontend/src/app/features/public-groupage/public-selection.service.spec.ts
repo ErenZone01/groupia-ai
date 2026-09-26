@@ -42,14 +42,16 @@ describe('Sélection publique', () => {
     selection.add({ orderable: true }, { ...offer, catalog: { usable: false } });
     expect(selection.count()).toBe(0);
   });
-  it('vide la sélection après fermeture', () => {
+  it('conserve le panier après fermeture mais bloque le checkout', () => {
     selection.add({ orderable: true }, offer);
     selection.reconcile({ orderable: false });
-    expect(selection.count()).toBe(0);
+    expect(selection.count()).toBe(1);
+    expect(selection.ready()).toBe(false);
   });
-  it('retire les prix devenus périmés', () => {
+  it('conserve les prix devenus périmés avant consentement', () => {
     selection.add({ orderable: true }, offer);
     selection.reconcile({ orderable: true, offers: [{ ...offer, priceRevision: 2 }] });
-    expect(selection.count()).toBe(0);
+    expect(selection.count()).toBe(1);
+    expect(selection.changes()).toHaveLength(1);
   });
 });

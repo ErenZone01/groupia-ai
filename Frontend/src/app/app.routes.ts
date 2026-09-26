@@ -2,6 +2,22 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 export const routes: Routes = [
   {
+    path: 'public/groupages/:publicIdentifier/cart',
+    title: 'Mon panier · Groupia',
+    loadComponent: () => import('./features/checkout/cart.page').then((m) => m.CartPage),
+  },
+  {
+    path: 'public/groupages/:publicIdentifier/checkout',
+    title: 'Mes coordonnées · Groupia',
+    loadComponent: () => import('./features/checkout/checkout.page').then((m) => m.CheckoutPage),
+  },
+  {
+    path: 'public/order',
+    title: 'Ma commande · Groupia',
+    loadComponent: () => import('./features/tracking/tracking.page').then((m) => m.TrackingPage),
+  },
+
+  {
     path: 'connexion',
     title: 'Connexion · Groupia',
     loadComponent: () => import('./features/auth/auth.page').then((m) => m.AuthPage),

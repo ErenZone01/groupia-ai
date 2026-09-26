@@ -93,10 +93,17 @@
       } @else {
         <p class="muted">Choisissez les produits qui vous plaisent.</p>
       }
-      <p class="notice">
-        Votre sélection reste sur cette page. La commande et le paiement seront disponibles
-        prochainement.
-      </p>
     </section>
+    @if (selection.count()) {
+      <aside class="cart-bar" aria-label="Panier">
+        <strong
+          >{{ selection.count() }} articles ·
+          {{ money(selection.subtotal(), group.currency) }}</strong
+        >
+        <a gButton [routerLink]="['/public/groupages', group.publicIdentifier, 'cart']"
+          >Voir mon panier</a
+        >
+      </aside>
+    }
   }
 </main>

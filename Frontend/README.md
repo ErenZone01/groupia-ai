@@ -1,5 +1,7 @@
 # Groupia — parcours gérante et cliente
 
+La tranche Commandes côté gérante est décrite dans [son bilan et ses limites](docs/manager-orders.md).
+
 Le parcours public panier → coordonnées → paiement → suivi est documenté dans [le bilan et la recette manuelle](docs/public-checkout.md).
 
 Angular **22.2.0**, composants standalone, Signals, Router, HttpClient, SCSS. La fondation et le design system sont conservés. Le backend Spring Boot et les migrations SQL ne sont pas modifiés.
@@ -16,7 +18,7 @@ npm start
 
 Ouvrir http://localhost:4200/connexion. Le backend doit être lancé séparément sur http://localhost:8080. Le proxy de développement transfère `/api/...` et `/v3/api-docs` à Spring Boot. En production, configurer le reverse proxy sur la même origine et le fallback des routes vers index.html.
 
-Il n’y a plus de connexion simulée ni de fixtures métier dans l’application. Les données de test sont exclusivement dans les tests unitaires et `e2e/api-mock.ts`. Le tableau de bord conserve des emplacements vides tant que ses métriques ne sont pas exposées par une API.
+Il n’y a plus de connexion simulée ni de fixtures métier dans l’application. Les données de test sont exclusivement dans les tests unitaires et `e2e/api-mock.ts`. Le tableau de bord affiche les nombres de commandes fournis par le backend et les cinq commandes les plus récentes, sans métriques financières inventées.
 
 ## Parcours livré
 
@@ -24,7 +26,7 @@ Il n’y a plus de connexion simulée ni de fixtures métier dans l’applicatio
 2. **Boutique** : chargement des boutiques autorisées ; onboarding si aucune ; sélection automatique de l’unique boutique, ou sélecteur dans Ma boutique. Seul l’identifiant choisi est mémorisé et il est revalidé sur chaque nouvelle session.
 3. **Catalogue** : liste paginée, description, statut traduit, variantes réelles, création simple ou avec options. Une variante sans attributs s’affiche « Standard ». SKU facultatif ; les clés canoniques ne sont jamais affichées.
 4. **Groupages** : liste paginée et wizard Informations → Livraison → Produits → Vérification. Enregistrement en brouillon ou publication.
-5. **Détail** : aperçu, produits, paramètres et placeholder Commandes. Ajout de produits, modification du prix, publication, fermeture avec confirmation et partage du lien public.
+5. **Détail** : aperçu, produits, paramètres et commandes filtrées par groupage. Ajout de produits, modification du prix, publication, fermeture avec confirmation et partage du lien public.
 6. **Page cliente** : vitrine, panier persistant dans la session, coordonnées sans compte, checkout idempotent, préparation Bictorys et suivi serveur. Voir docs/public-checkout.md.
 
 Routes principales :
@@ -35,6 +37,7 @@ Routes principales :
 | /app/accueil | Authentifié |
 | /app/boutique | Authentifié |
 | /app/products | Authentifié |
+| /app/orders, /app/orders/:orderId | Authentifié |
 | /app/groupages | Authentifié |
 | /app/groupages/nouveau | Authentifié |
 | /app/groupages/:id | Authentifié |
@@ -67,7 +70,7 @@ npm run api:generate
 - `GroupiaApi` fournit des noms stables à l’application ; les suffixes d’opérations générés par Spring restent confinés dans cet adaptateur.
 - Spring déclare plusieurs réponses structurées en `*/*`. Le script utilise l’option officielle `customizedResponseType` pour les décoder en JSON. Le contrat source reste intact.
 - `provideApiConfiguration('')` utilise les URLs relatives. L’interceptor s’applique au client généré.
-- Des contrats commandes/paiements apparaissent dans la génération complète, mais aucun de ces parcours n’est implémenté ou appelé.
+- Les contrats générés alimentent les parcours public et Commandes côté gérante ; le calcul fournisseur reste bloqué par les données absentes de la projection de liste.
 
 **Provenance du snapshot initial** : export réel `Backend/target/groupia-openapi.json`, produit le 24 septembre 2026 par `OpenApiIntegrationTests` via GET /v3/api-docs. Le serveur local refusait les connexions sur 8080 lors de cette tranche. Les endpoints et invariants utilisés ont aussi été relus dans les controllers/domaines actuels. Rafraîchir avec `npm run api:generate` au prochain démarrage du backend.
 
@@ -165,7 +168,7 @@ Captures locales dans `artifacts/`, rapport Playwright dans `playwright-report/`
 
 ## Suite prévue
 
-Commandes côté gérante, métriques réelles du dashboard, récupération sécurisée du suivi et évolutions catalogue. Le checkout et le suivi public sont désormais implémentés ; leur recette sandbox manuelle est décrite dans docs/public-checkout.md.
+Agrégation fournisseur côté backend, enrichissement de la liste des commandes (cliente/quantités), récupération sécurisée du suivi et évolutions catalogue. Le checkout et le suivi public sont désormais implémentés ; leur recette sandbox manuelle est décrite dans docs/public-checkout.md.
 
 ## Résultats de validation — 25 septembre 2026
 

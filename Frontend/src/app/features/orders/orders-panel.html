@@ -1,0 +1,81 @@
+<nav class="filters" aria-label="Filtrer les commandes">
+  @for (filter of filters; track filter.value) {
+    <button
+      gButton
+      [variant]="status() === filter.value ? 'primary' : 'secondary'"
+      [attr.aria-pressed]="status() === filter.value"
+      (click)="filter.value !== status() && this.filter(filter.value)"
+    >
+      {{ filter.label }}
+    </button>
+  }
+</nav>
+<div class="toolbar">
+  <g-search-input
+    label="Numéro de commande sur cette page"
+    placeholder="Numéro sur cette page…"
+    [(value)]="store.search"
+    [disabled]="store.loading()"
+  /><button gButton variant="secondary" [disabled]="store.loading()" (click)="reload()">
+    Actualiser
+  </button>
+</div>
+<p class="muted">
+  La recherche porte uniquement sur les commandes de cette page. Les coordonnées et articles sont
+  disponibles dans le détail.
+</p>
+@if (store.loading()) {
+  <div aria-label="Chargement des commandes" role="status"><g-skeleton /><g-skeleton /></div>
+} @else if (store.error()) {
+  <p class="form-error" role="alert">{{ store.error() }}</p>
+  <button gButton (click)="reload()">Réessayer</button>
+} @else if (store.data(); as data) {
+  <p class="muted" aria-live="polite">
+    {{ data.totalElements ?? '—' }} commande(s) {{ status() ? 'pour ce filtre' : 'au total' }}
+  </p>
+  @if (store.items().length) {
+    <g-order-list [orders]="store.items()" [returnQuery]="returnQuery()" />
+  } @else {
+    <g-empty-state
+      [title]="store.search() ? 'Aucun résultat sur cette page.' : empty()"
+      [description]="
+        store.search()
+          ? 'Essayez un autre numéro ou consultez les autres pages.'
+          : 'Les commandes apparaîtront ici dès leur création.'
+      "
+      icon="orders"
+    />
+  }
+  @if ((data.totalPages ?? 0) > 1 || page() > 0) {
+    <nav class="pagination" aria-label="Pagination des commandes">
+      <button gButton variant="secondary" [disabled]="page() === 0" (click)="paginate(page() - 1)">
+        Précédente
+      </button>
+      <span>Page {{ page() + 1 }} sur {{ data.totalPages ?? '—' }}</span>
+      <button
+        gButton
+        variant="secondary"
+        [disabled]="page() + 1 >= (data.totalPages ?? 0)"
+        (click)="paginate(page() + 1)"
+      >
+        Suivante
+      </button>
+    </nav>
+  }
+}
+@if (campaignId()) {
+  <g-card
+    ><h2>À commander au fournisseur</h2>
+    <p class="notice">
+      Le récapitulatif par produit n’est pas encore disponible. Consultez le détail des commandes
+      payées pour préparer votre achat.
+    </p>
+    <p class="muted">
+      Seules les commandes payées doivent être prises en compte. Aucun total fournisseur n’est
+      calculé sur une liste incomplète.
+    </p>
+    <button gButton variant="secondary" (click)="filter('CONFIRMED')">
+      Voir les commandes payées
+    </button></g-card
+  >
+}

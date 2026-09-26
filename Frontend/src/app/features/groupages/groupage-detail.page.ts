@@ -1,3 +1,4 @@
+import { OrdersPanel } from '../orders/orders-panel';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DOCUMENT } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
@@ -29,6 +30,7 @@ import {
   providers: [GroupageStore],
   imports: [
     RouterLink,
+    OrdersPanel,
     Card,
     Badge,
     Button,
@@ -81,7 +83,9 @@ export class GroupageDetailPage {
   readonly error = signal('');
   readonly catalogError = signal('');
   readonly products = signal<ProductView[]>([]);
-  readonly tab = signal('overview');
+  readonly tab = signal(
+    this.route.snapshot.queryParamMap.get('tab') === 'orders' ? 'orders' : 'overview',
+  );
   readonly adding = signal(false);
   readonly confirmingClose = signal(false);
   readonly tabs = [

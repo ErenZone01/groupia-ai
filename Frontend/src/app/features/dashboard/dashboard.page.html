@@ -1,118 +1,86 @@
 <div class="page-heading">
   <div>
     <p class="eyebrow overline">Votre boutique, en un coup d’œil</p>
-    <h1>
-      Bonjour{{ data ? ' ' + data.firstName : '' }} ! <span class="wave" aria-hidden="true">☀</span>
-    </h1>
-    <p>Voici un résumé de votre activité aujourd’hui.</p>
+    <h1>Bonjour ! <span class="wave" aria-hidden="true">☀</span></h1>
+    <p>Retrouvez vos commandes et leur statut.</p>
   </div>
-  <span class="period"><g-icon name="calendar" />Cette semaine</span>
+  <span class="period"><g-icon name="calendar" />Toutes périodes</span>
 </div>
+@if (store.loading()) {
+  <div aria-label="Chargement du tableau de bord" role="status"><g-skeleton /></div>
+}
+@if (store.error()) {
+  <p class="form-error" role="alert">{{ store.error() }}</p>
+  <button gButton (click)="reload()">Réessayer</button>
+}
 <section class="stats" aria-label="Résumé des commandes">
   @for (label of labels; track label) {
     <g-stat-card
       [label]="label"
-      [value]="data?.stats?.[$index] ?? '—'"
+      [value]="store.stats()[$index] ?? '—'"
       [tone]="tones[$index]"
       [icon]="icons[$index]"
     />
   }
 </section>
+<p class="muted metrics-note">Nombre de commandes par statut actuel, toutes périodes confondues.</p>
 <div class="overview">
   <g-card
     ><div class="card-heading">
-      <div>
-        <h2>Ventes de la semaine</h2>
-        <p class="muted">Montants en francs CFA · XOF</p>
-      </div>
-      @if (data) {
-        <div class="sales-total">
-          <strong>{{ data.sales }} <small>F</small></strong
-          ><g-badge tone="positive"><g-icon name="trend" />{{ data.salesTrend }}</g-badge>
-        </div>
-      }
+      <h2>Les commandes de votre boutique</h2>
+      <g-icon name="orders" />
     </div>
-    @if (data) {
-      <g-sales-chart [values]="data.bars" />
-    } @else {
-      <g-empty-state
-        title="Vos ventes, bientôt ici"
-        description="Retrouvez ici votre activité une fois votre boutique connectée."
-        icon="trend"
-      />
-    }
-  </g-card>
+    <p class="muted">
+      Consultez les achats enregistrés et leurs montants. Le statut « Payée » correspond aux
+      commandes confirmées.
+    </p>
+    <div class="actions">
+      <a gButton routerLink="/app/orders" [queryParams]="{ status: 'CONFIRMED' }"
+        >Voir les commandes payées</a
+      ><a
+        gButton
+        variant="secondary"
+        routerLink="/app/orders"
+        [queryParams]="{ status: 'PENDING_PAYMENT' }"
+        >En attente</a
+      >
+    </div></g-card
+  >
   <g-card
     ><div class="card-heading">
-      <h2>Groupage en cours</h2>
-      @if (data) {
-        <g-badge>En cours</g-badge>
-      }
+      <h2>Vos groupages</h2>
+      <g-icon name="group" />
     </div>
-    @if (data) {
-      <div class="campaign">
-        <g-campaign-art />
-        <div>
-          <p class="eyebrow muted">Collection du mois</p>
-          <h3>{{ data.campaign.title }}<br />{{ data.campaign.subtitle }}</h3>
-          <g-badge tone="warning"><g-icon name="clock" />{{ data.campaign.deadline }}</g-badge>
-        </div>
-      </div>
-      <div
-        class="progress"
-        role="progressbar"
-        [attr.aria-valuenow]="data.campaign.progress"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-label="Objectif de commandes"
-      >
-        <span [style.width.%]="data.campaign.progress"></span>
-      </div>
-      <div class="progress-label">
-        <span
-          ><strong>{{ data.campaign.count }}</strong> / {{ data.campaign.target }} commandes</span
-        ><strong>{{ data.campaign.progress }} %</strong>
-      </div>
-      <a gButton class="wide" routerLink="/groupages">Voir le groupage <g-icon name="arrow" /></a>
-    } @else {
-      <g-empty-state
-        title="Aucun groupage à afficher"
-        description="Vos groupages en cours apparaîtront ici."
-        icon="group"
-      />
-    }
-  </g-card>
+    <p class="muted">Retrouvez vos sélections et consultez les commandes de chaque groupage.</p>
+    <div class="actions">
+      <a gButton variant="secondary" routerLink="/app/groupages">Voir les groupages</a>
+    </div></g-card
+  >
 </div>
 <g-card
   ><div class="card-heading activity-heading">
     <div>
-      <h2>Activité récente</h2>
-      <p class="muted">Les dernières nouvelles de votre boutique.</p>
+      <h2>Dernières commandes</h2>
+      <p class="muted">Les cinq commandes les plus récentes.</p>
     </div>
-    <a class="text-link" routerLink="/commandes">Voir les commandes <g-icon name="arrow" /></a>
+    <a class="text-link" routerLink="/app/orders">Voir les commandes <g-icon name="arrow" /></a>
   </div>
-  @if (data) {
-    <ul class="activity">
-      @for (item of data.activity; track item.name) {
-        <li>
-          <g-avatar [name]="item.name" />
-          <div class="person">
-            <strong>{{ item.name }}</strong
-            ><span>{{ item.detail }}</span>
-          </div>
-          <div class="amount">{{ item.amount }} <small>F</small></div>
-          <g-badge [tone]="item.status === 'Payée' ? 'positive' : 'warning'">{{
-            item.status
-          }}</g-badge
-          ><time>{{ item.time }}</time>
-        </li>
-      }
-    </ul>
-  } @else {
-    <g-empty-state
-      title="Tout commence ici"
-      description="Les nouvelles commandes et les paiements s’afficheront au fil de votre activité."
-      icon="spark"
-    />
+  @if (store.loading()) {
+    <g-skeleton /><g-skeleton />
+  } @else if (!store.error()) {
+    @if (store.recent().length) {
+      <g-order-list [orders]="store.recent()" />
+    } @else {
+      <g-empty-state
+        title="Aucune commande pour le moment."
+        description="Les achats de vos clientes apparaîtront ici."
+        icon="orders"
+      />
+    }
   }
+  <div class="actions">
+    <button gButton variant="ghost" [disabled]="store.loading()" (click)="reload()">
+      Actualiser le tableau de bord
+    </button>
+  </div>
 </g-card>

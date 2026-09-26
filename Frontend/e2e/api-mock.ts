@@ -133,6 +133,14 @@ export async function mockApi(
         return reply(created, 201);
       }
     }
+    if (/\/orders$/.test(path))
+      return reply({
+        items: [],
+        page: Number(url.searchParams.get('page') ?? 0),
+        size: Number(url.searchParams.get('size') ?? 20),
+        totalElements: 0,
+        totalPages: 0,
+      });
     if (/\/products$/.test(path)) {
       if (method === 'GET')
         return reply({

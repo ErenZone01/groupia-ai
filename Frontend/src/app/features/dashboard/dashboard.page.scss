@@ -19,13 +19,14 @@
   font-size: var(--text-xs);
   color: var(--muted);
 }
-.period g-icon {
-  width: 16px;
-}
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s4);
+  margin-bottom: var(--s3);
+}
+.metrics-note {
+  font-size: var(--text-xs);
   margin-bottom: var(--s6);
 }
 .overview {
@@ -39,72 +40,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s3);
+  margin-bottom: var(--s4);
 }
 .card-heading p {
   font-size: var(--text-xs);
   margin-top: var(--s1);
-}
-.sales-total {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--s2);
-  flex-shrink: 0;
-}
-.sales-total > strong {
-  font-size: var(--text-lg);
-  letter-spacing: -0.05em;
-}
-.sales-total small {
-  font-size: var(--text-sm);
-}
-g-badge g-icon {
-  width: 12px;
-  height: 12px;
-}
-.campaign {
-  display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: var(--s4);
-  align-items: center;
-  margin: var(--s5) 0;
-}
-.campaign g-campaign-art {
-  height: 104px;
-}
-.campaign h3 {
-  line-height: 1.5;
-  margin: var(--s2) 0;
-}
-.campaign .eyebrow {
-  font-size: var(--text-xs);
-}
-.progress {
-  height: 6px;
-  background: var(--surface-alt);
-  border-radius: var(--pill);
-  overflow: hidden;
-}
-.progress span {
-  display: block;
-  height: 100%;
-  background: var(--primary);
-  border-radius: inherit;
-}
-.progress-label {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s2);
-  margin: var(--s2) 0 var(--s4);
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
-.progress-label strong {
-  color: var(--primary);
-}
-.wide {
-  width: 100%;
-  justify-content: space-between;
 }
 .text-link {
   display: flex;
@@ -117,60 +57,8 @@ g-badge g-icon {
 .text-link g-icon {
   width: 16px;
 }
-.activity {
-  margin: var(--s4) 0 0;
-  padding: 0;
-  list-style: none;
-}
-.activity li {
-  display: flex;
-  align-items: center;
-  gap: var(--s4);
-  padding: var(--s4) 0;
-  border-top: 1px solid var(--border);
-}
-.person {
-  flex: 1;
-  min-width: 0;
-}
-.person strong,
-.person span {
-  display: block;
-}
-.person strong {
-  font-weight: 500;
-}
-.person span,
-time {
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-.amount {
-  font-weight: 600;
-  min-width: 90px;
-  text-align: right;
-}
-.amount small {
-  font-size: var(--text-xs);
-}
-time {
-  text-align: right;
-  min-width: 90px;
-}
-.activity g-badge {
-  min-width: 72px;
-  justify-content: center;
-}
-@media (max-width: 1199px) {
-  .overview {
-    grid-template-columns: 1fr 1fr;
-  }
-  .campaign {
-    grid-template-columns: 80px 1fr;
-  }
-  .sales-total > strong {
-    font-size: var(--text-base);
-  }
+g-card .muted {
+  margin: var(--s3) 0;
 }
 @media (max-width: 767px) {
   .stats {
@@ -184,37 +72,9 @@ time {
   .period {
     display: none;
   }
-  .campaign {
-    grid-template-columns: 110px 1fr;
-  }
   .activity-heading {
     flex-direction: column;
     gap: 0;
-  }
-  .activity li {
-    gap: var(--s3);
-    flex-wrap: wrap;
-  }
-  .person {
-    flex-basis: calc(100% - 60px);
-  }
-  .amount {
-    margin-left: 50px;
-    min-width: 0;
-    text-align: left;
-  }
-  .activity time {
-    margin-left: auto;
-    min-width: 0;
-  }
-  .activity g-badge {
-    min-width: 0;
-  }
-  .card-heading {
-    gap: var(--s2);
-  }
-  .sales-total g-badge {
-    font-size: var(--text-xs);
   }
   .card-heading h2 {
     font-size: var(--text-sm);

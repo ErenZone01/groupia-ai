@@ -139,11 +139,8 @@
         }
       }
       @if (tab() === 'orders') {
-        <g-empty-state
-          title="Les commandes arrivent bientôt"
-          description="Cette section sera connectée au prochain sprint."
-          icon="orders"
-        />
+        <h2>Commandes du groupage</h2>
+        <g-orders-panel [campaignId]="group.id!" />
       }
       @if (tab() === 'settings') {
         @if (editable()) {

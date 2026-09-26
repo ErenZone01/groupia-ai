@@ -1,0 +1,119 @@
+<a class="back" [routerLink]="backLink()" [queryParams]="backQuery()"
+  >← {{ fromGroupage() ? 'Commandes du groupage' : 'Toutes les commandes' }}</a
+>
+@if (loading()) {
+  <g-skeleton /><g-skeleton />
+} @else if (error()) {
+  <h1>Commande indisponible</h1>
+  <p class="form-error" role="alert">{{ error() }}</p>
+  <button gButton (click)="reload()">Réessayer</button>
+} @else if (data(); as view) {
+  @if (view.order; as order) {
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Commande</p>
+        <h1>{{ order.orderNumber }}</h1>
+        <p>{{ date(order.placedAt) }}</p>
+      </div>
+      <g-badge [tone]="tone(order.status)">{{ status(order.status) }}</g-badge>
+    </div>
+    <div class="details-grid">
+      <g-card
+        ><h2>Cliente</h2>
+        @if (view.customerContactSnapshot; as contact) {
+          <dl>
+            <div>
+              <dt>Prénom</dt>
+              <dd>{{ contact.firstName || 'Non renseigné' }}</dd>
+            </div>
+            <div>
+              <dt>Nom</dt>
+              <dd>{{ contact.lastName || 'Non renseigné' }}</dd>
+            </div>
+            <div>
+              <dt>Téléphone</dt>
+              <dd>{{ contact.phoneE164 || 'Non renseigné' }}</dd>
+            </div>
+            @if (contact.email) {
+              <div>
+                <dt>Email</dt>
+                <dd>{{ contact.email }}</dd>
+              </div>
+            }
+          </dl>
+        } @else {
+          <p class="notice">Coordonnées indisponibles.</p>
+        }
+      </g-card>
+      <g-card
+        ><h2>Paiement</h2>
+        <p class="payment-state">{{ payment(order.status) }}</p>
+        <p class="muted">Statut de la commande communiqué par votre boutique.</p>
+        <h3>Retrait</h3>
+        <p>{{ fulfillment(order.fulfillmentStatus) }}</p></g-card
+      >
+    </div>
+    <g-card
+      ><h2>Articles</h2>
+      @for (item of order.items; track item.lineNumber) {
+        <article>
+          <h3>{{ item.productNameSnapshot || item.commercialLabelSnapshot || 'Produit' }}</h3>
+          @if (
+            item.commercialLabelSnapshot &&
+            item.productNameSnapshot &&
+            item.commercialLabelSnapshot !== item.productNameSnapshot
+          ) {
+            <p>{{ item.commercialLabelSnapshot }}</p>
+          }
+          <p class="preserve muted">{{ item.productDescriptionSnapshot }}</p>
+          <p>{{ variant(item.variantAttributesSnapshot) }}</p>
+          <dl>
+            <div>
+              <dt>Quantité</dt>
+              <dd>{{ item.quantity ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt>Prix unitaire</dt>
+              <dd>{{ money(item.unitPriceSnapshot, order.currency) }}</dd>
+            </div>
+            <div>
+              <dt>Total ligne</dt>
+              <dd>{{ money(item.lineTotal, order.currency) }}</dd>
+            </div>
+          </dl>
+        </article>
+      } @empty {
+        <p class="notice">Les articles ne sont pas disponibles.</p>
+      }
+    </g-card>
+    <g-card class="amounts"
+      ><h2>Montants</h2>
+      <dl>
+        <div>
+          <dt>Sous-total produits</dt>
+          <dd>{{ money(order.goodsSubtotal, order.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Frais de service</dt>
+          <dd>{{ money(order.platformFeeAmount, order.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Transport initial</dt>
+          <dd>{{ money(order.initialShippingChargeAmount, order.currency) }}</dd>
+        </div>
+        <div class="total">
+          <dt>Total initial</dt>
+          <dd>{{ money(order.initialAmountDue, order.currency) }}</dd>
+        </div>
+      </dl>
+      <p class="muted">
+        Montants enregistrés lors de la commande. Le transport définitif peut faire l’objet d’un
+        règlement ultérieur.
+      </p></g-card
+    >
+  } @else {
+    <h1>Commande indisponible</h1>
+    <p class="notice">Le détail n’est pas disponible.</p>
+    <button gButton (click)="reload()">Réessayer</button>
+  }
+}

@@ -24,7 +24,13 @@ for (const width of [360, 768, 1024, 1440])
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
       await expect(page.locator('g-stat-card')).toHaveCount(4);
-      expect(calls.every((url) => new URL(url).pathname === '/api/organizations')).toBe(true);
+      expect(
+        calls.every(
+          (url) =>
+            new URL(url).pathname === '/api/organizations' ||
+            /\/api\/organizations\/[^/]+\/orders$/.test(new URL(url).pathname),
+        ),
+      ).toBe(true);
       if (width === 360 || width === 1440)
         await page.screenshot({
           path: `artifacts/dashboard-${width}-${theme}.png`,

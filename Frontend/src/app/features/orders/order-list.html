@@ -1,0 +1,64 @@
+<div class="mobile-orders">
+  @for (row of rows(); track row.id) {
+    <article>
+      <div class="row-heading">
+        <h3>{{ row.orderNumber || 'Commande' }}</h3>
+        <g-badge [tone]="row.tone">{{ row.label }}</g-badge>
+      </div>
+      <p class="amount">{{ row.amount }}</p>
+      <p class="muted">
+        <time [attr.datetime]="row.placedAt">{{ row.date }}</time>
+      </p>
+      @if (row.id) {
+        <a
+          gButton
+          variant="secondary"
+          [routerLink]="['/app/orders', row.id]"
+          [queryParams]="returnQuery()"
+          [attr.aria-label]="'Voir la commande ' + row.orderNumber"
+          >Voir le détail</a
+        >
+      }
+    </article>
+  }
+</div>
+<table class="desktop-orders">
+  <caption class="sr-only">
+    Commandes de la boutique
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col">Commande</th>
+      <th scope="col">Montant</th>
+      <th scope="col">Statut</th>
+      <th scope="col">Date</th>
+      <th scope="col">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (row of rows(); track row.id) {
+      <tr>
+        <th scope="row">{{ row.orderNumber || 'Commande' }}</th>
+        <td class="amount">{{ row.amount }}</td>
+        <td>
+          <g-badge [tone]="row.tone">{{ row.label }}</g-badge>
+        </td>
+        <td>
+          <time [attr.datetime]="row.placedAt">{{ row.date }}</time>
+        </td>
+        <td>
+          @if (row.id) {
+            <a
+              gButton
+              variant="ghost"
+              [routerLink]="['/app/orders', row.id]"
+              [queryParams]="returnQuery()"
+              [attr.aria-label]="'Voir la commande ' + row.orderNumber"
+              >Voir le détail</a
+            >
+          }
+        </td>
+      </tr>
+    }
+  </tbody>
+</table>

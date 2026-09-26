@@ -1,0 +1,72 @@
+:host {
+  display: block;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: var(--s3);
+}
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s5);
+}
+g-card {
+  display: block;
+  margin-bottom: var(--s5);
+  min-width: 0;
+}
+h2 {
+  margin-bottom: var(--s4);
+}
+h3 {
+  margin: var(--s4) 0 var(--s2);
+}
+p,
+dd,
+h1,
+h3 {
+  overflow-wrap: anywhere;
+}
+.payment-state {
+  font-weight: 600;
+}
+.muted {
+  margin: var(--s3) 0;
+}
+dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s3) 0;
+  flex-wrap: wrap;
+}
+dd {
+  margin: 0;
+  font-weight: 500;
+}
+dt {
+  color: var(--muted);
+}
+article + article {
+  border-top: 1px solid var(--border);
+  margin-top: var(--s4);
+}
+.total {
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+.total dt,
+.total dd {
+  color: var(--primary);
+}
+.amounts {
+  max-width: 720px;
+}
+@media (max-width: 767px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

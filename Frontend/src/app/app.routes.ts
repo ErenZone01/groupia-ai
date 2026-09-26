@@ -90,10 +90,17 @@ export const routes: Routes = [
           import('./features/groupages/groupage-detail.page').then((m) => m.GroupageDetailPage),
       },
       {
-        path: 'commandes',
+        path: 'orders',
         title: 'Commandes · Groupia',
         loadComponent: () => import('./features/orders/orders.page').then((m) => m.OrdersPage),
       },
+      {
+        path: 'orders/:orderId',
+        title: 'Commande · Groupia',
+        loadComponent: () =>
+          import('./features/orders/order-detail.page').then((m) => m.OrderDetailPage),
+      },
+      { path: 'commandes', redirectTo: 'orders', pathMatch: 'full' },
       {
         path: 'paiements',
         title: 'Paiements · Groupia',
@@ -112,7 +119,7 @@ export const routes: Routes = [
   { path: 'catalogue', redirectTo: 'app/products', pathMatch: 'full' },
   { path: 'groupages', redirectTo: 'app/groupages', pathMatch: 'full' },
   { path: 'boutique', redirectTo: 'app/boutique', pathMatch: 'full' },
-  { path: 'commandes', redirectTo: 'app/commandes', pathMatch: 'full' },
+  { path: 'commandes', redirectTo: 'app/orders', pathMatch: 'full' },
   { path: 'paiements', redirectTo: 'app/paiements', pathMatch: 'full' },
   { path: '', pathMatch: 'full', redirectTo: 'app/accueil' },
   { path: '**', redirectTo: 'app/accueil' },

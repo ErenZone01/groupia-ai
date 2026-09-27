@@ -7,12 +7,12 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { OrderReceipt } from '../../models/order-receipt';
+import { OrderTrackingView } from '../../models/order-tracking-view';
 
 export interface Track$Params {
 }
 
-export function track(http: HttpClient, rootUrl: string, params?: Track$Params, context?: HttpContext): Observable<StrictHttpResponse<OrderReceipt>> {
+export function track(http: HttpClient, rootUrl: string, params?: Track$Params, context?: HttpContext): Observable<StrictHttpResponse<OrderTrackingView>> {
   const rb = new RequestBuilder(rootUrl, track.PATH, 'get');
   if (params) {
   }
@@ -22,7 +22,7 @@ export function track(http: HttpClient, rootUrl: string, params?: Track$Params, 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<OrderReceipt>;
+      return r as StrictHttpResponse<OrderTrackingView>;
     })
   );
 }

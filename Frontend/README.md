@@ -188,3 +188,7 @@ L’onglet « À commander » du détail groupage utilise la projection backend 
 ## Commande fournisseur figée
 
 Le détail du groupage permet désormais de déclarer l’achat après fermeture, avec contrôle des paiements actifs, confirmation et bon immuable. Voir le [modèle, les endpoints, la recette et les résultats de validation](../Backend/docs/supplier-order.md). Validation de cette tranche : 152 tests unitaires, 70 scénarios navigateur et build production verts. Aucune dépendance ajoutée.
+
+## Logistique du groupage
+
+Le détail du groupage permet de déclarer le départ et l’arrivée. Le suivi privé cliente affiche une timeline sans note ni référence fournisseur. Voir le [contrat, les décisions, la recette et la validation](../Backend/docs/groupage-logistics.md).

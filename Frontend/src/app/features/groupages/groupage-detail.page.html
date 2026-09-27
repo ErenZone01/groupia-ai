@@ -35,6 +35,17 @@
   <g-tabs id="groupage-sections" [tabs]="tabs()" [(active)]="tab" label="Sections du groupage">
     <g-card>
       @if (tab() === 'overview') {
+        @if (
+          ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(
+            group.status ?? ''
+          )
+        ) {
+          <g-logistics-panel
+            [campaign]="group"
+            [organizationId]="context.selectedId()!"
+            (campaignChanged)="purchaseCreated($event)"
+          />
+        }
         <div class="summary">
           <h2>Aperçu</h2>
           <p class="preserve">{{ group.description || 'Aucune description' }}</p>

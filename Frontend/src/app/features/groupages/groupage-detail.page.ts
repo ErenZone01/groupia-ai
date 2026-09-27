@@ -1,3 +1,4 @@
+import { LogisticsPanel } from './logistics-panel';
 import { SupplierSummaryPanel } from '../orders/supplier-summary-panel';
 import { OrdersPanel } from '../orders/orders-panel';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -33,6 +34,7 @@ import {
     RouterLink,
     OrdersPanel,
     SupplierSummaryPanel,
+    LogisticsPanel,
     Card,
     Badge,
     Button,

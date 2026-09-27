@@ -1,3 +1,4 @@
+import { OrderTimeline } from './order-timeline';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PublicShell } from '../checkout/public-shell';
@@ -9,7 +10,7 @@ import { Skeleton } from '../../shared/feedback/skeleton';
 @Component({
   selector: 'g-tracking-page',
   providers: [PublicTrackingStore],
-  imports: [PublicShell, OrderSummary, Button, Skeleton, RouterLink],
+  imports: [OrderTimeline, PublicShell, OrderSummary, Button, Skeleton, RouterLink],
   template: ` <g-public-shell>
     @if (!store.session.current()?.trackingToken || store.unavailable()) {
       <h1>Votre suivi</h1>
@@ -24,6 +25,7 @@ import { Skeleton } from '../../shared/feedback/skeleton';
         @if (order.status === 'CONFIRMED') {
           <p class="notice" role="status">✓ Votre commande est confirmée.</p>
         }
+        <g-order-timeline [order]="order" />
         <p>Retrait : {{ fulfillment(order.fulfillmentStatus) }}</p>
       } @else {
         <h1>Vérification de votre commande</h1>

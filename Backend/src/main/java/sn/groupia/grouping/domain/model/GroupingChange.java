@@ -26,6 +26,9 @@ public class GroupingChange {
     @Column(updatable = false) private Instant newClosesAt;
     @Column(nullable = false, updatable = false) private Instant occurredAt;
 
+    @Column(length=32, updatable=false) private String fromStatus;
+    @Column(length=32, updatable=false) private String toStatus;
+
     protected GroupingChange() {}
     private static GroupingChange base(GroupingCampaign campaign, UUID actorId, Instant now, String kind) {
         var change = new GroupingChange();
@@ -36,6 +39,11 @@ public class GroupingChange {
         change.actorId = actorId;
         change.occurredAt = now;
         change.kind = kind;
+        return change;
+    }
+    public static GroupingChange logistics(GroupingCampaign campaign,UUID actor,GroupingCampaignStatus from,Instant now) {
+        var change=base(campaign,actor,now,"LOGISTICS_TRANSITION");
+        change.fromStatus=from.name();change.toStatus=campaign.getStatus().name();
         return change;
     }
     public static GroupingChange price(GroupingCampaign campaign, GroupingOffer offer, UUID actor,

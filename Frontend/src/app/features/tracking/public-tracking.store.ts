@@ -13,7 +13,7 @@ import {
   takeWhile,
   timer,
 } from 'rxjs';
-import { OrderReceipt } from '../../api/generated/models';
+import { OrderTrackingView } from '../../api/generated/models';
 import { PublicOrderApi } from '../checkout/public-order-api';
 import {
   PublicOrderSessionService,
@@ -27,7 +27,7 @@ export class PublicTrackingStore {
   readonly session = inject(PublicOrderSessionService);
   private readonly cart = inject(CartStore);
   private readonly destroy = inject(DestroyRef);
-  readonly order = signal<OrderReceipt | null>(null);
+  readonly order = signal<OrderTrackingView | null>(null);
   readonly loading = signal(false);
   readonly polling = signal(false);
   readonly busy = signal(false);
@@ -75,17 +75,17 @@ export class PublicTrackingStore {
       this.loading.set(false);
     }
   }
-  private receive(order: OrderReceipt) {
+  private receive(order: OrderTrackingView) {
     if (order.orderNumber !== this.session.current()?.orderNumber) {
       this.error.set('Le suivi reçu ne correspond pas à cette commande.');
       this.subscription?.unsubscribe();
       return;
     }
-    this.order.set({ ...order, trackingToken: undefined });
+    this.order.set(order);
     this.error.set('');
     if (order.status === 'CONFIRMED') this.cart.clear(this.session.current()!.publicIdentifier);
   }
-  private final(order: OrderReceipt) {
+  private final(order: OrderTrackingView) {
     return ['CONFIRMED', 'COMPLETED', 'EXPIRED', 'CANCELLED'].includes(order.status ?? '');
   }
   private handleError(e: unknown) {

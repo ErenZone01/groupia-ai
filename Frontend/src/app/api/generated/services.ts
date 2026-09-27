@@ -7,6 +7,7 @@ export { OrderingControllerService } from './services/ordering-controller.servic
 export { PaymentControllerService } from './services/payment-controller.service';
 export { OrganizationControllerService } from './services/organization-controller.service';
 export { SupplierOrderControllerService } from './services/supplier-order-controller.service';
+export { CampaignLogisticsControllerService } from './services/campaign-logistics-controller.service';
 export { AuthControllerService } from './services/auth-controller.service';
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';

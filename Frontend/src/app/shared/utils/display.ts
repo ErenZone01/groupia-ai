@@ -4,7 +4,7 @@ const statuses: Record<string, string> = {
   CLOSED: 'Commandes fermées',
   SUPPLIER_ORDERED: 'Commandée au fournisseur',
   IN_TRANSIT: 'En transport',
-  ARRIVED: 'Arrivé',
+  ARRIVED: 'Marchandise arrivée',
   DISTRIBUTING: 'Distribution',
   COMPLETED: 'Terminé',
   CANCELLED: 'Annulé',

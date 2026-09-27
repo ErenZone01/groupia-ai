@@ -15,14 +15,16 @@ public class OrderQueries {
     private final OrganizationAccess access;
     private final CheckoutSecrets secrets;
     private final Clock clock;
-    OrderQueries(Orders orders, OrganizationAccess access, CheckoutSecrets secrets, Clock clock) {
-        this.orders = orders; this.access = access; this.secrets = secrets; this.clock = clock;
+    private final sn.groupia.grouping.api.GroupingProgressQueries progress;
+    OrderQueries(Orders orders, OrganizationAccess access, CheckoutSecrets secrets, Clock clock, sn.groupia.grouping.api.GroupingProgressQueries progress) {
+        this.orders = orders; this.access = access; this.secrets = secrets; this.clock = clock; this.progress=progress;
     }
-    public OrderReceipt track(String token) {
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public OrderTrackingView track(String token) {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) { throw trackingInvalid(); }
         var order = orders.findByTrackingHash(secrets.hash(token)).filter(o -> o.allowsTrackingAt(clock.instant()))
                 .orElseThrow(this::trackingInvalid);
-        return OrderViews.receipt(order, null);
+        return OrderTrackingView.from(OrderViews.receipt(order, null),progress.progress(order.getOrganizationId(),order.getCampaignId()));
     }
     public OrganizerOrderView get(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.VIEW_ORDERS);

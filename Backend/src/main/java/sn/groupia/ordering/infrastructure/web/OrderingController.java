@@ -38,7 +38,7 @@ class OrderingController {
         return ResponseEntity.ok().header("Cache-Control","no-store").body(payments.initiate(orderNumber,token,input.provider(),key));
     }
     @GetMapping("/api/public/orders/track")
-    ResponseEntity<OrderReceipt> track(@RequestHeader(value = "X-Order-Tracking-Token", required = false) String token,
+    ResponseEntity<OrderTrackingView> track(@RequestHeader(value = "X-Order-Tracking-Token", required = false) String token,
             HttpServletRequest request) {
         attempts.check(request.getRemoteAddr());
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(queries.track(token));

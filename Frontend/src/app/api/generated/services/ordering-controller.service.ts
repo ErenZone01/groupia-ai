@@ -19,8 +19,8 @@ import { Initiate$Params } from '../fn/ordering-controller/initiate';
 import { list4 } from '../fn/ordering-controller/list-4';
 import { List4$Params } from '../fn/ordering-controller/list-4';
 import { OrderPage } from '../models/order-page';
-import { OrderReceipt } from '../models/order-receipt';
 import { OrderReplay } from '../models/order-replay';
+import { OrderTrackingView } from '../models/order-tracking-view';
 import { OrganizerOrderView } from '../models/organizer-order-view';
 import { PaymentAttemptView } from '../models/payment-attempt-view';
 import { track } from '../fn/ordering-controller/track';
@@ -95,7 +95,7 @@ export class OrderingControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  track$Response(params?: Track$Params, context?: HttpContext): Observable<StrictHttpResponse<OrderReceipt>> {
+  track$Response(params?: Track$Params, context?: HttpContext): Observable<StrictHttpResponse<OrderTrackingView>> {
     const obs = track(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -106,10 +106,10 @@ export class OrderingControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  track(params?: Track$Params, context?: HttpContext): Observable<OrderReceipt> {
+  track(params?: Track$Params, context?: HttpContext): Observable<OrderTrackingView> {
     const resp = this.track$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<OrderReceipt>): OrderReceipt => r.body)
+      map((r: StrictHttpResponse<OrderTrackingView>): OrderTrackingView => r.body)
     );
   }
 

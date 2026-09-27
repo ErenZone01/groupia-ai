@@ -98,6 +98,17 @@ public class GroupingCampaign {
         touch(now);
     }
 
+    public void ship(Instant now) {
+        if(status != GroupingCampaignStatus.SUPPLIER_ORDERED) throw invalidTransition();
+        status=GroupingCampaignStatus.IN_TRANSIT;
+        touch(now);
+    }
+    public void arrive(Instant now) {
+        if(status != GroupingCampaignStatus.IN_TRANSIT) throw invalidTransition();
+        status=GroupingCampaignStatus.ARRIVED;
+        touch(now);
+    }
+
     public void cancel(String reason, Instant now) {
         if (status != GroupingCampaignStatus.DRAFT && status != GroupingCampaignStatus.OPEN
                 && status != GroupingCampaignStatus.CLOSED) { throw invalidTransition(); }

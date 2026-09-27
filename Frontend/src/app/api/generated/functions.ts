@@ -65,6 +65,12 @@ export type { ReadSupplierOrder$Params as ReadSupplierOrder$Params } from './fn/
 export { readSupplierOrder as readSupplierOrder } from './fn/supplier-order-controller/read-supplier-order';
 export type { CreateSupplierOrder$Params as CreateSupplierOrder$Params } from './fn/supplier-order-controller/create-supplier-order';
 export { createSupplierOrder as createSupplierOrder } from './fn/supplier-order-controller/create-supplier-order';
+export type { ShipCampaign$Params as ShipCampaign$Params } from './fn/campaign-logistics-controller/ship-campaign';
+export { shipCampaign as shipCampaign } from './fn/campaign-logistics-controller/ship-campaign';
+export type { ArriveCampaign$Params as ArriveCampaign$Params } from './fn/campaign-logistics-controller/arrive-campaign';
+export { arriveCampaign as arriveCampaign } from './fn/campaign-logistics-controller/arrive-campaign';
+export type { ReadCampaignShipment$Params as ReadCampaignShipment$Params } from './fn/campaign-logistics-controller/read-campaign-shipment';
+export { readCampaignShipment as readCampaignShipment } from './fn/campaign-logistics-controller/read-campaign-shipment';
 export type { Register$Params as Register$Params } from './fn/auth-controller/register';
 export { register as register } from './fn/auth-controller/register';
 export type { Login$Params as Login$Params } from './fn/auth-controller/login';

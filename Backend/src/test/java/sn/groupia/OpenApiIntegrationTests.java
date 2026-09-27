@@ -77,6 +77,19 @@ class OpenApiIntegrationTests {
         assertThat(doc.at("/components/schemas/CreateSupplierOrder/required").toString()).contains("campaignVersion");
         assertThat(doc.at("/components/schemas/SupplierOrderView/properties").propertyNames()).doesNotContain("acceptedOrderIds","orderedBy");
     }
+    @Test void logisticsContractSeparatesPrivateShipmentAndSafeTracking() throws Exception {
+        var doc=spec();
+        String base="/api/organizations/{organizationId}/grouping-campaigns/{campaignId}";
+        for(String action:List.of("ship","arrive","shipment")) {
+            var operation=doc.path("paths").path(base+"/"+action).path(action.equals("shipment")?"get":"post");
+            assertThat(operation.path("security").get(0).has("BearerJWT")).isTrue();
+            assertThat(operation.path("responses").path("200").toString()).contains("CampaignShipmentView");
+        }
+        assertThat(doc.at("/components/schemas/GroupingProgress/properties").propertyNames())
+            .containsExactlyInAnyOrder("status","departedAt","expectedArrivalAt","arrivedAt");
+        assertThat(doc.at("/components/schemas/OrderReceipt/properties").propertyNames()).doesNotContain("groupingProgress");
+        assertThat(doc.at("/components/schemas/OrderTrackingView/properties").propertyNames()).contains("groupingProgress").doesNotContain("trackingToken");
+    }
     @Test void checkoutDocumentsBothResponsesAndRequiredIdempotency() throws Exception {
         var op=spec().path("paths").path("/api/public/groupings/{publicIdentifier}/checkout").path("post");
         assertThat(op.path("responses").has("201")).isTrue();assertThat(op.path("responses").has("200")).isTrue();

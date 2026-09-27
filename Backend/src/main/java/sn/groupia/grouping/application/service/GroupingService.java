@@ -57,6 +57,11 @@ public class GroupingService implements GroupingQueries {
                 page, size, result.totalElements(), result.totalPages());
     }
 
+    @Override
+    public void requireCampaignBelongsTo(UUID organizationId, UUID campaignId) {
+        find(organizationId, campaignId);
+    }
+
     public CampaignView get(UUID organizationId, UUID campaignId) {
         access.requirePermission(organizationId, OrganizationPermission.VIEW_GROUPINGS);
         return view(find(organizationId, campaignId));

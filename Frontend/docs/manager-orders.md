@@ -1,5 +1,7 @@
 # Commandes côté gérante — 26 septembre 2026
 
+> Complément livré : l’onglet **À commander** est désormais connecté au read-model backend. Voir [récapitulatif fournisseur et recette](../../Backend/docs/supplier-summary.md). Le compte rendu ci-dessous décrit la tranche initiale et ses limites avant cet ajout.
+
 ## Livré
 
 - /app/orders : cartes sur mobile/tablette, tableau à partir de 1024 px, filtre de statut serveur, pagination de 20 commandes, recherche par numéro limitée à la page chargée.

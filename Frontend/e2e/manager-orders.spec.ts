@@ -179,15 +179,15 @@ test('dashboard compte les totaux réels et ne récupère pas les détails', asy
   expect(state.calls.every((c) => c.path.endsWith('/orders') && c.page === '0')).toBe(true);
   await expect(page.getByText('Toutes périodes', { exact: true })).toBeVisible();
 });
-test('groupage : corrélation exacte et limite du récapitulatif fournisseur', async ({ page }) => {
+test('groupage : corrélation exacte et retour aux commandes', async ({ page }) => {
   const state = await managerOrders(page);
   await page.setViewportSize({ width: 360, height: 900 });
   await page.goto('/app/groupages/' + groupId);
   await page.getByRole('tab', { name: 'Commandes', exact: true }).click();
   await expect(page.getByText('20 commande(s) au total')).toBeVisible();
   expect(state.calls.at(-1)?.campaign).toBe(groupId);
-  await expect(page.getByRole('heading', { name: 'À commander au fournisseur' })).toBeVisible();
-  await page.getByRole('button', { name: 'Voir les commandes payées', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Payées', exact: true }).click();
   await expect(page.getByText('4 commande(s) pour ce filtre')).toBeVisible();
   expect(state.calls.at(-1)?.status).toBe('CONFIRMED');
   expect(state.calls.every((c) => c.path.endsWith('/orders'))).toBe(true);

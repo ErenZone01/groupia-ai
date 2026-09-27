@@ -2,7 +2,7 @@ const statuses: Record<string, string> = {
   DRAFT: 'Brouillon',
   OPEN: 'Ouvert aux commandes',
   CLOSED: 'Commandes fermées',
-  SUPPLIER_ORDERED: 'Commandé chez le fournisseur',
+  SUPPLIER_ORDERED: 'Commandée au fournisseur',
   IN_TRANSIT: 'En transport',
   ARRIVED: 'Arrivé',
   DISTRIBUTING: 'Distribution',

@@ -9,6 +9,9 @@ interface JpaCampaignRepository extends JpaRepository<GroupingCampaign, UUID> {
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("select c from GroupingCampaign c where c.publicIdentifier = :publicIdentifier")
     Optional<GroupingCampaign> lockPublic(UUID publicIdentifier);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select c from GroupingCampaign c where c.organizationId = :organizationId and c.id = :campaignId")
+    Optional<GroupingCampaign> lockScoped(UUID organizationId, UUID campaignId);
     Page<GroupingCampaign> findByOrganizationId(UUID organizationId, Pageable page);
     Page<GroupingCampaign> findByOrganizationIdAndStatus(UUID organizationId, GroupingCampaignStatus status, Pageable page);
 }

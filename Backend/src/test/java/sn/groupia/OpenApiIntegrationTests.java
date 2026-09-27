@@ -58,6 +58,25 @@ class OpenApiIntegrationTests {
             if(!p.getKey().contains("/webhooks/"))assertThat(op.getValue().path("security").toString()).doesNotContain("ProviderWebhookSecret");
         }));
     }
+    @Test void supplierSummaryIsAuthenticatedAndContainsOnlySupplierSnapshots() throws Exception {
+        var doc=spec();
+        var op=doc.path("paths").path("/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/supplier-summary").path("get");
+        assertThat(op.path("operationId").asText()).isEqualTo("supplierSummary");
+        assertThat(op.path("security").get(0).has("BearerJWT")).isTrue();
+        assertThat(op.path("responses").path("200").toString()).contains("SupplierSummaryView");
+        assertThat(doc.at("/components/schemas/SupplierSummaryLine/properties").propertyNames())
+            .containsExactlyInAnyOrder("productNameSnapshot","productDescriptionSnapshot","commercialLabelSnapshot","variantAttributesSnapshot","skuSnapshot","saleUnitSnapshot","totalQuantity","goodsAmount");
+    }
+    @Test void supplierPurchaseDocumentsCreationReplayAndImmutableRead() throws Exception {
+        var doc=spec();
+        var path=doc.path("paths").path("/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/supplier-order");
+        assertThat(path.path("post").path("operationId").asText()).isEqualTo("createSupplierOrder");
+        assertThat(path.path("get").path("operationId").asText()).isEqualTo("readSupplierOrder");
+        assertThat(path.path("post").path("responses").has("201")).isTrue();
+        assertThat(path.path("post").path("responses").has("200")).isTrue();
+        assertThat(doc.at("/components/schemas/CreateSupplierOrder/required").toString()).contains("campaignVersion");
+        assertThat(doc.at("/components/schemas/SupplierOrderView/properties").propertyNames()).doesNotContain("acceptedOrderIds","orderedBy");
+    }
     @Test void checkoutDocumentsBothResponsesAndRequiredIdempotency() throws Exception {
         var op=spec().path("paths").path("/api/public/groupings/{publicIdentifier}/checkout").path("post");
         assertThat(op.path("responses").has("201")).isTrue();assertThat(op.path("responses").has("200")).isTrue();

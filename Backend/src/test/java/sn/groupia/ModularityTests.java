@@ -17,7 +17,7 @@ class ModularityTests {
 		assertThat(ApplicationModules.of(GroupiaApplication.class).stream()
 				.map(module -> module.getIdentifier().toString()))
 				.containsExactlyInAnyOrder("identity", "organization", "catalog", "grouping",
-						"ordering", "payment", "shipping", "notification", "media", "audit", "shared");
+						"ordering", "procurement", "payment", "shipping", "notification", "media", "audit", "shared");
 	}
 
 	@Test

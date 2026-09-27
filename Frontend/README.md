@@ -180,3 +180,11 @@ Agrégation fournisseur côté backend, enrichissement de la liste des commandes
 - Dépendance directe ajoutée : `ng-openapi-gen@1.1.0` (développement).
 
 Le backend sur `localhost:8080` était indisponible pendant cette validation. Le client utilise l’export OpenAPI réel produit par les tests du backend le 24 septembre 2026, conservé dans `openapi.json`. La recette avec le serveur réel reste à effectuer ; les tests navigateur ci-dessus utilisent des réponses HTTP simulées, isolées des écrans applicatifs. Dès que le backend tourne, `npm run api:generate` permet de régénérer directement depuis `/v3/api-docs`.
+
+## Récapitulatif fournisseur
+
+L’onglet « À commander » du détail groupage utilise la projection backend des commandes acceptées. Voir le [contrat, les décisions et la recette manuelle](../Backend/docs/supplier-summary.md).
+
+## Commande fournisseur figée
+
+Le détail du groupage permet désormais de déclarer l’achat après fermeture, avec contrôle des paiements actifs, confirmation et bon immuable. Voir le [modèle, les endpoints, la recette et les résultats de validation](../Backend/docs/supplier-order.md). Validation de cette tranche : 152 tests unitaires, 70 scénarios navigateur et build production verts. Aucune dépendance ajoutée.

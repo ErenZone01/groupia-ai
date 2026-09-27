@@ -92,6 +92,12 @@ public class GroupingCampaign {
         touch(now);
     }
 
+    public void supplierOrdered(Instant now) {
+        if(status != GroupingCampaignStatus.CLOSED) throw invalidTransition();
+        status = GroupingCampaignStatus.SUPPLIER_ORDERED;
+        touch(now);
+    }
+
     public void cancel(String reason, Instant now) {
         if (status != GroupingCampaignStatus.DRAFT && status != GroupingCampaignStatus.OPEN
                 && status != GroupingCampaignStatus.CLOSED) { throw invalidTransition(); }

@@ -6,14 +6,13 @@ import { OrdersStore } from './orders.store';
 import { OrderList } from './order-list';
 import { orderFilters, orderFilter, orderPage } from './order-labels';
 import { Button } from '../../shared/ui/button';
-import { Card } from '../../shared/ui/card';
 import { SearchInput } from '../../shared/forms/search-input';
 import { EmptyState } from '../../shared/feedback/empty-state';
 import { Skeleton } from '../../shared/feedback/skeleton';
 @Component({
   selector: 'g-orders-panel',
   providers: [OrdersStore],
-  imports: [OrderList, Button, Card, SearchInput, EmptyState, Skeleton],
+  imports: [OrderList, Button, SearchInput, EmptyState, Skeleton],
   templateUrl: './orders-panel.html',
   styles: `
     .filters {
@@ -43,10 +42,6 @@ import { Skeleton } from '../../shared/feedback/skeleton';
     }
     .muted {
       margin: var(--s3) 0;
-    }
-    g-card {
-      display: block;
-      margin-top: var(--s6);
     }
     button {
       min-height: 44px;

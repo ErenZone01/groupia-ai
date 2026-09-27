@@ -68,7 +68,7 @@ class PaymentIntegrationTests {
 
     @BeforeEach void setup() throws Exception {
         await(()->jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)==0);
-        jdbc.execute("TRUNCATE TABLE payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
+        jdbc.execute("TRUNCATE TABLE supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
         provider.reset(); clock.reset(); remote="192.0.2."+addressSequence.incrementAndGet();
         if(passwordHash==null){passwordHash=passwords.encode("Financial fixture 2026!");}
         actor=UUID.randomUUID();
@@ -315,9 +315,10 @@ class PaymentIntegrationTests {
         long version=jdbc.queryForObject("select version from orders",Long.class);
         String confirmed=jdbc.queryForObject("select confirmed_at::text from orders",String.class);
         new TransactionTemplate(transactions).executeWithoutResult(s->publisher.publishEvent(event));
-        await(()->jdbc.queryForObject("select count(*) from event_publication where completion_date is not null",Long.class)==2);
+        await(()->jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and completion_date is not null",Long.class)==2);
         assertThat(jdbc.queryForObject("select version from orders",Long.class)).isEqualTo(version);
         assertThat(jdbc.queryForObject("select confirmed_at::text from orders",String.class)).isEqualTo(confirmed);
+        assertThat(jdbc.queryForObject("select count(*) from event_publication where event_type like '%OrderCommerciallyAccepted'",Long.class)).isEqualTo(1);
     }
 
     @ParameterizedTest @ValueSource(strings={"CANCELLED","EXPIRED","COMPLETED"})
@@ -325,7 +326,7 @@ class PaymentIntegrationTests {
         var id=start();
         jdbc.update("update orders set status=?",status);
         webhook("ineligible",provider.status(merchant(id),PaymentStatus.SUCCEEDED)).andExpect(status().isAccepted());
-        await(()->jdbc.queryForObject("select count(*) from event_publication where completion_date is not null",Long.class)==1);
+        await(()->jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and completion_date is not null",Long.class)==1);
         assertThat(orderStatus()).isEqualTo(status);
         assertThat(jdbc.queryForObject("select confirmed_at from orders",String.class)).isNull();
     }
@@ -343,7 +344,7 @@ class PaymentIntegrationTests {
         } finally { jdbc.execute("alter table orders drop constraint test_consumer_failure"); }
         failedPublications.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO).withFilter(p->p.getCompletionAttempts()<5));
         awaitConfirmed();
-        assertThat(jdbc.queryForObject("select completion_attempts from event_publication",Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select completion_attempts from event_publication where event_type like '%PaymentRequestSettled'",Integer.class)).isEqualTo(2);
     }
 
     @Test void publicationWriteFailureIsRecoverableFromDurableWebhook() throws Exception {

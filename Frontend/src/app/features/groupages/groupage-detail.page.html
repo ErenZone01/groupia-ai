@@ -32,7 +32,7 @@
       </div>
     </section>
   }
-  <g-tabs id="groupage-sections" [tabs]="tabs" [(active)]="tab" label="Sections du groupage">
+  <g-tabs id="groupage-sections" [tabs]="tabs()" [(active)]="tab" label="Sections du groupage">
     <g-card>
       @if (tab() === 'overview') {
         <div class="summary">
@@ -141,6 +141,17 @@
       @if (tab() === 'orders') {
         <h2>Commandes du groupage</h2>
         <g-orders-panel [campaignId]="group.id!" />
+      }
+      @if (tab() === 'supplier') {
+        <g-supplier-summary-panel
+          [campaignStatus]="group.status ?? ''"
+          [campaignVersion]="group.version"
+          (campaignChanged)="purchaseCreated($event)"
+          (refreshCampaign)="load()"
+          (manageOrders)="tab.set('orders')"
+          [organizationId]="context.selectedId()!"
+          [campaignId]="group.id!"
+        />
       }
       @if (tab() === 'settings') {
         @if (editable()) {

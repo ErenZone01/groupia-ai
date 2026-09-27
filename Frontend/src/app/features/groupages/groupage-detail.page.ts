@@ -1,10 +1,11 @@
+import { SupplierSummaryPanel } from '../orders/supplier-summary-panel';
 import { OrdersPanel } from '../orders/orders-panel';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DOCUMENT } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { GroupiaApi } from '../../api/groupia-api';
-import { ProductView, OfferView } from '../../api/generated/models';
+import { ProductView, OfferView, CampaignLifecycleView } from '../../api/generated/models';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
 import { GroupageStore, GroupageLine } from './groupage.store';
@@ -31,6 +32,7 @@ import {
   imports: [
     RouterLink,
     OrdersPanel,
+    SupplierSummaryPanel,
     Card,
     Badge,
     Button,
@@ -84,16 +86,26 @@ export class GroupageDetailPage {
   readonly catalogError = signal('');
   readonly products = signal<ProductView[]>([]);
   readonly tab = signal(
-    this.route.snapshot.queryParamMap.get('tab') === 'orders' ? 'orders' : 'overview',
+    ['orders', 'supplier'].includes(this.route.snapshot.queryParamMap.get('tab') ?? '')
+      ? this.route.snapshot.queryParamMap.get('tab')!
+      : 'overview',
   );
   readonly adding = signal(false);
   readonly confirmingClose = signal(false);
-  readonly tabs = [
+  readonly tabs = computed(() => [
     { id: 'overview', label: 'Aperçu' },
     { id: 'products', label: 'Produits' },
     { id: 'orders', label: 'Commandes' },
+    {
+      id: 'supplier',
+      label: ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(
+        this.store.current()?.status ?? '',
+      )
+        ? 'Commande fournisseur'
+        : 'À commander',
+    },
     { id: 'settings', label: 'Paramètres' },
-  ];
+  ]);
   readonly editable = computed(() =>
     ['DRAFT', 'OPEN'].includes(this.store.current()?.status ?? ''),
   );
@@ -195,6 +207,11 @@ export class GroupageDetailPage {
       this.error.set(apiMessage(e));
       this.toast.show(apiMessage(e), 'error');
     }
+  }
+  purchaseCreated(campaign: CampaignLifecycleView) {
+    const current = this.store.current();
+    if (current?.id === campaign.id && current?.organizationId === campaign.organizationId)
+      this.store.current.set({ ...current, status: campaign.status, version: campaign.version });
   }
   async copy() {
     try {

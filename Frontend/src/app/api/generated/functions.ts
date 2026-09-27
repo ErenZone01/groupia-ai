@@ -61,9 +61,15 @@ export type { Create$Params as Create$Params } from './fn/organization-controlle
 export { create as create } from './fn/organization-controller/create';
 export type { Get3$Params as Get3$Params } from './fn/organization-controller/get-3';
 export { get3 as get3 } from './fn/organization-controller/get-3';
+export type { ReadSupplierOrder$Params as ReadSupplierOrder$Params } from './fn/supplier-order-controller/read-supplier-order';
+export { readSupplierOrder as readSupplierOrder } from './fn/supplier-order-controller/read-supplier-order';
+export type { CreateSupplierOrder$Params as CreateSupplierOrder$Params } from './fn/supplier-order-controller/create-supplier-order';
+export { createSupplierOrder as createSupplierOrder } from './fn/supplier-order-controller/create-supplier-order';
 export type { Register$Params as Register$Params } from './fn/auth-controller/register';
 export { register as register } from './fn/auth-controller/register';
 export type { Login$Params as Login$Params } from './fn/auth-controller/login';
 export { login as login } from './fn/auth-controller/login';
 export type { Get2$Params as Get2$Params } from './fn/public-grouping-controller/get-2';
 export { get2 as get2 } from './fn/public-grouping-controller/get-2';
+export type { SupplierSummary$Params as SupplierSummary$Params } from './fn/supplier-summary-controller/supplier-summary';
+export { supplierSummary as supplierSummary } from './fn/supplier-summary-controller/supplier-summary';

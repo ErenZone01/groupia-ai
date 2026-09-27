@@ -45,6 +45,7 @@ class GroupingPersistence implements Campaigns, Offers, GroupingChanges {
     @Override public Optional<GroupingCampaign> findPublic(UUID publicIdentifier) {
         return campaigns.findByPublicIdentifier(publicIdentifier);
     }
+    @Override public Optional<GroupingCampaign> lock(UUID org, UUID id) { return campaigns.lockScoped(org,id); }
     @Override public Optional<GroupingCampaign> lockPublic(UUID publicIdentifier) { return campaigns.lockPublic(publicIdentifier); }
     @Override public CampaignResults list(UUID organizationId, GroupingCampaignStatus status, int page, int size) {
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id")));

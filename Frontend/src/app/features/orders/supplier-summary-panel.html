@@ -1,0 +1,149 @@
+<section aria-labelledby="supplier-heading" [attr.aria-busy]="loading()">
+  <div class="section-heading">
+    <h2 id="supplier-heading">
+      {{ frozen() ? 'Commande fournisseur' : 'À commander au fournisseur' }}
+    </h2>
+    <button gButton variant="secondary" [disabled]="loading() || busy()" (click)="reload()">
+      Actualiser le récapitulatif
+    </button>
+  </div>
+  <p class="muted">
+    Les commandes payées et terminées sont incluses. Les frais de service et de livraison sont
+    exclus.
+  </p>
+  @if (purchase(); as p) {
+    <div class="section-heading">
+      <g-badge tone="positive">Commandée</g-badge>
+      <p>
+        Commandée le <time [attr.datetime]="p.orderedAt">{{ dateLabel(p.orderedAt) }}</time>
+      </p>
+    </div>
+    <p class="muted">
+      Cette liste correspond aux articles commandés chez le fournisseur et ne changera plus.
+    </p>
+    @if (lateCount() > 0) {
+      <p class="notice" role="alert">
+        {{ count(lateCount()) }} commande(s) ont été confirmées après cet achat et ne figurent pas
+        dans cette liste. Un traitement séparé est nécessaire.
+      </p>
+    }
+  }
+  @if (campaignStatus() === 'OPEN') {
+    <p class="muted">
+      Gérez les commandes clientes, puis fermez le groupage avant de déclarer l’achat fournisseur.
+    </p>
+    <button gButton variant="secondary" (click)="manageOrders.emit()">Gérer les commandes</button>
+  }
+  @if (mutationError()) {
+    <p class="notice" role="alert">
+      {{ mutationError() }}
+      @if (pendingCount() !== null) {
+        <span
+          >{{ count(pendingCount()!) }}
+          {{ pendingCount() === 1 ? 'commande est' : 'commandes sont' }} encore en attente de
+          paiement.</span
+        >
+      }
+    </p>
+  }
+  @if (stale()) {
+    <div class="actions">
+      <button gButton variant="secondary" [disabled]="loading()" (click)="checkPurchase()">
+        Vérifier la commande fournisseur
+      </button>
+      <button gButton [disabled]="loading()" (click)="refreshCampaign.emit()">
+        Actualiser le groupage
+      </button>
+    </div>
+  }
+  @if (loading()) {
+    <div role="status" aria-label="Chargement du récapitulatif fournisseur">
+      <g-skeleton /><g-skeleton /><g-skeleton />
+    </div>
+  } @else if (error()) {
+    <p class="form-error" role="alert">{{ error() }}</p>
+    <button gButton (click)="reload()">Réessayer</button>
+  } @else if (data(); as summary) {
+    @if (campaignStatus() === 'CLOSED' && !frozen()) {
+      <div class="actions">
+        <button gButton [disabled]="!canCreate()" [loading]="busy()" (click)="begin()">
+          J’ai passé la commande fournisseur
+        </button>
+      </div>
+      @if (confirming()) {
+        <div class="notice" role="group" aria-label="Confirmation de commande fournisseur">
+          <p>
+            Confirmez-vous avoir passé la commande chez le fournisseur ? Cette liste sera conservée
+            définitivement.
+          </p>
+          <div class="actions">
+            <button gButton [loading]="busy()" (click)="create()">
+              Confirmer la commande fournisseur
+            </button>
+            <button gButton variant="ghost" [disabled]="busy()" (click)="confirming.set(false)">
+              Annuler
+            </button>
+          </div>
+        </div>
+      }
+    }
+    <dl class="totals" aria-label="Totaux du fournisseur">
+      <div>
+        <dt>Articles</dt>
+        <dd>{{ count(summary.totalUnits) }} articles</dd>
+      </div>
+      <div>
+        <dt>Marchandises</dt>
+        <dd>{{ money(summary.goodsAmount, summary.currency) }} <span>de marchandises</span></dd>
+      </div>
+      <div>
+        <dt>Commandes acceptées</dt>
+        <dd>{{ count(summary.acceptedOrderCount) }}</dd>
+      </div>
+    </dl>
+    @if (summary.lines?.length) {
+      <ul class="lines" aria-label="Articles à commander">
+        @for (line of summary.lines; track $index) {
+          <li>
+            <div class="product">
+              <h3>{{ line.productNameSnapshot }}</h3>
+              <p class="variant">{{ variantLabel(line.variantAttributesSnapshot) }}</p>
+              @if (
+                line.commercialLabelSnapshot &&
+                line.commercialLabelSnapshot !== line.productNameSnapshot
+              ) {
+                <p class="muted">{{ line.commercialLabelSnapshot }}</p>
+              }
+              @if (line.productDescriptionSnapshot) {
+                <p class="muted preserve">{{ line.productDescriptionSnapshot }}</p>
+              }
+              @if (line.skuSnapshot) {
+                <p class="muted">Référence : {{ line.skuSnapshot }}</p>
+              }
+              <p class="muted">
+                Vente :
+                {{ saleUnit(line.saleUnitSnapshot) }}
+              </p>
+            </div>
+            <dl class="quantities">
+              <div>
+                <dt>Quantité</dt>
+                <dd>{{ count(line.totalQuantity) }}</dd>
+              </div>
+              <div>
+                <dt>Marchandises</dt>
+                <dd>{{ money(line.goodsAmount, summary.currency) }}</dd>
+              </div>
+            </dl>
+          </li>
+        }
+      </ul>
+    } @else {
+      <g-empty-state
+        title="Aucune commande acceptée pour le moment"
+        description="Les articles apparaîtront ici dès qu’une commande de ce groupage sera payée."
+        icon="orders"
+      />
+    }
+  }
+</section>

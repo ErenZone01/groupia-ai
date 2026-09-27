@@ -5,6 +5,7 @@ public interface Campaigns {
     GroupingCampaign save(GroupingCampaign campaign);
     Optional<GroupingCampaign> find(UUID organizationId, UUID campaignId);
     Optional<GroupingCampaign> findPublic(UUID publicIdentifier);
+    Optional<GroupingCampaign> lock(UUID organizationId, UUID campaignId);
     Optional<GroupingCampaign> lockPublic(UUID publicIdentifier);
     CampaignResults list(UUID organizationId, GroupingCampaignStatus status, int page, int size);
     record CampaignResults(List<GroupingCampaign> items, long totalElements, int totalPages) {}

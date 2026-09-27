@@ -63,19 +63,3 @@
     </nav>
   }
 }
-@if (campaignId()) {
-  <g-card
-    ><h2>À commander au fournisseur</h2>
-    <p class="notice">
-      Le récapitulatif par produit n’est pas encore disponible. Consultez le détail des commandes
-      payées pour préparer votre achat.
-    </p>
-    <p class="muted">
-      Seules les commandes payées doivent être prises en compte. Aucun total fournisseur n’est
-      calculé sur une liste incomplète.
-    </p>
-    <button gButton variant="secondary" (click)="filter('CONFIRMED')">
-      Voir les commandes payées
-    </button></g-card
-  >
-}

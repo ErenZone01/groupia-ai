@@ -16,8 +16,8 @@ import { Skeleton } from '../../shared/feedback/skeleton';
       <h1>Votre suivi</h1>
       <p class="notice">Le suivi de cette commande n’est plus disponible sur cet appareil.</p>
       <p>
-        Le lien privé est conservé uniquement pour cette session navigateur. Aucune récupération par
-        téléphone n’est disponible pour le moment.
+        Le lien privé est conservé uniquement pour cette session navigateur.
+        <a routerLink="/suivi">Retrouver mes commandes avec mon numéro</a>.
       </p>
     } @else {
       @if (store.order(); as order) {

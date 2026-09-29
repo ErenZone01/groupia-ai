@@ -12,6 +12,14 @@ import sn.groupia.shipping.domain.repository.ShipmentRepository;
 class JdbcShipments implements ShipmentRepository {
     private final JdbcTemplate jdbc;
     JdbcShipments(JdbcTemplate jdbc){this.jdbc=jdbc;}
+    public List<Shipment> findAll(Set<UUID> ids) {
+        if(ids.isEmpty())return List.of();
+        return new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc).query(
+            "select * from shipments where grouping_campaign_id in (:ids)",Map.of("ids",ids),(r,n)->
+                new Shipment(r.getObject("id",UUID.class),r.getObject("organization_id",UUID.class),r.getObject("grouping_campaign_id",UUID.class),
+                TransportMode.valueOf(r.getString("transport_mode")),instant(r,"departed_at"),instant(r,"expected_arrival_at"),
+                instant(r,"arrived_at"),r.getString("tracking_reference"),r.getString("note"),instant(r,"created_at"),instant(r,"updated_at")));
+    }
     public Optional<Shipment> find(UUID org,UUID campaign) {
         return jdbc.query("select * from shipments where organization_id=? and grouping_campaign_id=?",(r,n)->
             new Shipment(r.getObject("id",UUID.class),r.getObject("organization_id",UUID.class),

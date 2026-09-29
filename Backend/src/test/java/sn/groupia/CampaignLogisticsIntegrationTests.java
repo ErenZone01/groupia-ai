@@ -41,7 +41,7 @@ class CampaignLogisticsIntegrationTests {
 
     @BeforeEach void setup() throws Exception {
         await().atMost(java.time.Duration.ofSeconds(10)).untilAsserted(()->assertThat(jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)).isZero());
-        jdbc.execute("TRUNCATE TABLE shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
         if(hash==null) hash=passwords.encode("Supplier fixture 2026!");
         actor=UUID.randomUUID();
         jdbc.update("insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at) values (?,'+221771234567',?,'ACTIVE',current_timestamp,current_timestamp)",actor,hash);

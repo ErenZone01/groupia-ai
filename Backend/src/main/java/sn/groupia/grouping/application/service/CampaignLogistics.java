@@ -56,6 +56,19 @@ public class CampaignLogistics implements GroupingProgressQueries {
         return new GroupingProgress(campaign.getStatus().name(),shipment==null?null:shipment.departedAt(),
             shipment==null?null:shipment.expectedArrivalAt(),shipment==null?null:shipment.arrivedAt());
     }
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public java.util.Map<UUID,PublicCampaignProgress> progressForOrders(java.util.Set<UUID> ids) {
+        if(ids.size()>50)throw new IllegalArgumentException("Batch too large");
+        if(ids.isEmpty())return java.util.Map.of();
+        var shipping=shipments.findAll(ids);
+        var result=new java.util.HashMap<UUID,PublicCampaignProgress>();
+        for(var c:campaigns.findAll(ids)) {
+            var s=shipping.get(c.getId());
+            result.put(c.getId(),new PublicCampaignProgress(c.getTitle(),new GroupingProgress(c.getStatus().name(),
+                s==null?null:s.departedAt(),s==null?null:s.expectedArrivalAt(),s==null?null:s.arrivedAt())));
+        }
+        return java.util.Map.copyOf(result);
+    }
     private GroupingCampaign lock(UUID org,UUID id){return campaigns.lock(org,id).orElseThrow(CampaignLogistics::missing);}
     private CampaignLifecycleView lifecycle(GroupingCampaign c){return new CampaignLifecycleView(c.getId(),c.getOrganizationId(),c.getStatus().name(),c.getVersion());}
     private static ApiException missing(){return new ApiException(404,"GROUPING_CAMPAIGN_NOT_FOUND","Groupage introuvable.");}

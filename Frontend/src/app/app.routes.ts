@@ -2,6 +2,22 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 export const routes: Routes = [
   {
+    path: 's/:token',
+    loadComponent: () =>
+      import('./features/customer-access/magic-link.page').then((m) => m.MagicLinkPage),
+  },
+  { path: 's', redirectTo: 'suivi', pathMatch: 'full' },
+  {
+    path: 'mes-commandes',
+    loadComponent: () =>
+      import('./features/customer-access/my-orders.page').then((m) => m.MyOrdersPage),
+  },
+  {
+    path: 'mes-commandes/:orderNumber',
+    loadComponent: () =>
+      import('./features/customer-access/customer-order.page').then((m) => m.CustomerOrderPage),
+  },
+  {
     path: 'public/groupages/:publicIdentifier/cart',
     title: 'Mon panier · Groupia',
     loadComponent: () => import('./features/checkout/cart.page').then((m) => m.CartPage),
@@ -45,7 +61,8 @@ export const routes: Routes = [
   },
   {
     path: 'suivi',
-    loadComponent: () => import('./features/tracking/tracking.page').then((m) => m.TrackingPage),
+    loadComponent: () =>
+      import('./features/customer-access/recovery.page').then((m) => m.RecoveryPage),
   },
   {
     path: 'app',

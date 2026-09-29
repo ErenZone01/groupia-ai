@@ -4,6 +4,7 @@
 export { CatalogControllerService } from './services/catalog-controller.service';
 export { GroupingControllerService } from './services/grouping-controller.service';
 export { OrderingControllerService } from './services/ordering-controller.service';
+export { CustomerAccessControllerService } from './services/customer-access-controller.service';
 export { PaymentControllerService } from './services/payment-controller.service';
 export { OrganizationControllerService } from './services/organization-controller.service';
 export { SupplierOrderControllerService } from './services/supplier-order-controller.service';

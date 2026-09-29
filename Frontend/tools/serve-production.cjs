@@ -25,12 +25,14 @@ http
       return res.end();
     }
     if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-      if (path.extname(pathname) || pathname.startsWith('/api/')) {
+      if ((!pathname.startsWith('/s/') && path.extname(pathname)) || pathname.startsWith('/api/')) {
         res.writeHead(404);
         return res.end();
       }
       file = path.join(root, 'index.html');
     }
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    if (pathname.startsWith('/s/')) res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', mime[path.extname(file)] || 'application/octet-stream');
     fs.createReadStream(file).pipe(res);
   })

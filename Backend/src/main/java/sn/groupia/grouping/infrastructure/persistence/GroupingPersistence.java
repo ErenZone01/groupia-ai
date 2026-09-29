@@ -19,6 +19,7 @@ class GroupingPersistence implements Campaigns, Offers, GroupingChanges {
         this.campaigns = campaigns; this.offers = offers; this.entityManager = entityManager;
     }
 
+    @Override public List<GroupingCampaign> findAll(Set<UUID> ids){return campaigns.findAllById(ids);}
     @Override public GroupingCampaign save(GroupingCampaign campaign) {
         try { return campaigns.saveAndFlush(campaign); }
         catch (OptimisticLockingFailureException ex) {

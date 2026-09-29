@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import sn.groupia.shared.api.ApiException;
 
 @Component
-public class PhoneNumberNormalizer {
+public class PhoneNumberNormalizer implements sn.groupia.identity.api.PhoneNumbers {
     private final PhoneNumberUtil phoneNumbers = PhoneNumberUtil.getInstance();
 
     public String normalize(String input) {

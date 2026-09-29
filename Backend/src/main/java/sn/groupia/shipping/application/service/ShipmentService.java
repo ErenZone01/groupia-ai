@@ -13,6 +13,10 @@ public class ShipmentService implements Shipments {
     private final ShipmentRepository shipments;
     ShipmentService(ShipmentRepository shipments){this.shipments=shipments;}
     @Transactional(readOnly=true)
+    public Map<UUID,ShipmentView> findAll(Set<UUID> ids) {
+        return shipments.findAll(ids).stream().collect(java.util.stream.Collectors.toUnmodifiableMap(Shipment::campaignId,Shipment::view));
+    }
+    @Transactional(readOnly=true)
     public Optional<ShipmentView> find(UUID org,UUID campaign){return shipments.find(org,campaign).map(Shipment::view);}
     @Transactional(propagation=Propagation.MANDATORY)
     public ShipmentView depart(UUID org,UUID campaign,TransportMode mode,Instant departedAt,

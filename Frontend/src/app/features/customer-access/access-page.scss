@@ -1,0 +1,60 @@
+:host {
+  display: block;
+}
+h1 {
+  font-size: var(--text-2xl);
+  margin-bottom: var(--s3);
+}
+h2 {
+  font-size: var(--text-lg);
+}
+p {
+  margin: var(--s3) 0;
+}
+form,
+.stack {
+  display: grid;
+  gap: var(--s4);
+  margin-top: var(--s6);
+}
+label {
+  display: grid;
+  gap: var(--s2);
+  font-weight: 500;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  margin: var(--s5) 0;
+}
+.card {
+  padding: var(--s5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.card a {
+  display: inline-block;
+  margin-top: var(--s4);
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  margin-top: var(--s5);
+}
+input,
+button {
+  max-width: 100%;
+}
+.eyebrow {
+  color: var(--primary);
+  font-weight: 600;
+}
+.amount {
+  font-size: var(--text-xl);
+  font-weight: 600;
+}

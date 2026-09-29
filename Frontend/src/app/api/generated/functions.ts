@@ -67,6 +67,8 @@ export type { CustomerOrders$Params as CustomerOrders$Params } from './fn/custom
 export { customerOrders as customerOrders } from './fn/customer-access-controller/customer-orders';
 export type { CustomerOrder$Params as CustomerOrder$Params } from './fn/customer-access-controller/customer-order';
 export { customerOrder as customerOrder } from './fn/customer-access-controller/customer-order';
+export type { CustomerOrderCapabilities$Params as CustomerOrderCapabilities$Params } from './fn/customer-access-controller/customer-order-capabilities';
+export { customerOrderCapabilities as customerOrderCapabilities } from './fn/customer-access-controller/customer-order-capabilities';
 export type { CustomerCsrf$Params as CustomerCsrf$Params } from './fn/customer-access-controller/customer-csrf';
 export { customerCsrf as customerCsrf } from './fn/customer-access-controller/customer-csrf';
 export type { Webhook$Params as Webhook$Params } from './fn/payment-controller/webhook';

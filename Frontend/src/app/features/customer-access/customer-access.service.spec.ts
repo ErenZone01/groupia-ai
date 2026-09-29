@@ -66,6 +66,15 @@ describe('Customer access transport', () => {
       r.flush({});
     });
   }
+  it('uses the backend capability without interpreting order status or archive dates', async () => {
+    const promise = service.capabilities('GRP-000000000008');
+    const request = http.expectOne(base + '/orders/GRP-000000000008/capabilities');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({ canResendTrackingLink: false });
+    expect(await promise).toEqual({ canResendTrackingLink: false });
+  });
   it('loads paginated orders without a bearer or private URL value', async () => {
     const p = service.orders(2);
     const r = http.expectOne(base + '/orders?page=2&size=20');

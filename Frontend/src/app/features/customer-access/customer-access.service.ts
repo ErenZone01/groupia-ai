@@ -37,6 +37,9 @@ export class CustomerAccessService {
   order(orderNumber: string) {
     return firstValueFrom(this.api.customerOrder({ orderNumber }).pipe(timeout(20000)));
   }
+  capabilities(orderNumber: string) {
+    return firstValueFrom(this.api.customerOrderCapabilities({ orderNumber }).pipe(timeout(20000)));
+  }
   resend(orderNumber: string) {
     return this.mutate((c) => this.api.resendCustomerLink({ orderNumber }, c));
   }

@@ -4537,6 +4537,121 @@
         ]
       }
     },
+    "/api/public/customer-access/orders/{orderNumber}/capabilities": {
+      "get": {
+        "tags": [
+          "customer-access-controller"
+        ],
+        "operationId": "customerOrderCapabilities",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerOrderCapabilities"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Customer session or link unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phone verification or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Customer access disabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CustomerSession": []
+          }
+        ]
+      }
+    },
     "/api/public/customer-access/csrf": {
       "get": {
         "tags": [
@@ -6099,13 +6214,13 @@
           "charset": {
             "type": "string"
           },
+          "attachment": {
+            "type": "boolean"
+          },
           "inline": {
             "type": "boolean"
           },
           "formData": {
-            "type": "boolean"
-          },
-          "attachment": {
             "type": "boolean"
           }
         }
@@ -6113,6 +6228,23 @@
       "HttpHeaders": {
         "type": "object",
         "properties": {
+          "connection": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ifModifiedSince": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "contentType": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "contentLength": {
+            "type": "integer",
+            "format": "int64"
+          },
           "empty": {
             "type": "boolean"
           },
@@ -6123,6 +6255,9 @@
           "host": {
             "type": "object",
             "properties": {
+              "hostString": {
+                "type": "string"
+              },
               "address": {
                 "type": "object",
                 "properties": {
@@ -6180,9 +6315,6 @@
               },
               "hostName": {
                 "type": "string"
-              },
-              "hostString": {
-                "type": "string"
               }
             }
           },
@@ -6201,14 +6333,10 @@
             "type": "integer",
             "format": "int64"
           },
-          "contentLength": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "accept": {
+          "vary": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MediaType"
+              "type": "string"
             }
           },
           "allow": {
@@ -6218,35 +6346,41 @@
               "$ref": "#/components/schemas/HttpMethod"
             }
           },
-          "pragma": {
-            "type": "string"
-          },
-          "upgrade": {
-            "type": "string"
-          },
-          "vary": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "ifMatch": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
+          "pragma": {
+            "type": "string"
+          },
           "etag": {
             "type": "string"
           },
-          "expires": {
-            "type": "integer",
-            "format": "int64"
+          "upgrade": {
+            "type": "string"
+          },
+          "accept": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaType"
+            }
           },
           "range": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/HttpRange"
+            }
+          },
+          "expires": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "acceptCharset": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
           "ifNoneMatch": {
@@ -6255,58 +6389,13 @@
               "type": "string"
             }
           },
-          "acceptCharset": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "accessControlAllowMethods": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HttpMethod"
-            }
-          },
-          "accessControlRequestMethod": {
-            "$ref": "#/components/schemas/HttpMethod"
-          },
-          "accessControlAllowCredentials": {
-            "type": "boolean"
-          },
-          "accessControlAllowHeaders": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "accessControlAllowOrigin": {
-            "type": "string"
-          },
-          "accessControlExposeHeaders": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "accessControlRequestHeaders": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "origin": {
-            "type": "string"
-          },
-          "contentDisposition": {
-            "$ref": "#/components/schemas/ContentDisposition"
-          },
           "acceptPatch": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MediaType"
             }
           },
-          "basicAuth": {
+          "bearerAuth": {
             "type": "string",
             "writeOnly": true
           },
@@ -6325,21 +6414,26 @@
               }
             }
           },
-          "bearerAuth": {
+          "basicAuth": {
             "type": "string",
             "writeOnly": true
           },
           "contentLanguage": {
             "type": "string"
           },
-          "connection": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "cacheControl": {
             "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "accessControlMaxAge": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ifUnmodifiedSince": {
+            "type": "integer",
+            "format": "int64"
           },
           "acceptLanguageAsLocales": {
             "type": "array",
@@ -6347,20 +6441,41 @@
               "type": "string"
             }
           },
-          "ifUnmodifiedSince": {
-            "type": "integer",
-            "format": "int64"
+          "contentDisposition": {
+            "$ref": "#/components/schemas/ContentDisposition"
           },
-          "accessControlMaxAge": {
-            "type": "integer",
-            "format": "int64"
+          "accessControlAllowCredentials": {
+            "type": "boolean"
           },
-          "ifModifiedSince": {
-            "type": "integer",
-            "format": "int64"
+          "accessControlAllowOrigin": {
+            "type": "string"
           },
-          "contentType": {
-            "$ref": "#/components/schemas/MediaType"
+          "accessControlRequestMethod": {
+            "$ref": "#/components/schemas/HttpMethod"
+          },
+          "accessControlExposeHeaders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accessControlAllowMethods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HttpMethod"
+            }
+          },
+          "accessControlRequestHeaders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accessControlAllowHeaders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -6392,16 +6507,16 @@
           "charset": {
             "type": "string"
           },
-          "concrete": {
+          "subtypeSuffix": {
+            "type": "string"
+          },
+          "wildcardType": {
             "type": "boolean"
           },
           "wildcardSubtype": {
             "type": "boolean"
           },
-          "subtypeSuffix": {
-            "type": "string"
-          },
-          "wildcardType": {
+          "concrete": {
             "type": "boolean"
           }
         }
@@ -7176,6 +7291,14 @@
           },
           "progress": {
             "$ref": "#/components/schemas/GroupingProgress"
+          }
+        }
+      },
+      "CustomerOrderCapabilities": {
+        "type": "object",
+        "properties": {
+          "canResendTrackingLink": {
+            "type": "boolean"
           }
         }
       },

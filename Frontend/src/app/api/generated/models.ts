@@ -22,6 +22,7 @@ export type { CreateProduct } from './models/create-product';
 export type { CreateSupplierOrder } from './models/create-supplier-order';
 export type { CsrfView } from './models/csrf-view';
 export type { CustomerContact } from './models/customer-contact';
+export type { CustomerOrderCapabilities } from './models/customer-order-capabilities';
 export type { CustomerSessionView } from './models/customer-session-view';
 export type { Detail } from './models/detail';
 export type { GroupiaProblem } from './models/groupia-problem';

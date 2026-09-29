@@ -14,6 +14,8 @@ async function mockAccess(
     requests: 0,
     lists: 0,
     resends: 0,
+    status: 'CONFIRMED',
+    canResend: true,
   };
   const order = {
     orderNumber: number,
@@ -90,7 +92,10 @@ async function mockAccess(
         totalPages: 1,
       });
     }
-    if (path === '/orders/' + number) return state.scope === 'NONE' ? reply({}, 401) : reply(order);
+    if (path === '/orders/' + number + '/capabilities')
+      return reply({ canResendTrackingLink: state.scope === 'PHONE_VERIFIED' && state.canResend });
+    if (path === '/orders/' + number)
+      return state.scope === 'NONE' ? reply({}, 401) : reply({ ...order, status: state.status });
     if (path.endsWith('/resend-link')) {
       state.resends++;
       return route.fulfill({ status: 204 });
@@ -234,4 +239,22 @@ test('recovery form is keyboard accessible at 360px', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.getByLabel('Code à 6 chiffres')).toBeVisible();
   await noOverflow(page);
+});
+
+test('completed order exposes resend when authorized by backend', async ({ page }) => {
+  const state = await mockAccess(page, 'PHONE_VERIFIED');
+  state.status = 'COMPLETED';
+  await page.goto('/mes-commandes/' + number);
+  await page.getByRole('button', { name: 'Renvoyer le lien de suivi' }).click();
+  await expect(page.getByRole('status')).toContainText('renvoi');
+  expect(state.resends).toBe(1);
+});
+
+test('backend capability hides resend even for confirmed order', async ({ page }) => {
+  const state = await mockAccess(page, 'PHONE_VERIFIED');
+  state.canResend = false;
+  await page.goto('/mes-commandes/' + number);
+  await expect(page.getByRole('button', { name: 'Actualiser le suivi' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Renvoyer le lien de suivi' })).toHaveCount(0);
+  expect(state.resends).toBe(0);
 });

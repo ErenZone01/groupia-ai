@@ -46,9 +46,10 @@ class CustomerAccessIntegrationTests {
     static class FakeDelivery implements DeliveryGateway {
         final Map<UUID,String> codes=new ConcurrentHashMap<>();
         final Map<UUID,String> links=new ConcurrentHashMap<>();
+        final Map<UUID,NotificationType> types=new ConcurrentHashMap<>();
         volatile boolean fail;
-        public void sendOtp(UUID id,String phone,String code){if(fail)throw new IllegalStateException("sensitive-adapter-error");codes.putIfAbsent(id,code);}
-        public void sendLink(UUID id,NotificationType type,String phone,String url){if(fail)throw new IllegalStateException("sensitive-adapter-error");links.putIfAbsent(id,url);}
+        public DeliveryResult sendOtp(UUID id,String phone,String code){if(fail)throw new IllegalStateException("sensitive-adapter-error");codes.putIfAbsent(id,code);return new DeliveryResult("FAKE",id.toString());}
+        public DeliveryResult sendLink(UUID id,NotificationType type,NotificationContentSource.LinkContent content){if(fail)throw new IllegalStateException("sensitive-adapter-error");types.putIfAbsent(id,type);links.putIfAbsent(id,content.url());return new DeliveryResult("FAKE",id.toString());}
     }
     @TestConfiguration static class DeliveryConfig {@Bean @Primary FakeDelivery fakeDelivery(){return new FakeDelivery();}}
     private UUID actor,org; private String jwt,number,trackingToken; private JsonNode campaign;
@@ -58,7 +59,7 @@ class CustomerAccessIntegrationTests {
     @BeforeEach void setup() throws Exception {
         await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)).isZero());
         jdbc.execute("TRUNCATE TABLE customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
-        delivery.fail=false;delivery.codes.clear();delivery.links.clear();
+        delivery.fail=false;delivery.codes.clear();delivery.links.clear();delivery.types.clear();
         if(passwordHash==null)passwordHash=passwords.encode("Customer fixture 2026!");
         actor=UUID.randomUUID();
         jdbc.update("insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at) values (?,'+221771234567',?,'ACTIVE',current_timestamp,current_timestamp)",actor,passwordHash);
@@ -174,6 +175,9 @@ class CustomerAccessIntegrationTests {
         postJson("/magic/exchange",Map.of("token",old),null).andExpect(status().isUnauthorized());
         mvc.perform(get(BASE+"/session").cookie(oldSession)).andExpect(status().isUnauthorized());
         assertThat(count("order_access_links")).isEqualTo(2);
+        String fresh=crypto.link(jdbc.queryForObject("select id from order_access_links where revoked_at is null",UUID.class));
+        magic(fresh);
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(delivery.types.values()).contains(NotificationType.ORDER_TRACKING_LINK));
         postJson("/orders/"+number+"/revoke-link",Map.of(),owner).andExpect(status().isNoContent());
         assertThat(jdbc.queryForObject("select count(*) from order_access_links where revoked_at is null",Long.class)).isZero();
     }
@@ -201,6 +205,8 @@ class CustomerAccessIntegrationTests {
         delivery.fail=false;
         failedPublications.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO));
         await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(delivery.links).hasSize(1));
+        assertThat(delivery.types.values()).containsExactly(NotificationType.ORDER_CONFIRMED);
+        assertThat(delivery.links.values()).containsExactly(access.link(link).orElseThrow().url());
         assertThat(output.getAll()).doesNotContain("sensitive-adapter-error",crypto.link(link),"+221771234567");
     }
     @Test void pendingOrderNeverCreatesLinkAndOtpDeliveryFailureRemainsUniform() throws Exception {
@@ -210,6 +216,34 @@ class CustomerAccessIntegrationTests {
         postJson("/otp/request",Map.of("phone","+221771234567"),null).andExpect(status().isOk())
             .andExpect(jsonPath("$.message").value("Si ce numéro peut recevoir un code, celui-ci a été envoyé."));
         assertThat(count("otp_challenges")).isEqualTo(1);
+    }
+    @Test void completedOrdersCanResendWithinArchiveAndNeverBeyondIt() throws Exception {
+        Cookie owner=phone("+221771234567");
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.canResendTrackingLink").value(true));
+        jdbc.update("update orders set status='COMPLETED',completed_at=current_timestamp where order_number=?",number);
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.canResendTrackingLink").value(true));
+        postJson("/orders/"+number+"/resend-link",Map.of(),owner).andExpect(status().isNoContent());
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(delivery.types.values()).containsExactly(NotificationType.ORDER_TRACKING_LINK));
+        jdbc.update("update orders set completed_at=current_timestamp-interval '91 days',placed_at=current_timestamp-interval '92 days',confirmed_at=current_timestamp-interval '92 days' where order_number=?",number);
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.canResendTrackingLink").value(false));
+        postJson("/orders/"+number+"/resend-link",Map.of(),owner).andExpect(status().isUnauthorized());
+        assertThat(count("order_access_links")).isEqualTo(1);
+    }
+    @Test void capabilityHonorsScopeOwnershipAndPendingOrder() throws Exception {
+        Cookie scoped=magic(confirmedLink());
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(scoped)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.canResendTrackingLink").value(false));
+        Cookie foreign=phone("+221781234567");
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(foreign)).andExpect(status().isNotFound());
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities")).andExpect(status().isUnauthorized());
+        Cookie owner=phone("+221771234567");
+        jdbc.update("update orders set status='PENDING_PAYMENT',confirmed_at=null where order_number=?",number);
+        mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.canResendTrackingLink").value(false));
+        postJson("/orders/"+number+"/resend-link",Map.of(),owner).andExpect(status().isConflict());
     }
     private void publishConfirmation(){
         new TransactionTemplate(transactions).executeWithoutResult(s->events.publishEvent(new OrderCommerciallyAccepted(UUID.randomUUID(),Instant.now(),org,UUID.fromString(campaign.path("id").asText()),orderId())));

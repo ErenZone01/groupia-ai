@@ -10,7 +10,7 @@ public class LinkNotifications {
     @ApplicationModuleListener
     public void on(LinkNotificationRequested event) {
         content.link(event.linkId()).ifPresent(link->{
-            try{gateway.sendLink(event.eventId(),event.type(),link.phone(),link.url());}
+            try{gateway.sendLink(event.eventId(),event.type(),link);}
             catch(RuntimeException ex){throw new IllegalStateException("NOTIFICATION_DELIVERY_UNAVAILABLE");}
         });
     }

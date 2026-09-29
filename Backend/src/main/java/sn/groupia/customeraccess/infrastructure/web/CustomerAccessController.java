@@ -58,6 +58,8 @@ class CustomerAccessController {
     }
     @GetMapping("/orders/{orderNumber}")
     OrderTrackingView customerOrder(HttpServletRequest request,@PathVariable String orderNumber){return access.track(cookie(request),orderNumber);}
+    @GetMapping("/orders/{orderNumber}/capabilities")
+    CustomerOrderCapabilities customerOrderCapabilities(HttpServletRequest request,@PathVariable String orderNumber){return access.capabilities(cookie(request),orderNumber);}
     @PostMapping("/orders/{orderNumber}/resend-link")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void resendCustomerLink(HttpServletRequest request,@PathVariable String orderNumber){access.resend(cookie(request),orderNumber);}

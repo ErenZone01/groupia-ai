@@ -185,6 +185,7 @@
 				<configuration>
 					<systemPropertyVariables>
 						<groupia.payment.bictorys.enabled>false</groupia.payment.bictorys.enabled>
+                        <groupia.notification.whatsapp.enabled>false</groupia.notification.whatsapp.enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

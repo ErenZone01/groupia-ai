@@ -90,12 +90,18 @@ public class CustomerAccess implements NotificationContentSource {
         var order=authorized(s,number);
         return orders.track(order.organizationId(),order.id());
     }
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public CustomerOrderCapabilities capabilities(String token,String number) {
+        var s=session(token);var order=authorized(s,number);
+        return new CustomerOrderCapabilities(s.scope()==AccessScope.PHONE_VERIFIED
+            && List.of("CONFIRMED","COMPLETED").contains(order.status()) && !archived(order));
+    }
     @Transactional
     public void resend(String token,String number) {
         var s=phoneSession(token);var order=orders.forPhone(s.phoneNormalized(),number);
         limits.consume("link-phone:"+s.phoneNormalized(),3600,policy.settings.phoneRequestsPerHour());
         store.lock("order:"+order.id());
-        rotate(order);
+        rotate(order,NotificationType.ORDER_TRACKING_LINK);
     }
     @Transactional
     public void revokeOrderLink(String token,String number) {
@@ -112,9 +118,9 @@ public class CustomerAccess implements NotificationContentSource {
         var order=orders.identity(org,orderId);
         if(!List.of("CONFIRMED","COMPLETED").contains(order.status()))return;
         if(store.latestLink(orderId).isPresent())return; // Redelivery must never undo a rotation or revocation.
-        rotate(order);
+        rotate(order,NotificationType.ORDER_CONFIRMED);
     }
-    private void rotate(CustomerOrderIdentity order) {
+    private void rotate(CustomerOrderIdentity order,NotificationType type) {
         if(!List.of("CONFIRMED","COMPLETED").contains(order.status()))throw new ApiException(409,"ORDER_ACCESS_NOT_AVAILABLE","Le lien sera disponible après confirmation.");
         Instant now=now();
         Instant expiry=order.terminalAt()==null?null:order.terminalAt().plus(Duration.ofDays(policy.settings.archiveDays()));
@@ -123,7 +129,7 @@ public class CustomerAccess implements NotificationContentSource {
         store.revokeLinks(order.id(),now);
         var link=new OrderAccessLink(UUID.randomUUID(),order.organizationId(),order.id(),generation,now,null,expiry,null);
         store.insert(link);
-        events.publishEvent(new LinkNotificationRequested(UUID.randomUUID(),now,link.id(),NotificationType.ORDER_CONFIRMED));
+        events.publishEvent(new LinkNotificationRequested(UUID.randomUUID(),now,link.id(),type));
     }
     @Override @Transactional(readOnly=true)
     public Optional<LinkContent> link(UUID id) {
@@ -132,7 +138,7 @@ public class CustomerAccess implements NotificationContentSource {
         if(value.isEmpty() || !value.get().activeAt(now()))return Optional.empty();
         var l=value.get();var order=orders.identity(l.organizationId(),l.orderId());
         if(archived(order))return Optional.empty();
-        return Optional.of(new LinkContent(order.phoneNormalized(),policy.settings.publicBaseUrl().replaceAll("/$","")+"/s/"+crypto.link(id)));
+        return Optional.of(new LinkContent(order.phoneNormalized(),order.orderNumber(),policy.settings.publicBaseUrl().replaceAll("/$","")+"/s/"+crypto.link(id)));
     }
     private CustomerSession session(String token) {
         policy.requireEnabled();

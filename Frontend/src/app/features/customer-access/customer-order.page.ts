@@ -29,7 +29,7 @@ import { accessError } from './access-errors';
         <button gButton variant="secondary" [disabled]="busy()" (click)="load()">
           Actualiser le suivi
         </button>
-        @if (phoneVerified() && value.status === 'CONFIRMED') {
+        @if (canResendTrackingLink()) {
           <button gButton variant="secondary" [disabled]="busy()" (click)="resend()">
             Renvoyer le lien de suivi
           </button>
@@ -62,6 +62,7 @@ export class CustomerOrderPage {
   private readonly number = inject(ActivatedRoute).snapshot.paramMap.get('orderNumber') ?? '';
   readonly order = signal<OrderTrackingView | null>(null);
   readonly phoneVerified = signal(false);
+  readonly canResendTrackingLink = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly message = signal('');
@@ -76,9 +77,14 @@ export class CustomerOrderPage {
     this.error.set('');
     this.order.set(null);
     this.phoneVerified.set(false);
+    this.canResendTrackingLink.set(false);
     try {
       const session = await this.access.session();
-      const value = await this.access.order(this.number);
+      const [value, capabilities] = await Promise.all([
+        this.access.order(this.number),
+        this.access.capabilities(this.number),
+      ]);
+      this.canResendTrackingLink.set(capabilities.canResendTrackingLink === true);
       this.order.set(value);
       this.phoneVerified.set(session.scope === 'PHONE_VERIFIED');
     } catch (error) {

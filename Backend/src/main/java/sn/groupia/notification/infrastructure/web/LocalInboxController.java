@@ -7,7 +7,8 @@ import org.springframework.http.ResponseEntity;
 import io.swagger.v3.oas.annotations.Hidden;
 import sn.groupia.notification.infrastructure.LocalDeliveryGateway;
 import sn.groupia.shared.api.ApiException;
-@Hidden @RestController @Profile("customer-access-local & !prod & !production")
+@Hidden @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="groupia.notification.whatsapp.enabled",havingValue="false",matchIfMissing=true)
+@RestController @Profile("customer-access-local & !prod & !production")
 class LocalInboxController {
     private final LocalDeliveryGateway inbox;
     LocalInboxController(LocalDeliveryGateway inbox){this.inbox=inbox;}

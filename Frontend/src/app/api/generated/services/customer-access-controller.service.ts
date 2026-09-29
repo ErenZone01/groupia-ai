@@ -15,6 +15,9 @@ import { customerCsrf } from '../fn/customer-access-controller/customer-csrf';
 import { CustomerCsrf$Params } from '../fn/customer-access-controller/customer-csrf';
 import { customerOrder } from '../fn/customer-access-controller/customer-order';
 import { CustomerOrder$Params } from '../fn/customer-access-controller/customer-order';
+import { customerOrderCapabilities } from '../fn/customer-access-controller/customer-order-capabilities';
+import { CustomerOrderCapabilities } from '../models/customer-order-capabilities';
+import { CustomerOrderCapabilities$Params } from '../fn/customer-access-controller/customer-order-capabilities';
 import { customerOrders } from '../fn/customer-access-controller/customer-orders';
 import { CustomerOrders$Params } from '../fn/customer-access-controller/customer-orders';
 import { customerSession } from '../fn/customer-access-controller/customer-session';
@@ -282,6 +285,33 @@ export class CustomerAccessControllerService extends BaseService {
     const resp = this.customerOrder$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<OrderTrackingView>): OrderTrackingView => r.body)
+    );
+  }
+
+  /** Path part for operation `customerOrderCapabilities()` */
+  static readonly CustomerOrderCapabilitiesPath = '/api/public/customer-access/orders/{orderNumber}/capabilities';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `customerOrderCapabilities()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  customerOrderCapabilities$Response(params: CustomerOrderCapabilities$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerOrderCapabilities>> {
+    const obs = customerOrderCapabilities(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `customerOrderCapabilities$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  customerOrderCapabilities(params: CustomerOrderCapabilities$Params, context?: HttpContext): Observable<CustomerOrderCapabilities> {
+    const resp = this.customerOrderCapabilities$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CustomerOrderCapabilities>): CustomerOrderCapabilities => r.body)
     );
   }
 

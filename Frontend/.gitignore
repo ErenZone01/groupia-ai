@@ -46,3 +46,6 @@ Thumbs.db
 /artifacts
 /playwright-report
 /test-results
+
+# Private local HTTPS certificates
+/.certs/

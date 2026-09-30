@@ -18,6 +18,9 @@ class WhatsAppConfigurationTests {
     private String[] valid() {
         return new String[]{
             "groupia.notification.whatsapp.enabled=true",
+            "groupia.notification.whatsapp.otp-enabled=true",
+            "groupia.notification.whatsapp.links-enabled=true",
+            "groupia.notification.whatsapp.templates.otp.mode=AUTHENTICATION",
             "groupia.notification.whatsapp.graph-api-version=v23.0",
             "groupia.notification.whatsapp.phone-number-id=123456789",
             "groupia.notification.whatsapp.access-token=configuration-test-only",
@@ -32,6 +35,72 @@ class WhatsAppConfigurationTests {
             "groupia.notification.whatsapp.templates.otp.language=fr",
             "groupia.notification.whatsapp.templates.otp.code-expiration-minutes=5"};
     }
+    private String[] connection() {
+        return new String[]{
+            "groupia.notification.whatsapp.enabled=true",
+            "groupia.notification.whatsapp.graph-api-version=v23.0",
+            "groupia.notification.whatsapp.phone-number-id=123456789",
+            "groupia.notification.whatsapp.access-token=configuration-test-only"};
+    }
+    private String[] utilityOtp() {
+        return new String[]{
+            "groupia.notification.whatsapp.otp-enabled=true",
+            "groupia.notification.whatsapp.links-enabled=false",
+            "groupia.notification.whatsapp.templates.otp.mode=UTILITY",
+            "groupia.notification.whatsapp.templates.otp.name=utility_fixture",
+            "groupia.notification.whatsapp.templates.otp.language=fr",
+            "groupia.notification.whatsapp.templates.otp.body-parameters=OTP_CODE"};
+    }
+    @Test void utilityOtpOnlyStartsWithoutLinkTemplatesOrMetaExpiry() {
+        runner().withPropertyValues(connection()).withPropertyValues(utilityOtp())
+                .withPropertyValues("groupia.customer-access.otp-seconds=301")
+                .run(c -> assertThat(c).hasNotFailed().hasSingleBean(DeliveryGateway.class));
+    }
+    @Test void disabledCapabilitiesNeedNoTemplatesAndDefaultToFalse() {
+        runner().withPropertyValues(connection()).run(c -> {
+            assertThat(c).hasNotFailed();
+            assertThat(c.getBean(WhatsAppProperties.class).otpEnabled()).isFalse();
+            assertThat(c.getBean(WhatsAppProperties.class).linksEnabled()).isFalse();
+        });
+    }
+    @Test void enabledOtpRequiresItsTemplate() {
+        runner().withPropertyValues(connection()).withPropertyValues("groupia.notification.whatsapp.otp-enabled=true")
+                .run(c -> assertThat(c).hasFailed());
+    }
+    @Test void enabledLinksRequireBothLinkTemplatesEvenInOtpOnlyConfiguration() {
+        runner().withPropertyValues(connection()).withPropertyValues(utilityOtp())
+                .withPropertyValues("groupia.notification.whatsapp.links-enabled=true")
+                .run(c -> assertThat(c.getStartupFailure()).hasStackTraceContaining("UTILITY_TEMPLATE"));
+    }
+    @Test void linksCanStartWithOtpDisabledAndWithoutOtpTemplate() {
+        var links = java.util.Arrays.stream(valid()).filter(p -> !p.startsWith("groupia.notification.whatsapp.templates.otp.")
+                && !p.startsWith("groupia.notification.whatsapp.otp-enabled=")).toArray(String[]::new);
+        runner().withPropertyValues(links).run(c -> assertThat(c).hasNotFailed().hasSingleBean(DeliveryGateway.class));
+    }
+    @Test void utilityModeMustDeclareExactlyOneOtpCodeBodyParameter() {
+        for (var mapping : new String[]{"", "OTP_CODE,OTP_CODE"}) {
+            runner().withPropertyValues(connection()).withPropertyValues(utilityOtp())
+                    .withPropertyValues("groupia.notification.whatsapp.templates.otp.body-parameters=" + mapping)
+                    .run(c -> assertThat(c.getStartupFailure()).hasStackTraceContaining("OTP_BODY_PARAMETERS"));
+        }
+    }
+    @Test void authenticationRejectsLeftoverUtilityMappingRatherThanIgnoringIt() {
+        runner().withPropertyValues(valid()).withPropertyValues("groupia.notification.whatsapp.templates.otp.body-parameters=OTP_CODE")
+                .run(c -> assertThat(c.getStartupFailure()).hasStackTraceContaining("OTP_BODY_PARAMETERS"));
+    }
+    @Test void blankModeDoesNotImplicitlySelectAuthenticationOrUtility() {
+        runner().withPropertyValues(connection()).withPropertyValues(utilityOtp())
+                .withPropertyValues("groupia.notification.whatsapp.templates.otp.mode=")
+                .run(c -> assertThat(c.getStartupFailure()).hasStackTraceContaining("OTP_MODE"));
+    }
+    @Test void applicationDefaultsWithEmptyInactiveTemplatesBindInOtpOnlyMode() {
+        runner().withInitializer(context -> {
+            try {
+                context.getEnvironment().getPropertySources().addLast(new org.springframework.core.io.support.ResourcePropertySource("classpath:application.properties"));
+            } catch (java.io.IOException e) { throw new AssertionError(e); }
+        }).withPropertyValues(connection()).withPropertyValues(utilityOtp())
+                .run(c -> assertThat(c).hasNotFailed().hasSingleBean(DeliveryGateway.class));
+    }
     @Test void explicitlyConfiguredTransportStarts() {
         runner().withPropertyValues(valid()).run(c -> assertThat(c).hasNotFailed().hasSingleBean(DeliveryGateway.class));
     }
@@ -42,7 +111,7 @@ class WhatsAppConfigurationTests {
         "graph-api-version", "phone-number-id", "access-token", "templates.order-confirmed.name",
         "templates.order-confirmed.language", "templates.order-tracking-link.name",
         "templates.order-tracking-link.language", "templates.otp.name", "templates.otp.language",
-        "templates.otp.code-expiration-minutes", "templates.order-confirmed.body-parameters"})
+        "templates.otp.mode", "templates.otp.code-expiration-minutes", "templates.order-confirmed.body-parameters"})
     void missingRequiredConfigurationFailsWithoutLeakingToken(String key) {
         runner().withPropertyValues(valid()).withPropertyValues("groupia.notification.whatsapp." + key + "=")
                 .run(c -> {

@@ -10,6 +10,8 @@ import sn.groupia.notification.api.NotificationType;
 @ConfigurationProperties("groupia.notification.whatsapp")
 public record WhatsAppProperties(
         @DefaultValue("false") boolean enabled,
+        @DefaultValue("false") boolean otpEnabled,
+        @DefaultValue("false") boolean linksEnabled,
         String graphApiVersion, String phoneNumberId, String accessToken,
         @DefaultValue("3s") Duration connectTimeout,
         @DefaultValue("8s") Duration readTimeout, Templates templates) {
@@ -22,7 +24,14 @@ public record WhatsAppProperties(
             bodyParameters = bodyParameters == null ? List.of() : List.copyOf(bodyParameters);
         }
     }
-    public record OtpTemplate(String name, String language, Integer codeExpirationMinutes) {}
+    public enum OtpMode { AUTHENTICATION, UTILITY }
+    public enum OtpSource { OTP_CODE }
+    public record OtpTemplate(String name, String language, OtpMode mode,
+                              List<OtpSource> bodyParameters, Integer codeExpirationMinutes) {
+        public OtpTemplate {
+            bodyParameters = bodyParameters == null ? List.of() : List.copyOf(bodyParameters);
+        }
+    }
     public record Templates(UtilityTemplate orderConfirmed, UtilityTemplate orderTrackingLink,
                             OtpTemplate otp, Map<NotificationType, UtilityTemplate> additional) {
         public Templates { additional = additional == null ? Map.of() : Map.copyOf(additional); }
@@ -42,18 +51,29 @@ public record WhatsAppProperties(
                 && accessToken.chars().allMatch(c -> c > 32 && c < 127), "ACCESS_TOKEN");
         require(connectTimeout != null && connectTimeout.toMillis() >= 1 && connectTimeout.toSeconds() <= 10, "CONNECT_TIMEOUT");
         require(readTimeout != null && readTimeout.toMillis() >= 1 && readTimeout.toSeconds() <= 30, "READ_TIMEOUT");
-        require(templates != null, "TEMPLATES");
-        validateUtility(templates.orderConfirmed());
-        validateUtility(templates.orderTrackingLink());
-        templates.additional().forEach((type, template) -> {
-            require(type != NotificationType.ORDER_CONFIRMED && type != NotificationType.ORDER_TRACKING_LINK, "ADDITIONAL_TEMPLATE");
-            validateUtility(template);
-        });
-        var otp = templates.otp();
-        require(otp != null, "OTP_TEMPLATE");
-        validateIdentity(otp.name(), otp.language());
-        require(otp.codeExpirationMinutes() != null && otp.codeExpirationMinutes() >= 1
-                && otp.codeExpirationMinutes() <= 15 && otp.codeExpirationMinutes() * 60 == otpSeconds, "OTP_EXPIRATION");
+        if (linksEnabled || otpEnabled) require(templates != null, "TEMPLATES");
+        if (linksEnabled) {
+            validateUtility(templates.orderConfirmed());
+            validateUtility(templates.orderTrackingLink());
+            templates.additional().forEach((type, template) -> {
+                require(type != NotificationType.ORDER_CONFIRMED && type != NotificationType.ORDER_TRACKING_LINK, "ADDITIONAL_TEMPLATE");
+                validateUtility(template);
+            });
+        }
+        if (otpEnabled) {
+            var otp = templates.otp();
+            require(otp != null, "OTP_TEMPLATE");
+            validateIdentity(otp.name(), otp.language());
+            require(otp.mode() != null, "OTP_MODE");
+            switch (otp.mode()) {
+                case AUTHENTICATION -> {
+                    require(otp.bodyParameters().isEmpty(), "OTP_BODY_PARAMETERS");
+                    require(otp.codeExpirationMinutes() != null && otp.codeExpirationMinutes() >= 1
+                            && otp.codeExpirationMinutes() <= 15 && otp.codeExpirationMinutes() * 60 == otpSeconds, "OTP_EXPIRATION");
+                }
+                case UTILITY -> require(otp.bodyParameters().equals(List.of(OtpSource.OTP_CODE)), "OTP_BODY_PARAMETERS");
+            }
+        }
     }
     private static void validateUtility(UtilityTemplate template) {
         require(template != null, "UTILITY_TEMPLATE");

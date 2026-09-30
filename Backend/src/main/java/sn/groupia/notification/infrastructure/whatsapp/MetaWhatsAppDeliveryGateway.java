@@ -32,16 +32,29 @@ public final class MetaWhatsAppDeliveryGateway implements DeliveryGateway {
     }
     @Override
     public DeliveryResult sendOtp(UUID challengeId, String phone, String code) {
+        if (!properties.otpEnabled()) throw new IllegalStateException("WHATSAPP_OTP_DISABLED");
         if (code == null || !code.matches("[0-9]{6}")) throw failure(challengeId, 0, null);
         var otp = properties.templates().otp();
-        // Meta AUTHENTICATION copy-code uses the same code in the BODY and URL button.
-        var components = List.of(
-                Map.of("type", "body", "parameters", List.of(text(code))),
-                Map.of("type", "button", "sub_type", "url", "index", "0", "parameters", List.of(text(code))));
+        var components = new ArrayList<Map<String, Object>>();
+        switch (otp.mode()) {
+            case AUTHENTICATION -> {
+                // Same existing challenge in both components of the approved copy-code contract.
+                components.add(Map.of("type", "body", "parameters", List.of(text(code))));
+                components.add(Map.of("type", "button", "sub_type", "url", "index", "0", "parameters", List.of(text(code))));
+            }
+            case UTILITY -> {
+                var parameters = otp.bodyParameters().stream().map(source -> switch (source) {
+                    case OTP_CODE -> text(code);
+                }).toList();
+                components.add(Map.of("type", "body", "parameters", parameters));
+            }
+        }
         return send(challengeId, phone, otp.name(), otp.language(), components);
     }
     @Override
     public DeliveryResult sendLink(UUID deliveryId, NotificationType type, LinkContent content) {
+        // Deliberate suppression completes the publication; it is not a failed delivery or deferred queue.
+        if (!properties.linksEnabled()) return new DeliveryResult("DISABLED", null);
         var template = properties.templates().forType(type);
         if (template == null) throw failure(deliveryId, 0, null);
         var components = new ArrayList<Map<String, Object>>();

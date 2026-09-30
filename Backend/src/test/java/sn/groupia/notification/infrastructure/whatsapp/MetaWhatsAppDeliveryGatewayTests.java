@@ -39,8 +39,8 @@ class MetaWhatsAppDeliveryGatewayTests {
                 List.of(), 0, "https://groupia.test/s/");
         var tracking = new WhatsAppProperties.UtilityTemplate("tracking_fixture", "fr", List.of(),
                 List.of(MAGIC_URL, ORDER_NUMBER), null, null);
-        return new WhatsAppProperties(true, "v23.0", "123456789", TOKEN, Duration.ofSeconds(1), Duration.ofSeconds(1),
-                new WhatsAppProperties.Templates(confirmed, tracking, new WhatsAppProperties.OtpTemplate("otp_fixture", "fr", 5), Map.of()));
+        return new WhatsAppProperties(true, true, true, "v23.0", "123456789", TOKEN, Duration.ofSeconds(1), Duration.ofSeconds(1),
+                new WhatsAppProperties.Templates(confirmed, tracking, new WhatsAppProperties.OtpTemplate("otp_fixture", "fr", WhatsAppProperties.OtpMode.AUTHENTICATION, List.of(), 5), Map.of()));
     }
     @BeforeEach void setup() {
         var builder = RestClient.builder().baseUrl("https://graph.facebook.com");
@@ -57,6 +57,54 @@ class MetaWhatsAppDeliveryGatewayTests {
                 .andExpect(jsonPath("$.to").value("221771234567"))
                 .andExpect(jsonPath("$.type").value("template"))
                 .andExpect(jsonPath("$.template.language.code").value("fr"));
+    }
+    private void useProperties(WhatsAppProperties properties) {
+        var builder = RestClient.builder().baseUrl("https://graph.facebook.com");
+        server = MockRestServiceServer.bindTo(builder).build();
+        gateway = new MetaWhatsAppDeliveryGateway(properties, builder.build(), json);
+    }
+    private WhatsAppProperties otpOnlyUtility() {
+        var p = properties();
+        return new WhatsAppProperties(true, true, false, p.graphApiVersion(), p.phoneNumberId(), p.accessToken(),
+                p.connectTimeout(), p.readTimeout(), new WhatsAppProperties.Templates(null, null,
+                new WhatsAppProperties.OtpTemplate("utility_otp_fixture", "fr", WhatsAppProperties.OtpMode.UTILITY,
+                        List.of(WhatsAppProperties.OtpSource.OTP_CODE), null), Map.of()));
+    }
+    @Test void utilitySendsOnlyConfiguredBodyWithExistingOtpAndNoButton(CapturedOutput output) {
+        var p = otpOnlyUtility();
+        p.validate(301, false); // Utility has no provider expiry requirement; customeraccess retains its TTL.
+        useProperties(p);
+        request().andExpect(jsonPath("$.template.name").value("utility_otp_fixture"))
+                .andExpect(jsonPath("$.template.components.length()").value(1))
+                .andExpect(jsonPath("$.template.components[0].type").value("body"))
+                .andExpect(jsonPath("$.template.components[0].parameters.length()").value(1))
+                .andExpect(jsonPath("$.template.components[0].parameters[0].type").value("text"))
+                .andExpect(jsonPath("$.template.components[0].parameters[0].text").value(CODE))
+                .andRespond(withSuccess("{\"messages\":[{\"id\":\"wamid.utility\"}]}", MediaType.APPLICATION_JSON));
+        assertThat(gateway.sendOtp(id, PHONE, CODE).providerMessageId()).isEqualTo("wamid.utility");
+        server.verify(); assertNoSecrets(output);
+    }
+    @Test void utilityFailureIsAsRedactedAsAuthentication(CapturedOutput output) {
+        useProperties(otpOnlyUtility());
+        request().andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body(json.writeValueAsString(Map.of("error", Map.of("code", 132000, "message", TOKEN + CODE + PHONE)))));
+        assertSafeFailure(() -> gateway.sendOtp(id, PHONE, CODE));
+        assertNoSecrets(output); server.verify();
+    }
+    @Test void disabledLinksSkipEveryNotificationWithoutTemplatesHttpOrWarnings(CapturedOutput output) {
+        useProperties(otpOnlyUtility());
+        for (var type : NotificationType.values()) {
+            assertThat(gateway.sendLink(id, type, content)).isEqualTo(new DeliveryResult("DISABLED", null));
+        }
+        server.verify(); assertNoSecrets(output);
+        assertThat(output.getAll()).doesNotContain("WHATSAPP_DELIVERY_FAILED");
+    }
+    @Test void disabledOtpNeverReadsMissingTemplateOrCallsMeta(CapturedOutput output) {
+        var p = properties();
+        useProperties(new WhatsAppProperties(true, false, false, p.graphApiVersion(), p.phoneNumberId(), p.accessToken(),
+                p.connectTimeout(), p.readTimeout(), null));
+        assertThatThrownBy(() -> gateway.sendOtp(id, PHONE, CODE)).hasMessage("WHATSAPP_OTP_DISABLED").hasNoCause();
+        server.verify(); assertNoSecrets(output);
     }
     @Test void confirmationUsesConfiguredHeaderAndDynamicUrl() {
         request().andExpect(jsonPath("$.template.name").value("confirmation_fixture"))
@@ -130,7 +178,7 @@ class MetaWhatsAppDeliveryGatewayTests {
     }
     @Test void explicitAdditionalTemplateIsSupportedWithoutAdapterChanges() {
         var p = properties();
-        var configured = new WhatsAppProperties(p.enabled(), p.graphApiVersion(), p.phoneNumberId(), p.accessToken(),
+        var configured = new WhatsAppProperties(p.enabled(), p.otpEnabled(), p.linksEnabled(), p.graphApiVersion(), p.phoneNumberId(), p.accessToken(),
                 p.connectTimeout(), p.readTimeout(), new WhatsAppProperties.Templates(p.templates().orderConfirmed(),
                 p.templates().orderTrackingLink(), p.templates().otp(), Map.of(NotificationType.ARRIVED, p.templates().orderTrackingLink())));
         var builder = RestClient.builder().baseUrl("https://graph.facebook.com");
@@ -170,7 +218,7 @@ class MetaWhatsAppDeliveryGatewayTests {
         fake.start();
         try {
             var p = properties();
-            var shortTimeout = new WhatsAppProperties(true, p.graphApiVersion(), p.phoneNumberId(), p.accessToken(),
+            var shortTimeout = new WhatsAppProperties(true, true, true, p.graphApiVersion(), p.phoneNumberId(), p.accessToken(),
                     Duration.ofSeconds(1), Duration.ofMillis(150), p.templates());
             var http = MetaWhatsAppDeliveryGateway.http(shortTimeout).mutate()
                     .baseUrl("http://127.0.0.1:" + fake.getAddress().getPort()).build();

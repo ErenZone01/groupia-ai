@@ -10,7 +10,8 @@
     "test:e2e": "playwright test",
     "format": "prettier --write \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\" playwright.config.ts",
     "api:generate": "node tools/generate-api.mjs",
-    "api:generate:snapshot": "node tools/generate-api.mjs --snapshot"
+    "api:generate:snapshot": "node tools/generate-api.mjs --snapshot",
+    "start:https": "ng serve --host localhost --ssl --ssl-cert .certs/localhost.pem --ssl-key .certs/localhost-key.pem"
   },
   "private": true,
   "packageManager": "npm@11.10.0",

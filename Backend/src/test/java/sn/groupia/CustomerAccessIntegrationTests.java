@@ -48,8 +48,9 @@ class CustomerAccessIntegrationTests {
         final Map<UUID,String> links=new ConcurrentHashMap<>();
         final Map<UUID,NotificationType> types=new ConcurrentHashMap<>();
         volatile boolean fail;
+        volatile DeliveryGateway linkDelegate;
         public DeliveryResult sendOtp(UUID id,String phone,String code){if(fail)throw new IllegalStateException("sensitive-adapter-error");codes.putIfAbsent(id,code);return new DeliveryResult("FAKE",id.toString());}
-        public DeliveryResult sendLink(UUID id,NotificationType type,NotificationContentSource.LinkContent content){if(fail)throw new IllegalStateException("sensitive-adapter-error");types.putIfAbsent(id,type);links.putIfAbsent(id,content.url());return new DeliveryResult("FAKE",id.toString());}
+        public DeliveryResult sendLink(UUID id,NotificationType type,NotificationContentSource.LinkContent content){if(linkDelegate!=null)return linkDelegate.sendLink(id,type,content);if(fail)throw new IllegalStateException("sensitive-adapter-error");types.putIfAbsent(id,type);links.putIfAbsent(id,content.url());return new DeliveryResult("FAKE",id.toString());}
     }
     @TestConfiguration static class DeliveryConfig {@Bean @Primary FakeDelivery fakeDelivery(){return new FakeDelivery();}}
     private UUID actor,org; private String jwt,number,trackingToken; private JsonNode campaign;
@@ -59,7 +60,7 @@ class CustomerAccessIntegrationTests {
     @BeforeEach void setup() throws Exception {
         await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)).isZero());
         jdbc.execute("TRUNCATE TABLE customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
-        delivery.fail=false;delivery.codes.clear();delivery.links.clear();delivery.types.clear();
+        delivery.linkDelegate=null;delivery.fail=false;delivery.codes.clear();delivery.links.clear();delivery.types.clear();
         if(passwordHash==null)passwordHash=passwords.encode("Customer fixture 2026!");
         actor=UUID.randomUUID();
         jdbc.update("insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at) values (?,'+221771234567',?,'ACTIVE',current_timestamp,current_timestamp)",actor,passwordHash);
@@ -244,6 +245,37 @@ class CustomerAccessIntegrationTests {
         mvc.perform(get(BASE+"/orders/"+number+"/capabilities").cookie(owner)).andExpect(status().isOk())
             .andExpect(jsonPath("$.canResendTrackingLink").value(false));
         postJson("/orders/"+number+"/resend-link",Map.of(),owner).andExpect(status().isConflict());
+    }
+    @Test void disabledMetaLinksCompletePublicationsWithoutRollbackOrLaterReplay() throws Exception {
+        var fixture=new sn.groupia.notification.infrastructure.whatsapp.DisabledLinksFixture();
+        delivery.linkDelegate=fixture.gateway;
+        publishConfirmation();
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(()->{
+            assertThat(count("order_access_links")).isEqualTo(1);
+            assertThat(jdbc.queryForObject("select count(*) from event_publication where completion_date is null",Long.class)).isZero();
+        });
+        assertThat(jdbc.queryForObject("select status from orders where order_number=?",String.class,number)).isEqualTo("CONFIRMED");
+        assertThat(jdbc.queryForObject("select count(*) from event_publication where status='FAILED'",Long.class)).isZero();
+        String old=crypto.link(jdbc.queryForObject("select id from order_access_links",UUID.class));
+        magic(old);
+        Cookie owner=phone("+221771234567"); // OTP security and recovery remain available.
+        postJson("/orders/"+number+"/resend-link",Map.of(),owner).andExpect(status().isNoContent());
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(()->{
+            assertThat(count("order_access_links")).isEqualTo(2);
+            assertThat(jdbc.queryForObject("select count(*) from event_publication where completion_date is null",Long.class)).isZero();
+        });
+        postJson("/magic/exchange",Map.of("token",old),null).andExpect(status().isUnauthorized());
+        assertThat(fixture.httpCalls).hasValue(0);
+        assertThat(delivery.links).isEmpty();
+        delivery.linkDelegate=null; // Simulate enabling link delivery after publications have completed.
+        failedPublications.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO));
+        publishConfirmation(); // Duplicate fact must not replay a suppressed delivery.
+        await().during(Duration.ofMillis(300)).atMost(Duration.ofSeconds(5)).untilAsserted(()->{
+            assertThat(delivery.links).isEmpty();
+            assertThat(count("order_access_links")).isEqualTo(2);
+        });
+        postJson("/orders/"+number+"/resend-link",Map.of(),owner).andExpect(status().isNoContent());
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(delivery.types.values()).containsExactly(NotificationType.ORDER_TRACKING_LINK));
     }
     private void publishConfirmation(){
         new TransactionTemplate(transactions).executeWithoutResult(s->events.publishEvent(new OrderCommerciallyAccepted(UUID.randomUUID(),Instant.now(),org,UUID.fromString(campaign.path("id").asText()),orderId())));

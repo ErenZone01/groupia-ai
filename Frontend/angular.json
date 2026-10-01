@@ -77,7 +77,7 @@
           "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "proxy.conf.json",
-            "allowedHosts": ["funky-taxes-dev-raises.trycloudflare.com"]
+            "allowedHosts": [".trycloudflare.com"]
           }
         },
         "test": {

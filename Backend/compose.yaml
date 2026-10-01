@@ -7,3 +7,16 @@ services:
       - 'POSTGRES_USER=myuser'
     ports:
       - '5432'
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: groupia-cloudflared
+    restart: unless-stopped
+
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://host.docker.internal:4200
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

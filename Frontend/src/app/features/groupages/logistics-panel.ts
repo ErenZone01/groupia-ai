@@ -1,12 +1,16 @@
 import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import {
   CampaignView,
   CampaignLifecycleView,
   CampaignShipmentView,
   ShipmentView,
 } from '../../api/generated/models';
+import { LogisticsDetailsEditor, LogisticsEdit } from './logistics-details-editor';
+import { LogisticsTimeline } from './logistics-timeline';
+import { LogisticsSourceInput } from './logistics-source';
+import { ShipCampaign } from '../../api/generated/models';
 import { LogisticsApi } from './logistics-api';
 import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/forms/input';
@@ -17,7 +21,15 @@ import { optionLabel, transportOptions } from './groupage-labels';
 
 @Component({
   selector: 'g-logistics-panel',
-  imports: [FormsModule, Button, Input, Skeleton],
+  imports: [
+    FormsModule,
+    Button,
+    Input,
+    Skeleton,
+    LogisticsDetailsEditor,
+    LogisticsTimeline,
+    LogisticsSourceInput,
+  ],
   templateUrl: './logistics-panel.html',
   styles: `
     :host {
@@ -77,6 +89,9 @@ export class LogisticsPanel {
   readonly statusLabel = statusLabel;
   readonly optionLabel = optionLabel;
   readonly transportOptions = transportOptions;
+  readonly detailsMode = signal<'dossier' | 'eta' | 'fact' | null>(null);
+  source: NonNullable<ShipCampaign['source']> = 'UNKNOWN';
+  arrival = '';
   departure = '';
   expected = '';
   reference = '';
@@ -88,7 +103,9 @@ export class LogisticsPanel {
       const key = this.organizationId() + '/' + this.campaign().id;
       if (key !== this.context) {
         this.context = key;
-        this.departure = this.expected = this.reference = this.note = '';
+        this.departure = this.expected = this.reference = this.note = this.arrival = '';
+        this.source = 'UNKNOWN';
+        this.detailsMode.set(null);
         this.request?.unsubscribe();
         this.busy.set(false);
         this.editing.set(false);
@@ -138,21 +155,20 @@ export class LogisticsPanel {
   }
   begin() {
     if (this.busy() || this.stale() || this.lifecycle()?.status !== 'SUPPLIER_ORDERED') return;
-    const now = new Date();
-    this.departure = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
+    this.departure = '';
+    this.source = 'UNKNOWN';
+    this.detailsMode.set(null);
     this.error.set('');
     this.editing.set(true);
   }
   ship() {
     if (!this.editing() || !this.canMutate('SUPPLIER_ORDERED')) return;
-    const departed = Date.parse(this.departure);
+    const departed = this.departure ? Date.parse(this.departure) : undefined;
     const expected = this.expected ? Date.parse(this.expected) : undefined;
     if (
-      !Number.isFinite(departed) ||
-      departed > Date.now() ||
-      (expected !== undefined && (!Number.isFinite(expected) || expected < departed)) ||
+      (departed !== undefined && (!Number.isFinite(departed) || departed > Date.now())) ||
+      (expected !== undefined &&
+        (!Number.isFinite(expected) || (departed !== undefined && expected < departed))) ||
       this.reference.length > 160 ||
       this.note.length > 2000
     ) {
@@ -163,7 +179,8 @@ export class LogisticsPanel {
     }
     this.mutate('ship', {
       version: this.lifecycle()!.version!,
-      departedAt: new Date(departed).toISOString(),
+      departedAt: departed === undefined ? undefined : new Date(departed).toISOString(),
+      source: this.source,
       expectedArrivalAt: expected === undefined ? undefined : new Date(expected).toISOString(),
       trackingReference: this.reference.trim() || undefined,
       note: this.note.trim() || undefined,
@@ -171,7 +188,54 @@ export class LogisticsPanel {
   }
   arrive() {
     if (!this.confirmingArrival() || !this.canMutate('IN_TRANSIT')) return;
-    this.mutate('arrive', { version: this.lifecycle()!.version! });
+    const at = this.arrival ? Date.parse(this.arrival) : undefined;
+    if (
+      at !== undefined &&
+      (!Number.isFinite(at) ||
+        at > Date.now() ||
+        (this.shipment()?.departedAt && at < Date.parse(this.shipment()!.departedAt!)))
+    ) {
+      this.error.set('Vérifiez les dates de départ et d’arrivée.');
+      return;
+    }
+    this.mutate('arrive', {
+      version: this.lifecycle()!.version!,
+      arrivedAt: at === undefined ? undefined : new Date(at).toISOString(),
+      source: this.source,
+      note: this.note.trim() || undefined,
+    });
+  }
+  beginDetails(mode: 'dossier' | 'eta' | 'fact') {
+    if (this.busy() || this.stale()) return;
+    this.editing.set(false);
+    this.confirmingArrival.set(false);
+    this.detailsMode.set(mode);
+  }
+  beginArrival() {
+    if (!this.canMutate('IN_TRANSIT')) return;
+    this.detailsMode.set(null);
+    this.arrival = '';
+    this.note = '';
+    this.source = 'UNKNOWN';
+    this.confirmingArrival.set(true);
+  }
+  saveDetails(edit: LogisticsEdit) {
+    if (
+      this.busy() ||
+      this.loading() ||
+      this.stale() ||
+      !['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED'].includes(this.lifecycle()?.status ?? '')
+    )
+      return;
+    const org = this.organizationId(),
+      id = this.campaign().id!;
+    this.perform(
+      edit.action === 'dossier'
+        ? this.api.enrich(org, id, edit.body)
+        : edit.action === 'eta'
+          ? this.api.estimate(org, id, edit.body)
+          : this.api.addFact(org, id, edit.body),
+    );
   }
   private canMutate(status: string) {
     return !this.busy() && !this.loading() && !this.stale() && this.lifecycle()?.status === status;
@@ -192,12 +256,20 @@ export class LogisticsPanel {
             body as import('../../api/generated/models').ShipCampaign,
           )
         : this.api.arrive(this.organizationId(), this.campaign().id!, body);
+    this.perform(call);
+  }
+  private perform(call: Observable<CampaignShipmentView>) {
+    this.busy.set(true);
+    this.error.set('');
     this.request = call.subscribe({
       next: (value) => {
         this.apply(value);
         this.busy.set(false);
         this.editing.set(false);
         this.confirmingArrival.set(false);
+        this.detailsMode.set(null);
+        this.note = '';
+        this.source = 'UNKNOWN';
       },
       error: (e) => {
         this.busy.set(false);

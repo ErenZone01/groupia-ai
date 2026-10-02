@@ -69,7 +69,7 @@ Les décisions reçues remplacent deux propositions antérieures : les prix des 
 
 ### GroupingCampaign — racine
 
-**Données :** id, organizationId, publicIdentifier UUID v4 distinct et stable, slug dérivé du titre, titre, description, statut, devise XOF, closesAt facultatif, openedAt/closedAt/cancelledAt, motif d'annulation privé, createdAt/updatedAt, version. Les jalons logistiques restent futurs.
+**Données :** id, organizationId, publicIdentifier UUID v4 distinct et stable, slug dérivé du titre, titre, description, statut, devise XOF, closesAt facultatif, openedAt/closedAt/cancelledAt, motif d'annulation privé, createdAt/updatedAt, version. Les transitions fournisseur, transport et arrivée sont implémentées ; voir le dossier logistique en fin de document.
 
 **Conditions de transport :** originCountry facultatif, transportMode AIR/SEA/ROAD/OTHER, méthode PER_KG/PER_CBM/PER_ITEM/FIXED, mode AFTER_FINAL_ASSESSMENT/ESTIMATED_AT_CHECKOUT, tarif, devise XOF et HALF_UP. Un bloc peut manquer en DRAFT mais doit être complet à l'ouverture, puis reste figé. Les vocabulaires et ShippingTerms sont exposés dans shipping::api, sans calcul ni évaluation de transport dans cette tranche. Les futures commandes conserveront les conditions acceptées.
 
@@ -307,3 +307,11 @@ attend sa confirmation asynchrone sans être expirée entretemps.
 Détails concrets, transitions et exceptions documentées :
 [ADR-0010](../adr/0010-financial-core-and-settlement.md),
 [API](payment-api.md), [reprise](payment-operations.md).
+
+## Dossier logistique externe et timeline — V1 octobre 2026
+
+Shipment est l'agrégat shipping unique par boutique/groupage, enrichissable dès SUPPLIER_ORDERED. Il conserve mode de transport, snapshots privés du prestataire (nom/contact), référence/note, ETA courante, dates réelles facultatives, confirmations serveur distinctes et version.
+ShipmentFact est son journal append-only : type, source externe, acteur authentifié, occurredAt nullable, recordedAt serveur, révision, note et snapshots. Une révision d'ETA conserve ancienne/nouvelle valeur. Les corrections ajoutent une information.
+V1 : prestataire externe → information → gérante → Groupia. V2 future : prestataire inscrit → information directe → Groupia ; un rattachement futur ne remplacera pas les snapshots. Aucun compte prestataire n'existe en V1.
+**Donnée externe inconnue != zéro != maintenant.** ARRIVED ne déclenche ni retrait ni calcul ni paiement.
+Voir [contrat logistique](groupage-logistics.md) pour migration historique et [ADR-0015](../adr/0015-external-logistics-dossier.md) pour les choix.

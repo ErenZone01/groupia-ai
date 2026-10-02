@@ -34,39 +34,74 @@ async function logistics(page: Page) {
     },
     shipment: state.shipment,
   });
-  await page.route(/\/grouping-campaigns\/[^/]+\/(shipment|ship|arrive)$/, async (route) => {
-    const req = route.request(),
-      action = new URL(req.url()).pathname.split('/').pop()!;
-    expect(req.headers()['authorization']).toBe('Bearer e2e-only-token');
-    if (action === 'shipment')
+  await page.route(
+    /\/grouping-campaigns\/[^/]+\/(shipment(?:\/(?:eta|facts))?|ship|arrive)$/,
+    async (route) => {
+      const req = route.request(),
+        action = new URL(req.url()).pathname.split('/').pop()!;
+      expect(req.headers()['authorization']).toBe('Bearer e2e-only-token');
+      if (action === 'shipment' && req.method() === 'GET')
+        return route.fulfill({
+          status: state.failRead ? 500 : 200,
+          json: state.failRead ? { detail: 'SQL privé' } : response(),
+        });
+      const body = req.postDataJSON();
+      state.posts.push({ action, body });
+      if (state.pause) await new Promise<void>((resolve) => (state.release = resolve));
+      if (state.conflict) {
+        state.conflict = false;
+        api.groups[0].version = 21;
+        return route.fulfill({ status: 409, json: { code: 'GROUPING_CAMPAIGN_VERSION_CONFLICT' } });
+      }
+      expect(body.version).toBe(api.groups[0].version);
+      if (action === 'ship') {
+        expect(body.transportMode).toBeUndefined();
+        api.groups[0].status = 'IN_TRANSIT';
+        state.shipment = {
+          ...state.shipment,
+          ...body,
+          id: 'shipment',
+          transportMode: 'SEA',
+          departureConfirmedAt: '2026-10-02T09:00:00Z',
+        };
+      } else if (action === 'arrive') {
+        expect(body.source).toBe('UNKNOWN');
+        api.groups[0].status = 'ARRIVED';
+        state.shipment = {
+          ...state.shipment,
+          arrivedAt: body.arrivedAt,
+          arrivalConfirmedAt: '2026-10-02T10:00:00Z',
+        };
+      }
+      if (!['ship', 'arrive'].includes(action)) {
+        const old = state.shipment;
+        const type =
+          action === 'shipment' ? 'DOSSIER_UPDATED' : action === 'eta' ? 'ETA_UPDATED' : body.type;
+        const fact = {
+          id: 'fact-' + state.posts.length,
+          type,
+          source: body.source ?? 'UNKNOWN',
+          recordedAt: '2026-10-02T08:00:00Z',
+          note: body.note,
+          providerName: body.providerName,
+          previousExpectedArrivalAt: old?.expectedArrivalAt,
+          expectedArrivalAt: body.expectedArrivalAt,
+        };
+        state.shipment = {
+          ...old,
+          id: 'shipment',
+          transportMode: 'SEA',
+          ...(action === 'facts' ? {} : body),
+          timeline: [...(old?.timeline ?? []), fact],
+        };
+      }
+      api.groups[0].version = body.version + 5; // UI must use the returned value, not increment its own.
       return route.fulfill({
-        status: state.failRead ? 500 : 200,
-        json: state.failRead ? { detail: 'SQL privé' } : response(),
+        status: state.lostResponse ? 500 : 200,
+        json: state.lostResponse ? {} : response(),
       });
-    const body = req.postDataJSON();
-    state.posts.push({ action, body });
-    if (state.pause) await new Promise<void>((resolve) => (state.release = resolve));
-    if (state.conflict) {
-      state.conflict = false;
-      api.groups[0].version = 21;
-      return route.fulfill({ status: 409, json: { code: 'GROUPING_CAMPAIGN_VERSION_CONFLICT' } });
-    }
-    expect(body.version).toBe(api.groups[0].version);
-    if (action === 'ship') {
-      expect(body.transportMode).toBeUndefined();
-      api.groups[0].status = 'IN_TRANSIT';
-      state.shipment = { ...body, id: 'shipment', transportMode: 'SEA' };
-    } else {
-      expect(Object.keys(body)).toEqual(['version']);
-      api.groups[0].status = 'ARRIVED';
-      state.shipment = { ...state.shipment, arrivedAt: '2026-09-27T10:00:00Z' };
-    }
-    api.groups[0].version = body.version + 5; // UI must use the returned value, not increment its own.
-    return route.fulfill({
-      status: state.lostResponse ? 500 : 200,
-      json: state.lostResponse ? {} : response(),
-    });
-  });
+    },
+  );
   await page.route('**/api/public/orders/track', async (route) => {
     expect(route.request().headers()['authorization']).toBeUndefined();
     expect(route.request().headers()['x-order-tracking-token']).toBe('private-logistics-token');
@@ -94,17 +129,19 @@ async function logistics(page: Page) {
 }
 async function open(page: Page) {
   await page.goto('/app/groupages/' + groupId);
-  await expect(page.getByRole('heading', { name: 'Transport du groupage' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Logistique', exact: true })).toBeVisible();
 }
 async function departure(page: Page) {
   await page.getByRole('button', { name: 'Marquer comme en transport' }).click();
-  await page.getByLabel('Date de départ *', { exact: true }).fill('2026-09-26T09:00');
-  await page.getByLabel('Arrivée prévue (facultative)').fill('2026-10-01T09:00');
   await page
-    .getByLabel('Référence de suivi (privée)', { exact: true })
+    .getByLabel('Date de départ communiquée (facultatif)', { exact: true })
+    .fill('2026-09-26T09:00');
+  await page.getByLabel('Arrivée estimée (facultatif)').fill('2026-10-01T09:00');
+  await page
+    .getByLabel('Référence de suivi (facultatif)', { exact: true })
     .fill('REF-FOURNISSEUR-PRIVEE');
   await page
-    .getByLabel('Note interne', { exact: true })
+    .getByLabel('Note privée (facultatif)', { exact: true })
     .fill('Note à conserver uniquement côté boutique');
 }
 for (const [width, theme] of [
@@ -134,20 +171,29 @@ for (const [width, theme] of [
     await expect(page.locator('body')).not.toContainText('Note à conserver');
     await expect(page.locator('body')).not.toContainText('IN_TRANSIT');
     await noOverflow(page);
-    await page.evaluate(() => { window.scrollTo(0, 0); (document.activeElement as HTMLElement)?.blur(); });
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      (document.activeElement as HTMLElement)?.blur();
+    });
     await page.screenshot({
       path: 'artifacts/logistics-tracking-transit-' + width + '-' + theme + '.png',
       fullPage: true,
     });
     await open(page);
     await page.getByRole('button', { name: 'Marquer comme arrivée' }).click();
-    await expect(page.getByRole('group', { name: 'Confirmation d’arrivée' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Marchandises arrivées à destination' }),
+    ).toBeVisible();
+    await page.getByLabel('Date d’arrivée communiquée (facultatif)').fill('2026-09-27T10:00');
     await page.getByRole('button', { name: 'Confirmer l’arrivée' }).click();
     await expect(page.getByText('Marchandise arrivée', { exact: true }).first()).toBeVisible();
     expect(state.posts[1].body.version).toBe(12);
-    await expect(page.getByText('Date d’arrivée', { exact: true })).toBeVisible();
+    await expect(page.getByText('Date d’arrivée communiquée', { exact: true })).toBeVisible();
     await noOverflow(page);
-    await page.evaluate(() => { window.scrollTo(0, 0); (document.activeElement as HTMLElement)?.blur(); });
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      (document.activeElement as HTMLElement)?.blur();
+    });
     await page.screenshot({
       path: 'artifacts/logistics-manager-' + width + '-' + theme + '.png',
       fullPage: true,
@@ -157,7 +203,10 @@ for (const [width, theme] of [
     await expect(page.locator('g-order-timeline li:last-child')).toContainText('En attente');
     await expect(page.locator('body')).not.toContainText('ARRIVED');
     await noOverflow(page);
-    await page.evaluate(() => { window.scrollTo(0, 0); (document.activeElement as HTMLElement)?.blur(); });
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      (document.activeElement as HTMLElement)?.blur();
+    });
     await page.screenshot({
       path: 'artifacts/logistics-tracking-arrived-' + width + '-' + theme + '.png',
       fullPage: true,
@@ -182,7 +231,7 @@ test('dates invalides ne déclenchent aucune mutation', async ({ page }) => {
   const state = await logistics(page);
   await open(page);
   await departure(page);
-  await page.getByLabel('Arrivée prévue (facultative)').fill('2026-09-25T09:00');
+  await page.getByLabel('Arrivée estimée (facultatif)').fill('2026-09-25T09:00');
   await page.getByRole('button', { name: 'Confirmer le départ' }).click();
   await expect(page.getByRole('alert')).toContainText('Vérifiez les dates');
   expect(state.posts).toHaveLength(0);
@@ -220,4 +269,45 @@ test('lecture en erreur : message sûr et réessai', async ({ page }) => {
   state.failRead = false;
   await page.getByRole('button', { name: 'Actualiser la logistique' }).click();
   await expect(page.getByRole('button', { name: 'Marquer comme en transport' })).toBeEnabled();
+});
+
+test('dossier facultatif, ETA révisée, information et transitions sans dates à 360px', async ({
+  page,
+}) => {
+  const state = await logistics(page);
+  await page.setViewportSize({ width: 360, height: 900 });
+  await open(page);
+  await page.getByRole('button', { name: 'Renseigner le prestataire' }).click();
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Historique logistique' })).toBeVisible();
+  await page.getByRole('button', { name: 'Modifier l’arrivée estimée' }).click();
+  await page.getByLabel('Arrivée estimée (facultatif)', { exact: true }).fill('2026-11-01T09:00');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await page.getByRole('button', { name: 'Modifier l’arrivée estimée' }).click();
+  await page.getByLabel('Arrivée estimée (facultatif)', { exact: true }).fill('2026-11-03T09:00');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.locator('g-logistics-timeline')).toContainText('Estimation précédente');
+  await page.getByRole('button', { name: 'Ajouter une information', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Information', exact: true })
+    .selectOption('FORWARDER_RECEIVED');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.locator('g-logistics-timeline')).toContainText(
+    'Marchandises reçues par le prestataire',
+  );
+  await page.getByRole('button', { name: 'Marquer comme en transport' }).click();
+  await expect(page.getByLabel('Date de départ communiquée (facultatif)')).toHaveValue('');
+  await page.getByRole('button', { name: 'Confirmer le départ' }).click();
+  await expect(page.getByRole('button', { name: 'Marquer comme arrivée' })).toBeVisible();
+  expect(state.posts.find((p) => p.action === 'ship')!.body.departedAt).toBeUndefined();
+  await page.getByRole('button', { name: 'Marquer comme arrivée' }).click();
+  await page.getByRole('button', { name: 'Confirmer l’arrivée' }).click();
+  await expect(page.getByText('Arrivée confirmée', { exact: true })).toBeVisible();
+  await expect(page.getByText('Date d’arrivée communiquée', { exact: true })).toHaveCount(0);
+  await noOverflow(page);
+  await page.screenshot({ path: 'artifacts/logistics-dossier-360.png', fullPage: true });
+  await page.goto('/public/order');
+  await expect(page.locator('g-order-timeline [aria-current="step"]')).toContainText('Arrivée');
+  await expect(page.locator('g-order-timeline li:last-child')).toContainText('En attente');
+  await noOverflow(page);
 });

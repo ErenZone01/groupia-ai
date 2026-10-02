@@ -46,3 +46,7 @@ clés de reprise conservées et négatifs séparés. Aucune règle métier modif
 [ADR-0014](0014-bictorys-authoritative-webhooks.md), daté du 24 septembre 2026 :
 webhook Bictorys authentifié et intégralement validé comme preuve principale,
 politique explicite par provider, réconciliation conservée et éligibilité préalable.
+
+[ADR-0015](0015-external-logistics-dossier.md), daté du 2 octobre 2026 :
+dossier logistique externe facultatif, dates inconnues distinctes des confirmations,
+timeline privée append-only et migration historique sans perte de données.

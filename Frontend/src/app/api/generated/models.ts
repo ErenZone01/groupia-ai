@@ -3,6 +3,7 @@
 
 export type { AccessToken } from './models/access-token';
 export type { AddOffer } from './models/add-offer';
+export type { AddShipmentFact } from './models/add-shipment-fact';
 export type { ArriveCampaign } from './models/arrive-campaign';
 export type { Attempt } from './models/attempt';
 export type { CampaignLifecycleView } from './models/campaign-lifecycle-view';
@@ -33,6 +34,7 @@ export type { HttpRange } from './models/http-range';
 export type { InitiatePayment } from './models/initiate-payment';
 export type { Line } from './models/line';
 export type { LoginRequest } from './models/login-request';
+export type { LogisticsFactView } from './models/logistics-fact-view';
 export type { MagicInput } from './models/magic-input';
 export type { MediaType } from './models/media-type';
 export type { MyOrdersPage } from './models/my-orders-page';
@@ -73,6 +75,8 @@ export type { SupplierSummaryView } from './models/supplier-summary-view';
 export type { UpdateCampaign } from './models/update-campaign';
 export type { UpdateOffer } from './models/update-offer';
 export type { UpdateProduct } from './models/update-product';
+export type { UpdateShipment } from './models/update-shipment';
+export type { UpdateShipmentEta } from './models/update-shipment-eta';
 export type { UserAccountView } from './models/user-account-view';
 export type { VariantChange } from './models/variant-change';
 export type { VariantInput } from './models/variant-input';

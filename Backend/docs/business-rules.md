@@ -128,7 +128,7 @@ Contrat et limites : [API catalogue](catalog-api.md), [ADR-0007](../adr/0007-cat
 
 ## Précisions groupage livrées le 20 septembre 2026
 
-- Les seules transitions exécutables sont DRAFT → OPEN, OPEN → CLOSED et DRAFT/OPEN/CLOSED → CANCELLED ; les étapes logistiques futures ne sont pas simulées.
+- Les transitions de préparation, publication, clôture et annulation sont complétées par la commande fournisseur et SUPPLIER_ORDERED → IN_TRANSIT → ARRIVED ; distribution et achèvement restent hors tranche.
 - L'ouverture exige au moins une offre active, ses variantes utilisables et des conditions de transport cohérentes. Les références catalogue sont vérifiées via son API publique Java.
 - Les conditions de transport sont figées à OPEN. Titre, description et échéance restent modifiables en DRAFT/OPEN ; une nouvelle échéance OPEN doit être future ou absente.
 - Les prix XOF sont entiers et non négatifs. Les changements de prix incrémentent priceRevision et laissent une trace durable locale avec acteur, avant/après et instant. Les changements d'échéance sont aussi journalisés.
@@ -170,3 +170,15 @@ Contrat : [API commandes](ordering-api.md). Coordination/rejeu :
 - Obligation nulle : stockage autorisé, aucune initiation de débit ni confirmation artificielle ; décision commerciale ultérieure nécessaire si cette configuration est utilisée.
 
 [ADR-0010](../adr/0010-financial-core-and-settlement.md) et [procédures de reprise](payment-operations.md).
+
+## Logistique externe flexible — règles V1 exécutables
+
+- Le dossier peut exister dès SUPPLIER_ORDERED ; prestataire, référence, contact, note, ETA et dates réelles sont facultatifs.
+- Le POST de départ/arrivée affirme le fait. L'instant de confirmation est serveur ; une date réelle absente reste null. Donnée externe inconnue != zéro != maintenant.
+- SUPPLIER_ORDERED → IN_TRANSIT et IN_TRANSIT → ARRIVED restent atomiques avec le dossier et son historique.
+- L'ETA courante est révisable/effaçable ; toutes ses révisions sont conservées. Les faits logistiques complémentaires ne sont pas des étapes obligatoires.
+- Source externe et acteur de saisie sont distincts ; l'auteur ne vient jamais du navigateur.
+- Toute mutation exige permission, boutique, version du groupage et révision du dossier ; un double clic ne crée pas de deuxième fait.
+- ARRIVED ne prouve ni formalités terminées, ni récupération par la gérante, ni disponibilité cliente, ni règlement du transport.
+- Le suivi client conserve uniquement statut/dates réelles/ETA, jamais données privées du prestataire ni timeline administrative.
+- Aucun effet sur WhatsApp, les paiements ou le retrait dans cette tranche. Les protections financières existantes restent inchangées.

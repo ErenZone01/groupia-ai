@@ -1,5 +1,8 @@
 <section class="logistics" aria-labelledby="logistics-title">
-  <h2 id="logistics-title">Transport du groupage</h2>
+  <h2 id="logistics-title">Logistique</h2>
+  <p class="muted">
+    Informations communiquées à votre boutique. Vous pouvez les compléter progressivement.
+  </p>
   @if (loading()) {
     <g-skeleton />
   }
@@ -11,41 +14,100 @@
       <p>
         <strong>{{ statusLabel(current.status) }}</strong>
       </p>
-      @if (shipment(); as shipment) {
+      @if (shipment(); as s) {
         <dl>
           <div>
             <dt>Transport</dt>
-            <dd>{{ optionLabel(transportOptions, shipment.transportMode) }}</dd>
+            <dd>{{ optionLabel(transportOptions, s.transportMode) }}</dd>
           </div>
           <div>
-            <dt>Date de départ</dt>
-            <dd>{{ dateLabel(shipment.departedAt) }}</dd>
+            <dt>Prestataire logistique</dt>
+            <dd>{{ s.providerName || 'Non renseigné' }}</dd>
           </div>
-          @if (shipment.expectedArrivalAt) {
+          @if (s.providerContact) {
             <div>
-              <dt>Arrivée prévue</dt>
-              <dd>{{ dateLabel(shipment.expectedArrivalAt) }}</dd>
+              <dt>Contact privé</dt>
+              <dd>{{ s.providerContact }}</dd>
             </div>
           }
-          @if (shipment.arrivedAt) {
+          <div>
+            <dt>Départ</dt>
+            <dd>{{ s.departureConfirmedAt ? 'Départ confirmé' : 'Non confirmé' }}</dd>
+          </div>
+          @if (s.departedAt) {
             <div>
-              <dt>Date d’arrivée</dt>
-              <dd>{{ dateLabel(shipment.arrivedAt) }}</dd>
+              <dt>Date de départ communiquée</dt>
+              <dd>{{ dateLabel(s.departedAt) }}</dd>
             </div>
           }
-          @if (shipment.trackingReference) {
+          @if (s.expectedArrivalAt) {
+            <div>
+              <dt>Arrivée estimée</dt>
+              <dd>{{ dateLabel(s.expectedArrivalAt) }}</dd>
+            </div>
+          }
+          <div>
+            <dt>Arrivée à destination</dt>
+            <dd>{{ s.arrivalConfirmedAt ? 'Arrivée confirmée' : 'Non confirmée' }}</dd>
+          </div>
+          @if (s.arrivedAt) {
+            <div>
+              <dt>Date d’arrivée communiquée</dt>
+              <dd>{{ dateLabel(s.arrivedAt) }}</dd>
+            </div>
+          }
+          @if (s.trackingReference) {
             <div>
               <dt>Référence de suivi (privée)</dt>
-              <dd>{{ shipment.trackingReference }}</dd>
+              <dd>{{ s.trackingReference }}</dd>
             </div>
           }
-          @if (shipment.note) {
+          @if (s.note) {
             <div>
-              <dt>Note interne</dt>
-              <dd class="preserve">{{ shipment.note }}</dd>
+              <dt>Note privée</dt>
+              <dd class="preserve">{{ s.note }}</dd>
             </div>
           }
         </dl>
+      }
+      @if (['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED'].includes(current.status ?? '')) {
+        <div class="actions">
+          <button
+            gButton
+            variant="secondary"
+            [disabled]="stale() || busy()"
+            (click)="beginDetails('dossier')"
+          >
+            Renseigner le prestataire
+          </button>
+          <button
+            gButton
+            variant="secondary"
+            [disabled]="stale() || busy()"
+            (click)="beginDetails('eta')"
+          >
+            Modifier l’arrivée estimée
+          </button>
+          <button
+            gButton
+            variant="secondary"
+            [disabled]="stale() || busy()"
+            (click)="beginDetails('fact')"
+          >
+            Ajouter une information
+          </button>
+        </div>
+        @if (detailsMode(); as mode) {
+          <g-logistics-details-editor
+            [mode]="mode"
+            [shipment]="shipment()"
+            [version]="current.version!"
+            [disabled]="stale()"
+            [busy]="busy()"
+            (save)="saveDetails($event)"
+            (cancel)="detailsMode.set(null)"
+          />
+        }
       }
       @if (current.status === 'SUPPLIER_ORDERED' && !editing()) {
         <button gButton [disabled]="stale() || busy()" (click)="begin()">
@@ -54,20 +116,25 @@
       }
       @if (editing() && current.status === 'SUPPLIER_ORDERED') {
         <form class="form-stack" #form="ngForm" (ngSubmit)="ship()">
+          <h3>Confirmer le départ</h3>
           <p>
             Transport : {{ optionLabel(transportOptions, campaign().shippingTerms?.transportMode) }}
           </p>
+          <p>Je confirme que le départ des marchandises m’a été communiqué.</p>
+          <p class="muted">
+            Aucune référence ni date n’est obligatoire. Si la date réelle est inconnue, laissez-la
+            vide.
+          </p>
           <label
-            >Date de départ *<input
+            >Date de départ communiquée (facultatif)<input
               gInput
               type="datetime-local"
               name="departure"
               [(ngModel)]="departure"
-              required
               [disabled]="busy()"
           /></label>
           <label
-            >Arrivée prévue (facultative)<input
+            >Arrivée estimée (facultatif)<input
               gInput
               type="datetime-local"
               name="expected"
@@ -75,15 +142,16 @@
               [disabled]="busy()"
           /></label>
           <label
-            >Référence de suivi (privée)<input
+            >Référence de suivi (facultatif)<input
               gInput
               name="reference"
               [(ngModel)]="reference"
               maxlength="160"
               [disabled]="busy()"
           /></label>
+          <g-logistics-source [(value)]="source" [disabled]="busy()" />
           <label
-            >Note interne<textarea
+            >Note privée (facultatif)<textarea
               gInput
               name="note"
               [(ngModel)]="note"
@@ -92,10 +160,6 @@
               [disabled]="busy()"
             ></textarea>
           </label>
-          <p class="muted">
-            La référence et la note ne seront pas visibles par les clientes. La date de départ sera
-            conservée.
-          </p>
           <div class="actions">
             <button gButton [disabled]="form.invalid || stale() || busy()" [loading]="busy()">
               Confirmer le départ
@@ -113,19 +177,45 @@
         </form>
       }
       @if (current.status === 'IN_TRANSIT' && !confirmingArrival()) {
-        <button gButton [disabled]="stale() || busy()" (click)="confirmingArrival.set(true)">
+        <button gButton [disabled]="stale() || busy()" (click)="beginArrival()">
           Marquer comme arrivée
         </button>
       }
       @if (current.status === 'IN_TRANSIT' && confirmingArrival()) {
-        <div class="notice" role="group" aria-label="Confirmation d’arrivée">
-          <p>La marchandise est-elle arrivée ? La date de cette déclaration sera conservée.</p>
+        <form class="form-stack" #arrivalForm="ngForm" (ngSubmit)="arrive()">
+          <h3>Marchandises arrivées à destination</h3>
+          <p>Je confirme que l’arrivée à destination m’a été communiquée.</p>
+          <p class="muted">Cela ne signifie pas que les commandes sont prêtes à récupérer.</p>
+          <label
+            >Date d’arrivée communiquée (facultatif)<input
+              gInput
+              type="datetime-local"
+              name="arrival"
+              [(ngModel)]="arrival"
+              [disabled]="busy()"
+          /></label>
+          <g-logistics-source [(value)]="source" [disabled]="busy()" />
+          <label
+            >Note privée (facultatif)<textarea
+              gInput
+              name="arrivalNote"
+              [(ngModel)]="note"
+              maxlength="2000"
+              rows="3"
+              [disabled]="busy()"
+            ></textarea>
+          </label>
           <div class="actions">
-            <button gButton [loading]="busy()" [disabled]="busy() || stale()" (click)="arrive()">
+            <button
+              gButton
+              [disabled]="arrivalForm.invalid || stale() || busy()"
+              [loading]="busy()"
+            >
               Confirmer l’arrivée
             </button>
             <button
               gButton
+              type="button"
               variant="ghost"
               [disabled]="busy()"
               (click)="confirmingArrival.set(false)"
@@ -133,13 +223,16 @@
               Annuler
             </button>
           </div>
-        </div>
+        </form>
       }
       @if (current.status === 'ARRIVED') {
         <p class="notice">
-          La marchandise est arrivée. La préparation des commandes sera disponible dans une
-          prochaine étape.
+          Marchandises arrivées à destination. Les formalités, la récupération par votre boutique et
+          la préparation des commandes restent des étapes distinctes.
         </p>
+      }
+      @if (shipment(); as s) {
+        <g-logistics-timeline [facts]="s.timeline ?? []" />
       }
     }
     <div class="actions">

@@ -3,5 +3,7 @@
 
 export interface ArriveCampaign {
   arrivedAt?: string;
+  note?: string;
+  source?: 'FORWARDER' | 'SUPPLIER' | 'MANAGER' | 'DOCUMENT' | 'OTHER' | 'UNKNOWN';
   version: number;
 }

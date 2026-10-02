@@ -41,7 +41,7 @@ class CampaignLogisticsIntegrationTests {
 
     @BeforeEach void setup() throws Exception {
         await().atMost(java.time.Duration.ofSeconds(10)).untilAsserted(()->assertThat(jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)).isZero());
-        jdbc.execute("TRUNCATE TABLE customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
         if(hash==null) hash=passwords.encode("Supplier fixture 2026!");
         actor=UUID.randomUUID();
         jdbc.update("insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at) values (?,'+221771234567',?,'ACTIVE',current_timestamp,current_timestamp)",actor,hash);
@@ -95,10 +95,10 @@ class CampaignLogisticsIntegrationTests {
     void invalidArrivalStateRejected(String state) throws Exception {
         state(state);auth(post(base()+"/arrive"),Map.of("version",version())).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_GROUPING_TRANSITION"));
     }
-    @Test void optionalFieldsAndDefaultArrivalSupported() throws Exception {
+    @Test void optionalFieldsAndUnknownArrivalSupported() throws Exception {
         var result=read(auth(post(base()+"/ship"),Map.of("version",version(),"departedAt",departed.toString())).andExpect(status().isOk()).andReturn());
         assertThat(result.path("shipment").path("expectedArrivalAt").isNull()).isTrue();
-        auth(post(base()+"/arrive"),Map.of("version",version()+1)).andExpect(status().isOk()).andExpect(jsonPath("$.shipment.arrivedAt").exists());
+        auth(post(base()+"/arrive"),Map.of("version",version()+1)).andExpect(status().isOk()).andExpect(jsonPath("$.shipment.arrivedAt").doesNotExist()).andExpect(jsonPath("$.shipment.arrivalConfirmedAt").exists());
     }
     @Test void staleAndReplayCannotRewriteDepartureOrArrival() throws Exception {
         ship(version()-1).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("GROUPING_CAMPAIGN_VERSION_CONFLICT"));
@@ -123,7 +123,7 @@ class CampaignLogisticsIntegrationTests {
         assertThat(countShipments()).isEqualTo(1);assertThat(historyCount()).isEqualTo(action.equals("ship")?1:2);
     }
     @Test void invalidDatesAndFieldsLeaveNoPartialTransition() throws Exception {
-        auth(post(base()+"/ship"),Map.of("version",version())).andExpect(status().isBadRequest());
+        auth(post(base()+"/ship"),Map.of()).andExpect(status().isBadRequest());
         auth(post(base()+"/ship"),Map.of("version",version(),"departedAt",Instant.now().plusSeconds(3600).toString())).andExpect(status().isBadRequest());
         auth(post(base()+"/ship"),Map.of("version",version(),"departedAt",departed.toString(),"expectedArrivalAt",departed.minusSeconds(10).toString())).andExpect(status().isBadRequest());
         auth(post(base()+"/ship"),Map.of("version",version(),"departedAt",departed.toString(),"note","x".repeat(2001))).andExpect(status().isBadRequest());
@@ -171,6 +171,103 @@ class CampaignLogisticsIntegrationTests {
     private String trackingToken,orderNumber;
     private Instant departed;
     private String base(){return "/api/organizations/"+org+"/grouping-campaigns/"+campaignId();}
+
+    @Test void emptyDossierCanExistBeforeDepartureAndRetainsVersion() throws Exception {
+        var result=read(auth(put(base()+"/shipment"),Map.of("version",version())).andExpect(status().isOk()).andReturn());
+        var s=result.path("shipment");
+        assertThat(result.path("campaign").path("status").asText()).isEqualTo("SUPPLIER_ORDERED");
+        assertThat(s.path("departureConfirmedAt").isNull()).isTrue();
+        assertThat(s.path("providerName").isNull()).isTrue();
+        assertThat(s.path("trackingReference").isNull()).isTrue();
+        assertThat(s.path("timeline").size()).isEqualTo(1);
+        assertThat(s.path("timeline").get(0).path("actorId").asText()).isEqualTo(actor.toString());
+        assertThat(s.path("timeline").get(0).path("source").asText()).isEqualTo("UNKNOWN");
+        auth(put(base()+"/shipment"),Map.of("version",version())).andExpect(status().isConflict());
+    }
+    @Test void unknownDatesRemainNullDespiteConfirmedTransitions() throws Exception {
+        var first=read(auth(post(base()+"/ship"),Map.of("version",version(),"source","FORWARDER")).andExpect(status().isOk()).andReturn());
+        var s=first.path("shipment");
+        assertThat(s.path("departedAt").isNull()).isTrue();
+        assertThat(s.path("departureConfirmedAt").isTextual()).isTrue();
+        assertThat(s.path("timeline").get(0).path("occurredAt").isNull()).isTrue();
+        var arrival=read(auth(post(base()+"/arrive"),Map.of("version",version()+1)).andExpect(status().isOk()).andReturn()).path("shipment");
+        assertThat(arrival.path("arrivedAt").isNull()).isTrue();
+        assertThat(arrival.path("arrivalConfirmedAt").isTextual()).isTrue();
+        track().andExpect(jsonPath("$.groupingProgress.status").value("ARRIVED"))
+            .andExpect(jsonPath("$.groupingProgress.departedAt").doesNotExist())
+            .andExpect(jsonPath("$.groupingProgress.arrivedAt").doesNotExist())
+            .andExpect(jsonPath("$.fulfillmentStatus").value("NOT_READY"));
+        assertThat(jdbc.queryForObject("select count(*) from payment_requests where purpose='SHIPPING_BALANCE'",Long.class)).isZero();
+    }
+    @Test void providerEditsAndEtaChangesKeepPrivateSnapshots() throws Exception {
+        long v=version();
+        auth(put(base()+"/shipment"),Map.of("version",v,"actorId",UUID.randomUUID().toString())).andExpect(status().isBadRequest());
+        auth(put(base()+"/shipment"),Map.of("version",v,"providerName","Prestataire privé","providerContact","+221770000001",
+            "trackingReference","REF-SECRET","note","Note confidentielle","source","SUPPLIER"))
+            .andExpect(status().isOk());
+        String eta=Instant.now().plusSeconds(86400).toString(),next=Instant.now().plusSeconds(172800).toString();
+        auth(put(base()+"/shipment/eta"),Map.of("version",v+1,"expectedArrivalAt",eta,"source","FORWARDER")).andExpect(status().isOk());
+        var result=read(auth(put(base()+"/shipment/eta"),Map.of("version",v+2,"expectedArrivalAt",next)).andExpect(status().isOk()).andReturn()).path("shipment");
+        assertThat(result.path("timeline").size()).isEqualTo(3);
+        assertThat(Instant.parse(result.path("timeline").get(2).path("previousExpectedArrivalAt").asText()))
+            .isEqualTo(Instant.parse(eta).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        assertThat(result.path("timeline").get(0).path("actorId").asText()).isEqualTo(actor.toString());
+        auth(put(base()+"/shipment"),Map.of("version",v+3)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.shipment.providerName").doesNotExist())
+            .andExpect(jsonPath("$.shipment.timeline[0].providerName").value("Prestataire privé"));
+        auth(post(base()+"/ship"),Map.of("version",v+4)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.shipment.expectedArrivalAt").exists());
+        String publicBody=track().andReturn().getResponse().getContentAsString();
+        assertThat(publicBody).doesNotContain("Prestataire privé","+221770000001","REF-SECRET","Note confidentielle","actorId","timeline","providerContact");
+        auth(put(base()+"/shipment/eta"),Map.of("version",v+5)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.shipment.expectedArrivalAt").doesNotExist());
+    }
+    @ParameterizedTest @ValueSource(strings={"FORWARDER_RECEIVED","CUSTOMS_STARTED","CUSTOMS_COMPLETED","AVAILABLE_AT_FORWARDER","COLLECTED_BY_MANAGER","INFORMATION"})
+    void optionalFactsDoNotForceStatusOrFinancialChanges(String type) throws Exception {
+        var result=read(auth(post(base()+"/shipment/facts"),Map.of("version",version(),"type",type,"note","Information reçue","source","DOCUMENT"))
+            .andExpect(status().isOk()).andReturn());
+        assertThat(result.path("campaign").path("status").asText()).isEqualTo("SUPPLIER_ORDERED");
+        var fact=result.path("shipment").path("timeline").get(0);
+        assertThat(fact.path("source").asText()).isEqualTo("DOCUMENT");
+        assertThat(fact.path("occurredAt").isNull()).isTrue();
+        assertThat(fact.path("recordedAt").isTextual()).isTrue();
+        assertThat(jdbc.queryForObject("select fulfillment_status from orders where order_number=?",String.class,orderNumber)).isEqualTo("NOT_READY");
+        auth(post(base()+"/shipment/facts"),Map.of("version",version(),"type",type,"note","Information reçue")).andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("select count(*) from shipment_facts",Integer.class)).isEqualTo(1);
+    }
+    @Test void supplementaryEndpointCannotForgeTransitionAndRejectsFutureFacts() throws Exception {
+        for(String type:List.of("DEPARTURE_CONFIRMED","ARRIVAL_CONFIRMED","ETA_UPDATED","DOSSIER_UPDATED"))
+            auth(post(base()+"/shipment/facts"),Map.of("version",version(),"type",type)).andExpect(status().isBadRequest());
+        auth(post(base()+"/shipment/facts"),Map.of("version",version(),"type","FORWARDER_RECEIVED","occurredAt",Instant.now().plusSeconds(3600).toString())).andExpect(status().isBadRequest());
+        auth(post(base()+"/shipment/facts"),Map.of("version",version(),"type","INFORMATION")).andExpect(status().isBadRequest());
+        assertThat(countShipments()).isZero();
+    }
+    @Test void enrichmentAndTimelineAreScopedAndPermissionProtected() throws Exception {
+        UUID other=UUID.fromString(read(auth(post("/api/organizations"),Map.of("name","Autre")).andReturn()).path("id").asText());
+        auth(put("/api/organizations/"+other+"/grouping-campaigns/"+campaignId()+"/shipment"),Map.of("version",version())).andExpect(status().isNotFound());
+        jdbc.update("update organization_members set role='VIEWER' where organization_id=?",org);
+        auth(put(base()+"/shipment"),Map.of("version",version())).andExpect(status().isForbidden());
+        auth(put(base()+"/shipment/eta"),Map.of("version",version())).andExpect(status().isForbidden());
+        auth(post(base()+"/shipment/facts"),Map.of("version",version(),"type","FORWARDER_RECEIVED")).andExpect(status().isForbidden());
+        assertThat(countShipments()).isZero();
+    }
+    @Test void concurrentDossierChangesHaveOneWinnerAndOneFact() throws Exception {
+        var start=new java.util.concurrent.CountDownLatch(1);
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
+            java.util.concurrent.Callable<Integer> call=()->{start.await();return auth(put(base()+"/shipment"),Map.of("version",version(),"providerName","Prestataire")).andReturn().getResponse().getStatus();};
+            var a=pool.submit(call);var b=pool.submit(call);start.countDown();
+            assertThat(List.of(a.get(20,java.util.concurrent.TimeUnit.SECONDS),b.get(20,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(200,409);
+        }
+        assertThat(jdbc.queryForObject("select count(*) from shipment_facts",Integer.class)).isEqualTo(1);
+    }
+    @Test void timelineCannotBeEditedOrDeletedAndDossierCannotStartTooEarly() throws Exception {
+        state("CLOSED");auth(put(base()+"/shipment"),Map.of("version",version())).andExpect(status().isConflict());
+        state("SUPPLIER_ORDERED");
+        auth(put(base()+"/shipment"),Map.of("version",version())).andExpect(status().isOk());
+        assertThatThrownBy(()->jdbc.update("update shipment_facts set note='rewrite'")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(()->jdbc.update("delete from shipment_facts")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     private Map<String,Object> body(long version){return Map.of("version",version,"departedAt",departed.toString(),"expectedArrivalAt",departed.plusSeconds(86400).toString(),"trackingReference","INTERNAL-REF","note","Note interne");}
     private ResultActions ship(long v)throws Exception{return auth(post(base()+"/ship"),body(v));}
     private ResultActions track()throws Exception{return mvc.perform(get("/api/public/orders/track").header("X-Order-Tracking-Token",trackingToken));}

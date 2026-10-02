@@ -98,6 +98,12 @@ public class GroupingCampaign {
         touch(now);
     }
 
+    public void enrichLogistics(Instant now) {
+        if(status!=GroupingCampaignStatus.SUPPLIER_ORDERED && status!=GroupingCampaignStatus.IN_TRANSIT
+                && status!=GroupingCampaignStatus.ARRIVED)throw invalidTransition();
+        touch(now);
+    }
+
     public void ship(Instant now) {
         if(status != GroupingCampaignStatus.SUPPLIER_ORDERED) throw invalidTransition();
         status=GroupingCampaignStatus.IN_TRANSIT;

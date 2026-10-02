@@ -93,6 +93,12 @@ export type { ArriveCampaign$Params as ArriveCampaign$Params } from './fn/campai
 export { arriveCampaign as arriveCampaign } from './fn/campaign-logistics-controller/arrive-campaign';
 export type { ReadCampaignShipment$Params as ReadCampaignShipment$Params } from './fn/campaign-logistics-controller/read-campaign-shipment';
 export { readCampaignShipment as readCampaignShipment } from './fn/campaign-logistics-controller/read-campaign-shipment';
+export type { UpdateCampaignShipment$Params as UpdateCampaignShipment$Params } from './fn/campaign-logistics-controller/update-campaign-shipment';
+export { updateCampaignShipment as updateCampaignShipment } from './fn/campaign-logistics-controller/update-campaign-shipment';
+export type { UpdateCampaignShipmentEta$Params as UpdateCampaignShipmentEta$Params } from './fn/campaign-logistics-controller/update-campaign-shipment-eta';
+export { updateCampaignShipmentEta as updateCampaignShipmentEta } from './fn/campaign-logistics-controller/update-campaign-shipment-eta';
+export type { AddCampaignShipmentFact$Params as AddCampaignShipmentFact$Params } from './fn/campaign-logistics-controller/add-campaign-shipment-fact';
+export { addCampaignShipmentFact as addCampaignShipmentFact } from './fn/campaign-logistics-controller/add-campaign-shipment-fact';
 export type { Register$Params as Register$Params } from './fn/auth-controller/register';
 export { register as register } from './fn/auth-controller/register';
 export type { Login$Params as Login$Params } from './fn/auth-controller/login';

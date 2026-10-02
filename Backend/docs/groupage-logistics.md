@@ -1,144 +1,123 @@
-# Logistique du groupage — 27 septembre 2026
+# Logistique V1 : dossier externe et timeline flexible
 
-## Modèle retenu et responsabilités
+## Provenance et limites
 
-Le module shipping possédait déjà ShippingTerms, TransportMode et l’estimation financière, mais aucun modèle d’expédition. Il porte désormais **Shipment**, une expédition unique par boutique/groupage :
-- id, organizationId, groupingCampaignId ;
-- transportMode, copié des conditions existantes du groupage lors du départ ;
-- departedAt, expectedArrivalAt facultatif, arrivedAt facultatif ;
-- trackingReference facultative (160 caractères), note privée facultative (2 000 caractères) ;
-- createdAt et updatedAt.
+V1 : **prestataire externe → information → gérante → Groupia**.
+Groupia enregistre une déclaration, sans prétendre avoir mesuré, reçu ou vérifié directement les marchandises.
+V2 future : **prestataire inscrit → information directe → Groupia**. Une identité de prestataire pourra être rattachée au dossier sans remplacer les snapshots historiques. Aucun compte ni forwarderAccountId n'est créé en V1.
 
-GroupingCampaign reste l’autorité du cycle métier. Ses deux nouvelles transitions sont exclusivement SUPPLIER_ORDERED → IN_TRANSIT et IN_TRANSIT → ARRIVED. Aucune association JPA entre modules. Grouping appelle Shipments, interface publique de shipping ; shipping ne dépend pas de grouping. Le graphe de modules existant reste acyclique, sans nouveau module.
+**Une donnée externe inconnue != zéro != maintenant.** Le dossier peut être vide. Le nom/contact du prestataire, la référence, les notes, les dates réelles et l'ETA sont facultatifs. L'appel explicite à l'action de départ/arrivée constitue la confirmation du fait ; aucune case technique supplémentaire n'est nécessaire au contrat HTTP existant.
 
-La permission existante MANAGE_GROUPINGS protège les mutations (OWNER/MANAGER selon la politique centrale), VIEW_GROUPINGS protège la lecture gérante. Les contrôles d’utilisateur actif, d’adhésion, de boutique active et d’appartenance du groupage sont conservés. Aucune comparaison de rôle dans le contrôleur.
+## Modèle et frontière privée
 
-## API
+shipping porte un Shipment unique par boutique/groupage, créé à la première saisie dès SUPPLIER_ORDERED (pas de création par simple GET).
+TransportMode vient des conditions du groupage. Les textes providerName (160), providerContact (300), trackingReference (160), note (2000) sont des snapshots locaux au dossier.
+departureConfirmedAt et arrivalConfirmedAt sont les instants serveur ; departedAt et arrivedAt sont les instants réellement communiqués, éventuellement null.
+expectedArrivalAt est la valeur courante de l'estimation, révisable ou effaçable. version protège chaque écriture du dossier.
 
-Préfixe privé :
+shipment_facts est un journal append-only privé : id, organizationId, shipmentId, shipmentVersion, type, occurredAt nullable, recordedAt serveur, source, actorId, note et snapshots utiles.
+Pour les révisions d'ETA, il conserve ancienne et nouvelle valeur. Pour les éditions du dossier, il conserve prestataire/contact/référence/note. recordedAt tient également lieu de createdAt.
+L'UI présente l'ordre des révisions de saisie ; la date réelle communiquée apparaît séparément. Une déclaration tardive ne réordonne pas silencieusement l'historique.
 
-`/api/organizations/{organizationId}/grouping-campaigns/{campaignId}`
+Sources : FORWARDER, SUPPLIER, MANAGER, DOCUMENT, OTHER, UNKNOWN. La source omise devient UNKNOWN. actorId vient exclusivement de l'autorisation authentifiée ; le body n'a aucun champ d'auteur, et les champs inconnus sont rejetés.
 
-| Opération | Contrat |
-| --- | --- |
-| POST /ship | version obligatoire, departedAt obligatoire, expectedArrivalAt/trackingReference/note facultatifs |
-| POST /arrive | version obligatoire, arrivedAt facultatif ; défaut : heure serveur |
-| GET /shipment | état/version actuels et expédition privée ; shipment null avant départ |
+Faits de transitions : DEPARTURE_CONFIRMED et ARRIVAL_CONFIRMED, uniquement via leurs actions dédiées.
+Faits automatiques d'édition : DOSSIER_UPDATED et ETA_UPDATED.
+Faits facultatifs : FORWARDER_RECEIVED, CUSTOMS_STARTED, CUSTOMS_COMPLETED, AVAILABLE_AT_FORWARDER, COLLECTED_BY_MANAGER, INFORMATION.
+Ils ne modifient pas le statut du groupage. INFORMATION exige une note pour éviter une entrée vide.
 
-Exemple de départ :
+Les corrections sont de nouvelles informations textuelles ou de nouvelles révisions du dossier/de l'ETA. Les premières confirmations et dates réelles restent immuables ; corriger rétroactivement une date de transition dans la projection nécessitera un workflow explicite ultérieur. Rien n'est effacé.
 
+## API privée
+
+Préfixe : `/api/organizations/{organizationId}/grouping-campaigns/{campaignId}`.
+Toutes les mutations exigent la **version courante du groupage**, MANAGE_GROUPINGS et l'autorisation dans la boutique ; GET exige VIEW_GROUPINGS.
+Réponse 200 no-store : CampaignShipmentView avec campaign (état/version serveur) et shipment (dossier/timeline privée).
+
+| Méthode / suffixe | Corps |
+|---|---|
+| GET /shipment | Lecture ; shipment null si aucune saisie |
+| PUT /shipment | version ; providerName/providerContact/trackingReference/note/source facultatifs |
+| PUT /shipment/eta | version ; expectedArrivalAt/source/note facultatifs |
+| POST /shipment/facts | version, type ; occurredAt/source/note facultatifs (note requise pour INFORMATION) |
+| POST /ship | version ; departedAt/expectedArrivalAt/trackingReference/note/source facultatifs |
+| POST /arrive | version ; arrivedAt/source/note facultatifs |
+
+PUT /shipment remplace les textes courants : omission ou blanc les efface, mais garde les snapshots précédents dans le journal.
+PUT /shipment/eta avec date absente retire l'estimation. Au départ, l'ETA/référence/note absente conserve celle du dossier déjà renseigné.
+Les trois opérations d'enrichissement sont disponibles en SUPPLIER_ORDERED, IN_TRANSIT et ARRIVED, sans effet sur l'état principal.
+
+Exemple minimal de confirmation du départ :
 ```json
-{
-  "version": 7,
-  "departedAt": "2026-09-26T09:00:00Z",
-  "expectedArrivalAt": "2026-10-01T09:00:00Z",
-  "trackingReference": "Référence privée",
-  "note": "Consigne interne"
-}
+{"version":7}
 ```
+Les dates réellement inconnues restent null. Une date réelle future est refusée ; arrivée réelle et ETA ne peuvent pas précéder un départ connu. Une estimation passée reste acceptable, car elle peut avoir été communiquée tardivement.
+Les instants sont UTC à la microseconde ; l'interface utilise le fuseau de l'appareil. Aucun instant métier n'est prérempli avec maintenant.
 
-Le mode de transport n’est pas une nouvelle saisie : il vient de shippingTerms. Les réponses 200, no-store, contiennent :
-- campaign : id, organizationId, status, version **retournés par le serveur** ;
-- shipment : données de l’expédition, dont les dates réellement enregistrées.
+## Atomicité, concurrence, idempotence
 
-Une version périmée donne 409 GROUPING_CAMPAIGN_VERSION_CONFLICT. Une transition invalide donne 409 INVALID_GROUPING_TRANSITION. Les dates incohérentes donnent 400 INVALID_SHIPMENT_DATES. Le départ et l’arrivée ne peuvent pas être futurs ; l’arrivée réelle et l’arrivée prévue ne peuvent pas précéder le départ. Une arrivée prévue passée reste admissible lors d’une déclaration tardive. Les instants sont conservés en UTC, à la microseconde PostgreSQL ; le formulaire affiche les dates dans le fuseau de l’appareil.
+CampaignLogistics reste le coordinateur. Autorisation → verrou scoped du groupage → contrôle de version → mutation shipping via son API publique → sauvegarde du groupage → commit.
+Le départ réalise atomiquement SUPPLIER_ORDERED → IN_TRANSIT, l'arrivée IN_TRANSIT → ARRIVED. Le journal GroupingChange de ces transitions est conservé.
+L'enrichissement touche la version du groupage sans changer son état. Le CAS de Shipment exige également sa révision précédente.
+Une contrainte unique protège le dossier boutique/groupage ; une autre protège le fait de chaque révision ; deux index partiels interdisent deux départs/deux arrivées.
 
-Les références et notes ne sont pas retournées dans le suivi cliente.
+Rejeu sûr par refus : une même commande avec la même version retourne 409 au second appel et n'ajoute aucune entrée. Une nouvelle version ne permet pas une deuxième transition déjà réalisée. Les doublons concurrents ont un seul gagnant.
+Le frontend n'effectue aucun retry automatique de mutation. Après erreur ou réponse perdue : GET explicite, puis nouvelle action si toujours disponible.
+Une erreur de persistance annule dossier, fait et groupage dans la même transaction. Aucun nouvel événement aval, appel WhatsApp ou paiement n'est ajouté ; une panne notification ne participe pas à cette transaction.
 
-## Transaction, concurrence et historique
+Les API publiques et le graphe existant restent inchangés : grouping dépend de shipping::api ; aucun accès aux repositories d'un autre module et aucune relation JPA inter-module.
 
-CampaignLogistics ouvre une transaction unique :
-1. contrôle d’autorisation ;
-2. verrou scoped de la ligne GroupingCampaign et contrôle de sa version ;
-3. validation de la transition par le domaine ;
-4. création ou enregistrement de la première arrivée via Shipments, qui exige la transaction existante ;
-5. sauvegarde/flush du groupage, produisant sa nouvelle version ;
-6. ajout d’une entrée GroupingChange ;
-7. commit de l’ensemble.
+## Suivi client
 
-Une erreur d’écriture de l’historique annule à la fois l’expédition et le changement de statut. Les verrous sérialisent les demandes concurrentes ; le contrôle optimiste existant reste actif. Une contrainte unique boutique/groupage protège aussi l’expédition.
+GroupingProgress conserve exclusivement status, departedAt, expectedArrivalAt, arrivedAt. Les accès existants (jeton et customeraccess) restent responsables de l'autorisation.
+Le statut se suffit à lui-même si la date réelle est inconnue. L'instant de saisie n'est jamais substitué à une date réelle dans le suivi client.
+Aucun téléphone/contact de prestataire, référence, note, acteur, timeline administrative ou document n'est exposé.
+ARRIVED signifie arrivée à destination, pas dédouanement achevé, possession par la gérante, transport réglé ou READY_FOR_PICKUP.
+Aucun Order, SupplierOrder, Payment ou PaymentRequest n'est modifié par cette tranche.
 
-**Rejeu sûr par refus** : un second POST avec la version d’origine renvoie 409 ; avec la nouvelle version, la transition déjà effectuée reste interdite. Aucun changement de date ni deuxième expédition. Le frontend ne rejoue jamais automatiquement le POST : il demande une actualisation GET, puis une nouvelle action explicite si elle est encore admissible.
+## Migration additive 013
 
-GroupingChange était déjà le journal local des changements de prix/échéance. Il est étendu avec LOGISTICS_TRANSITION, fromStatus et toStatus ; il conserve acteur, instant de déclaration et nouvelle version du groupage. Cet instant est distinct de la date réelle de départ/arrivée éventuellement déclarée a posteriori.
-
-Aucun nouvel événement Modulith n’est introduit : il n’y a aucun effet aval asynchrone requis dans cette tranche. Le suivi lit l’état confirmé en base. La cohérence statut/expédition/historique exige ici une transaction atomique, autorisée par AGENTS.md. Le registre persistant d’événements et ses consommateurs existants restent inchangés.
-
-## Migration 011
-
-Nouvelle migration Liquibase **011-shipments.sql**, ajoutée au master :
-- table shipments avec FK scalaire composite vers le groupage de la boutique ;
-- unicité (organization_id, grouping_campaign_id) et contrôles du mode et des dates ;
-- colonnes de transition et extension de la contrainte de forme de grouping_changes ;
-- trigger protégeant les données du départ et la première arrivée ;
-- trigger protégeant les nouvelles entrées d’historique logistique contre modification/suppression.
-
-En V1, le départ (y compris référence/note/estimation) est conservé sans endpoint d’édition. La seule mise à jour permise est la première arrivée. Aucun ancien changeset 001–010 ni donnée financière existante n’est modifié. Pas d’index supplémentaire inutile : l’unicité sert les lectures scoped et l’index existant du journal sert son accès par groupage/date.
-
-## Suivi public et frontière de confidentialité
-
-Le GET existant **/api/public/orders/track** conserve son accès par X-Order-Tracking-Token, son contrôle d’expiration, sa limitation des tentatives et no-store. Les UUID boutique/groupage sont dérivés de la commande autorisée, jamais fournis librement par la cliente.
-
-Son nouveau DTO spécifique OrderTrackingView conserve les champs de suivi existants et ajoute groupingProgress :
-- status du groupage ;
-- departedAt ;
-- expectedArrivalAt ;
-- arrivedAt.
-
-Cette liste explicite exclut référence fournisseur, note, auteur, identifiants internes et jeton de suivi. OrderReceipt et le checkout restent inchangés. Les lectures cohérentes utilisent REPEATABLE_READ.
-
-La timeline Angular traduit les états en français. Elle n’affiche une commande confirmée que selon Order.status ; les étapes suivantes suivent le groupage. **Arrivée n’implique jamais Prête à récupérer** : cette dernière étape nécessite le véritable FulfillmentStatus READY_FOR_PICKUP/PICKED_UP. NOT_READY reste inchangé. La progression peut être relue avec « Actualiser le suivi » ; le comportement de polling existant est conservé, sans nouveau suivi permanent.
-
-## Interface gérante
-
-Dans l’onglet Aperçu du détail groupage :
-- Commandée au fournisseur : CTA « Marquer comme en transport », formulaire avec transport déjà connu, départ, arrivée prévue, référence et note ;
-- En transport : dates et informations utiles, CTA « Marquer comme arrivée » et confirmation courte ;
-- Marchandise arrivée : première date d’arrivée conservée ; annonce textuelle de la préparation future.
-
-La version vient toujours de la dernière réponse serveur. Les erreurs bloquent une nouvelle mutation jusqu’à relecture. Une réponse perdue se récupère en GET ; aucune simulation locale du statut. Double clic protégé côté interface et backend. Changer de boutique efface les champs privés en cours et annule la souscription précédente.
-
-Les composants utilisent les tokens existants, les contrôles HTML accessibles et les thèmes clair/sombre. Aucun coût de transport final, nouveau paiement ou retrait n’est créé.
+013-logistics-dossier.sql ajoute les colonnes et la table du journal ; elle assouplit la nullabilité de departed_at et remplace le guard de 011 sans modifier les anciens changesets.
+Pour les lignes historiques : departureConfirmedAt = createdAt ; arrivalConfirmedAt = updatedAt si une arrivée existait. Ces instants reflètent les écritures historiques connues.
+Toutes les anciennes dates réelles, références, notes et estimations restent intactes.
+Les faits importés portent legacy=true et source=UNKNOWN ; l'auteur est repris du journal GroupingChange quand disponible, sinon reste null (exception réservée à l'import historique).
+L'ancien code pouvait remplacer une arrivée inconnue par maintenant : cette distinction est irrécupérable et n'est pas inventée par la migration. L'interface signale la précision historique non garantie.
+Les guards PostgreSQL interdisent modification/suppression des faits, suppression du dossier et réécriture des confirmations.
+Un test Testcontainers migre une base 012 contenant un départ et une arrivée, vérifie les données/checksums conservés et la réexécution sans doublon. Aucun reset de base métier.
 
 ## Recette manuelle
 
-Depuis Backend, démarrer les dépendances avec `docker compose up -d`, puis `.\mvnw.cmd spring-boot:run`. Depuis Frontend, lancer `npm start`.
+1. Démarrer les dépendances avec `docker compose up -d` depuis Backend, puis `.\mvnw.cmd spring-boot:run` avec votre configuration habituelle. Lancer le frontend avec `npm start` (ou votre configuration HTTPS existante).
+2. Ouvrir un groupage dont la commande fournisseur est déjà figée ; onglet Aperçu, section **Logistique**.
+3. **Renseigner le prestataire** : enregistrer tous les champs vides. Le dossier existe, le groupage reste commandé au fournisseur.
+4. Compléter un nom/contact/référence/note privés et la source ; consulter l'historique.
+5. **Modifier l’arrivée estimée** : saisir une estimation, puis une autre ; constater les deux valeurs dans la timeline. Effacer l'estimation conserve également l'historique.
+6. **Ajouter une information** : choisir réception par le prestataire et laisser la date vide. Le statut principal reste identique.
+7. **Marquer comme en transport** : laisser départ/ETA/référence vides, confirmer. Le statut devient En transport, le départ est confirmé, aucune date réelle n'est inventée.
+8. Actualiser le suivi client autorisé : voir En transport sans date de départ et sans données privées.
+9. Côté gérante, confirmer l'arrivée avec date vide. Le statut devient Marchandise arrivée ; aucun retrait, solde de transport ou nouveau paiement n'est créé.
+10. Ajouter une information de formalités puis une correction textuelle : les faits précédents restent visibles.
+11. Répéter avec des dates connues ; essayer une date réelle future, un double clic et une version périmée. Vérifier le refus et la relecture sans répétition automatique.
+12. Tester sur 360 px et desktop, thèmes clair/sombre, clavier ; changer de boutique pour vérifier l'effacement des champs privés.
 
-1. Créer et publier un groupage avec ses conditions de transport.
-2. Obtenir des commandes clientes payées et confirmées par le parcours normal. Conserver une session cliente avec son jeton de suivi.
-3. Fermer le groupage ; attendre le règlement ou l’expiration des commandes encore actives.
-4. Déclarer la commande fournisseur dans « À commander » ; constater le bon figé.
-5. Revenir à Aperçu et cliquer « Marquer comme en transport ».
-6. Renseigner le départ, éventuellement l’arrivée prévue et une référence privée ; confirmer.
-7. Vérifier « En transport », les dates et la version serveur actualisée. Recharger : les mêmes données doivent apparaître.
-8. Dans la session cliente, ouvrir le suivi privé puis actualiser.
-9. Vérifier « Commandée au fournisseur » franchie, « En transport » actuelle, arrivée/retrait encore en attente ; aucune note/référence privée visible.
-10. Côté gérante, cliquer « Marquer comme arrivée » et confirmer.
-11. Vérifier « Marchandise arrivée » et la date serveur. Actualiser : la première date reste identique.
-12. Actualiser le suivi cliente : « Arrivée » actuelle, « Prête à récupérer » encore en attente. Le statut commercial, les montants et le bon fournisseur restent identiques.
+## Reporté à ShippingAssessment
 
-Contrôles complémentaires : refus d’une autre boutique, d’un compte sans permission, d’une version périmée, de dates inversées et de doubles clics. Tester 360 px et clair/sombre.
+Mesures poids/CBM, poids volumétrique, calcul/facture de transport, répartition des coûts, solde SHIPPING_BALANCE et crédit, disponibilité/retrait, documents et comptes prestataires restent hors périmètre.
+Les futures mesures pourront utiliser la même distinction source/acteur/instant communiqué/instant enregistré. Aucun modèle de mesure ou calcul vide n'est ajouté prématurément.
 
-Cette recette sur le serveur et le sandbox réels reste manuelle. Les tests automatisés utilisent PostgreSQL Testcontainers et des réponses HTTP navigateur isolées ; ils n’effectuent aucun paiement Bictorys réel.
+## Configuration des tests
 
-## Validation
+Surefire désactive customeraccess par défaut, comme les providers réels, pour éviter que le .env local ajoute des consommateurs et des notifications aux tests des autres tranches. CustomerAccessIntegrationTests active explicitement le module et ses secrets de test ; ses assertions et ses scénarios restent exécutés. Aucun réglage de production ni contrat WhatsApp ne change. Les fixtures de nettoyage Testcontainers incluent désormais shipment_facts pour respecter sa FK.
 
-- Backend mvnw test : **458 tests réussis**, zéro échec/erreur/ignoré.
-- Backend mvnw verify : **458 tests réussis**, zéro échec/erreur/ignoré ; BUILD SUCCESS et JAR produit.
-- ModularityTests : trois tests, dont ApplicationModules.of(GroupiaApplication.class).verify(), sans exclusion ni modification des frontières autorisées.
-- npm run api:generate : réussi depuis l’export réel /v3/api-docs produit par les tests Spring, servi localement pendant la génération ; **66 modèles et 10 services**, aucun DTO Angular manuel.
-- Angular : **171 tests réussis**, 22 fichiers.
-- Navigateur : **79 scénarios réussis**, dont neuf nouveaux scénarios logistiques.
-- Build production : **réussi**, budgets Angular respectés.
+## Validation du 2 octobre 2026
 
-Les ajouts comprennent 27 cas d’intégration logistique, un test OpenAPI, 19 tests unitaires Angular et neuf scénarios navigateur. Les tests backend vérifient aussi rollback, concurrence, dates immuables, isolation et invariance financière/SupplierOrder. Les fixtures de nettoyage des anciens tests incluent shipments pour respecter la FK ; aucune logique de production Bictorys n’est modifiée.
+- mvnw.cmd test : 553 tests, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS.
+- mvnw.cmd verify : 553 tests, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS et JAR généré.
+- ModularityTests : 3 tests verts, dont ApplicationModules.of(GroupiaApplication.class).verify(), sans exclusion.
+- npm test : 197 tests, 25 fichiers verts.
+- npm run build : production réussie, budgets respectés (initial 302,29 kB).
+- npm run test:e2e : 92 scénarios verts, mobile 360 px, desktop, clair/sombre et suivi client.
+- Client Angular régénéré depuis l’OpenAPI réel exporté par les tests Spring ; aucun DTO écrit manuellement.
+- git diff --check : réussi. Aucune dépendance ajoutée.
 
-## Fichiers et limites
-
-Backend : shipping/api/Shipments, ShipmentView, Shipment, ShipmentRepository, ShipmentService et JdbcShipments ; grouping/CampaignLogistics, CampaignLogisticsController, GroupingProgressQueries et DTOs ; transitions GroupingCampaign et historique GroupingChange ; OrderQueries/OrderTrackingView pour le suivi ; migration 011 et tests.
-
-Frontend : client généré et openapi.json ; logistics-api, logistics-panel et intégration dans le détail groupage ; order-timeline et suivi ; messages et libellés ; tests associés. Aucune dépendance ajoutée.
-
-Hors tranche : expéditions partielles, correction des dates/références après déclaration, API transporteur, géolocalisation, notifications, répartition du transport, poids réel, solde transport, préparation et retrait. Aucun changement de Bictorys, du checkout public ou du modèle SupplierOrder.
-
-Contrôle final : git diff --check réussi. La comparaison OpenAPI confirme que seule l’opération existante GET /api/public/orders/track change ; les trois autres opérations sont nouvelles. Captures mobile inspectées dans Frontend/artifacts (logistics-manager-360-light.png et logistics-tracking-transit-360-dark.png) ; les neuf scénarios logistiques ont aussi été rejoués avec succès après finalisation des captures.
+Ajouts : 13 cas d’intégration logistique (40 au total), 1 test de migration historique, 10 tests unitaires Angular et 1 scénario navigateur complet. Les tests existants imposant une date obligatoire ou une arrivée par défaut ont été adaptés au nouveau contrat explicite ; aucune assertion financière ou de modularité n’a été supprimée.

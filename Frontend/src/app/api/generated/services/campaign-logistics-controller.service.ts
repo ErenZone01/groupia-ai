@@ -10,6 +10,8 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { addCampaignShipmentFact } from '../fn/campaign-logistics-controller/add-campaign-shipment-fact';
+import { AddCampaignShipmentFact$Params } from '../fn/campaign-logistics-controller/add-campaign-shipment-fact';
 import { arriveCampaign } from '../fn/campaign-logistics-controller/arrive-campaign';
 import { ArriveCampaign$Params } from '../fn/campaign-logistics-controller/arrive-campaign';
 import { CampaignShipmentView } from '../models/campaign-shipment-view';
@@ -17,6 +19,10 @@ import { readCampaignShipment } from '../fn/campaign-logistics-controller/read-c
 import { ReadCampaignShipment$Params } from '../fn/campaign-logistics-controller/read-campaign-shipment';
 import { shipCampaign } from '../fn/campaign-logistics-controller/ship-campaign';
 import { ShipCampaign$Params } from '../fn/campaign-logistics-controller/ship-campaign';
+import { updateCampaignShipment } from '../fn/campaign-logistics-controller/update-campaign-shipment';
+import { UpdateCampaignShipment$Params } from '../fn/campaign-logistics-controller/update-campaign-shipment';
+import { updateCampaignShipmentEta } from '../fn/campaign-logistics-controller/update-campaign-shipment-eta';
+import { UpdateCampaignShipmentEta$Params } from '../fn/campaign-logistics-controller/update-campaign-shipment-eta';
 
 @Injectable({ providedIn: 'root' })
 export class CampaignLogisticsControllerService extends BaseService {
@@ -28,7 +34,7 @@ export class CampaignLogisticsControllerService extends BaseService {
   static readonly ShipCampaignPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/ship';
 
   /**
-   * Déclarer le départ de la marchandise.
+   * Confirmer le départ communiqué, date réelle facultative.
    *
    *
    *
@@ -43,7 +49,7 @@ export class CampaignLogisticsControllerService extends BaseService {
   }
 
   /**
-   * Déclarer le départ de la marchandise.
+   * Confirmer le départ communiqué, date réelle facultative.
    *
    *
    *
@@ -63,7 +69,7 @@ export class CampaignLogisticsControllerService extends BaseService {
   static readonly ArriveCampaignPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/arrive';
 
   /**
-   * Déclarer l’arrivée de la marchandise.
+   * Confirmer l’arrivée à destination, date réelle facultative.
    *
    *
    *
@@ -78,7 +84,7 @@ export class CampaignLogisticsControllerService extends BaseService {
   }
 
   /**
-   * Déclarer l’arrivée de la marchandise.
+   * Confirmer l’arrivée à destination, date réelle facultative.
    *
    *
    *
@@ -98,7 +104,7 @@ export class CampaignLogisticsControllerService extends BaseService {
   static readonly ReadCampaignShipmentPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment';
 
   /**
-   * Lire la logistique privée du groupage.
+   * Lire le dossier et la timeline privés du groupage.
    *
    *
    *
@@ -113,7 +119,7 @@ export class CampaignLogisticsControllerService extends BaseService {
   }
 
   /**
-   * Lire la logistique privée du groupage.
+   * Lire le dossier et la timeline privés du groupage.
    *
    *
    *
@@ -124,6 +130,111 @@ export class CampaignLogisticsControllerService extends BaseService {
    */
   readCampaignShipment(params: ReadCampaignShipment$Params, context?: HttpContext): Observable<CampaignShipmentView> {
     const resp = this.readCampaignShipment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
+    );
+  }
+
+  /** Path part for operation `updateCampaignShipment()` */
+  static readonly UpdateCampaignShipmentPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment';
+
+  /**
+   * Créer ou enrichir le dossier logistique privé.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `updateCampaignShipment()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  updateCampaignShipment$Response(params: UpdateCampaignShipment$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
+    const obs = updateCampaignShipment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Créer ou enrichir le dossier logistique privé.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `updateCampaignShipment$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  updateCampaignShipment(params: UpdateCampaignShipment$Params, context?: HttpContext): Observable<CampaignShipmentView> {
+    const resp = this.updateCampaignShipment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
+    );
+  }
+
+  /** Path part for operation `updateCampaignShipmentEta()` */
+  static readonly UpdateCampaignShipmentEtaPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment/eta';
+
+  /**
+   * Réviser ou retirer l’arrivée estimée avec historique.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `updateCampaignShipmentEta()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  updateCampaignShipmentEta$Response(params: UpdateCampaignShipmentEta$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
+    const obs = updateCampaignShipmentEta(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Réviser ou retirer l’arrivée estimée avec historique.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `updateCampaignShipmentEta$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  updateCampaignShipmentEta(params: UpdateCampaignShipmentEta$Params, context?: HttpContext): Observable<CampaignShipmentView> {
+    const resp = this.updateCampaignShipmentEta$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
+    );
+  }
+
+  /** Path part for operation `addCampaignShipmentFact()` */
+  static readonly AddCampaignShipmentFactPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment/facts';
+
+  /**
+   * Ajouter une information facultative à la timeline privée.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `addCampaignShipmentFact()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  addCampaignShipmentFact$Response(params: AddCampaignShipmentFact$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
+    const obs = addCampaignShipmentFact(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Ajouter une information facultative à la timeline privée.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `addCampaignShipmentFact$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  addCampaignShipmentFact(params: AddCampaignShipmentFact$Params, context?: HttpContext): Observable<CampaignShipmentView> {
+    const resp = this.addCampaignShipmentFact$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
     );

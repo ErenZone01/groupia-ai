@@ -1,0 +1,91 @@
+<form class="form-stack" #form="ngForm" (ngSubmit)="submit()">
+  @if (mode() === 'dossier') {
+    <h3>Prestataire logistique</h3>
+    <p class="muted">Tous ces renseignements sont facultatifs et restent privés.</p>
+    <label
+      >Nom du prestataire (facultatif)<input
+        gInput
+        name="providerName"
+        [(ngModel)]="providerName"
+        maxlength="160"
+        [disabled]="busy()"
+    /></label>
+    <label
+      >Contact du prestataire (facultatif)<input
+        gInput
+        name="providerContact"
+        [(ngModel)]="providerContact"
+        maxlength="300"
+        [disabled]="busy()"
+    /></label>
+    <label
+      >Référence de suivi (facultatif)<input
+        gInput
+        name="reference"
+        [(ngModel)]="reference"
+        maxlength="160"
+        [disabled]="busy()"
+    /></label>
+  }
+  @if (mode() === 'eta') {
+    <h3>Arrivée estimée</h3>
+    <p class="muted">
+      Cette estimation peut évoluer. Laissez le champ vide pour la retirer ; l’historique est
+      conservé.
+    </p>
+    <label
+      >Arrivée estimée (facultatif)<input
+        gInput
+        type="datetime-local"
+        name="expected"
+        [(ngModel)]="expected"
+        [disabled]="busy()"
+    /></label>
+  }
+  @if (mode() === 'fact') {
+    <h3>Ajouter une information</h3>
+    <label
+      >Information<select gSelect name="type" [(ngModel)]="type" [disabled]="busy()">
+        @for (option of options; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Date communiquée (facultatif)<input
+        gInput
+        type="datetime-local"
+        name="occurred"
+        [(ngModel)]="occurred"
+        [disabled]="busy()"
+    /></label>
+    <p class="muted">
+      Si la date est inconnue, laissez-la vide. Une correction s’ajoute à l’historique sans effacer
+      l’information précédente.
+    </p>
+  }
+  <g-logistics-source [(value)]="source" [disabled]="busy()" />
+  <label
+    >Note privée {{ mode() === 'fact' && type === 'INFORMATION' ? '' : '(facultatif)'
+    }}<textarea
+      gInput
+      name="note"
+      [(ngModel)]="note"
+      maxlength="2000"
+      rows="3"
+      [required]="mode() === 'fact' && type === 'INFORMATION'"
+      [disabled]="busy()"
+    ></textarea>
+  </label>
+  @if (error) {
+    <p class="form-error" role="alert">{{ error }}</p>
+  }
+  <div class="actions">
+    <button gButton [disabled]="form.invalid || disabled() || busy()" [loading]="busy()">
+      Enregistrer
+    </button>
+    <button gButton type="button" variant="ghost" [disabled]="busy()" (click)="cancel.emit()">
+      Annuler
+    </button>
+  </div>
+</form>

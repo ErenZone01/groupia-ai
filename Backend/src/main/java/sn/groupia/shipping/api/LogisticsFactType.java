@@ -1,0 +1,8 @@
+package sn.groupia.shipping.api;
+public enum LogisticsFactType {
+    DOSSIER_UPDATED, DEPARTURE_CONFIRMED, ETA_UPDATED, ARRIVAL_CONFIRMED,
+    FORWARDER_RECEIVED, CUSTOMS_STARTED, CUSTOMS_COMPLETED, AVAILABLE_AT_FORWARDER, COLLECTED_BY_MANAGER, INFORMATION;
+    public boolean supplemental() {
+        return this != DOSSIER_UPDATED && this != DEPARTURE_CONFIRMED && this != ETA_UPDATED && this != ARRIVAL_CONFIRMED;
+    }
+}

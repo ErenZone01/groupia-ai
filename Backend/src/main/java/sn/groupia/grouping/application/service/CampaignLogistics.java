@@ -8,7 +8,7 @@ import sn.groupia.grouping.api.dto.*;
 import sn.groupia.grouping.domain.model.*;
 import sn.groupia.grouping.domain.repository.*;
 import sn.groupia.organization.api.*;
-import sn.groupia.shipping.api.Shipments;
+import sn.groupia.shipping.api.*;
 import sn.groupia.shared.api.ApiException;
 
 @Service
@@ -22,23 +22,23 @@ public class CampaignLogistics implements GroupingProgressQueries {
         this.campaigns=campaigns;this.changes=changes;this.shipments=shipments;this.access=access;this.clock=clock;
     }
     @Transactional
-    public CampaignShipmentView ship(UUID org,UUID id,long version,Instant departure,Instant expected,String reference,String note) {
+    public CampaignShipmentView ship(UUID org,UUID id,long version,Instant departure,Instant expected,String reference,String note,LogisticsSource source) {
         UUID actor=access.requireActorPermission(org,OrganizationPermission.MANAGE_GROUPINGS);
         var campaign=lock(org,id);campaign.requireVersion(version);
         Instant now=clock.instant();
         campaign.ship(now);
-        var shipment=shipments.depart(org,id,campaign.getShippingTerms().transportMode(),departure,expected,reference,note,now);
+        var shipment=shipments.depart(org,id,campaign.getShippingTerms().transportMode(),departure,expected,reference,note,source,actor,now);
         campaigns.save(campaign);
         changes.append(GroupingChange.logistics(campaign,actor,GroupingCampaignStatus.SUPPLIER_ORDERED,now));
         return new CampaignShipmentView(lifecycle(campaign),shipment);
     }
     @Transactional
-    public CampaignShipmentView arrive(UUID org,UUID id,long version,Instant arrival) {
+    public CampaignShipmentView arrive(UUID org,UUID id,long version,Instant arrival,LogisticsSource source,String note) {
         UUID actor=access.requireActorPermission(org,OrganizationPermission.MANAGE_GROUPINGS);
         var campaign=lock(org,id);campaign.requireVersion(version);
         Instant now=clock.instant();
         campaign.arrive(now);
-        var shipment=shipments.arrive(org,id,arrival,now);
+        var shipment=shipments.arrive(org,id,arrival,source,note,actor,now);
         campaigns.save(campaign);
         changes.append(GroupingChange.logistics(campaign,actor,GroupingCampaignStatus.IN_TRANSIT,now));
         return new CampaignShipmentView(lifecycle(campaign),shipment);
@@ -68,6 +68,33 @@ public class CampaignLogistics implements GroupingProgressQueries {
                 s==null?null:s.departedAt(),s==null?null:s.expectedArrivalAt(),s==null?null:s.arrivedAt())));
         }
         return java.util.Map.copyOf(result);
+    }
+    @Transactional
+    public CampaignShipmentView enrich(UUID org,UUID id,long version,String name,String contact,String reference,String note,LogisticsSource source) {
+        UUID actor=access.requireActorPermission(org,OrganizationPermission.MANAGE_GROUPINGS);
+        var campaign=lock(org,id);campaign.requireVersion(version);
+        Instant now=clock.instant();campaign.enrichLogistics(now);
+        var shipment=shipments.enrich(org,id,campaign.getShippingTerms().transportMode(),name,contact,reference,note,source,actor,now);
+        campaigns.save(campaign);
+        return new CampaignShipmentView(lifecycle(campaign),shipment);
+    }
+    @Transactional
+    public CampaignShipmentView estimate(UUID org,UUID id,long version,Instant expected,LogisticsSource source,String note) {
+        UUID actor=access.requireActorPermission(org,OrganizationPermission.MANAGE_GROUPINGS);
+        var campaign=lock(org,id);campaign.requireVersion(version);
+        Instant now=clock.instant();campaign.enrichLogistics(now);
+        var shipment=shipments.estimate(org,id,campaign.getShippingTerms().transportMode(),expected,source,note,actor,now);
+        campaigns.save(campaign);
+        return new CampaignShipmentView(lifecycle(campaign),shipment);
+    }
+    @Transactional
+    public CampaignShipmentView addFact(UUID org,UUID id,long version,LogisticsFactType type,Instant occurredAt,LogisticsSource source,String note) {
+        UUID actor=access.requireActorPermission(org,OrganizationPermission.MANAGE_GROUPINGS);
+        var campaign=lock(org,id);campaign.requireVersion(version);
+        Instant now=clock.instant();campaign.enrichLogistics(now);
+        var shipment=shipments.addFact(org,id,campaign.getShippingTerms().transportMode(),type,occurredAt,source,note,actor,now);
+        campaigns.save(campaign);
+        return new CampaignShipmentView(lifecycle(campaign),shipment);
     }
     private GroupingCampaign lock(UUID org,UUID id){return campaigns.lock(org,id).orElseThrow(CampaignLogistics::missing);}
     private CampaignLifecycleView lifecycle(GroupingCampaign c){return new CampaignLifecycleView(c.getId(),c.getOrganizationId(),c.getStatus().name(),c.getVersion());}

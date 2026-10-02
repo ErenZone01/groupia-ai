@@ -61,7 +61,7 @@ describe('Logistique du groupage', () => {
     begin();
     expect(fixture.nativeElement.textContent).toContain('Transport : Bateau');
     expect(fixture.nativeElement.querySelector('input[name="departure"]')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('select')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Information communiquée par');
   });
   it('envoie la dernière version serveur et les champs privés seulement au départ', () => {
     load('SUPPLIER_ORDERED', 11);
@@ -118,7 +118,8 @@ describe('Logistique du groupage', () => {
     c.arrive();
     c.arrive();
     const req = http.expectOne(base + 'arrive');
-    expect(req.request.body).toEqual({ version: 13 });
+    expect(req.request.body).toMatchObject({ version: 13, source: 'UNKNOWN' });
+    expect(req.request.body.arrivedAt).toBeUndefined();
     req.flush(response('ARRIVED', 17));
     fixture.detectChanges();
     expect(c.lifecycle()?.version).toBe(17);
@@ -132,7 +133,7 @@ describe('Logistique du groupage', () => {
     http.expectOne(base + 'shipment').flush(response('IN_TRANSIT'));
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('REF-PRIVEE');
-    expect(fixture.nativeElement.textContent).toContain('Arrivée prévue');
+    expect(fixture.nativeElement.textContent).toContain('Arrivée estimée');
     expect(fixture.nativeElement.textContent).toContain('Marquer comme arrivée');
   });
   it('conflit bloque toute mutation jusqu’à relecture et exige une nouvelle action', () => {
@@ -204,5 +205,79 @@ describe('Logistique du groupage', () => {
     });
     expect(fixture.componentInstance.stale()).toBe(true);
     expect(fixture.componentInstance.lifecycle()).toBeNull();
+  });
+
+  it('départ inconnu reste vide et peut être confirmé sans référence ni ETA', () => {
+    load();
+    const c = fixture.componentInstance;
+    c.begin();
+    expect(c.departure).toBe('');
+    c.ship();
+    const req = http.expectOne(base + 'ship');
+    expect(req.request.body.departedAt).toBeUndefined();
+    expect(req.request.body.expectedArrivalAt).toBeUndefined();
+    expect(req.request.body.trackingReference).toBeUndefined();
+    req.flush({
+      campaign: { id: 'campaign', organizationId: 'shop', status: 'IN_TRANSIT', version: 8 },
+      shipment: { departureConfirmedAt: '2026-01-01T10:00:00Z', timeline: [] },
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Départ confirmé');
+    expect(fixture.nativeElement.textContent).not.toContain('Date de départ communiquée');
+  });
+  it('enrichit le dossier avant le départ et affiche la timeline retournée', () => {
+    load();
+    const c = fixture.componentInstance;
+    c.beginDetails('dossier');
+    c.saveDetails({
+      action: 'dossier',
+      body: { version: 7, providerName: 'Prestataire', source: 'FORWARDER' },
+    });
+    c.saveDetails({ action: 'dossier', body: { version: 7, providerName: 'Prestataire' } });
+    http.expectOne(base + 'shipment').flush({
+      campaign: response().campaign,
+      shipment: {
+        providerName: 'Prestataire',
+        timeline: [
+          {
+            id: 'fact',
+            type: 'DOSSIER_UPDATED',
+            source: 'FORWARDER',
+            recordedAt: '2026-01-01T10:00:00Z',
+            providerName: 'Prestataire',
+          },
+        ],
+      },
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Historique logistique');
+    expect(fixture.nativeElement.textContent).toContain('Le transitaire / prestataire');
+    expect(c.detailsMode()).toBeNull();
+  });
+  it('révision ETA et ajout information utilisent la version courante', () => {
+    load();
+    const c = fixture.componentInstance;
+    c.saveDetails({
+      action: 'eta',
+      body: { version: 7, expectedArrivalAt: '2026-11-01T00:00:00Z' },
+    });
+    const req = http.expectOne(base + 'shipment/eta');
+    expect(req.request.method).toBe('PUT');
+    req.flush(response('SUPPLIER_ORDERED', 8));
+    c.saveDetails({
+      action: 'fact',
+      body: { version: 8, type: 'CUSTOMS_STARTED', source: 'DOCUMENT' },
+    });
+    http.expectOne(base + 'shipment/facts').flush(response('SUPPLIER_ORDERED', 9));
+    expect(c.lifecycle()?.version).toBe(9);
+  });
+  it('arrivée future est refusée avant envoi', () => {
+    load('IN_TRANSIT');
+    const c = fixture.componentInstance;
+    c.beginArrival();
+    c.arrival = '2999-01-01T00:00';
+    c.arrive();
+    http.expectNone(base + 'arrive');
+    expect(c.error()).toContain('Vérifiez');
   });
 });

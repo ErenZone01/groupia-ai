@@ -2956,7 +2956,7 @@
         "tags": [
           "campaign-logistics-controller"
         ],
-        "summary": "Déclarer le départ de la marchandise",
+        "summary": "Confirmer le départ communiqué, date réelle facultative",
         "operationId": "shipCampaign",
         "parameters": [
           {
@@ -3780,7 +3780,7 @@
         "tags": [
           "campaign-logistics-controller"
         ],
-        "summary": "Déclarer l’arrivée de la marchandise",
+        "summary": "Confirmer l’arrivée à destination, date réelle facultative",
         "operationId": "arriveCampaign",
         "parameters": [
           {
@@ -5420,7 +5420,7 @@
         "tags": [
           "campaign-logistics-controller"
         ],
-        "summary": "Lire la logistique privée du groupage",
+        "summary": "Lire le dossier et la timeline privés du groupage",
         "operationId": "readCampaignShipment",
         "parameters": [
           {
@@ -5442,6 +5442,352 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignShipmentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "campaign-logistics-controller"
+        ],
+        "summary": "Créer ou enrichir le dossier logistique privé",
+        "operationId": "updateCampaignShipment",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShipment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignShipmentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment/eta": {
+      "put": {
+        "tags": [
+          "campaign-logistics-controller"
+        ],
+        "summary": "Réviser ou retirer l’arrivée estimée avec historique",
+        "operationId": "updateCampaignShipmentEta",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShipmentEta"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignShipmentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment/facts": {
+      "post": {
+        "tags": [
+          "campaign-logistics-controller"
+        ],
+        "summary": "Ajouter une information facultative à la timeline privée",
+        "operationId": "addCampaignShipmentFact",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddShipmentFact"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -6777,7 +7123,6 @@
       },
       "ShipCampaign": {
         "required": [
-          "departedAt",
           "version"
         ],
         "type": "object",
@@ -6804,6 +7149,17 @@
             "maxLength": 2000,
             "minLength": 0,
             "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
           }
         }
       },
@@ -6867,6 +7223,30 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "providerName": {
+            "type": "string"
+          },
+          "providerContact": {
+            "type": "string"
+          },
+          "departureConfirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "arrivalConfirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogisticsFactView"
+            }
           }
         }
       },
@@ -6962,6 +7342,22 @@
           "arrivedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
           }
         }
       },
@@ -7777,6 +8173,214 @@
           "details": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      },
+      "UpdateShipment": {
+        "required": [
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          },
+          "providerName": {
+            "maxLength": 160,
+            "minLength": 0,
+            "type": "string"
+          },
+          "providerContact": {
+            "maxLength": 300,
+            "minLength": 0,
+            "type": "string"
+          },
+          "trackingReference": {
+            "maxLength": 160,
+            "minLength": 0,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          }
+        }
+      },
+      "LogisticsFactView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shipmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shipmentVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DOSSIER_UPDATED",
+              "DEPARTURE_CONFIRMED",
+              "ETA_UPDATED",
+              "ARRIVAL_CONFIRMED",
+              "FORWARDER_RECEIVED",
+              "CUSTOMS_STARTED",
+              "CUSTOMS_COMPLETED",
+              "AVAILABLE_AT_FORWARDER",
+              "COLLECTED_BY_MANAGER",
+              "INFORMATION"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string"
+          },
+          "previousExpectedArrivalAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expectedArrivalAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "providerName": {
+            "type": "string"
+          },
+          "providerContact": {
+            "type": "string"
+          },
+          "trackingReference": {
+            "type": "string"
+          },
+          "legacy": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateShipmentEta": {
+        "required": [
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          },
+          "expectedArrivalAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "AddShipmentFact": {
+        "required": [
+          "type",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DOSSIER_UPDATED",
+              "DEPARTURE_CONFIRMED",
+              "ETA_UPDATED",
+              "ARRIVAL_CONFIRMED",
+              "FORWARDER_RECEIVED",
+              "CUSTOMS_STARTED",
+              "CUSTOMS_COMPLETED",
+              "AVAILABLE_AT_FORWARDER",
+              "COLLECTED_BY_MANAGER",
+              "INFORMATION"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
           }
         }
       }

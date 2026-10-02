@@ -1,7 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
   INVALID_SHIPMENT_DATES: 'Vérifiez les dates de départ et d’arrivée.',
-  INVALID_SHIPMENT_INFORMATION: 'Vérifiez la référence et la note.',
+  INVALID_SHIPMENT_INFORMATION: 'Vérifiez les informations logistiques.',
+  SHIPMENT_VERSION_CONFLICT: 'Le dossier logistique a changé. Actualisez-le.',
+  INVALID_LOGISTICS_FACT: 'Vérifiez le type d’information et la note.',
+  SHIPMENT_ALREADY_DEPARTED: 'Le départ est déjà confirmé. Actualisez le groupage.',
   SHIPMENT_ALREADY_ARRIVED: 'L’arrivée a déjà été enregistrée. Actualisez le groupage.',
   SHIPMENT_NOT_FOUND: 'Aucun départ enregistré. Actualisez le groupage.',
   INVALID_CUSTOMER_CONTACT: 'Vérifiez vos coordonnées, notamment le téléphone avec son indicatif.',

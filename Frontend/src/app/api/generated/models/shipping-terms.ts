@@ -9,4 +9,5 @@ export interface ShippingTerms {
   shippingPricingMethod?: 'PER_KG' | 'PER_CBM' | 'PER_ITEM' | 'FIXED';
   shippingRate?: number;
   transportMode?: 'AIR' | 'SEA' | 'ROAD' | 'OTHER';
+  volumetricDivisor?: number;
 }

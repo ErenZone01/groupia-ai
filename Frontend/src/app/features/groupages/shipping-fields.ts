@@ -22,6 +22,11 @@ export function validShipping(value: ShippingInput) {
     typeof rate === 'number' &&
     Number.isFinite(rate) &&
     rate >= 0 &&
+    (value.volumetricDivisor == null ||
+      (value.shippingPricingMethod === 'PER_KG' &&
+        Number.isFinite(value.volumetricDivisor) &&
+        value.volumetricDivisor > 0 &&
+        value.volumetricDivisor <= 1000000)) &&
     (value.shippingPricingMethod === 'FIXED' ? Number.isSafeInteger(rate) : rate > 0)
   );
 }
@@ -78,6 +83,23 @@ export function validShipping(value: ShippingInput) {
           required
       /></label>
     </div>
+    @if (value().shippingPricingMethod === 'PER_KG') {
+      <label
+        >Diviseur volumétrique convenu (facultatif)<input
+          gInput
+          type="number"
+          min="0.000001"
+          max="1000000"
+          step="0.000001"
+          [ngModelOptions]="{ standalone: true }"
+          [ngModel]="value().volumetricDivisor"
+          (ngModelChange)="patch({ volumetricDivisor: $event ?? undefined })"
+      /></label>
+      <p class="notice">
+        Laissez vide si aucune règle volumétrique n’est convenue. Le diviseur est figé à l’ouverture
+        du groupage.
+      </p>
+    }
     <p class="notice">
       Le tarif est exprimé par unité de tarification choisie. Un forfait peut être gratuit.
     </p>
@@ -95,6 +117,10 @@ export class ShippingFields {
   readonly pricingOptions = pricingOptions;
   readonly collectionOptions = collectionOptions;
   patch(value: Partial<ShippingInput>) {
-    this.value.update((v) => ({ ...v, ...value }));
+    this.value.update((v) => {
+      const next = { ...v, ...value };
+      if (next.shippingPricingMethod !== 'PER_KG') delete next.volumetricDivisor;
+      return next;
+    });
   }
 }

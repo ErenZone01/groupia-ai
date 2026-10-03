@@ -33,7 +33,7 @@ import { Skeleton } from '../../shared/feedback/skeleton';
       }
       <g-order-summary
         [receipt]="store.order() ?? store.session.current()?.receipt ?? null"
-        [shippingLater]="!!store.session.current()?.shippingLater"
+        [shippingLater]="!!store.session.current()?.shippingLater && !store.order()?.shippingFinal"
         [confirmed]="store.order()?.status === 'CONFIRMED'"
       />
       @if (store.error()) {

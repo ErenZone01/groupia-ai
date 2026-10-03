@@ -1,0 +1,55 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+article {
+  padding: var(--s4);
+  margin: var(--s4) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  justify-content: space-between;
+}
+h3,
+p {
+  margin-bottom: var(--s3);
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--s4);
+}
+legend {
+  margin-bottom: var(--s3);
+  font-weight: 600;
+}
+label {
+  display: grid;
+  gap: var(--s2);
+  min-width: 0;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--s3);
+}
+button {
+  white-space: normal;
+  margin-top: var(--s3);
+}
+summary {
+  cursor: pointer;
+  padding: var(--s3) 0;
+}
+.history {
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--border);
+}

@@ -143,3 +143,9 @@ Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md).
 Bictorys sandbox (ADR-0012) : aucun arc ajouté. Ordering transmet le snapshot de
 contact par PaymentCheckoutContext dans payment::api. Les types Bictorys restent
 internes à payment.infrastructure ; payment ne lit pas ordering.
+
+## Contrat Shipping V1
+
+Graphe inchangé : ordering utilise shipping::api (ShippingAssessments, snapshots et explication sûre).
+Le coordinateur OrderShipping reste dans ordering ; shipping ne lit aucune commande.
+Voir [ADR-0016](../adr/0016-order-shipping-assessments.md).

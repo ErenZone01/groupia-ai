@@ -7,8 +7,16 @@ import sn.groupia.shipping.api.*;
 /** Commercial terms only. This contract does not calculate or collect shipping charges. */
 public record ShippingTerms(String originCountry, TransportMode transportMode,
         ShippingPricingMethod shippingPricingMethod, ShippingCollectionMode shippingCollectionMode,
-        BigDecimal shippingRate, String shippingCurrency, String roundingRule) {
+        BigDecimal shippingRate, String shippingCurrency, String roundingRule, BigDecimal volumetricDivisor) {
+    public ShippingTerms(String originCountry,TransportMode mode,ShippingPricingMethod method,ShippingCollectionMode collection,BigDecimal rate,String currency,String rounding){
+        this(originCountry,mode,method,collection,rate,currency,rounding,null);
+    }
     public ShippingTerms {
+        if(volumetricDivisor!=null){
+            volumetricDivisor=volumetricDivisor.stripTrailingZeros();
+            if(shippingPricingMethod!=ShippingPricingMethod.PER_KG || volumetricDivisor.signum()<=0 || volumetricDivisor.scale()>6 || volumetricDivisor.compareTo(new BigDecimal("1000000"))>0)
+                throw new IllegalArgumentException("Invalid volumetric divisor.");
+        }
         if (transportMode == null || shippingPricingMethod == null || shippingCollectionMode == null
                 || shippingRate == null || !"XOF".equals(shippingCurrency) || !"HALF_UP".equals(roundingRule)) {
             throw new IllegalArgumentException("Complete XOF shipping terms are required.");

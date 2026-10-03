@@ -18,6 +18,7 @@ class OrderPersistence implements Orders {
     OrderPersistence(JpaOrderRepository orders, EntityManager entityManager, JdbcTemplate jdbc) {
         this.orders = orders; this.entityManager = entityManager; this.jdbc = jdbc;
     }
+    @Override public List<Order> confirmedForShipping(UUID org, UUID campaign) { return orders.shipping(org,campaign); }
     @Override public Optional<Order> lock(UUID id) {
         var order=entityManager.find(Order.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if(order!=null){entityManager.refresh(order,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);}

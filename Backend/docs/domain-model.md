@@ -193,21 +193,21 @@ Les motifs d'indisponibilité sont distincts de OrderStatus. Les corrections apr
 
 **Invariants :** une seule évaluation par commande ; estimation distincte du réel ; observations et calculs historiques conservés ; aucune répartition de fret collectif dans le MVP.
 
-**CalculationStatus :** ESTIMATED → FINALIZED ; une correction ajoute une révision tout en conservant les anciennes. CANCELLED arrête l'évaluation selon la décision commerciale sans supprimer son histoire. Une estimation peut être inconnue : aucun montant fictif n'est créé. Une méthode dont le montant définitif est déjà déterminable peut être finalisée sans attendre une mesure fictive.
+**CalculationStatus V1 :** PENDING → FINALIZED ; toute correction conserve l'état FINALIZED et ajoute une révision. Pas d'état financier ni d'annulation implémentée ici.
 
 ### ShippingMeasurement — observation immuable
 
-**Données :** id, organizationId, assessmentId, poids réel et/ou volume réel selon la méthode, source, measuredAt, acteur UUID facultatif, supersedesMeasurementId facultatif, motif de correction.
+**Données :** id, organizationId, assessmentId, poids réel, poids facturable, volume ou dimensions facultatifs selon la méthode, source, occurredAt facultatif et recordedAt serveur, acteur UUID authentifié obligatoire, supersedesMeasurementId facultatif, motif de correction.
 
 **Responsabilité :** tracer ce qui a été mesuré. Une correction ajoute une observation. Le poids ne doit pas être arrondi avant le calcul ; unités et précision source sont conservées.
 
 ### ShippingCalculation — résultat immuable et révisé
 
-**Données :** id, organizationId, assessmentId, numéro de révision, kind ESTIMATE/FINAL, measurementId facultatif, méthode/tarif/devise, quantité facturable/unité, règle d'arrondi, montant, date, référence du calcul remplacé et motif facultatifs.
+**Données :** id, organizationId, assessmentId, numéro de révision, kind FINAL (estimation historique conservée dans Order), measurementId facultatif, méthode/tarif/devise, quantité facturable/unité, règle d'arrondi, montant, date, référence du calcul remplacé et motif facultatifs.
 
-**Invariants :** révision unique dans l'évaluation ; montant reproductible à partir des données conservées ; un nouveau FINAL ne remplace pas physiquement l'ancien ; pas de mesure fictive pour FIXED/PER_ITEM. Le calcul courant est désigné explicitement.
+**Invariants :** révision unique dans l'évaluation ; montant CALCULATED reproductible ou PROVIDER_QUOTED tracé explicitement ; un nouveau FINAL ne remplace pas physiquement l'ancien ; pas de mesure fictive pour FIXED/PER_ITEM. Le calcul courant est désigné explicitement.
 
-**Méthodes :** PER_KG = poids facturable en kg ; PER_CBM = volume facturable en m³ ; PER_ITEM = somme des quantités d'articles ; FIXED = montant par commande. La règle définissant le poids/volume facturable et les tarifs commerciaux restent à préciser.
+**Méthodes :** PER_KG = poids facturable en kg ; PER_CBM = volume facturable en m³ ; PER_ITEM = somme des quantités d'articles ; FIXED = montant par commande. Les règles V1 sont détaillées dans [shipping-v1.md](shipping-v1.md), avec diviseur volumétrique optionnel et montant communiqué sans formule.
 
 **CollectionMode :** AFTER_FINAL_ASSESSMENT ou ESTIMATED_AT_CHECKOUT. Ce paramètre décrit les conditions convenues ; son exécution financière appartient à ordering/payment. ESTIMATED_AT_CHECKOUT exige une estimation calculable avant placement ; une estimation inconnue ne permet pas de substituer silencieusement zéro.
 
@@ -315,3 +315,8 @@ ShipmentFact est son journal append-only : type, source externe, acteur authenti
 V1 : prestataire externe → information → gérante → Groupia. V2 future : prestataire inscrit → information directe → Groupia ; un rattachement futur ne remplacera pas les snapshots. Aucun compte prestataire n'existe en V1.
 **Donnée externe inconnue != zéro != maintenant.** ARRIVED ne déclenche ni retrait ni calcul ni paiement.
 Voir [contrat logistique](groupage-logistics.md) pour migration historique et [ADR-0015](../adr/0015-external-logistics-dossier.md) pour les choix.
+
+## Shipping V1 implémenté
+
+Voir [Shipping V1](shipping-v1.md) et [ADR-0016](../adr/0016-order-shipping-assessments.md).
+Les soldes, remboursements et états de retrait décrits comme cible restent hors tranche.

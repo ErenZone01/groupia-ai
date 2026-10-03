@@ -182,3 +182,15 @@ Contrat : [API commandes](ordering-api.md). Coordination/rejeu :
 - ARRIVED ne prouve ni formalités terminées, ni récupération par la gérante, ni disponibilité cliente, ni règlement du transport.
 - Le suivi client conserve uniquement statut/dates réelles/ETA, jamais données privées du prestataire ni timeline administrative.
 - Aucun effet sur WhatsApp, les paiements ou le retrait dans cette tranche. Les protections financières existantes restent inchangées.
+
+## Shipping V1 — règles exécutables
+
+- Information externe, provenance et acteur authentifié sont distincts.
+- Une évaluation unique par commande CONFIRMED, observations et calculs append-only.
+- Seul un calcul explicitement finalisé devient courant ; aperçu sans écriture.
+- Corrections justifiées, version obligatoire, estimations historiques immuables.
+- CALCULATED utilise les snapshots ; PROVIDER_QUOTED ne fabrique aucune formule.
+- Null signifie inconnu ; valeurs physiques présentes strictement positives ; XOF HALF_UP final seulement.
+- Aucun solde, règlement ou changement de fulfillment.
+
+Détails et seuil UX dans [shipping-v1.md](shipping-v1.md).

@@ -9,4 +9,5 @@ export interface ShippingInput {
   shippingPricingMethod?: string;
   shippingRate?: number;
   transportMode?: string;
+  volumetricDivisor?: number;
 }

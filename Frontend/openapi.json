@@ -5866,6 +5866,490 @@
           }
         ]
       }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/orders/{orderId}/shipping-preview": {
+      "post": {
+        "tags": [
+          "order-shipping-controller"
+        ],
+        "summary": "Aperçu sans finalisation",
+        "operationId": "previewShipping",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalShipping"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingExplanation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/orders/{orderId}/shipping-measurements": {
+      "post": {
+        "tags": [
+          "order-shipping-controller"
+        ],
+        "summary": "Enregistrer une information physique",
+        "operationId": "recordShippingMeasurement",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordShippingMeasurement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingAssessmentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/orders/{orderId}/shipping-finalizations": {
+      "post": {
+        "tags": [
+          "order-shipping-controller"
+        ],
+        "summary": "Finaliser ou corriger le transport",
+        "operationId": "finalizeShipping",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalShipping"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingAssessmentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipping-assessments": {
+      "get": {
+        "tags": [
+          "order-shipping-controller"
+        ],
+        "summary": "Transport des commandes confirmées",
+        "operationId": "orderShippingBatch",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderShippingRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -6048,6 +6532,9 @@
           },
           "roundingRule": {
             "type": "string"
+          },
+          "volumetricDivisor": {
+            "type": "number"
           }
         }
       },
@@ -6234,6 +6721,9 @@
           },
           "roundingRule": {
             "type": "string"
+          },
+          "volumetricDivisor": {
+            "type": "number"
           }
         }
       },
@@ -7509,6 +7999,9 @@
           },
           "groupingProgress": {
             "$ref": "#/components/schemas/GroupingProgress"
+          },
+          "shippingFinal": {
+            "$ref": "#/components/schemas/ShippingExplanation"
           }
         }
       },
@@ -8381,6 +8874,390 @@
             "maxLength": 2000,
             "minLength": 0,
             "type": "string"
+          }
+        }
+      },
+      "FinalShipping": {
+        "required": [
+          "origin",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "CALCULATED",
+              "PROVIDER_QUOTED"
+            ]
+          },
+          "measurementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quotedAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "correctionReason": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "ShippingExplanation": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "enum": [
+              "CALCULATED",
+              "PROVIDER_QUOTED"
+            ]
+          },
+          "transportMode": {
+            "type": "string",
+            "enum": [
+              "AIR",
+              "SEA",
+              "ROAD",
+              "OTHER"
+            ]
+          },
+          "pricingMethod": {
+            "type": "string",
+            "enum": [
+              "PER_KG",
+              "PER_CBM",
+              "PER_ITEM",
+              "FIXED"
+            ]
+          },
+          "method": {
+            "type": "string"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "billableQuantity": {
+            "type": "number"
+          },
+          "billableUnit": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "roundingRule": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "actualWeightKg": {
+            "type": "number"
+          },
+          "communicatedChargeableWeightKg": {
+            "type": "number"
+          },
+          "volumeCbm": {
+            "type": "number"
+          },
+          "lengthCm": {
+            "type": "number"
+          },
+          "widthCm": {
+            "type": "number"
+          },
+          "heightCm": {
+            "type": "number"
+          },
+          "volumetricDivisor": {
+            "type": "number"
+          },
+          "volumetricWeightKg": {
+            "type": "number"
+          },
+          "quantityNumerator": {
+            "type": "number"
+          },
+          "quantityDenominator": {
+            "type": "number"
+          }
+        }
+      },
+      "MeasurementInput": {
+        "type": "object",
+        "properties": {
+          "actualWeightKg": {
+            "type": "number"
+          },
+          "chargeableWeightKg": {
+            "type": "number"
+          },
+          "volumeCbm": {
+            "type": "number"
+          },
+          "lengthCm": {
+            "type": "number"
+          },
+          "widthCm": {
+            "type": "number"
+          },
+          "heightCm": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "FORWARDER",
+              "SUPPLIER",
+              "MANAGER",
+              "DOCUMENT",
+              "OTHER",
+              "UNKNOWN"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          },
+          "supersedesMeasurementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "correctionReason": {
+            "type": "string"
+          }
+        }
+      },
+      "RecordShippingMeasurement": {
+        "required": [
+          "information",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          },
+          "information": {
+            "$ref": "#/components/schemas/MeasurementInput"
+          }
+        }
+      },
+      "AssessmentSeed": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "campaignId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/ShippingTerms"
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "estimatedWeightKg": {
+            "type": "number"
+          },
+          "estimatedVolumeCbm": {
+            "type": "number"
+          },
+          "estimatedShippingAmount": {
+            "type": "number"
+          }
+        }
+      },
+      "ShippingAssessmentView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/AssessmentSeed"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "currentMeasurementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currentFinalCalculationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "measurements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShippingMeasurementView"
+            }
+          },
+          "calculations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShippingCalculationView"
+            }
+          }
+        }
+      },
+      "ShippingCalculationView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "measurementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "explanation": {
+            "$ref": "#/components/schemas/ShippingExplanation"
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          },
+          "supersedesCalculationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "correctionReason": {
+            "type": "string"
+          }
+        }
+      },
+      "ShippingMeasurementView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "information": {
+            "$ref": "#/components/schemas/MeasurementInput"
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderShippingRow": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "assessment": {
+            "$ref": "#/components/schemas/ShippingAssessmentView"
           }
         }
       }

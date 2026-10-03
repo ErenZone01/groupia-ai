@@ -1,8 +1,10 @@
+import { ShippingExplanation } from '../../shared/ui/shipping-explanation';
 import { Component, computed, input } from '@angular/core';
 import { OrderTrackingView } from '../../api/generated/models';
 import { dateLabel } from '../../shared/utils/display';
 @Component({
   selector: 'g-order-timeline',
+  imports: [ShippingExplanation],
   template: `
     <section aria-labelledby="order-progress-title">
       <h2 id="order-progress-title">Votre commande, étape par étape</h2>
@@ -44,6 +46,12 @@ import { dateLabel } from '../../shared/utils/display';
         }
       }
     </section>
+    @if (order().shippingFinal; as shipping) {
+      <section aria-label="Transport final">
+        <h2>Transport final</h2>
+        <g-shipping-explanation [value]="shipping" />
+      </section>
+    }
   `,
   styles: `
     section {

@@ -11,8 +11,9 @@ import sn.groupia.grouping.api.GroupingProgressQueries;
 import sn.groupia.shared.api.ApiException;
 @Service @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class CustomerOrderAccessQueries implements CustomerOrderAccess {
+    private final sn.groupia.shipping.api.ShippingAssessments shipping;
     private final CustomerAccessReadModel read;private final Orders orders;private final GroupingProgressQueries groups;
-    CustomerOrderAccessQueries(CustomerAccessReadModel read,Orders orders,GroupingProgressQueries groups){this.read=read;this.orders=orders;this.groups=groups;}
+    CustomerOrderAccessQueries(CustomerAccessReadModel read,Orders orders,GroupingProgressQueries groups,sn.groupia.shipping.api.ShippingAssessments shipping){this.shipping=shipping;this.read=read;this.orders=orders;this.groups=groups;}
     public CustomerOrderIdentity identity(UUID org,UUID id){return read.identity(org,id);}
     public CustomerOrderIdentity forPhone(String phone,String number){return read.forPhone(phone,number);}
     public MyOrdersPage findOrdersForVerifiedPhone(String phone,int page,int size) {
@@ -25,6 +26,6 @@ public class CustomerOrderAccessQueries implements CustomerOrderAccess {
     }
     public OrderTrackingView track(UUID org,UUID id) {
         var o=orders.find(org,id).orElseThrow(()->new ApiException(404,"CUSTOMER_ORDER_NOT_FOUND","Commande inaccessible."));
-        return OrderTrackingView.from(OrderViews.receipt(o,null),groups.progress(org,o.getCampaignId()));
+        return OrderTrackingView.from(OrderViews.receipt(o,null),groups.progress(org,o.getCampaignId()),shipping.currentFinal(org,id));
     }
 }

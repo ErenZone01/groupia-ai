@@ -1,0 +1,256 @@
+<article [attr.aria-label]="'Transport ' + row().orderNumber">
+  <header>
+    <div>
+      <h3>{{ row().orderNumber }}</h3>
+      <p>{{ row().customerName }}</p>
+    </div>
+    <span>{{ state() }}</span>
+  </header>
+  @let snap = assessment()?.snapshot;
+  <p class="muted">
+    Estimation historique :
+    @if (snap?.estimatedWeightKg != null) {
+      {{ snap?.estimatedWeightKg | number: '1.0-9' }} kg ·
+    }
+    @if (snap?.estimatedVolumeCbm != null) {
+      {{ snap?.estimatedVolumeCbm | number: '1.0-9' }} m³ ·
+    }
+    {{ money(snap?.estimatedShippingAmount) }}
+  </p>
+  @if (current(); as m) {
+    @if (m.actualWeightKg != null) {
+      <p>Poids réel communiqué : {{ m.actualWeightKg }} kg</p>
+    }
+    @if (m.chargeableWeightKg != null) {
+      <p>Poids facturable communiqué : {{ m.chargeableWeightKg }} kg</p>
+    }
+    @if (m.volumeCbm != null) {
+      <p>Volume communiqué : {{ m.volumeCbm }} m³</p>
+    }
+    @if (variance(snap?.estimatedWeightKg, m.actualWeightKg ?? m.chargeableWeightKg); as gap) {
+      <p [class.notice]="gap.percent != null && abs(gap.percent) >= threshold">
+        Écart de poids : {{ gap.difference | number: '1.0-9' }} kg
+        @if (gap.percent != null) {
+          / {{ gap.percent | number: '1.1-1' }} %
+        }
+        @if (gap.percent != null && abs(gap.percent) >= threshold) {
+          · Écart important, à vérifier. Ceci ne bloque pas la finalisation.
+        }
+      </p>
+    }
+    @if (variance(snap?.estimatedVolumeCbm, m.volumeCbm); as gap) {
+      <p [class.notice]="gap.percent != null && abs(gap.percent) >= threshold">
+        Écart de volume : {{ gap.difference | number: '1.0-9' }} m³
+        @if (gap.percent != null) {
+          / {{ gap.percent | number: '1.1-1' }} %
+        }
+        @if (gap.percent != null && abs(gap.percent) >= threshold) {
+          · Écart important, à vérifier.
+        }
+      </p>
+    }
+  }
+  @if (final()?.explanation; as e) {
+    <g-shipping-explanation [value]="e" />
+  }
+  @if (!editing()) {
+    <button gButton variant="secondary" (click)="begin()">
+      {{ final() ? 'Corriger le transport' : 'Renseigner le transport' }}
+    </button>
+  }
+  @if (editing()) {
+    <form
+      class="form-stack"
+      (ngSubmit)="showPreview()"
+      (input)="invalidate()"
+      (change)="invalidate()"
+    >
+      <fieldset [disabled]="busy() || stale()">
+        <legend>Saisie du transport</legend>
+        <label
+          >Origine du montant<select
+            gSelect
+            name="origin"
+            [(ngModel)]="origin"
+            (ngModelChange)="invalidate()"
+          >
+            <option value="CALCULATED">Calcul selon les conditions du groupage</option>
+            <option value="PROVIDER_QUOTED">Montant communiqué directement</option>
+          </select></label
+        >
+        @if (origin === 'PROVIDER_QUOTED') {
+          <label
+            >Montant communiqué (F CFA)<input
+              gInput
+              type="number"
+              min="0"
+              step="1"
+              name="amount"
+              [(ngModel)]="amount"
+              required
+          /></label>
+        } @else if (automatic()) {
+          <p>
+            Calcul automatique :
+            {{
+              terms()?.shippingPricingMethod === 'PER_ITEM'
+                ? snap?.totalItems + ' articles'
+                : 'forfait par commande'
+            }}. Aucune mesure requise.
+          </p>
+        } @else {
+          <p>
+            Renseignez uniquement les informations connues. Un poids facturable ou un volume
+            communiqué suffit sans dimensions.
+          </p>
+          @if (terms()?.volumetricDivisor) {
+            <p>
+              Règle convenue : maximum du poids réel et du poids volumétrique, diviseur
+              {{ terms()?.volumetricDivisor }}.
+            </p>
+          }
+          <div class="fields">
+            @for (field of fields; track field.key) {
+              @if (showField(field.key)) {
+                <label
+                  >{{ field.label
+                  }}<input
+                    gInput
+                    type="number"
+                    min="0.000000000000000001"
+                    step="any"
+                    [name]="field.key"
+                    [(ngModel)]="info[field.key]"
+                    (ngModelChange)="measureDirty.set(true); invalidate()"
+                /></label>
+              }
+            }
+          </div>
+        }
+        <g-logistics-source
+          [(value)]="source"
+          (valueChange)="
+            invalidate(); origin === 'CALCULATED' && !automatic() && measureDirty.set(true)
+          "
+          [disabled]="busy() || stale()"
+        />
+        <label
+          >Date communiquée (facultatif)<input
+            gInput
+            type="datetime-local"
+            name="occurred"
+            [(ngModel)]="occurred"
+        /></label>
+        <label
+          >Note privée (facultatif)<textarea
+            gInput
+            name="note"
+            maxlength="2000"
+            [(ngModel)]="note"
+          ></textarea>
+        </label>
+        @if (assessment()?.currentMeasurementId || final()) {
+          <label
+            >Motif de correction<input
+              gInput
+              name="reason"
+              maxlength="1000"
+              [(ngModel)]="reason"
+              [required]="!!final() || measureDirty()"
+          /></label>
+        }
+        @if (origin === 'CALCULATED' && !automatic()) {
+          <button
+            gButton
+            type="button"
+            variant="secondary"
+            (click)="saveMeasure()"
+            [disabled]="
+              !physicalReady() ||
+              busy() ||
+              stale() ||
+              (!!assessment()?.currentMeasurementId && !reason.trim())
+            "
+          >
+            Enregistrer la mesure
+          </button>
+          <p class="muted">L’aperçu utilise la dernière mesure enregistrée.</p>
+        }
+        <button
+          gButton
+          type="submit"
+          [disabled]="
+            busy() || stale() || (origin === 'CALCULATED' && !automatic() && measureDirty())
+          "
+          [loading]="busy()"
+        >
+          Voir l’aperçu
+        </button>
+      </fieldset>
+    </form>
+    @if (error()) {
+      <p class="form-error" role="alert">{{ error() }}</p>
+    }
+    @if (preview(); as p) {
+      <section aria-label="Aperçu du transport">
+        <h4>Aperçu du transport</h4>
+        <g-shipping-explanation [value]="p" />
+        <p>Ce montant servira ensuite à déterminer le solde éventuel de cette commande.</p>
+        <button gButton (click)="finalize()" [disabled]="busy() || stale()" [loading]="busy()">
+          Finaliser le transport
+        </button>
+      </section>
+    }
+    <button gButton variant="ghost" (click)="close()" [disabled]="busy()">Fermer la saisie</button>
+  }
+  @if (assessment()?.calculations?.length) {
+    <details>
+      <summary>Historique du transport</summary>
+      @for (c of assessment()?.calculations; track c.id) {
+        <div class="history">
+          <p>Révision {{ c.revision }} · Enregistrée le {{ dateLabel(c.recordedAt) }}</p>
+          @if (c.occurredAt) {
+            <p>Date communiquée : {{ dateLabel(c.occurredAt) }}</p>
+          }
+          @if (c.explanation) {
+            <g-shipping-explanation [value]="c.explanation" />
+          }
+          @if (c.correctionReason) {
+            <p>Motif : {{ c.correctionReason }}</p>
+          }
+          @if (c.note) {
+            <p>Note privée : {{ c.note }}</p>
+          }
+        </div>
+      }
+    </details>
+  }
+
+  @if (assessment()?.measurements?.length) {
+    <details>
+      <summary>Historique des mesures</summary>
+      @for (m of assessment()?.measurements; track m.id) {
+        <div class="history">
+          <p>
+            Source : {{ sourceLabel(m.information?.source) }} · Enregistrée le
+            {{ dateLabel(m.recordedAt) }}
+          </p>
+          @if (m.information?.occurredAt) {
+            <p>Date communiquée : {{ dateLabel(m.information?.occurredAt) }}</p>
+          }
+          @for (field of fields; track field.key) {
+            @if (m.information?.[field.key] != null) {
+              <p>{{ field.label }} : {{ m.information?.[field.key] }}</p>
+            }
+          }
+          @if (m.information?.correctionReason) {
+            <p>Motif : {{ m.information?.correctionReason }}</p>
+          }
+          @if (m.information?.note) {
+            <p>Note privée : {{ m.information?.note }}</p>
+          }
+        </div>
+      }
+    </details>
+  }
+</article>

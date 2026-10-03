@@ -121,3 +121,9 @@ Surefire désactive customeraccess par défaut, comme les providers réels, pour
 - git diff --check : réussi. Aucune dépendance ajoutée.
 
 Ajouts : 13 cas d’intégration logistique (40 au total), 1 test de migration historique, 10 tests unitaires Angular et 1 scénario navigateur complet. Les tests existants imposant une date obligatoire ou une arrivée par défaut ont été adaptés au nouveau contrat explicite ; aucune assertion financière ou de modularité n’a été supprimée.
+
+## Transport par commande
+
+La section « Transport des commandes » complète le dossier existant sans modifier sa timeline.
+Voir [Shipping V1](shipping-v1.md) : mesures, aperçu, finalisation individuelle, corrections,
+provenance publique filtrée et totaux de contrôle. Aucun effet paiement/retrait.

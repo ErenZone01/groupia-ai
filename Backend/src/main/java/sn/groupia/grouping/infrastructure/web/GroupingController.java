@@ -78,13 +78,13 @@ class GroupingController {
                     ShippingPricingMethod.valueOf(input.shippingPricingMethod()),
                     ShippingCollectionMode.valueOf(input.shippingCollectionMode()), input.shippingRate(),
                     input.shippingCurrency() == null ? "XOF" : input.shippingCurrency(),
-                    input.roundingRule() == null ? "HALF_UP" : input.roundingRule());
+                    input.roundingRule() == null ? "HALF_UP" : input.roundingRule(), input.volumetricDivisor());
         } catch (IllegalArgumentException | NullPointerException ex) {
             throw new ApiException(400, "INVALID_SHIPPING_TERMS", "Conditions de transport invalides.");
         }
     }
     record ShippingInput(String originCountry, String transportMode, String shippingPricingMethod,
-            String shippingCollectionMode, BigDecimal shippingRate, String shippingCurrency, String roundingRule) {}
+            String shippingCollectionMode, BigDecimal shippingRate, String shippingCurrency, String roundingRule, BigDecimal volumetricDivisor) {}
     record CreateCampaign(@NotBlank @Size(max = 160) String title, @Size(max = 5000) String description,
             Instant closesAt, @Valid ShippingInput shippingTerms) {}
     record UpdateCampaign(@NotNull @PositiveOrZero Long version, @NotBlank @Size(max = 160) String title,

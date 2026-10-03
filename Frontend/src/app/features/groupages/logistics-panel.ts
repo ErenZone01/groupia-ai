@@ -1,3 +1,4 @@
+import { ShippingBatch } from './shipping-batch';
 import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subscription } from 'rxjs';
@@ -22,6 +23,7 @@ import { optionLabel, transportOptions } from './groupage-labels';
 @Component({
   selector: 'g-logistics-panel',
   imports: [
+    ShippingBatch,
     FormsModule,
     Button,
     Input,

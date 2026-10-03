@@ -107,3 +107,11 @@ export type { Get2$Params as Get2$Params } from './fn/public-grouping-controller
 export { get2 as get2 } from './fn/public-grouping-controller/get-2';
 export type { SupplierSummary$Params as SupplierSummary$Params } from './fn/supplier-summary-controller/supplier-summary';
 export { supplierSummary as supplierSummary } from './fn/supplier-summary-controller/supplier-summary';
+export type { PreviewShipping$Params as PreviewShipping$Params } from './fn/order-shipping-controller/preview-shipping';
+export { previewShipping as previewShipping } from './fn/order-shipping-controller/preview-shipping';
+export type { RecordShippingMeasurement$Params as RecordShippingMeasurement$Params } from './fn/order-shipping-controller/record-shipping-measurement';
+export { recordShippingMeasurement as recordShippingMeasurement } from './fn/order-shipping-controller/record-shipping-measurement';
+export type { FinalizeShipping$Params as FinalizeShipping$Params } from './fn/order-shipping-controller/finalize-shipping';
+export { finalizeShipping as finalizeShipping } from './fn/order-shipping-controller/finalize-shipping';
+export type { OrderShippingBatch$Params as OrderShippingBatch$Params } from './fn/order-shipping-controller/order-shipping-batch';
+export { orderShippingBatch as orderShippingBatch } from './fn/order-shipping-controller/order-shipping-batch';

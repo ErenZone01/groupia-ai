@@ -12,3 +12,4 @@ export { CampaignLogisticsControllerService } from './services/campaign-logistic
 export { AuthControllerService } from './services/auth-controller.service';
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';
+export { OrderShippingControllerService } from './services/order-shipping-controller.service';

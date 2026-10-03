@@ -3,6 +3,7 @@
 
 import { GroupingProgress } from '../models/grouping-progress';
 import { OrderLineView } from '../models/order-line-view';
+import { ShippingExplanation } from '../models/shipping-explanation';
 export interface OrderTrackingView {
   currency?: string;
   estimatedShippingAmount?: number;
@@ -16,5 +17,6 @@ export interface OrderTrackingView {
   paymentDeadline?: string;
   placedAt?: string;
   platformFeeAmount?: number;
+  shippingFinal?: ShippingExplanation;
   status?: string;
 }

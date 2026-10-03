@@ -1,5 +1,19 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  SHIPPING_VERSION_CONFLICT: 'Le transport a changé. Actualisez la commande.',
+  SHIPPING_MEASUREMENT_STALE: 'La mesure a changé. Actualisez la commande.',
+  SHIPPING_MEASUREMENT_REQUIRED:
+    'Enregistrez les informations nécessaires au calcul : poids, volume ou dimensions complètes.',
+  SHIPPING_CORRECTION_REASON_REQUIRED: 'Précisez le motif de cette correction.',
+  SHIPPING_MEASUREMENT_CORRECTION_REQUIRED:
+    'La correction doit désigner la dernière mesure et préciser son motif.',
+  INVALID_SHIPPING_MEASUREMENT:
+    'Renseignez des mesures strictement positives ; laissez vide ce qui est inconnu.',
+  INVALID_SHIPPING_CALCULATION: 'Vérifiez le montant, la devise et le mode de calcul.',
+  SHIPPING_ORDER_NOT_ELIGIBLE:
+    'Cette commande ne peut plus être traitée. Actualisez les commandes.',
+  SHIPPING_CAMPAIGN_NOT_ELIGIBLE: 'Le transport est disponible après la commande fournisseur.',
+
   INVALID_SHIPMENT_DATES: 'Vérifiez les dates de départ et d’arrivée.',
   INVALID_SHIPMENT_INFORMATION: 'Vérifiez les informations logistiques.',
   SHIPMENT_VERSION_CONFLICT: 'Le dossier logistique a changé. Actualisez-le.',

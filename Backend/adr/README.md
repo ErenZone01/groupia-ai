@@ -50,3 +50,5 @@ politique explicite par provider, réconciliation conservée et éligibilité pr
 [ADR-0015](0015-external-logistics-dossier.md), daté du 2 octobre 2026 :
 dossier logistique externe facultatif, dates inconnues distinctes des confirmations,
 timeline privée append-only et migration historique sans perte de données.
+
+- [0016 — Mesures externes et calcul final par commande](0016-order-shipping-assessments.md)

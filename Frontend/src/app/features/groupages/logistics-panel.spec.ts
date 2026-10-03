@@ -43,6 +43,7 @@ describe('Logistique du groupage', () => {
     });
   });
   afterEach(() => {
+    http.match(r => r.url.endsWith('/shipping-assessments')).forEach(r => {if(!r.cancelled)r.flush([]);});
     fixture.destroy();
     http.verify();
   });

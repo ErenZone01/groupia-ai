@@ -15,6 +15,8 @@ public class CampaignTerms {
     @Column(length = 3) private String shippingCurrency;
     @Column(length = 16) private String roundingRule;
 
+    @Column(columnDefinition="numeric") private BigDecimal volumetricDivisor;
+
     protected CampaignTerms() {}
     static CampaignTerms from(ShippingTerms source) {
         if (source == null) { return null; }
@@ -26,10 +28,11 @@ public class CampaignTerms {
         terms.shippingRate = source.shippingRate();
         terms.shippingCurrency = source.shippingCurrency();
         terms.roundingRule = source.roundingRule();
+        terms.volumetricDivisor=source.volumetricDivisor();
         return terms;
     }
     ShippingTerms view() {
         return new ShippingTerms(originCountry, transportMode, shippingPricingMethod,
-                shippingCollectionMode, shippingRate, shippingCurrency, roundingRule);
+                shippingCollectionMode, shippingRate, shippingCurrency, roundingRule, volumetricDivisor);
     }
 }

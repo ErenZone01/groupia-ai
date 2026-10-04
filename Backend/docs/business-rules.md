@@ -194,3 +194,7 @@ Contrat : [API commandes](ordering-api.md). Coordination/rejeu :
 - Aucun solde, règlement ou changement de fulfillment.
 
 Détails et seuil UX dans [shipping-v1.md](shipping-v1.md).
+
+## Solde transport V1
+
+Le total transport payé additionne le snapshot initial de la commande confirmée et les seuls compléments réellement alloués. Un solde positif crée une obligation SHIPPING_BALANCE sans frais plateforme ni expiration métier ; zéro ne crée rien ; un négatif produit CREDIT_DUE sans remboursement automatique. Une correction est atomique avec le remplacement de l’obligation et est refusée tant qu’une tentative est dangereuse. Un retour Bictorys ne prouve jamais un paiement. Aucun changement de statut de commande/retrait ni envoi WhatsApp supplémentaire. Voir [recette et sécurité](shipping-balance.md).

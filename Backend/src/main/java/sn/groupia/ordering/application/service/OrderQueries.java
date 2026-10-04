@@ -11,21 +11,22 @@ import sn.groupia.shared.api.ApiException;
 
 @Service @Transactional(readOnly = true)
 public class OrderQueries {
+    private final ShippingFinance finance;
     private final sn.groupia.shipping.api.ShippingAssessments shipping;
     private final Orders orders;
     private final OrganizationAccess access;
     private final CheckoutSecrets secrets;
     private final Clock clock;
     private final sn.groupia.grouping.api.GroupingProgressQueries progress;
-    OrderQueries(Orders orders, OrganizationAccess access, CheckoutSecrets secrets, Clock clock, sn.groupia.grouping.api.GroupingProgressQueries progress,sn.groupia.shipping.api.ShippingAssessments shipping) {
-        this.shipping=shipping; this.orders = orders; this.access = access; this.secrets = secrets; this.clock = clock; this.progress=progress;
+    OrderQueries(Orders orders, OrganizationAccess access, CheckoutSecrets secrets, Clock clock, sn.groupia.grouping.api.GroupingProgressQueries progress,sn.groupia.shipping.api.ShippingAssessments shipping,ShippingFinance finance) {
+        this.finance=finance;this.shipping=shipping; this.orders = orders; this.access = access; this.secrets = secrets; this.clock = clock; this.progress=progress;
     }
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public OrderTrackingView track(String token) {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) { throw trackingInvalid(); }
         var order = orders.findByTrackingHash(secrets.hash(token)).filter(o -> o.allowsTrackingAt(clock.instant()))
                 .orElseThrow(this::trackingInvalid);
-        return OrderTrackingView.from(OrderViews.receipt(order, null),progress.progress(order.getOrganizationId(),order.getCampaignId()),shipping.currentFinal(order.getOrganizationId(),order.getId()));
+        return OrderTrackingView.from(OrderViews.receipt(order, null),progress.progress(order.getOrganizationId(),order.getCampaignId()),shipping.currentFinal(order.getOrganizationId(),order.getId()),finance.read(order));
     }
     public OrganizerOrderView get(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.VIEW_ORDERS);

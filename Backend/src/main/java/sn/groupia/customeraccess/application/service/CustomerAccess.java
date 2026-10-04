@@ -90,6 +90,8 @@ public class CustomerAccess implements NotificationContentSource {
         var order=authorized(s,number);
         return orders.track(order.organizationId(),order.id());
     }
+    @Transactional(readOnly=true)
+    public CustomerOrderIdentity paymentIdentity(String token,String number){return authorized(session(token),number);}
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public CustomerOrderCapabilities capabilities(String token,String number) {
         var s=session(token);var order=authorized(s,number);

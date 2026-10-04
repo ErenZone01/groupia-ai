@@ -71,6 +71,8 @@ export type { CustomerOrderCapabilities$Params as CustomerOrderCapabilities$Para
 export { customerOrderCapabilities as customerOrderCapabilities } from './fn/customer-access-controller/customer-order-capabilities';
 export type { CustomerCsrf$Params as CustomerCsrf$Params } from './fn/customer-access-controller/customer-csrf';
 export { customerCsrf as customerCsrf } from './fn/customer-access-controller/customer-csrf';
+export type { InitiateCustomerShippingPayment$Params as InitiateCustomerShippingPayment$Params } from './fn/customer-access-controller/initiate-customer-shipping-payment';
+export { initiateCustomerShippingPayment as initiateCustomerShippingPayment } from './fn/customer-access-controller/initiate-customer-shipping-payment';
 export type { Webhook$Params as Webhook$Params } from './fn/payment-controller/webhook';
 export { webhook as webhook } from './fn/payment-controller/webhook';
 export type { List3$Params as List3$Params } from './fn/payment-controller/list-3';

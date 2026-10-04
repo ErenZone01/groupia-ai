@@ -10,6 +10,7 @@ public interface FinancialStore {
     void flush();
     Optional<PaymentRequest> byBusinessReference(String reference);
     Optional<PaymentRequest> initial(UUID org, UUID order);
+    List<PaymentRequest> shippingRequests(UUID org, UUID order);
     Optional<PaymentRequest> request(UUID id);
     PaymentRequest lockRequest(UUID id);
     Optional<Payment> attempt(UUID request, String key);

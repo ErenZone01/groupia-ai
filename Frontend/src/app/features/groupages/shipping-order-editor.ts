@@ -1,3 +1,4 @@
+import { ShippingSettlement } from '../../shared/ui/shipping-settlement';
 import { logisticsSourceLabel } from './logistics-labels';
 import {
   Component,
@@ -36,6 +37,7 @@ import { apiMessage, apiCode } from '../../core/http/api-error';
 @Component({
   selector: 'g-shipping-order-editor',
   imports: [
+    ShippingSettlement,
     FormsModule,
     DecimalPipe,
     Button,

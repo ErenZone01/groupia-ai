@@ -35,6 +35,10 @@ class PaymentPersistence implements FinancialStore {
         return em.createQuery("select r from PaymentRequest r where r.organizationId=:org and r.orderId=:order and r.purpose=:purpose",PaymentRequest.class)
                 .setParameter("org",org).setParameter("order",order).setParameter("purpose",PaymentPurpose.INITIAL_ORDER).getResultStream().findFirst();
     }
+    @Override public List<PaymentRequest> shippingRequests(UUID org, UUID order) {
+        return em.createQuery("select r from PaymentRequest r where r.organizationId=:org and r.orderId=:order and r.purpose=:purpose order by r.createdAt,r.id",PaymentRequest.class)
+            .setParameter("org",org).setParameter("order",order).setParameter("purpose",PaymentPurpose.SHIPPING_BALANCE).getResultList();
+    }
     @Override public Optional<PaymentRequest> request(UUID id) { return Optional.ofNullable(em.find(PaymentRequest.class,id)); }
     @Override public PaymentRequest lockRequest(UUID id) {
         var r = em.find(PaymentRequest.class,id,LockModeType.PESSIMISTIC_WRITE);

@@ -52,3 +52,5 @@ dossier logistique externe facultatif, dates inconnues distinctes des confirmati
 timeline privée append-only et migration historique sans perte de données.
 
 - [0016 — Mesures externes et calcul final par commande](0016-order-shipping-assessments.md)
+
+- [0017 — Position financière transport et obligations révisables](0017-shipping-finance.md)

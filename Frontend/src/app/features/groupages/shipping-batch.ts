@@ -12,7 +12,10 @@ import { money } from '../../shared/utils/display';
   imports: [Button, ShippingOrderEditor, DecimalPipe],
   template: ` <section aria-labelledby="shipping-batch-title">
     <h2 id="shipping-batch-title">Transport des commandes</h2>
-    <p>Renseignez chaque commande à votre rythme. La finalisation ne demande aucun paiement.</p>
+    <p>
+      Renseignez chaque commande à votre rythme. La finalisation rend le solde éventuel accessible
+      depuis le suivi cliente.
+    </p>
     @if (loading()) {
       <p role="status">Chargement du transport…</p>
     }
@@ -134,6 +137,25 @@ export class ShippingBatch {
       });
   }
   apply(id: string, assessment: ShippingAssessmentView) {
-    this.rows.update((rows) => rows.map((r) => (r.orderId === id ? { ...r, assessment } : r)));
+    this.rows.update((rows) =>
+      rows.map((r) => (r.orderId === id ? { ...r, assessment, shippingSettlement: undefined } : r)),
+    );
+    // Read the server position after the atomic finalization; never calculate money in the browser.
+    this.request?.unsubscribe();
+    this.request = this.api
+      .orderShippingBatch({ organizationId: this.organizationId(), campaignId: this.campaignId() })
+      .pipe(timeout(15000))
+      .subscribe({
+        next: (rows) =>
+          this.rows.update((current) =>
+            current.map((row) =>
+              row.orderId === id ? (rows.find((r) => r.orderId === id) ?? row) : row,
+            ),
+          ),
+        error: () =>
+          this.error.set(
+            'Le transport est enregistré. Actualisez pour relire sa position financière.',
+          ),
+      });
   }
 }

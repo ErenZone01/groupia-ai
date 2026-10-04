@@ -11,9 +11,19 @@ import sn.groupia.grouping.api.GroupingProgressQueries;
 import sn.groupia.shared.api.ApiException;
 @Service @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class CustomerOrderAccessQueries implements CustomerOrderAccess {
+    private final sn.groupia.payment.api.PaymentOperations payments;
+    private final ShippingFinance finance;
     private final sn.groupia.shipping.api.ShippingAssessments shipping;
     private final CustomerAccessReadModel read;private final Orders orders;private final GroupingProgressQueries groups;
-    CustomerOrderAccessQueries(CustomerAccessReadModel read,Orders orders,GroupingProgressQueries groups,sn.groupia.shipping.api.ShippingAssessments shipping){this.shipping=shipping;this.read=read;this.orders=orders;this.groups=groups;}
+    CustomerOrderAccessQueries(CustomerAccessReadModel read,Orders orders,GroupingProgressQueries groups,sn.groupia.shipping.api.ShippingAssessments shipping,ShippingFinance finance,sn.groupia.payment.api.PaymentOperations payments){this.payments=payments;this.finance=finance;this.shipping=shipping;this.read=read;this.orders=orders;this.groups=groups;}
+
+    @Override @Transactional(propagation=Propagation.NEVER)
+    public CustomerPaymentAttempt initiateShippingBalance(UUID org,UUID id,String provider,String key){
+        var checkout=finance.checkout(org,id);
+        var attempt=payments.initiateRequest(org,checkout.requestId(),provider,key,checkout.context());
+        return new CustomerPaymentAttempt(attempt.id(),attempt.status().name(),attempt.expectedAmount(),attempt.currency(),
+            attempt.reconciliationRequired(),attempt.initiatedAt(),attempt.checkoutUrl());
+    }
     public CustomerOrderIdentity identity(UUID org,UUID id){return read.identity(org,id);}
     public CustomerOrderIdentity forPhone(String phone,String number){return read.forPhone(phone,number);}
     public MyOrdersPage findOrdersForVerifiedPhone(String phone,int page,int size) {
@@ -26,6 +36,6 @@ public class CustomerOrderAccessQueries implements CustomerOrderAccess {
     }
     public OrderTrackingView track(UUID org,UUID id) {
         var o=orders.find(org,id).orElseThrow(()->new ApiException(404,"CUSTOMER_ORDER_NOT_FOUND","Commande inaccessible."));
-        return OrderTrackingView.from(OrderViews.receipt(o,null),groups.progress(org,o.getCampaignId()),shipping.currentFinal(org,id));
+        return OrderTrackingView.from(OrderViews.receipt(o,null),groups.progress(org,o.getCampaignId()),shipping.currentFinal(org,id),finance.read(o));
     }
 }

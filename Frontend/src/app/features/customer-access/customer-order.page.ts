@@ -1,3 +1,4 @@
+import { CustomerShippingPayment } from './customer-shipping-payment';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PublicShell } from '../checkout/public-shell';
@@ -10,7 +11,7 @@ import { orderStatus, fulfillmentStatus } from '../checkout/public-messages';
 import { accessError } from './access-errors';
 @Component({
   selector: 'g-customer-order-page',
-  imports: [PublicShell, Button, RouterLink, OrderTimeline, OrderSummary],
+  imports: [CustomerShippingPayment, PublicShell, Button, RouterLink, OrderTimeline, OrderSummary],
   styleUrl: './access-page.scss',
   template: `<g-public-shell>
     @if (phoneVerified()) {
@@ -24,6 +25,11 @@ import { accessError } from './access-errors';
       <p class="eyebrow">{{ statusLabel(value.status) }}</p>
       <p>{{ fulfillment(value.fulfillmentStatus) }}</p>
       <g-order-timeline [order]="value" />
+      <g-customer-shipping-payment
+        [value]="value.shippingSettlement"
+        [orderNumber]="value.orderNumber!"
+        (refresh)="load(true)"
+      />
       <g-order-summary [receipt]="value" [confirmed]="value.status === 'CONFIRMED'" />
       <div class="actions">
         <button gButton variant="secondary" [disabled]="busy()" (click)="load()">
@@ -66,16 +72,17 @@ export class CustomerOrderPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly message = signal('');
-  readonly statusLabel = orderStatus;
+  readonly statusLabel = (value?: string) =>
+    value === 'CONFIRMED' ? 'Commande confirmée' : orderStatus(value);
   readonly fulfillment = fulfillmentStatus;
   constructor() {
     void this.load();
   }
-  async load() {
+  async load(quiet = false) {
     if (this.busy()) return;
     this.busy.set(true);
     this.error.set('');
-    this.order.set(null);
+    if (!quiet) this.order.set(null);
     this.phoneVerified.set(false);
     this.canResendTrackingLink.set(false);
     try {

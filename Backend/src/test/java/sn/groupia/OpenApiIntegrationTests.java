@@ -40,6 +40,7 @@ class OpenApiIntegrationTests {
         Files.writeString(Path.of("target/groupia-openapi.json"),doc.toPrettyString());
         assertThat(doc.at("/components/schemas/OrderReceipt/properties/orderNumber").isMissingNode()).isFalse();
         assertThat(doc.at("/components/schemas/OrderReplay/properties/replayed").isMissingNode()).isFalse();
+        assertThat(doc.at("/components/schemas/PaymentRequestView/properties/expiresAt/nullable").asBoolean()).isTrue();
     }
     private void assertReferences(JsonNode root,JsonNode node) {
         if(node.isObject() && node.has("$ref") && node.get("$ref").asText().startsWith("#/")) {

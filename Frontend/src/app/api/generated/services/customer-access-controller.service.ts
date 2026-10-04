@@ -20,11 +20,14 @@ import { CustomerOrderCapabilities } from '../models/customer-order-capabilities
 import { CustomerOrderCapabilities$Params } from '../fn/customer-access-controller/customer-order-capabilities';
 import { customerOrders } from '../fn/customer-access-controller/customer-orders';
 import { CustomerOrders$Params } from '../fn/customer-access-controller/customer-orders';
+import { CustomerPaymentAttempt } from '../models/customer-payment-attempt';
 import { customerSession } from '../fn/customer-access-controller/customer-session';
 import { CustomerSession$Params } from '../fn/customer-access-controller/customer-session';
 import { CustomerSessionView } from '../models/customer-session-view';
 import { exchangeCustomerLink } from '../fn/customer-access-controller/exchange-customer-link';
 import { ExchangeCustomerLink$Params } from '../fn/customer-access-controller/exchange-customer-link';
+import { initiateCustomerShippingPayment } from '../fn/customer-access-controller/initiate-customer-shipping-payment';
+import { InitiateCustomerShippingPayment$Params } from '../fn/customer-access-controller/initiate-customer-shipping-payment';
 import { logoutCustomer } from '../fn/customer-access-controller/logout-customer';
 import { LogoutCustomer$Params } from '../fn/customer-access-controller/logout-customer';
 import { MyOrdersPage } from '../models/my-orders-page';
@@ -339,6 +342,33 @@ export class CustomerAccessControllerService extends BaseService {
     const resp = this.customerCsrf$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CsrfView>): CsrfView => r.body)
+    );
+  }
+
+  /** Path part for operation `initiateCustomerShippingPayment()` */
+  static readonly InitiateCustomerShippingPaymentPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payments';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `initiateCustomerShippingPayment()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  initiateCustomerShippingPayment$Response(params: InitiateCustomerShippingPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerPaymentAttempt>> {
+    const obs = initiateCustomerShippingPayment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `initiateCustomerShippingPayment$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  initiateCustomerShippingPayment(params: InitiateCustomerShippingPayment$Params, context?: HttpContext): Observable<CustomerPaymentAttempt> {
+    const resp = this.initiateCustomerShippingPayment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CustomerPaymentAttempt>): CustomerPaymentAttempt => r.body)
     );
   }
 

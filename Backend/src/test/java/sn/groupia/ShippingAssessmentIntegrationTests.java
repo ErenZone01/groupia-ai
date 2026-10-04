@@ -64,7 +64,7 @@ class ShippingAssessmentIntegrationTests {
  private JsonNode measure(long v,Map<String,Object> i)throws Exception{return read(auth(post(shipping()+"/shipping-measurements"),Map.of("version",v,"information",i)).andExpect(status().isOk()).andReturn());}
  private Map<String,Object> calculated(long v,JsonNode m){return Map.of("version",v,"origin","CALCULATED","measurementId",m.path("currentMeasurementId").asText());}
  private Map<String,Object> quoted(long v){return Map.of("version",v,"origin","PROVIDER_QUOTED","quotedAmount",12500,"currency","XOF","source","FORWARDER","note","PRIVATE-NOTE");}
- @Test void previewFinalAndSafeTrackingPreserveFinance()throws Exception{
+ @Test void previewFinalAndSafeTrackingPreserveCommercialValues()throws Exception{
  var before=jdbc.queryForMap("select status,fulfillment_status,estimated_shipping_amount,initial_amount_due from orders where id=?",orderId());
  auth(get(base()+"/shipping-assessments")).andExpect(status().isOk()).andExpect(jsonPath("$[0].assessment.status").value("PENDING"));
  assertThat(jdbc.queryForObject("select count(*) from shipping_assessments",Integer.class)).isZero();
@@ -76,7 +76,7 @@ class ShippingAssessmentIntegrationTests {
  var t=read(track().andExpect(status().isOk()).andExpect(jsonPath("$.shippingFinal.amount").value(9800)).andReturn());
  assertThat(t.toString()).doesNotContain("PRIVATE-NOTE","actorId","assessmentId","organizationId","correctionReason");
  assertThat(jdbc.queryForMap("select status,fulfillment_status,estimated_shipping_amount,initial_amount_due from orders where id=?",orderId())).isEqualTo(before);
- assertThat(jdbc.queryForObject("select count(*) from payment_requests where purpose='SHIPPING_BALANCE'",Integer.class)).isZero();
+ assertThat(jdbc.queryForObject("select count(*) from payment_requests where purpose='SHIPPING_BALANCE'",Integer.class)).isEqualTo(1);
  }
  @Test void appendOnlyCorrections()throws Exception{
  var m=measure(0,Map.of("actualWeightKg",2.8,"source","FORWARDER"));

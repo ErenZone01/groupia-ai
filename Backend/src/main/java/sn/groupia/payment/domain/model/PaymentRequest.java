@@ -22,7 +22,7 @@ public class PaymentRequest {
     @Column(nullable = false, length = 3, updatable = false) private String currency;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 32) private AcceptanceStatus acceptanceStatus;
      private UUID settledPaymentId;
-    @Column(nullable = false, updatable = false) private Instant expiresAt;
+    @Column(updatable = false) private Instant expiresAt;
     @Column(nullable = false, updatable = false) private Instant createdAt;
      private Instant closedAt;
      private Instant cancelledAt;
@@ -30,7 +30,7 @@ public class PaymentRequest {
     protected PaymentRequest() {}
 
     public static PaymentRequest create(CreatePaymentRequest c, Instant now) {
-        if (c.organizationId() == null || c.orderId() == null || c.purpose() == null || c.expiresAt() == null
+        if (c.organizationId() == null || c.orderId() == null || c.purpose() == null || (c.purpose() == PaymentPurpose.INITIAL_ORDER && c.expiresAt() == null)
                 || c.businessReference() == null || !c.businessReference().matches("[A-Za-z0-9:._-]{1,160}")
                 || !"XOF".equals(c.currency())) { throw new ApiException(400,"INVALID_PAYMENT_REQUEST","Obligation invalide."); }
         var r = new PaymentRequest(); r.id = UUID.randomUUID(); r.organizationId = c.organizationId(); r.orderId = c.orderId();
@@ -40,19 +40,23 @@ public class PaymentRequest {
         if (r.goodsAmount.add(r.feeAmount).add(r.shippingAmount).compareTo(r.expectedAmount) != 0) {
             throw new ApiException(400,"INVALID_PAYMENT_BREAKDOWN","Ventilation incohérente.");
         }
-        r.expiresAt = c.expiresAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS); r.createdAt = now; r.acceptanceStatus = AcceptanceStatus.OPEN;
+        if (r.purpose == PaymentPurpose.SHIPPING_BALANCE && (r.expectedAmount.signum() <= 0 || r.goodsAmount.signum() != 0 || r.feeAmount.signum() != 0)) {
+            throw new ApiException(400,"INVALID_PAYMENT_BREAKDOWN","Le solde transport doit être positif, sans frais ni marchandises.");
+        }
+        r.expiresAt = normalize(c.expiresAt()); r.createdAt = now; r.acceptanceStatus = AcceptanceStatus.OPEN;
         return r;
     }
+    private static Instant normalize(Instant value) { return value == null ? null : value.truncatedTo(java.time.temporal.ChronoUnit.MICROS); }
     public boolean matches(CreatePaymentRequest c) {
         return organizationId.equals(c.organizationId()) && orderId.equals(c.orderId()) && purpose == c.purpose()
                 && currency.equals(c.currency()) && expectedAmount.compareTo(c.expectedAmount()) == 0
                 && goodsAmount.compareTo(c.goodsAmount()) == 0 && feeAmount.compareTo(c.feeAmount()) == 0
                 && shippingAmount.compareTo(c.shippingAmount()) == 0
-                && expiresAt.equals(c.expiresAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+                && Objects.equals(expiresAt,normalize(c.expiresAt()));
     }
     public void requireOpen(Instant now) {
         if (settledPaymentId != null) { throw new ApiException(409,"PAYMENT_ALREADY_SETTLED","Cette obligation est réglée."); }
-        if (!now.isBefore(expiresAt)) { throw new ApiException(409,"PAYMENT_REQUEST_EXPIRED","Le délai de paiement est dépassé."); }
+        if ((expiresAt != null && !now.isBefore(expiresAt))) { throw new ApiException(409,"PAYMENT_REQUEST_EXPIRED","Le délai de paiement est dépassé."); }
         if (acceptanceStatus != AcceptanceStatus.OPEN) { throw new ApiException(409,"PAYMENT_REQUEST_CLOSED","Cette obligation est fermée."); }
         if (expectedAmount.signum() == 0) { throw new ApiException(409,"PAYMENT_ZERO_AMOUNT_REQUIRES_REVIEW","Une obligation nulle nécessite une décision explicite."); }
     }
@@ -67,7 +71,7 @@ public class PaymentRequest {
     /** Read-only eligibility check, shared by allocation and authoritative webhook validation. */
     public String settlementRejection(UUID paymentId, Instant now) {
         if (settledPaymentId != null) { return settledPaymentId.equals(paymentId) ? null : "DUPLICATE_SUCCESS"; }
-        if (!now.isBefore(expiresAt) || acceptanceStatus != AcceptanceStatus.OPEN) { return "LATE_SUCCESS"; }
+        if ((expiresAt != null && !now.isBefore(expiresAt)) || acceptanceStatus != AcceptanceStatus.OPEN) { return "LATE_SUCCESS"; }
         return null;
     }
     public boolean cancel(Instant now) {

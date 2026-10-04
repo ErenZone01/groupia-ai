@@ -6,4 +6,6 @@ import sn.groupia.payment.api.*;
 public record PaymentRequestView(UUID id, UUID organizationId, UUID orderId, PaymentPurpose purpose,
         String businessReference, BigDecimal expectedAmount, String currency, BigDecimal goodsAmount,
         BigDecimal feeAmount, BigDecimal shippingAmount, AcceptanceStatus acceptanceStatus,
+        @io.swagger.v3.oas.annotations.media.Schema(nullable=true,format="date-time",
+            description="Deadline obligatoire pour INITIAL_ORDER ; null autorisé pour SHIPPING_BALANCE.")
         Instant expiresAt, UUID settledPaymentId, Instant createdAt, Instant closedAt, Instant cancelledAt, long version) {}

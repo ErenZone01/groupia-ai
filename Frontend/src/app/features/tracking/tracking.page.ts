@@ -1,3 +1,4 @@
+import { ShippingSettlement } from '../../shared/ui/shipping-settlement';
 import { OrderTimeline } from './order-timeline';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -10,7 +11,15 @@ import { Skeleton } from '../../shared/feedback/skeleton';
 @Component({
   selector: 'g-tracking-page',
   providers: [PublicTrackingStore],
-  imports: [OrderTimeline, PublicShell, OrderSummary, Button, Skeleton, RouterLink],
+  imports: [
+    ShippingSettlement,
+    OrderTimeline,
+    PublicShell,
+    OrderSummary,
+    Button,
+    Skeleton,
+    RouterLink,
+  ],
   template: ` <g-public-shell>
     @if (!store.session.current()?.trackingToken || store.unavailable()) {
       <h1>Votre suivi</h1>
@@ -26,6 +35,10 @@ import { Skeleton } from '../../shared/feedback/skeleton';
           <p class="notice" role="status">✓ Votre commande est confirmée.</p>
         }
         <g-order-timeline [order]="order" />
+        <g-shipping-settlement [value]="order.shippingSettlement" />
+        @if (order.shippingSettlement?.status === 'BALANCE_DUE') {
+          <p><a routerLink="/suivi">Retrouver ma commande pour payer le transport</a></p>
+        }
         <p>Retrait : {{ fulfillment(order.fulfillmentStatus) }}</p>
       } @else {
         <h1>Vérification de votre commande</h1>

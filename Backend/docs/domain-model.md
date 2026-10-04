@@ -320,3 +320,7 @@ Voir [contrat logistique](groupage-logistics.md) pour migration historique et [A
 
 Voir [Shipping V1](shipping-v1.md) et [ADR-0016](../adr/0016-order-shipping-assessments.md).
 Les soldes, remboursements et états de retrait décrits comme cible restent hors tranche.
+
+## Shipping Finance V1
+
+ShippingSettlementView est dérivée par commande : FINAL courant moins transport initial réellement payé et PaymentRequest SHIPPING_BALANCE allouées. États NOT_FINALIZED, BALANCE_DUE, SETTLED, CREDIT_DUE ; tentative en cours séparée. Aucune table monétaire dupliquée. L’obligation liée au calcul courant est positive, sans frais, avec expiresAt nullable pour SHIPPING_BALANCE uniquement. Historique des paiements et révisions conservé. Voir [shipping-balance.md](shipping-balance.md).

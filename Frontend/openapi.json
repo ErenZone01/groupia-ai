@@ -6350,6 +6350,143 @@
           }
         ]
       }
+    },
+    "/api/public/customer-access/orders/{orderNumber}/shipping-balance/payments": {
+      "post": {
+        "tags": [
+          "customer-access-controller"
+        ],
+        "operationId": "initiateCustomerShippingPayment",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingPaymentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPaymentAttempt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Customer session or link unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phone verification or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Payment provider unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CustomerSession": [],
+            "CustomerCsrf": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -8002,6 +8139,9 @@
           },
           "shippingFinal": {
             "$ref": "#/components/schemas/ShippingExplanation"
+          },
+          "shippingSettlement": {
+            "$ref": "#/components/schemas/ShippingSettlementView"
           }
         }
       },
@@ -8335,7 +8475,9 @@
           },
           "expiresAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Deadline obligatoire pour INITIAL_ORDER ; null autorisé pour SHIPPING_BALANCE.",
+            "nullable": true
           },
           "settledPaymentId": {
             "type": "string",
@@ -9258,6 +9400,110 @@
           },
           "assessment": {
             "$ref": "#/components/schemas/ShippingAssessmentView"
+          },
+          "shippingSettlement": {
+            "$ref": "#/components/schemas/ShippingSettlementView"
+          }
+        }
+      },
+      "ShippingPaymentInput": {
+        "required": [
+          "provider"
+        ],
+        "type": "object",
+        "properties": {
+          "provider": {
+            "minLength": 1,
+            "pattern": "(?i)BICTORYS",
+            "type": "string"
+          }
+        }
+      },
+      "CustomerPaymentAttempt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "expectedAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "reconciliationRequired": {
+            "type": "boolean"
+          },
+          "initiatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkoutUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "CurrentObligation": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      },
+      "ShippingSettlementView": {
+        "type": "object",
+        "properties": {
+          "finalShippingAmount": {
+            "type": "number"
+          },
+          "initialShippingPaidAmount": {
+            "type": "number"
+          },
+          "additionalShippingPaidAmount": {
+            "type": "number"
+          },
+          "totalShippingPaidAmount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_FINALIZED",
+              "BALANCE_DUE",
+              "SETTLED",
+              "CREDIT_DUE"
+            ]
+          },
+          "amountDue": {
+            "type": "number"
+          },
+          "creditAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "currentShippingCalculationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "currentPaymentRequest": {
+            "$ref": "#/components/schemas/CurrentObligation"
+          },
+          "paymentInProgress": {
+            "type": "boolean"
           }
         }
       }

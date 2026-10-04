@@ -23,6 +23,18 @@ describe('Customer access transport', () => {
     service = TestBed.inject(CustomerAccessService);
   });
   afterEach(() => http.verify());
+  it('envoie uniquement provider et clé avec CSRF et session HttpOnly pour le transport', async () => {
+    const promise = service.payShipping('GRP-1', 'shipping-key-123456');
+    http.expectOne(base + '/csrf').flush({ token: 'csrf-test' });
+    const r = http.expectOne(base + '/orders/GRP-1/shipping-balance/payments');
+    expect(r.request.body).toEqual({ provider: 'BICTORYS' });
+    expect(r.request.withCredentials).toBe(true);
+    expect(r.request.headers.get('X-XSRF-TOKEN')).toBe('csrf-test');
+    expect(r.request.headers.get('Idempotency-Key')).toBe('shipping-key-123456');
+    expect(r.request.headers.has('Authorization')).toBe(false);
+    r.flush({ status: 'PENDING' });
+    await promise;
+  });
   it('requests CSRF before OTP and never stores credentials', async () => {
     const local = vi.spyOn(Storage.prototype, 'setItem');
     const promise = service.request('+221771234567');

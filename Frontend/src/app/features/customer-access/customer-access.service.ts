@@ -40,6 +40,14 @@ export class CustomerAccessService {
   capabilities(orderNumber: string) {
     return firstValueFrom(this.api.customerOrderCapabilities({ orderNumber }).pipe(timeout(20000)));
   }
+  payShipping(orderNumber: string, key: string) {
+    return this.mutate((c) =>
+      this.api.initiateCustomerShippingPayment(
+        { orderNumber, 'Idempotency-Key': key, body: { provider: 'BICTORYS' } },
+        c,
+      ),
+    );
+  }
   resend(orderNumber: string) {
     return this.mutate((c) => this.api.resendCustomerLink({ orderNumber }, c));
   }

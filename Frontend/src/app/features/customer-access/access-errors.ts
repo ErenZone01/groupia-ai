@@ -1,6 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 export function accessError(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
+    if (
+      ['SHIPPING_BALANCE_PAYMENT_IN_PROGRESS', 'PAYMENT_INITIATION_CONFLICT'].includes(
+        error.error?.code,
+      )
+    )
+      return 'Un paiement est en cours de traitement. Actualisez le suivi avant de réessayer.';
+    if (error.error?.code === 'SHIPPING_BALANCE_NOT_DUE')
+      return 'Aucun solde transport à payer. Actualisez le suivi.';
     if (error.status === 0) return 'Connexion interrompue. Vérifiez votre réseau puis réessayez.';
     if (error.status === 429) return 'Trop de tentatives. Patientez avant de réessayer.';
     if (error.status === 503)

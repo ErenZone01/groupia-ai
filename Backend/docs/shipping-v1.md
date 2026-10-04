@@ -198,3 +198,7 @@ avec 590 tests, 0 échec, 0 erreur et 0 ignoré, dont les 4 nouveaux cas de comp
 Journaux : `target/shipping-checksum-full-test.log` et `target/shipping-checksum-verify.log`.
 Le démarrage sur la base locale reste à effectuer ; les migrations ont été validées
 sur PostgreSQL Testcontainers avec les deux historiques connus.
+
+## Extension Shipping Finance V1
+
+La tranche suivante ajoute désormais une obligation après finalisation lorsque le transport reste dû. La mention « aucun paiement » décrit la tranche initiale uniquement. Voir [shipping-balance.md](shipping-balance.md) et ADR-0017 pour les règles financières, corrections et parcours cliente.

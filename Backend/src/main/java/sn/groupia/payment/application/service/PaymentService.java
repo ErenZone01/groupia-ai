@@ -14,6 +14,12 @@ public class PaymentService implements PaymentOperations {
     @Override @Transactional(propagation=Propagation.MANDATORY)
     public PaymentRequestView createRequest(CreatePaymentRequest command) { return transactions.create(command); }
     @Override public PaymentRequestView initialRequest(UUID org,UUID order) { return transactions.initial(org,order); }
+    @Override public PaymentRequestView request(UUID org,UUID id) { return transactions.request(org,id); }
+    @Override public List<PaymentObligationView> shippingRequests(UUID org,UUID order) { return transactions.shippingRequests(org,order); }
+    @Override @Transactional(propagation=Propagation.MANDATORY)
+    public List<PaymentObligationView> lockShippingRequests(UUID org,UUID order) { return transactions.lockShippingRequests(org,order); }
+    @Override @Transactional(propagation=Propagation.MANDATORY)
+    public void cancelShippingRequest(UUID org,UUID id) { transactions.cancelShippingRequest(org,id); }
     @Override public boolean cancelInitialAcceptance(UUID org,UUID order) { return transactions.cancel(org,order); }
     @Override @Transactional(propagation=Propagation.NEVER)
     public PaymentAttemptView initiateInitial(UUID org,UUID order,String provider,String key) {
@@ -21,8 +27,12 @@ public class PaymentService implements PaymentOperations {
     }
     @Override @Transactional(propagation=Propagation.NEVER)
     public PaymentAttemptView initiateInitial(UUID org,UUID order,String provider,String key,PaymentCheckoutContext context) {
+        return initiateRequest(org,transactions.initial(org,order).id(),provider,key,context);
+    }
+    @Override @Transactional(propagation=Propagation.NEVER)
+    public PaymentAttemptView initiateRequest(UUID org,UUID requestId,String provider,String key,PaymentCheckoutContext context) {
         var adapter=providers.require(provider);
-        var claim=transactions.claim(org,order,adapter.name(),adapter.accountReference(),key,context);
+        var claim=transactions.claim(org,requestId,adapter.name(),adapter.accountReference(),key,context);
         if (!claim.owned()) { return claim.receipt(); }
         ProviderObservation result;
         try { result=adapter.initiate(claim.instruction()); }

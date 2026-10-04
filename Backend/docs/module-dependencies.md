@@ -149,3 +149,7 @@ internes à payment.infrastructure ; payment ne lit pas ordering.
 Graphe inchangé : ordering utilise shipping::api (ShippingAssessments, snapshots et explication sûre).
 Le coordinateur OrderShipping reste dans ordering ; shipping ne lit aucune commande.
 Voir [ADR-0016](../adr/0016-order-shipping-assessments.md).
+
+## Shipping Finance V1
+
+Graphe inchangé : customeraccess → ordering::api → payment::api / shipping::api. ShippingFinance coordonne sous verrou commande et PaymentOperations expose les obligations, leur remplacement sûr et l’initiation générique. CustomerPaymentAttempt est le reçu public ordering pour préserver cette frontière. PaymentRequestSettled est consommé sans nouvelle confirmation commerciale pour SHIPPING_BALANCE. Voir [ADR-0017](../adr/0017-shipping-finance.md).

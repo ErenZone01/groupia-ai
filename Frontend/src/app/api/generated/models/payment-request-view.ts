@@ -9,7 +9,11 @@ export interface PaymentRequestView {
   createdAt?: string;
   currency?: string;
   expectedAmount?: number;
-  expiresAt?: string;
+
+  /**
+   * Deadline obligatoire pour INITIAL_ORDER ; null autorisé pour SHIPPING_BALANCE.
+   */
+  expiresAt?: string | null;
   feeAmount?: number;
   goodsAmount?: number;
   id?: string;

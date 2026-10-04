@@ -15,11 +15,12 @@ import sn.groupia.ordering.api.dto.*;
 @RestController
 @RequestMapping("/api/public/customer-access")
 class CustomerAccessController {
+    private final CustomerShippingPayments payments;
     private final CustomerAccess access;
     private final AccessPolicy policy;
     private final DeliveryGateway delivery;
-    CustomerAccessController(CustomerAccess access, AccessPolicy policy, DeliveryGateway delivery) {
-        this.access=access; this.policy=policy; this.delivery=delivery;
+    CustomerAccessController(CustomerAccess access, AccessPolicy policy, DeliveryGateway delivery,CustomerShippingPayments payments) {
+        this.payments=payments;this.access=access; this.policy=policy; this.delivery=delivery;
     }
     public record CsrfView(String token) {}
     public record PhoneInput(@NotBlank @Size(max=64) String phone) {
@@ -58,6 +59,12 @@ class CustomerAccessController {
     }
     @GetMapping("/orders/{orderNumber}")
     OrderTrackingView customerOrder(HttpServletRequest request,@PathVariable String orderNumber){return access.track(cookie(request),orderNumber);}
+    public record ShippingPaymentInput(@NotBlank @Pattern(regexp="(?i)BICTORYS") String provider){}
+    @PostMapping("/orders/{orderNumber}/shipping-balance/payments")
+    CustomerPaymentAttempt initiateCustomerShippingPayment(HttpServletRequest request,@PathVariable String orderNumber,
+        @RequestHeader("Idempotency-Key") String key,@Valid @RequestBody ShippingPaymentInput body){
+        return payments.initiate(cookie(request),orderNumber,body.provider(),key);
+    }
     @GetMapping("/orders/{orderNumber}/capabilities")
     CustomerOrderCapabilities customerOrderCapabilities(HttpServletRequest request,@PathVariable String orderNumber){return access.capabilities(cookie(request),orderNumber);}
     @PostMapping("/orders/{orderNumber}/resend-link")

@@ -23,8 +23,10 @@ export type { CreateOrganizationRequest } from './models/create-organization-req
 export type { CreateProduct } from './models/create-product';
 export type { CreateSupplierOrder } from './models/create-supplier-order';
 export type { CsrfView } from './models/csrf-view';
+export type { CurrentObligation } from './models/current-obligation';
 export type { CustomerContact } from './models/customer-contact';
 export type { CustomerOrderCapabilities } from './models/customer-order-capabilities';
+export type { CustomerPaymentAttempt } from './models/customer-payment-attempt';
 export type { CustomerSessionView } from './models/customer-session-view';
 export type { Detail } from './models/detail';
 export type { FinalShipping } from './models/final-shipping';
@@ -75,6 +77,8 @@ export type { ShippingCalculationView } from './models/shipping-calculation-view
 export type { ShippingExplanation } from './models/shipping-explanation';
 export type { ShippingInput } from './models/shipping-input';
 export type { ShippingMeasurementView } from './models/shipping-measurement-view';
+export type { ShippingPaymentInput } from './models/shipping-payment-input';
+export type { ShippingSettlementView } from './models/shipping-settlement-view';
 export type { ShippingTerms } from './models/shipping-terms';
 export type { SupplierOrderResponse } from './models/supplier-order-response';
 export type { SupplierOrderView } from './models/supplier-order-view';

@@ -53,6 +53,7 @@
   @if (final()?.explanation; as e) {
     <g-shipping-explanation [value]="e" />
   }
+  <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
   @if (!editing()) {
     <button gButton variant="secondary" (click)="begin()">
       {{ final() ? 'Corriger le transport' : 'Renseigner le transport' }}

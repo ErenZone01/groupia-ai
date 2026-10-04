@@ -39,12 +39,17 @@ public class PaymentTransactions {
     public PaymentRequestView initial(UUID org,UUID order) { return initialEntity(org,order).view(); }
     public boolean cancel(UUID org,UUID order) { return store.lockRequest(initialEntity(org,order).getId()).cancel(clock.instant()); }
     public record Claim(boolean owned,ProviderInstruction instruction,PaymentAttemptView receipt) {}
-    public Claim claim(UUID org,UUID order,String provider,String account,String key,PaymentCheckoutContext context) {
+    public Claim claim(UUID org,UUID requestId,String provider,String account,String key,PaymentCheckoutContext context) {
         if (key==null || !key.strip().matches("[A-Za-z0-9._:-]{16,128}")) {
             throw new ApiException(400,"PAYMENT_IDEMPOTENCY_KEY_REQUIRED","Clé d'initiation invalide ou absente.");
         }
         key=key.strip();
-        var request=store.lockRequest(initialEntity(org,order).getId());
+        var request=scopedRequest(org,requestId);
+        List<PaymentObligationView> shippingStates=List.of();
+        if(request.getPurpose()==PaymentPurpose.SHIPPING_BALANCE){
+            shippingStates=lockShippingRequests(org,request.getOrderId());
+        }
+        request=store.lockRequest(request.getId());
         var old=store.attempt(request.getId(),key);
         if (old.isPresent()) {
             var payment=old.get();
@@ -52,6 +57,10 @@ public class PaymentTransactions {
                 throw new ApiException(409,"PAYMENT_INITIATION_CONFLICT","Cette clé désigne une autre initiation.");
             }
             return new Claim(false,payment.instruction(request),payment.view());
+        }
+        UUID target=request.getId();
+        if(shippingStates.stream().anyMatch(s->!s.request().id().equals(target)&&s.paymentInProgress())){
+            throw new ApiException(409,"SHIPPING_BALANCE_PAYMENT_IN_PROGRESS","Un paiement du transport nécessite une réconciliation.");
         }
         request.requireOpen(clock.instant());
         if (store.attempts(request.getId()).stream().anyMatch(Payment::preventsNewAttempt)) {
@@ -231,6 +240,34 @@ public class PaymentTransactions {
     public List<UUID> retryableWebhooks(int limit) { return store.retryableWebhooks(clock.instant(),limit); }
     @Transactional(readOnly=true)
     public List<UUID> uncertainPayments(int limit) { return store.uncertainPayments(limit); }
+    @Transactional(readOnly=true)
+    public PaymentRequestView request(UUID org,UUID id) { return scopedRequest(org,id).view(); }
+    @Transactional(readOnly=true)
+    public List<PaymentObligationView> shippingRequests(UUID org,UUID order) {
+        return store.shippingRequests(org,order).stream().map(this::obligation).toList();
+    }
+    @Transactional(propagation=Propagation.MANDATORY)
+    public List<PaymentObligationView> lockShippingRequests(UUID org,UUID order) {
+        return store.shippingRequests(org,order).stream().map(r->obligation(store.lockRequest(r.getId()))).toList();
+    }
+    @Transactional(propagation=Propagation.MANDATORY)
+    public void cancelShippingRequest(UUID org,UUID id) {
+        var r=scopedRequest(org,id);r=store.lockRequest(r.getId());
+        if(r.getPurpose()!=PaymentPurpose.SHIPPING_BALANCE)throw new IllegalArgumentException("Expected shipping obligation");
+        if(obligation(r).paymentInProgress())throw new ApiException(409,"SHIPPING_BALANCE_PAYMENT_IN_PROGRESS",
+            "Un paiement du transport est en cours de traitement. Attendez sa confirmation ou sa réconciliation avant de corriger le montant.");
+        r.cancel(clock.instant());store.flush();
+    }
+    private PaymentObligationView obligation(PaymentRequest r) {
+        boolean blocking=store.attempts(r.getId()).stream().anyMatch(p->p.isReconciliationRequired()
+            || p.getStatus()==PaymentStatus.CREATED || p.getStatus()==PaymentStatus.PENDING
+            || (p.getStatus()==PaymentStatus.SUCCEEDED && !p.getId().equals(r.getSettledPaymentId())));
+        return new PaymentObligationView(r.view(),blocking);
+    }
+    private PaymentRequest scopedRequest(UUID org,UUID id) {
+        return store.request(id).filter(r->r.getOrganizationId().equals(org))
+            .orElseThrow(()->new ApiException(404,"PAYMENT_REQUEST_NOT_FOUND","Obligation introuvable."));
+    }
     private PaymentRequest initialEntity(UUID org,UUID order) {
         return store.initial(org,order).orElseThrow(()->new ApiException(404,"PAYMENT_REQUEST_NOT_FOUND","Obligation introuvable."));
     }

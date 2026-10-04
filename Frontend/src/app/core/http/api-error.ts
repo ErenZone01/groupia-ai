@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  SHIPPING_BALANCE_PAYMENT_IN_PROGRESS: 'Un paiement du transport est en cours de traitement. Attendez sa confirmation ou sa réconciliation avant de corriger le montant.',
   SHIPPING_VERSION_CONFLICT: 'Le transport a changé. Actualisez la commande.',
   SHIPPING_MEASUREMENT_STALE: 'La mesure a changé. Actualisez la commande.',
   SHIPPING_MEASUREMENT_REQUIRED:

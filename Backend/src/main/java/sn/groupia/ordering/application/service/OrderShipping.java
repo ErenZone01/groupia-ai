@@ -14,15 +14,17 @@ import sn.groupia.shared.api.ApiException;
 import sn.groupia.shipping.api.ShippingAssessments;
 import sn.groupia.shipping.api.dto.*;
 
-/** Coordinates trusted order snapshots with shipping; no financial side effect. */
+/** Coordinates trusted order snapshots with shipping; atomic calculation and shipping obligation. */
 @Service
 @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class OrderShipping {
+    private final ShippingFinance finance;
     private final Orders orders;
     private final OrganizationAccess access;
     private final SupplierCampaignLifecycle campaigns;
     private final ShippingAssessments shipping;
-    OrderShipping(Orders orders,OrganizationAccess access,SupplierCampaignLifecycle campaigns,ShippingAssessments shipping){
+    OrderShipping(Orders orders,OrganizationAccess access,SupplierCampaignLifecycle campaigns,ShippingAssessments shipping,ShippingFinance finance){
+        this.finance=finance;
         this.orders=orders;this.access=access;this.campaigns=campaigns;this.shipping=shipping;
     }
     public List<OrderShippingRow> list(UUID org,UUID campaign){
@@ -33,7 +35,7 @@ public class OrderShipping {
             var seed=seed(o);
             var a=assessments.getOrDefault(o.getId(),new ShippingAssessmentView(null,"PENDING",seed,0,null,null,null,null,List.of(),List.of()));
             var customer=o.getCustomerContactSnapshot();
-            return new OrderShippingRow(o.getId(),o.getOrderNumber(),customer.firstName()+" "+customer.lastName(),a);
+            return new OrderShippingRow(o.getId(),o.getOrderNumber(),customer.firstName()+" "+customer.lastName(),a,finance.read(o,a));
         }).toList();
     }
     public ShippingExplanation preview(UUID org,UUID campaign,UUID id,FinalShippingInput input){
@@ -51,7 +53,12 @@ public class OrderShipping {
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public ShippingAssessmentView finalizeShipping(UUID org,UUID campaign,UUID id,FinalShippingInput input){
         var actor=authorizeWrite(org,campaign);
-        return shipping.finalizeShipping(seed(lock(org,campaign,id)),input,actor);
+        var order=lock(org,campaign,id);
+        shipping.preview(seed(order),input);
+        var previous=finance.prepareCorrection(order);
+        var result=shipping.finalizeShipping(seed(order),input,actor);
+        finance.synchronize(order,result,previous);
+        return result;
     }
     private UUID authorizeWrite(UUID org,UUID campaign){
         access.requirePermission(org,OrganizationPermission.VIEW_ORDERS);

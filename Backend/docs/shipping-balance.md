@@ -128,3 +128,7 @@ Aucune dépendance ajoutée.
 
 Logs locaux : `Backend/target/shipping-finance-test.log`, `Backend/target/shipping-finance-verify.log`, `Backend/target/shipping-finance-openapi.log` et `Frontend/artifacts/shipping-finance-{unit,build,e2e}.log`.
 Ces vérifications n'appliquent pas la migration à la base locale de travail et ne constituent pas un paiement réel dans le sandbox externe.
+
+## Extension Distribution V1
+
+Les préparations et retraits précédemment hors tranche sont désormais couverts par [distribution-v1.md](distribution-v1.md). Les corrections et mesures exigent NOT_READY ; DISTRIBUTING autorise le traitement progressif des autres commandes. Les remboursements et la clôture du groupage restent différés.

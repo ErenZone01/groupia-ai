@@ -1,3 +1,4 @@
+import { DistributionPanel } from './distribution-panel';
 import { LogisticsPanel } from './logistics-panel';
 import { SupplierSummaryPanel } from '../orders/supplier-summary-panel';
 import { OrdersPanel } from '../orders/orders-panel';
@@ -35,6 +36,7 @@ import {
     OrdersPanel,
     SupplierSummaryPanel,
     LogisticsPanel,
+    DistributionPanel,
     Card,
     Badge,
     Button,
@@ -88,7 +90,9 @@ export class GroupageDetailPage {
   readonly catalogError = signal('');
   readonly products = signal<ProductView[]>([]);
   readonly tab = signal(
-    ['orders', 'supplier'].includes(this.route.snapshot.queryParamMap.get('tab') ?? '')
+    ['orders', 'supplier', 'distribution'].includes(
+      this.route.snapshot.queryParamMap.get('tab') ?? '',
+    )
       ? this.route.snapshot.queryParamMap.get('tab')!
       : 'overview',
   );
@@ -106,6 +110,9 @@ export class GroupageDetailPage {
         ? 'Commande fournisseur'
         : 'À commander',
     },
+    ...(['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(this.store.current()?.status ?? '')
+      ? [{ id: 'distribution', label: 'Distribution et retraits' }]
+      : []),
     { id: 'settings', label: 'Paramètres' },
   ]);
   readonly editable = computed(() =>

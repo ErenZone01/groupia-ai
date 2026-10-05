@@ -1,6 +1,19 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
-  SHIPPING_BALANCE_PAYMENT_IN_PROGRESS: 'Un paiement du transport est en cours de traitement. Attendez sa confirmation ou sa réconciliation avant de corriger le montant.',
+  ORDER_FULFILLMENT_LOCKED:
+    'Cette commande est prête ou déjà retirée. Retirez sa mise à disposition avant de corriger le transport.',
+  ORDER_VERSION_CONFLICT: 'La commande a changé. Actualisez-la avant de confirmer à nouveau.',
+  ORDER_FULFILLMENT_CONFLICT: 'Cette action n’est plus disponible. Actualisez la commande.',
+  FULFILLMENT_SHIPPING_NOT_FINALIZED: 'Finalisez le transport avant de préparer le retrait.',
+  FULFILLMENT_SHIPPING_BALANCE_DUE: 'Le solde transport doit être réglé avant la remise.',
+  FULFILLMENT_CAMPAIGN_NOT_ARRIVED: 'Le groupage doit être arrivé avant la distribution.',
+  FULFILLMENT_ORDER_NOT_CONFIRMED: 'Cette commande ne permet pas cette action.',
+  FULFILLMENT_REASON_REQUIRED: 'Précisez le motif du retrait de la mise à disposition.',
+  FULFILLMENT_CONFIRMATION_REQUIRED:
+    'Confirmez explicitement la disponibilité ou la remise physique.',
+
+  SHIPPING_BALANCE_PAYMENT_IN_PROGRESS:
+    'Un paiement du transport est en cours de traitement. Attendez sa confirmation ou sa réconciliation avant de corriger le montant.',
   SHIPPING_VERSION_CONFLICT: 'Le transport a changé. Actualisez la commande.',
   SHIPPING_MEASUREMENT_STALE: 'La mesure a changé. Actualisez la commande.',
   SHIPPING_MEASUREMENT_REQUIRED:

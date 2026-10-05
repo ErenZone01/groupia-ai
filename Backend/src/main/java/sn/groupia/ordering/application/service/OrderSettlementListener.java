@@ -23,7 +23,7 @@ public class OrderSettlementListener {
             throw new IllegalStateException("Settlement contract inconsistent");
         }
         if(event.purpose()==PaymentPurpose.SHIPPING_BALANCE){
-            if(order.getStatus()!=sn.groupia.ordering.domain.model.OrderStatus.CONFIRMED)
+            if(order.getStatus()!=sn.groupia.ordering.domain.model.OrderStatus.CONFIRMED && order.getStatus()!=sn.groupia.ordering.domain.model.OrderStatus.COMPLETED)
                 throw new IllegalStateException("Shipping settlement on ineligible order");
             finance.read(order); // Validate current sources; no commercial/logistical transition or duplicated projection.
             return;

@@ -153,3 +153,7 @@ Voir [ADR-0016](../adr/0016-order-shipping-assessments.md).
 ## Shipping Finance V1
 
 Graphe inchangé : customeraccess → ordering::api → payment::api / shipping::api. ShippingFinance coordonne sous verrou commande et PaymentOperations expose les obligations, leur remplacement sûr et l’initiation générique. CustomerPaymentAttempt est le reçu public ordering pour préserver cette frontière. PaymentRequestSettled est consommé sans nouvelle confirmation commerciale pour SHIPPING_BALANCE. Voir [ADR-0017](../adr/0017-shipping-finance.md).
+
+## Distribution V1
+
+Graphe inchangé. ordering utilise grouping::api/CampaignDistribution pour le verrou et ARRIVED → DISTRIBUTING, organization::api pour MANAGE_FULFILLMENT, et les lectures ShippingFinance existantes via payment::api et shipping::api. Le journal immuable reste interne à ordering. Aucune dépendance inverse ni notification supplémentaire. Voir [ADR-0018](../adr/0018-distribution-v1.md).

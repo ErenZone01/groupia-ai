@@ -20,7 +20,7 @@ export const orderStatus = (status?: string) =>
 export const fulfillmentStatus = (status?: string) =>
   ({
     NOT_READY: 'En préparation',
-    READY_FOR_PICKUP: 'Prête à récupérer',
-    PICKED_UP: 'Récupérée',
+    READY_FOR_PICKUP: 'Prête à être récupérée',
+    PICKED_UP: 'Commande récupérée',
     CANCELLED: 'Annulée',
   })[status ?? ''] ?? 'En préparation';

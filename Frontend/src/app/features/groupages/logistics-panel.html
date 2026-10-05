@@ -243,6 +243,8 @@
   }
 </section>
 
-@if (['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED'].includes(lifecycle()?.status ?? '')) {
+@if (
+  ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING'].includes(lifecycle()?.status ?? '')
+) {
   <g-shipping-batch [organizationId]="organizationId()" [campaignId]="campaign().id!" />
 }

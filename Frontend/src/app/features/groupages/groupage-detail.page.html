@@ -164,6 +164,16 @@
           [campaignId]="group.id!"
         />
       }
+      @if (
+        tab() === 'distribution' &&
+        ['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(group.status ?? '')
+      ) {
+        <g-distribution-panel
+          [organizationId]="context.selectedId()!"
+          [campaignId]="group.id!"
+          (campaignChanged)="purchaseCreated($event)"
+        />
+      }
       @if (tab() === 'settings') {
         @if (editable()) {
           <g-groupage-settings [campaign]="group" [organizationId]="context.selectedId()!" />

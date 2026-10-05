@@ -1,0 +1,109 @@
+<article [attr.aria-label]="'Distribution ' + row().orderNumber">
+  <h3>{{ row().orderNumber }}</h3>
+  <p>{{ row().customerName }}</p>
+  <p>
+    <strong>{{ physicalLabel(row().fulfillmentStatus) }}</strong>
+  </p>
+  @if (row().readyForPickupAt) {
+    <p>Prête depuis le {{ dateLabel(row().readyForPickupAt) }}</p>
+  }
+  @if (row().pickedUpAt) {
+    <p>Retirée le {{ dateLabel(row().pickedUpAt) }}</p>
+  }
+  <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
+  @if (row().fulfillmentStatus === 'NOT_READY' && row().readinessBlocker) {
+    <p class="notice">{{ blockerLabel(row().readinessBlocker) }}</p>
+  }
+  @if (row().shippingSettlement?.status === 'CREDIT_DUE') {
+    <p class="muted">
+      Ce crédit n’empêche pas le retrait. La régularisation reste à effectuer par la boutique.
+    </p>
+  }
+  @if (!mode()) {
+    <div class="actions">
+      @if (row().canMarkReady) {
+        <button gButton [disabled]="disabled()" (click)="open('ready')">Marquer prête</button>
+      }
+      @if (row().canPickUp) {
+        <button gButton [disabled]="disabled()" (click)="open('pickup')">
+          Confirmer le retrait
+        </button>
+      }
+      @if (row().canRevoke) {
+        <button gButton variant="secondary" [disabled]="disabled()" (click)="open('revoke')">
+          Retirer la mise à disposition
+        </button>
+      }
+    </div>
+  } @else {
+    <form
+      class="confirmation"
+      (ngSubmit)="submit()"
+      [attr.aria-label]="
+        mode() === 'revoke' ? 'Retirer la mise à disposition' : 'Confirmation physique'
+      "
+    >
+      @if (mode() === 'revoke') {
+        <label [for]="'reason-' + row().orderId">Motif obligatoire</label>
+        <input
+          gInput
+          [id]="'reason-' + row().orderId"
+          name="reason"
+          [(ngModel)]="reason"
+          required
+          maxlength="1000"
+          [disabled]="disabled()"
+        />
+      } @else {
+        <label class="attestation"
+          ><input
+            type="checkbox"
+            name="confirmed"
+            [(ngModel)]="confirmed"
+            [disabled]="disabled()"
+            required
+          />
+          <span>{{
+            mode() === 'ready'
+              ? 'Je confirme que cette commande est complète et physiquement disponible pour retrait.'
+              : 'Je confirme la remise complète de cette commande à la cliente.'
+          }}</span></label
+        >
+      }
+      <div class="actions">
+        <button
+          gButton
+          type="submit"
+          [loading]="disabled()"
+          [disabled]="mode() === 'revoke' ? !reason.trim() : !confirmed"
+        >
+          {{
+            mode() === 'revoke'
+              ? 'Confirmer le retrait de la disponibilité'
+              : mode() === 'ready'
+                ? 'Confirmer la disponibilité'
+                : 'Confirmer la remise de la commande'
+          }}
+        </button>
+        <button gButton type="button" variant="ghost" [disabled]="disabled()" (click)="cancel()">
+          Annuler
+        </button>
+      </div>
+    </form>
+  }
+  @if (row().history?.length) {
+    <details>
+      <summary>Historique de préparation et de retrait</summary>
+      <ol>
+        @for (event of row().history; track event.id) {
+          <li>
+            {{ historyLabel(event.type) }} · {{ dateLabel(event.recordedAt) }}
+            @if (event.note) {
+              <p>{{ event.note }}</p>
+            }
+          </li>
+        }
+      </ol>
+    </details>
+  }
+</article>

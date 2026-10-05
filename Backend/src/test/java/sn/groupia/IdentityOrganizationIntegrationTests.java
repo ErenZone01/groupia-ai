@@ -52,7 +52,7 @@ class IdentityOrganizationIntegrationTests {
     @BeforeEach
     void resetDatabase() {
         SecurityContextHolder.clearContext();
-        jdbc.execute("TRUNCATE TABLE shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
     }
 
     @AfterEach
@@ -223,7 +223,8 @@ class IdentityOrganizationIntegrationTests {
         UUID user = registeredId(PHONE);
         String token = token(PHONE);
         UUID org = organizationId(token, "Revoked");
-        jdbc.update("update organization_members set status = 'REVOKED', revoked_at = current_timestamp where user_account_id = ?", user);
+        // The application and PostgreSQL container clocks can differ slightly.
+        jdbc.update("update organization_members set status = 'REVOKED', revoked_at = greatest(current_timestamp, joined_at) where user_account_id = ?", user);
         mvc.perform(get("/api/organizations").header("Authorization", bearer(token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(0)));
         mvc.perform(get("/api/organizations/" + org).header("Authorization", bearer(token)))

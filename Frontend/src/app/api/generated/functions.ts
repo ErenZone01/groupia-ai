@@ -117,3 +117,11 @@ export type { FinalizeShipping$Params as FinalizeShipping$Params } from './fn/or
 export { finalizeShipping as finalizeShipping } from './fn/order-shipping-controller/finalize-shipping';
 export type { OrderShippingBatch$Params as OrderShippingBatch$Params } from './fn/order-shipping-controller/order-shipping-batch';
 export { orderShippingBatch as orderShippingBatch } from './fn/order-shipping-controller/order-shipping-batch';
+export type { RevokeOrderReadiness$Params as RevokeOrderReadiness$Params } from './fn/order-fulfillment-controller/revoke-order-readiness';
+export { revokeOrderReadiness as revokeOrderReadiness } from './fn/order-fulfillment-controller/revoke-order-readiness';
+export type { MarkOrderReady$Params as MarkOrderReady$Params } from './fn/order-fulfillment-controller/mark-order-ready';
+export { markOrderReady as markOrderReady } from './fn/order-fulfillment-controller/mark-order-ready';
+export type { ConfirmOrderPickup$Params as ConfirmOrderPickup$Params } from './fn/order-fulfillment-controller/confirm-order-pickup';
+export { confirmOrderPickup as confirmOrderPickup } from './fn/order-fulfillment-controller/confirm-order-pickup';
+export type { DistributionBatch$Params as DistributionBatch$Params } from './fn/order-fulfillment-controller/distribution-batch';
+export { distributionBatch as distributionBatch } from './fn/order-fulfillment-controller/distribution-batch';

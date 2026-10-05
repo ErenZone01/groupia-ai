@@ -2,6 +2,8 @@ package sn.groupia.ordering.domain.repository;
 import java.util.*;
 import sn.groupia.ordering.domain.model.*;
 public interface Orders {
+    List<Order> forDistribution(UUID organizationId,UUID campaignId);
+    void flush();
     List<Order> confirmedForShipping(UUID organizationId, UUID campaignId);
     Optional<Order> lock(UUID id);
     List<UUID> expiredCandidates(java.time.Instant now,UUID after,int limit);

@@ -36,6 +36,6 @@ public class CustomerOrderAccessQueries implements CustomerOrderAccess {
     }
     public OrderTrackingView track(UUID org,UUID id) {
         var o=orders.find(org,id).orElseThrow(()->new ApiException(404,"CUSTOMER_ORDER_NOT_FOUND","Commande inaccessible."));
-        return OrderTrackingView.from(OrderViews.receipt(o,null),groups.progress(org,o.getCampaignId()),shipping.currentFinal(org,id),finance.read(o));
+        return OrderTrackingView.from(OrderViews.receipt(o,null),groups.progress(org,o.getCampaignId()),shipping.currentFinal(org,id),finance.read(o),o.getReadyForPickupAt(),o.getPickedUpAt());
     }
 }

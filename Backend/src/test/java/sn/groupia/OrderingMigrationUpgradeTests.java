@@ -34,9 +34,9 @@ class OrderingMigrationUpgradeTests {
             String checksum=version.equals("legacy006")?LEGACY_CHECKSUM:CURRENT_CHECKSUM;
             assertThat(jdbc.queryForObject("select md5sum from databasechangelog where id='006-ordering'",String.class)).isEqualTo(checksum);
             var order=seedOrder(jdbc);
-            String before=jdbc.queryForObject("select row_to_json(o)::text from orders o where id=?",String.class,order);
+            String before=jdbc.queryForObject("select (to_jsonb(o)-'ready_for_pickup_at')::text from orders o where id=?",String.class,order);
             try(var resources=new ClassLoaderResourceAccessor()) { update(postgres,resources); }
-            assertThat(jdbc.queryForObject("select row_to_json(o)::text from orders o where id=?",String.class,order)).isEqualTo(before);
+            assertThat(jdbc.queryForObject("select (to_jsonb(o)-'ready_for_pickup_at')::text from orders o where id=?",String.class,order)).isEqualTo(before);
             assertThat(jdbc.queryForObject("select md5sum from databasechangelog where id='006-ordering'",String.class)).isEqualTo(checksum);
             assertThat(jdbc.queryForObject("select count(*) from databasechangelog where id='008-ordering-constraint-upgrade'",Integer.class)).isEqualTo(1);
             assertThat(jdbc.queryForObject("select count(*) from customers",Integer.class)).isEqualTo(1);

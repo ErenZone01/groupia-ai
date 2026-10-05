@@ -66,7 +66,16 @@ class ShippingChecksumUpgradeTests {
                 assertThatThrownBy(()->jdbc.update("delete from shipping_measurements where id=?",measurement)).isInstanceOf(DataIntegrityViolationException.class);
                 try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}
             }
-            tables.forEach(t->assertThat(jdbc.queryForList("select * from "+t+" order by id")).as(t).isEqualTo(before.get(t)));
+            tables.forEach(t->{
+                var after=jdbc.queryForList("select * from "+t+" order by id");
+                if(t.equals("orders") && (version.equals("legacy") || version.equals("current"))){
+                    after.forEach(row->{
+                        assertThat(row).containsKey("ready_for_pickup_at");
+                        assertThat(row.remove("ready_for_pickup_at")).isNull();
+                    });
+                }
+                assertThat(after).as(t).isEqualTo(before.get(t));
+            });
             assertThat(jdbc.queryForObject("select md5sum from databasechangelog where id='014-shipping-assessments'",String.class)).isEqualTo(checksum);
         }
     }

@@ -40,6 +40,7 @@ public class Order {
      private Instant cancelledAt;
      private Instant completedAt;
      private Instant pickedUpAt;
+     private Instant readyForPickupAt;
     @Version private Long version;
     @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
     @OrderBy("lineNumber ASC") private List<OrderItem> items = new ArrayList<>();
@@ -95,6 +96,27 @@ public class Order {
     public boolean allowsTrackingAt(Instant now) {
         return trackingTokenRevokedAt == null && now.isBefore(trackingTokenExpiresAt);
     }
+    public void requireVersion(long expected) {
+        if(version==null || version!=expected)throw new ApiException(409,"ORDER_VERSION_CONFLICT","La commande a changé. Rechargez-la.");
+    }
+    public void readyForPickup(Instant now) {
+        requireFulfillment(FulfillmentStatus.NOT_READY);
+        fulfillmentStatus=FulfillmentStatus.READY_FOR_PICKUP;readyForPickupAt=now;
+    }
+    public void revokeReadiness() {
+        requireFulfillment(FulfillmentStatus.READY_FOR_PICKUP);
+        fulfillmentStatus=FulfillmentStatus.NOT_READY;readyForPickupAt=null;
+    }
+    public void pickUp(Instant now,boolean financiallySettled) {
+        requireFulfillment(FulfillmentStatus.READY_FOR_PICKUP);
+        fulfillmentStatus=FulfillmentStatus.PICKED_UP;pickedUpAt=now;
+        if(financiallySettled){status=OrderStatus.COMPLETED;completedAt=now;}
+    }
+    private void requireFulfillment(FulfillmentStatus expected) {
+        if(status!=OrderStatus.CONFIRMED || fulfillmentStatus!=expected)
+            throw new ApiException(409,"ORDER_FULFILLMENT_CONFLICT","Cette action n'est plus disponible. Rechargez la commande.");
+    }
+    public Instant getReadyForPickupAt(){return readyForPickupAt;}
     public UUID getId() { return id; }
     public UUID getOrganizationId() { return organizationId; }
     public UUID getCampaignId() { return campaignId; }

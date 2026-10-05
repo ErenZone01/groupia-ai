@@ -16,8 +16,10 @@ export interface OrderTrackingView {
   items?: Array<OrderLineView>;
   orderNumber?: string;
   paymentDeadline?: string;
+  pickedUpAt?: string;
   placedAt?: string;
   platformFeeAmount?: number;
+  readyForPickupAt?: string;
   shippingFinal?: ShippingExplanation;
   shippingSettlement?: ShippingSettlementView;
   status?: string;

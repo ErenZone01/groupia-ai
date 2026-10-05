@@ -102,7 +102,8 @@ export class OrderTimeline {
   readonly stage = computed(() => {
     const o = this.order();
     if (!['CONFIRMED', 'COMPLETED'].includes(o.status ?? '')) return 0;
-    if (['READY_FOR_PICKUP', 'PICKED_UP'].includes(o.fulfillmentStatus ?? '')) return 5;
+    if (o.fulfillmentStatus === 'PICKED_UP') return 6;
+    if (o.fulfillmentStatus === 'READY_FOR_PICKUP') return 5;
     const status = o.groupingProgress?.status;
     if (['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status ?? '')) return 4;
     if (status === 'IN_TRANSIT') return 3;
@@ -114,6 +115,7 @@ export class OrderTimeline {
     { label: 'Commandée au fournisseur', date: undefined },
     { label: 'En transport', date: this.order().groupingProgress?.departedAt },
     { label: 'Arrivée', date: this.order().groupingProgress?.arrivedAt },
-    { label: 'Prête à récupérer', date: undefined },
+    { label: 'Prête à être récupérée', date: this.order().readyForPickupAt },
+    { label: 'Commande récupérée', date: this.order().pickedUpAt },
   ]);
 }

@@ -6,6 +6,7 @@ import { ShippingSettlementView } from '../models/shipping-settlement-view';
 export interface OrderShippingRow {
   assessment?: ShippingAssessmentView;
   customerName?: string;
+  fulfillmentStatus?: string;
   orderId?: string;
   orderNumber?: string;
   shippingSettlement?: ShippingSettlementView;

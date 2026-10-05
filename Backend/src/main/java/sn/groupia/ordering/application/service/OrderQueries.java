@@ -26,7 +26,7 @@ public class OrderQueries {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) { throw trackingInvalid(); }
         var order = orders.findByTrackingHash(secrets.hash(token)).filter(o -> o.allowsTrackingAt(clock.instant()))
                 .orElseThrow(this::trackingInvalid);
-        return OrderTrackingView.from(OrderViews.receipt(order, null),progress.progress(order.getOrganizationId(),order.getCampaignId()),shipping.currentFinal(order.getOrganizationId(),order.getId()),finance.read(order));
+        return OrderTrackingView.from(OrderViews.receipt(order, null),progress.progress(order.getOrganizationId(),order.getCampaignId()),shipping.currentFinal(order.getOrganizationId(),order.getId()),finance.read(order),order.getReadyForPickupAt(),order.getPickedUpAt());
     }
     public OrganizerOrderView get(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.VIEW_ORDERS);

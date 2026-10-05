@@ -59,7 +59,7 @@ class CustomerAccessIntegrationTests {
     private static final String BASE="/api/public/customer-access";
     @BeforeEach void setup() throws Exception {
         await().atMost(Duration.ofSeconds(15)).untilAsserted(()->assertThat(jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)).isZero());
-        jdbc.execute("TRUNCATE TABLE shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
         delivery.linkDelegate=null;delivery.fail=false;delivery.codes.clear();delivery.links.clear();delivery.types.clear();
         if(passwordHash==null)passwordHash=passwords.encode("Customer fixture 2026!");
         actor=UUID.randomUUID();

@@ -109,6 +109,11 @@ public class GroupingCampaign {
         status=GroupingCampaignStatus.IN_TRANSIT;
         touch(now);
     }
+    public void distribute(Instant now) {
+        if(status==GroupingCampaignStatus.DISTRIBUTING)return;
+        if(status!=GroupingCampaignStatus.ARRIVED)throw invalidTransition();
+        status=GroupingCampaignStatus.DISTRIBUTING;touch(now);
+    }
     public void arrive(Instant now) {
         if(status != GroupingCampaignStatus.IN_TRANSIT) throw invalidTransition();
         status=GroupingCampaignStatus.ARRIVED;

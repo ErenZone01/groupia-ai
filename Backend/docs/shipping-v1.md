@@ -202,3 +202,7 @@ sur PostgreSQL Testcontainers avec les deux historiques connus.
 ## Extension Shipping Finance V1
 
 La tranche suivante ajoute désormais une obligation après finalisation lorsque le transport reste dû. La mention « aucun paiement » décrit la tranche initiale uniquement. Voir [shipping-balance.md](shipping-balance.md) et ADR-0017 pour les règles financières, corrections et parcours cliente.
+
+## Extension Distribution V1
+
+DISTRIBUTING permet de continuer le traitement des commandes NOT_READY. Une commande prête ou retirée ne peut plus recevoir de mesure ni de correction du transport dans le workflow ordinaire ; les historiques restent consultables. Voir [distribution-v1.md](distribution-v1.md).

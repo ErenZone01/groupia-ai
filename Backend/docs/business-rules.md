@@ -128,7 +128,7 @@ Contrat et limites : [API catalogue](catalog-api.md), [ADR-0007](../adr/0007-cat
 
 ## Précisions groupage livrées le 20 septembre 2026
 
-- Les transitions de préparation, publication, clôture et annulation sont complétées par la commande fournisseur et SUPPLIER_ORDERED → IN_TRANSIT → ARRIVED ; distribution et achèvement restent hors tranche.
+- Les transitions de préparation, publication, clôture et annulation sont complétées par la commande fournisseur et SUPPLIER_ORDERED → IN_TRANSIT → ARRIVED ; la distribution est désormais couverte par Distribution V1, tandis que la clôture définitive du groupage reste différée.
 - L'ouverture exige au moins une offre active, ses variantes utilisables et des conditions de transport cohérentes. Les références catalogue sont vérifiées via son API publique Java.
 - Les conditions de transport sont figées à OPEN. Titre, description et échéance restent modifiables en DRAFT/OPEN ; une nouvelle échéance OPEN doit être future ou absente.
 - Les prix XOF sont entiers et non négatifs. Les changements de prix incrémentent priceRevision et laissent une trace durable locale avec acteur, avant/après et instant. Les changements d'échéance sont aussi journalisés.
@@ -198,3 +198,7 @@ Détails et seuil UX dans [shipping-v1.md](shipping-v1.md).
 ## Solde transport V1
 
 Le total transport payé additionne le snapshot initial de la commande confirmée et les seuls compléments réellement alloués. Un solde positif crée une obligation SHIPPING_BALANCE sans frais plateforme ni expiration métier ; zéro ne crée rien ; un négatif produit CREDIT_DUE sans remboursement automatique. Une correction est atomique avec le remplacement de l’obligation et est refusée tant qu’une tentative est dangereuse. Un retour Bictorys ne prouve jamais un paiement. Aucun changement de statut de commande/retrait ni envoi WhatsApp supplémentaire. Voir [recette et sécurité](shipping-balance.md).
+
+## Distribution V1
+
+ARRIVED ne signifie pas READY. Transport FINAL + SETTLED/CREDIT_DUE + absence de paiement incertain + attestation humaine permettent READY. BALANCE_DUE bloque préparation et retrait. READY est révocable avec motif avant remise, et bloque les corrections transport. PICKED_UP est définitif ; Order devient COMPLETED seulement si SETTLED. Le groupage reste DISTRIBUTING. Voir [distribution-v1.md](distribution-v1.md).

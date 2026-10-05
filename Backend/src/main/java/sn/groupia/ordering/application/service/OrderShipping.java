@@ -31,11 +31,11 @@ public class OrderShipping {
         access.requirePermission(org,OrganizationPermission.VIEW_ORDERS);
         eligible(campaigns.read(org,campaign).status());
         var assessments=shipping.readAll(org,campaign);
-        return orders.confirmedForShipping(org,campaign).stream().map(o->{
+        return orders.forDistribution(org,campaign).stream().map(o->{
             var seed=seed(o);
             var a=assessments.getOrDefault(o.getId(),new ShippingAssessmentView(null,"PENDING",seed,0,null,null,null,null,List.of(),List.of()));
             var customer=o.getCustomerContactSnapshot();
-            return new OrderShippingRow(o.getId(),o.getOrderNumber(),customer.firstName()+" "+customer.lastName(),a,finance.read(o,a));
+            return new OrderShippingRow(o.getId(),o.getOrderNumber(),customer.firstName()+" "+customer.lastName(),a,finance.read(o,a),o.getFulfillmentStatus().name());
         }).toList();
     }
     public ShippingExplanation preview(UUID org,UUID campaign,UUID id,FinalShippingInput input){
@@ -48,12 +48,14 @@ public class OrderShipping {
     public ShippingAssessmentView measure(UUID org,UUID campaign,UUID id,long version,MeasurementInput input){
         var actor=authorizeWrite(org,campaign);
         var order=lock(org,campaign,id);
+        requireNotReady(order);
         return shipping.measure(seed(order),version,input,actor);
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public ShippingAssessmentView finalizeShipping(UUID org,UUID campaign,UUID id,FinalShippingInput input){
         var actor=authorizeWrite(org,campaign);
         var order=lock(org,campaign,id);
+        requireNotReady(order);
         shipping.preview(seed(order),input);
         var previous=finance.prepareCorrection(order);
         var result=shipping.finalizeShipping(seed(order),input,actor);
@@ -78,11 +80,16 @@ public class OrderShipping {
     }
     private static void checkOrder(Order order,UUID org,UUID campaign){
         if(!order.getOrganizationId().equals(org)||!order.getCampaignId().equals(campaign))throw missing();
+        requireNotReady(order);
         if(order.getStatus()!=OrderStatus.CONFIRMED)
             throw new ApiException(409,"SHIPPING_ORDER_NOT_ELIGIBLE","Seules les commandes confirmées peuvent être traitées.");
     }
+    private static void requireNotReady(Order order){
+        if(order.getFulfillmentStatus()!=FulfillmentStatus.NOT_READY)
+            throw new ApiException(409,"ORDER_FULFILLMENT_LOCKED","Cette commande est déjà prête pour retrait ou retirée. Retirez d'abord sa mise à disposition avant de corriger le transport.");
+    }
     private static void eligible(String status){
-        if(!Set.of("SUPPLIER_ORDERED","IN_TRANSIT","ARRIVED").contains(status))
+        if(!Set.of("SUPPLIER_ORDERED","IN_TRANSIT","ARRIVED","DISTRIBUTING").contains(status))
             throw new ApiException(409,"SHIPPING_CAMPAIGN_NOT_ELIGIBLE","Le transport est disponible après la commande fournisseur.");
     }
     static AssessmentSeed seed(Order o){

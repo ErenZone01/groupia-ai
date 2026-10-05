@@ -26,6 +26,11 @@ public class ShippingFinance {
         return position(order,assessment,payments.shippingRequests(order.getOrganizationId(),order.getId()));
     }
     @Transactional(propagation=Propagation.MANDATORY)
+    public ShippingSettlementView lockPosition(Order order){
+        var states=payments.lockShippingRequests(order.getOrganizationId(),order.getId());
+        return position(order,shipping.read(OrderShipping.seed(order)),states);
+    }
+    @Transactional(propagation=Propagation.MANDATORY)
     public List<PaymentObligationView> prepareCorrection(Order order){
         var requests=payments.lockShippingRequests(order.getOrganizationId(),order.getId());
         if(requests.stream().anyMatch(PaymentObligationView::paymentInProgress))throw inProgress();

@@ -25,10 +25,11 @@ class ShippingMigrationUpgradeTests {
  jdbc.update("insert into shipment_facts(id,organization_id,shipment_id,shipment_version,type,recorded_at,source,actor_id) values (?,?,?,0,'DOSSIER_UPDATED',now(),'FORWARDER',?)",UUID.randomUUID(),org,shipment,UUID.randomUUID());
  var facts=jdbc.queryForList("select * from shipment_facts");var shipments=jdbc.queryForList("select * from shipments");
  try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}
- assertThat(jdbc.queryForMap("select * from orders where id=?",order)).isEqualTo(before);
+ var upgraded=jdbc.queryForMap("select * from orders where id=?",order);
+ assertThat(upgraded.remove("ready_for_pickup_at")).isNull();assertThat(upgraded).isEqualTo(before);
  assertThat(jdbc.queryForList("select * from shipment_facts")).isEqualTo(facts);
  assertThat(jdbc.queryForList("select * from shipments")).isEqualTo(shipments);
- assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '014-%' and id not like '015-%' and id not like '016-%' order by orderexecuted")).isEqualTo(checksums);
+ assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' order by orderexecuted")).isEqualTo(checksums);
  assertThat(jdbc.queryForObject("select volumetric_divisor from grouping_campaigns where id=?",java.math.BigDecimal.class,campaign)).isNull();
  for(String table:List.of("shipping_assessments","shipping_measurements","shipping_calculations"))assertThat(jdbc.queryForObject("select count(*) from "+table,Integer.class)).isZero();
  try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}

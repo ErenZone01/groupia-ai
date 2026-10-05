@@ -1,0 +1,86 @@
+<section aria-labelledby="distribution-title">
+  <h2 id="distribution-title">Distribution et retraits</h2>
+  <p>
+    Vérifiez chaque commande et confirmez sa disponibilité physique avant de la remettre à la
+    cliente.
+  </p>
+  @if (error()) {
+    <p role="alert" class="form-error">{{ error() }}</p>
+  }
+  @if (message()) {
+    <p role="status">{{ message() }}</p>
+  }
+  @if (loading()) {
+    <p role="status">Chargement de la distribution…</p>
+  }
+  <button gButton variant="secondary" [disabled]="loading() || busy()" (click)="load()">
+    Actualiser la distribution
+  </button>
+  @if (data(); as batch) {
+    @if (!batch.canManageFulfillment) {
+      <p class="notice">Vous disposez d’un accès en lecture seule à la distribution.</p>
+    }
+    <div class="counts" aria-label="Résumé de distribution">
+      <div>
+        Commandes<strong>{{ batch.counts?.total ?? 0 }}</strong>
+      </div>
+      <div>
+        À préparer<strong>{{ batch.counts?.toPrepare ?? 0 }}</strong>
+      </div>
+      <div>
+        Bloquées par paiement<strong>{{ batch.counts?.paymentBlocked ?? 0 }}</strong>
+      </div>
+      <div>
+        Prêtes<strong>{{ batch.counts?.ready ?? 0 }}</strong>
+      </div>
+      <div>
+        Retirées<strong>{{ batch.counts?.pickedUp ?? 0 }}</strong>
+      </div>
+      <div>
+        Crédits clientes<strong>{{ batch.counts?.customerCredits ?? 0 }}</strong>
+      </div>
+    </div>
+    <p>{{ batch.counts?.eligible ?? 0 }} commande(s) éligible(s) à la préparation physique.</p>
+    <div class="filters">
+      <div>
+        <label for="distribution-search">Rechercher une commande ou une cliente</label
+        ><input
+          gInput
+          id="distribution-search"
+          type="search"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+        />
+      </div>
+      <div>
+        <label for="distribution-filter">Afficher</label
+        ><select
+          gSelect
+          id="distribution-filter"
+          [ngModel]="filter()"
+          (ngModelChange)="filter.set($event)"
+        >
+          <option value="all">Toutes les commandes</option>
+          <option value="NOT_READY">À préparer</option>
+          <option value="eligible">Éligibles à la préparation</option>
+          <option value="payment">Bloquées par paiement</option>
+          <option value="READY_FOR_PICKUP">Prêtes</option>
+          <option value="PICKED_UP">Retirées</option>
+          <option value="credit">Crédits clientes</option>
+        </select>
+      </div>
+    </div>
+    <div class="orders">
+      @for (row of rows(); track row.orderId) {
+        <g-distribution-order
+          [row]="row"
+          [refreshVersion]="revision()"
+          [disabled]="busy() || loading()"
+          (action)="perform($event)"
+        />
+      } @empty {
+        <p>Aucune commande ne correspond à cette sélection.</p>
+      }
+    </div>
+  }
+</section>

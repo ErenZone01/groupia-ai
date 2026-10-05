@@ -14,3 +14,5 @@ export { PublicGroupingControllerService } from './services/public-grouping-cont
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';
 export { OrderShippingControllerService } from './services/order-shipping-controller.service';
 export { OrderFulfillmentControllerService } from './services/order-fulfillment-controller.service';
+export { RefundControllerService } from './services/refund-controller.service';
+export { OrderCreditControllerService } from './services/order-credit-controller.service';

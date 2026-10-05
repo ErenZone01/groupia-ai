@@ -1,8 +1,10 @@
 import { Component, input } from '@angular/core';
 import { ShippingSettlementView } from '../../api/generated/models';
 import { money } from '../utils/display';
+import { RefundSummary } from './refund-summary';
 @Component({
   selector: 'g-shipping-settlement',
+  imports: [RefundSummary],
   template: `@if (value(); as v) {
     <section aria-label="Situation financière du transport">
       <h2>Transport</h2>
@@ -35,6 +37,12 @@ import { money } from '../utils/display';
             </div>
           }
         </dl>
+        @if (v.successfulShippingCreditRefunds) {
+          <p>
+            Restitué : {{ money(v.successfulShippingCreditRefunds) }} · Transport payé net :
+            {{ money(v.netShippingPaid) }}
+          </p>
+        }
         @switch (v.status) {
           @case ('BALANCE_DUE') {
             <p class="state">À payer : {{ money(v.amountDue) }}</p>
@@ -47,7 +55,11 @@ import { money } from '../utils/display';
               {{ manager() ? 'Crédit cliente' : 'Crédit en votre faveur' }} :
               {{ money(v.creditAmount) }}
             </p>
-            <p>Ce montant doit être régularisé par la boutique.</p>
+            @if (!v.creditStableForRefund) {
+              <p>Il sera régularisé après la remise de votre commande.</p>
+            } @else {
+              <p>Ce montant doit être régularisé par la boutique.</p>
+            }
           }
         }
         @if (v.paymentInProgress) {
@@ -66,6 +78,7 @@ import { money } from '../utils/display';
         }
       }
       <ng-content />
+      <g-refund-summary [refunds]="v.refunds ?? []" />
     </section>
   }`,
   styles: `

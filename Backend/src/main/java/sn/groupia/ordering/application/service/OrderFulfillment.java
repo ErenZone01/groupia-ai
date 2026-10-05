@@ -33,7 +33,7 @@ public class OrderFulfillment {
             rows.stream().filter(r->r.fulfillmentStatus().equals("PICKED_UP")).count(),
             rows.stream().filter(r->r.shippingSettlement().status()==Status.CREDIT_DUE).count(),
             rows.stream().filter(r->r.fulfillmentStatus().equals("NOT_READY")&&r.readinessBlocker()==null).count());
-        return new FulfillmentBatch(c,manage,counts,rows);
+        return new FulfillmentBatch(c,manage,counts,rows,access.hasPermission(org,OrganizationPermission.MANAGE_REFUNDS));
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public FulfillmentBatch change(UUID org,UUID campaign,UUID id,long version,FulfillmentEvent.Type type,boolean confirmed,String note){

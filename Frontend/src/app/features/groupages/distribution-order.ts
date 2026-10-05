@@ -6,6 +6,7 @@ import { Input } from '../../shared/forms/input';
 import { ShippingSettlement } from '../../shared/ui/shipping-settlement';
 import { dateLabel } from '../../shared/utils/display';
 import { physicalLabel, blockerLabel, historyLabel } from './distribution-labels';
+import { CreditResolution } from './credit-resolution';
 export interface DistributionAction {
   row: FulfillmentRow;
   type: 'ready' | 'revoke' | 'pickup';
@@ -13,7 +14,7 @@ export interface DistributionAction {
 }
 @Component({
   selector: 'g-distribution-order',
-  imports: [FormsModule, Button, Input, ShippingSettlement],
+  imports: [FormsModule, Button, Input, ShippingSettlement, CreditResolution],
   templateUrl: './distribution-order.html',
   styles: `
     :host {
@@ -63,6 +64,9 @@ export interface DistributionAction {
 })
 export class DistributionOrder {
   readonly row = input.required<FulfillmentRow>();
+  readonly organizationId = input('');
+  readonly canManageRefunds = input(false);
+  readonly creditChanged = output<void>();
   readonly refreshVersion = input(0);
   constructor() {
     effect(() => {

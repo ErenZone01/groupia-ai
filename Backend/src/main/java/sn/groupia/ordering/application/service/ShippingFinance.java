@@ -18,8 +18,9 @@ import sn.groupia.shared.api.ApiException;
 @Service
 public class ShippingFinance {
     private final PaymentOperations payments;private final ShippingAssessments shipping;private final Orders orders;
-    ShippingFinance(PaymentOperations payments,ShippingAssessments shipping,Orders orders){
-        this.payments=payments;this.shipping=shipping;this.orders=orders;
+    private final RefundOperations refunds;
+    ShippingFinance(PaymentOperations payments,ShippingAssessments shipping,Orders orders,RefundOperations refunds){
+        this.payments=payments;this.shipping=shipping;this.orders=orders;this.refunds=refunds;
     }
     public ShippingSettlementView read(Order order){return read(order,shipping.read(OrderShipping.seed(order)));}
     public ShippingSettlementView read(Order order,ShippingAssessmentView assessment){
@@ -76,7 +77,14 @@ public class ShippingFinance {
         return new Checkout(org,request.orElseThrow().id(),new PaymentCheckoutContext(order.getOrderNumber(),
             contact.firstName()+" "+contact.lastName(),contact.phoneE164(),contact.email()));
     }
-    static ShippingSettlementView position(Order order,ShippingAssessmentView assessment,List<PaymentObligationView> states){
+    ShippingSettlementView position(Order order,ShippingAssessmentView assessment,List<PaymentObligationView> states){
+        var history=refunds.history(order.getOrganizationId(),order.getId());
+        var refundAmount=history.stream().filter(r->r.status().equals("SUCCEEDED")).map(r->{
+            if(!r.currency().equals(order.getCurrency()))throw new IllegalStateException("Inconsistent refund currency");
+            return r.amount();
+        }).reduce(BigDecimal.ZERO,BigDecimal::add);
+        var summaries=history.stream().map(RefundSummary::from).toList();
+        boolean stable=order.getFulfillmentStatus()==FulfillmentStatus.PICKED_UP;
         BigDecimal additional=BigDecimal.ZERO;
         for(var state:states){
             var r=state.request();
@@ -91,17 +99,19 @@ public class ShippingFinance {
         }
         BigDecimal initial=order.getStatus()==OrderStatus.CONFIRMED||order.getStatus()==OrderStatus.COMPLETED
             ?order.getInitialShippingChargeAmount():BigDecimal.ZERO;
-        var total=initial.add(additional);var current=assessment.currentFinal();
+        var gross=initial.add(additional);var total=gross.subtract(refundAmount);var current=assessment.currentFinal();
+        if(total.signum()<0)throw new IllegalStateException("Refund exceeds shipping paid");
         var obligation=states.stream().map(PaymentObligationView::request)
             .filter(r->r.businessReference().equals(reference(order,assessment))).findFirst()
             .map(r->new CurrentObligation(r.acceptanceStatus().name(),r.expectedAmount())).orElse(null);
         boolean inProgress=states.stream().anyMatch(PaymentObligationView::paymentInProgress);
-        if(current==null)return new ShippingSettlementView(null,initial,additional,total,Status.NOT_FINALIZED,
-            BigDecimal.ZERO,BigDecimal.ZERO,order.getCurrency(),null,null,null,inProgress);
+        if(current==null)return new ShippingSettlementView(null,initial,additional,gross,Status.NOT_FINALIZED,
+            BigDecimal.ZERO,BigDecimal.ZERO,order.getCurrency(),null,null,null,inProgress,refundAmount,total,stable,summaries);
         if(!order.getCurrency().equals(current.explanation().currency()))throw new IllegalStateException("Inconsistent shipping currency");
         var amount=current.explanation().amount();var delta=amount.subtract(total);
-        return new ShippingSettlementView(amount,initial,additional,total,delta.signum()>0?Status.BALANCE_DUE:delta.signum()<0?Status.CREDIT_DUE:Status.SETTLED,
-            delta.max(BigDecimal.ZERO),delta.negate().max(BigDecimal.ZERO),order.getCurrency(),current.id(),current.revision(),obligation,inProgress);
+        if(refundAmount.signum()>0&&delta.signum()>0)throw new IllegalStateException("Refund exceeds shipping credit");
+        return new ShippingSettlementView(amount,initial,additional,gross,delta.signum()>0?Status.BALANCE_DUE:delta.signum()<0?Status.CREDIT_DUE:Status.SETTLED,
+            delta.max(BigDecimal.ZERO),delta.negate().max(BigDecimal.ZERO),order.getCurrency(),current.id(),current.revision(),obligation,inProgress,refundAmount,total,stable,summaries);
     }
     private static String reference(Order order,ShippingAssessmentView assessment){return "SHIPPING_BALANCE:"+order.getId()+":"+assessment.currentFinalCalculationId();}
     private static ApiException inProgress(){return new ApiException(409,"SHIPPING_BALANCE_PAYMENT_IN_PROGRESS",

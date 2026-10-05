@@ -56,3 +56,5 @@ timeline privée append-only et migration historique sans perte de données.
 - [0017 — Position financière transport et obligations révisables](0017-shipping-finance.md)
 
 - [0018 — Distribution explicite et remise physique](0018-distribution-v1.md)
+
+- [0019 — Régularisation des crédits transport après remise](0019-shipping-credit-resolution.md)

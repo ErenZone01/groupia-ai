@@ -165,13 +165,13 @@ Les motifs d'indisponibilité sont distincts de OrderStatus. Les corrections apr
 
 **Succès tardif/excédentaire :** enregistrer le fait, signaler la réconciliation et publier l'événement pertinent ; payment ne décide jamais de réactiver une commande.
 
-### PaymentRefund — racine : restitution
+### Refund — racine : restitution du crédit transport (V1 implémentée)
 
-**Données :** id, organizationId, paymentId, montant/devise, ventilation restituée, motif, état REQUESTED/PENDING/SUCCEEDED/FAILED, clé d'idempotence, référence prestataire ou preuve d'exécution manuelle, dates, version.
+**Données :** id, organizationId, orderId, calculationId, montant XOF, purpose SHIPPING_CREDIT, méthode/provenance, état CREATED/PENDING/SUCCEEDED/FAILED/CANCELLED/REVIEW_REQUIRED, références métier/prestataire et clé d'idempotence, destinataire snapshoté, preuve manuelle éventuelle, acteur/dates et version. Le crédit provenant potentiellement de plusieurs encaissements, aucun paymentId unique ne lui est artificiellement attribué.
 
 **Responsabilité :** suivre une restitution sans effacer le paiement SUCCEEDED.
 
-**Invariants :** montants positifs ; remboursements réussis et en cours réservés ne dépassant pas l'encaissement ; coordination concurrente sur le paiement ; reprise idempotente et vérification de l'issue prestataire. Une demande de remboursement ne prouve pas sa réalisation. La politique d'éligibilité vient de la décision commerciale, pas du prestataire.
+**Invariants :** crédit complet strictement positif, calculé côté serveur après PICKED_UP ; coordination concurrente sur la commande ; une opération logique par commande en V1 ; succès immuable et vérification de l'issue prestataire. Une demande de remboursement ne prouve pas sa réalisation. La provenance manuelle atteste une restitution externe et ne prétend pas à une vérification provider. Les remboursements génériques d'un paiement individuel restent hors de cette tranche.
 
 ### PaymentWebhookEvent — réception technique indépendante
 
@@ -253,7 +253,7 @@ notification consommera les faits publics et gérera l'idempotence de ses envois
 - Customer 1—N Order ; Order 1—N OrderItem, au moins une ligne.
 - Order 1—0..1 ShippingAssessment pendant initialisation ; unicité stricte, avec reprise idempotente pour obtenir l'évaluation requise.
 - Assessment 1—N observations/calculs historiques ; au plus un calcul final courant.
-- Order 1—N PaymentRequest ; Request 1—N Payment ; Payment 1—N PaymentRefund.
+- Order 1—N PaymentRequest ; Request 1—N Payment ; Order 1—0..1 Refund SHIPPING_CREDIT dans cette V1.
 - Les cardinalités minimales des paiements sont zéro avant création/encaissement.
 - Les FK SQL intermodules autorisées ne changent pas le graphe des imports Java.
 
@@ -291,7 +291,7 @@ PaymentRequest, Payment et PaymentWebhookEvent sont persistés par 007-payments.
 La demande INITIAL_ORDER est créée dans la transaction de checkout et reprend
 ses montants/ventilation/échéance sans recalcul. Le port PaymentProvider n'a
 qu'une implémentation de test. SHIPPING_BALANCE/SUPERSEDED restent réservés ;
-PaymentRefund et transport persistant ne sont pas implémentés.
+À cette date, PaymentRefund et transport persistant n'étaient pas implémentés ; les tranches d'octobre décrites ci-dessous ajoutent transport et Refund SHIPPING_CREDIT.
 
 Les demandes ont actuellement une échéance obligatoire et CLOSED signifie
 réglée avec settledPaymentId. Payment ajoute initiationKey pour le rejeu client,
@@ -319,7 +319,7 @@ Voir [contrat logistique](groupage-logistics.md) pour migration historique et [A
 ## Shipping V1 implémenté
 
 Voir [Shipping V1](shipping-v1.md) et [ADR-0016](../adr/0016-order-shipping-assessments.md).
-Les soldes et états de retrait ont ensuite été livrés par Shipping Finance V1 et Distribution V1 (voir ci-dessous). Les remboursements restent différés.
+Les soldes, états de retrait et remboursements ont ensuite été livrés par Shipping Finance V1, Distribution V1 et Credit Resolution V1 (voir ci-dessous).
 
 ## Shipping Finance V1
 
@@ -328,3 +328,9 @@ ShippingSettlementView est dérivée par commande : FINAL courant moins transpor
 ## Distribution V1
 
 Order conserve readyForPickupAt courant, pickedUpAt définitif et completedAt commercial. Le journal order_fulfillment_events garde chaque préparation, révocation motivée et remise, avec acteur authentifié et date serveur. Une commande retirée avec CREDIT_DUE reste CONFIRMED. Aucun nouvel agrégat financier ; voir [distribution-v1.md](distribution-v1.md) et [ADR-0018](../adr/0018-distribution-v1.md).
+
+## Credit Resolution V1
+
+Refund est un agrégat payment distinct des encaissements : UUID boutique/commande/calcul, montant XOF, purpose SHIPPING_CREDIT, méthode et provenance, statut, références métier/provider/idempotence, destinataire snapshoté, acteur/date serveur, preuve temporelle, réconciliation et version. Les receipts normalisés des webhooks sortants sont persistés séparément ; aucun lien JPA cross-module. La migration 019 protège unicité, snapshots et succès immuables.
+
+ShippingSettlementView expose totalShippingPaidAmount brut historique, successfulShippingCreditRefunds et netShippingPaid. RefundSummary expose uniquement montant/moyen/statut/dates/provenance au suivi client ; RefundView réserve l'identifiant et la référence externe masquée à la gérante. ShippingCreditRefundSettled est un événement durable consommé par ordering. Voir [modèle détaillé](shipping-credit-resolution.md) et [ADR-0019](../adr/0019-shipping-credit-resolution.md).

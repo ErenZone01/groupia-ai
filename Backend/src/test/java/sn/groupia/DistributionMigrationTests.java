@@ -18,7 +18,7 @@ class DistributionMigrationTests {
  var before=jdbc.queryForMap("select * from orders where id=?",order);var checksums=jdbc.queryForList("select id,md5sum from databasechangelog order by orderexecuted");
  try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}
  var upgraded=jdbc.queryForMap("select * from orders where id=?",order);assertThat(upgraded.remove("ready_for_pickup_at")).isNull();assertThat(upgraded).isEqualTo(before);
- assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '017-%' and id not like '018-%' order by orderexecuted")).isEqualTo(checksums);
+ assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '017-%' and id not like '018-%' and id not like '019-%' order by orderexecuted")).isEqualTo(checksums);
  assertThat(jdbc.queryForObject("select count(*) from order_fulfillment_events",Integer.class)).isZero();
  String insert="insert into order_fulfillment_events(id,organization_id,campaign_id,order_id,type,actor_id,recorded_at,note) select gen_random_uuid(),organization_id,campaign_id,id,?,gen_random_uuid(),now(),? from orders where id=?";
  assertThatThrownBy(()->jdbc.update(insert,"READINESS_REVOKED"," ",order)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);

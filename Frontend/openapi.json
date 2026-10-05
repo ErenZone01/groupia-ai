@@ -6968,6 +6968,432 @@
           }
         ]
       }
+    },
+    "/api/organizations/{organizationId}/refunds/{refundId}/reconcile": {
+      "post": {
+        "tags": [
+          "refund-controller"
+        ],
+        "summary": "Vérifier ponctuellement un remboursement",
+        "operationId": "reconcileRefund",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/orders/{orderId}/shipping-credit": {
+      "get": {
+        "tags": [
+          "order-credit-controller"
+        ],
+        "summary": "Consulter la régularisation du crédit transport",
+        "operationId": "shippingCredit",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditResolution"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "order-credit-controller"
+        ],
+        "summary": "Régulariser tout le crédit transport après retrait",
+        "operationId": "resolveShippingCredit",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveCredit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditResolution"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/refunds/review": {
+      "get": {
+        "tags": [
+          "refund-controller"
+        ],
+        "summary": "Régularisations à vérifier",
+        "operationId": "refundReviewQueue",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RefundReviewView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -9996,6 +10422,21 @@
           },
           "paymentInProgress": {
             "type": "boolean"
+          },
+          "successfulShippingCreditRefunds": {
+            "type": "number"
+          },
+          "netShippingPaid": {
+            "type": "number"
+          },
+          "creditStableForRefund": {
+            "type": "boolean"
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundSummary"
+            }
           }
         }
       },
@@ -10035,6 +10476,9 @@
             "items": {
               "$ref": "#/components/schemas/FulfillmentRow"
             }
+          },
+          "canManageRefunds": {
+            "type": "boolean"
           }
         }
       },
@@ -10162,6 +10606,150 @@
           },
           "confirmed": {
             "type": "boolean"
+          }
+        }
+      },
+      "RefundView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "externalMethod": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "initiatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reconciliationRequired": {
+            "type": "boolean"
+          },
+          "maskedExternalReference": {
+            "type": "string"
+          }
+        }
+      },
+      "ResolveCredit": {
+        "required": [
+          "confirmed",
+          "externalMethod",
+          "method",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          },
+          "method": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "externalMethod": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 160,
+            "minLength": 0,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreditResolution": {
+        "type": "object",
+        "properties": {
+          "settlement": {
+            "$ref": "#/components/schemas/ShippingSettlementView"
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "canResolve": {
+            "type": "boolean"
+          },
+          "payoutsEnabled": {
+            "type": "boolean"
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundView"
+            }
+          }
+        }
+      },
+      "RefundSummary": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "externalMethod": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "initiatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reconciliationRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RefundReviewView": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "refund": {
+            "$ref": "#/components/schemas/RefundView"
+          },
+          "reason": {
+            "type": "string"
           }
         }
       }

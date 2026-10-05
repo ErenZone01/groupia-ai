@@ -63,7 +63,7 @@ class DistributionChecksumUpgradeTests {
                 assertThatThrownBy(()->append(jdbc,order,"PICKED_UP","2026-10-03T12:00:05Z",null)).isInstanceOf(DataIntegrityViolationException.class);
             }
             assertThat(jdbc.queryForList("select * from orders order by id")).isEqualTo(orders);
-            assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '018-%' order by orderexecuted")).isEqualTo(checksums);
+            assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '018-%' and id not like '019-%' order by orderexecuted")).isEqualTo(checksums);
         }
     }
 

@@ -45,7 +45,7 @@ grouping peut utiliser les contrats publics de tarification de shipping. shippin
 
 ## Contrats d'événements envisagés
 
-Sauf PaymentRequestSettled désormais implémenté, ces noms désignent des contrats cibles. Chaque événement transactionnel comporte eventId, occurredAt, organisation quand applicable, identifiants minimaux et version/révision pertinente. Aucune donnée personnelle inutile.
+Les contrats explicitement marqués implémentés sont disponibles ; les autres noms désignent des contrats cibles. Chaque événement transactionnel comporte eventId, occurredAt, organisation quand applicable, identifiants minimaux et version/révision pertinente. Aucune donnée personnelle inutile.
 
 | Producteur / propriétaire du contrat | Fait | Consommateurs pertinents |
 | --- | --- | --- |
@@ -56,7 +56,8 @@ Sauf PaymentRequestSettled désormais implémenté, ces noms désignent des cont
 | shipping | ShippingAssessmentFinalized / Revised | ordering, audit |
 | payment | PaymentRequestSettled (implémenté) | ordering (implémenté) ; notification/audit futurs |
 | payment | PaymentSucceeded / Failed / ReconciliationRequired (cibles futures) | notification, audit |
-| payment | PaymentRefundSucceeded / Failed | ordering, audit |
+| payment | ShippingCreditRefundSettled (implémenté) | ordering (implémenté) |
+| payment | PaymentRefundSucceeded / Failed (remboursements génériques futurs) | ordering, audit |
 | notification | NotificationDeliveryRecorded | audit |
 
 L'audit de prix doit disposer des valeurs précédente/nouvelle, de la devise, de l'acteur et de la révision ; ce sont des données commerciales nécessaires à ce fait. Une commande ne se recalcule jamais à partir de OfferPriceChanged.
@@ -157,3 +158,7 @@ Graphe inchangé : customeraccess → ordering::api → payment::api / shipping:
 ## Distribution V1
 
 Graphe inchangé. ordering utilise grouping::api/CampaignDistribution pour le verrou et ARRIVED → DISTRIBUTING, organization::api pour MANAGE_FULFILLMENT, et les lectures ShippingFinance existantes via payment::api et shipping::api. Le journal immuable reste interne à ordering. Aucune dépendance inverse ni notification supplémentaire. Voir [ADR-0018](../adr/0018-distribution-v1.md).
+
+## Credit Resolution V1
+
+Graphe inchangé : ordering consomme payment::api/RefundOperations pour réserver et lire les restitutions ; payment ne lit aucune classe interne ordering. OrderCredits autorise et calcule sous verrou commande. La réservation locale est atomique ; l'appel provider se fait après commit. L'événement public durable ShippingCreditRefundSettled porte les identifiants et le montant utiles, sans destinataire ni secret. OrderRefundListener recalcule la position via les API exposées et complète la commande de façon idempotente. Le provider payout, les receipts et leur persistence restent internes à payment. Voir [ADR-0019](../adr/0019-shipping-credit-resolution.md).

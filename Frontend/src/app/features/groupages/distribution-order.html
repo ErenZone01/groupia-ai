@@ -11,6 +11,17 @@
     <p>Retirée le {{ dateLabel(row().pickedUpAt) }}</p>
   }
   <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
+  @if (
+    canManageRefunds() &&
+    (row().shippingSettlement?.status === 'CREDIT_DUE' || row().shippingSettlement?.refunds?.length)
+  ) {
+    <g-credit-resolution
+      [organizationId]="organizationId()"
+      [row]="row()"
+      [disabled]="disabled()"
+      (changed)="creditChanged.emit()"
+    />
+  }
   @if (row().fulfillmentStatus === 'NOT_READY' && row().readinessBlocker) {
     <p class="notice">{{ blockerLabel(row().readinessBlocker) }}</p>
   }

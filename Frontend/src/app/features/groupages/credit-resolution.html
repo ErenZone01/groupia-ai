@@ -1,0 +1,129 @@
+@if (row().fulfillmentStatus !== 'PICKED_UP') {
+  <p class="muted">Régularisation disponible après retrait.</p>
+} @else {
+  <button gButton variant="secondary" [disabled]="disabled() || busy()" (click)="open()">
+    {{
+      row().shippingSettlement?.refunds?.length
+        ? 'Consulter la régularisation'
+        : 'Régulariser ' + money(row().shippingSettlement?.creditAmount)
+    }}
+  </button>
+}
+<dialog #modal aria-label="Régulariser le crédit cliente" (cancel)="cancel($event)">
+  <h2>Régulariser le crédit cliente</h2>
+  @if (error()) {
+    <p class="notice" role="alert">{{ error() }}</p>
+  }
+  @if (busy()) {
+    <p role="status">Traitement en cours…</p>
+  }
+  @if (data(); as d) {
+    @if (d.canResolve) {
+      <p>
+        Restitution complète : <strong>{{ money(d.settlement?.creditAmount) }}</strong
+        >.
+      </p>
+      <form (ngSubmit)="submit()">
+        <fieldset [disabled]="busy()">
+          <legend>Comment régulariser ce crédit ?</legend>
+          <label class="choice"
+            ><input
+              type="radio"
+              name="mode"
+              value="BICTORYS_PAYOUT"
+              [(ngModel)]="method"
+              (ngModelChange)="selectMode()"
+              [disabled]="!d.payoutsEnabled"
+            />
+            <span>Remboursement Bictorys</span></label
+          >
+          @if (!d.payoutsEnabled) {
+            <p class="muted">Les remboursements Bictorys ne sont pas activés.</p>
+          }
+          <label class="choice"
+            ><input
+              type="radio"
+              name="mode"
+              value="MANUAL_EXTERNAL"
+              [(ngModel)]="method"
+              (ngModelChange)="selectMode()"
+            />
+            <span>Remboursement effectué hors Groupia</span></label
+          >
+          <label
+            >Moyen de restitution
+            <select gSelect name="externalMethod" [(ngModel)]="externalMethod" required>
+              <option value="WAVE">Wave</option>
+              <option value="ORANGE_MONEY">Orange Money</option>
+              @if (method === 'MANUAL_EXTERNAL') {
+                <option value="CASH">Espèces</option>
+                <option value="BANK_TRANSFER">Virement</option>
+                <option value="OTHER">Autre</option>
+              }
+            </select>
+          </label>
+          @if (method === 'BICTORYS_PAYOUT') {
+            <p>Le remboursement sera envoyé uniquement au numéro enregistré sur la commande.</p>
+          } @else {
+            <p>Cette déclaration atteste une restitution déjà effectuée par la boutique.</p>
+            <label
+              >Référence externe {{ externalMethod === 'CASH' ? '(facultative)' : '(obligatoire)' }}
+              <input
+                gInput
+                name="reference"
+                [(ngModel)]="reference"
+                maxlength="160"
+                [required]="externalMethod !== 'CASH'"
+              />
+            </label>
+            <label
+              >Note privée
+              {{ externalMethod === 'CASH' ? '(confirmation obligatoire)' : '(facultative)' }}
+              <input
+                gInput
+                name="note"
+                [(ngModel)]="note"
+                maxlength="1000"
+                [required]="externalMethod === 'CASH'"
+              />
+            </label>
+          }
+          <label class="choice"
+            ><input type="checkbox" name="confirmed" [(ngModel)]="confirmed" required />
+            <span>{{
+              method === 'BICTORYS_PAYOUT'
+                ? 'Je confirme l’envoi du crédit complet à la cliente.'
+                : 'Je confirme avoir déjà restitué le crédit complet à la cliente.'
+            }}</span></label
+          >
+        </fieldset>
+        <div class="actions">
+          <button gButton type="submit" [disabled]="!valid()" [loading]="busy()">
+            Confirmer la régularisation
+          </button>
+          <button gButton variant="ghost" type="button" [disabled]="busy()" (click)="close()">
+            Annuler
+          </button>
+        </div>
+      </form>
+    } @else {
+      <g-refund-summary [refunds]="d.refunds ?? []" />
+      @for (refund of d.refunds; track refund.id) {
+        @if (refund.maskedExternalReference) {
+          <p>Référence externe : {{ refund.maskedExternalReference }}</p>
+        }
+        @if (refund.method === 'BICTORYS_PAYOUT' && refund.status !== 'SUCCEEDED') {
+          <button gButton variant="secondary" [loading]="busy()" (click)="reconcile(refund.id)">
+            Vérifier le remboursement
+          </button>
+        }
+      }
+      @if (!d.refunds?.length) {
+        <p>Aucun crédit disponible pour une régularisation.</p>
+      }
+    }
+  }
+  @if (!data()?.canResolve) {
+    <button gButton variant="ghost" [disabled]="busy()" (click)="close()">Fermer</button>
+  }
+</dialog>

@@ -13,11 +13,14 @@ public class PaymentWebhooks {
     private final ProviderRegistry providers;
     private final tools.jackson.databind.ObjectMapper json;
     private final PaymentTransactions transactions;
-    PaymentWebhooks(ProviderRegistry providers,PaymentTransactions transactions,tools.jackson.databind.ObjectMapper json) {
+    private final RefundService refunds;
+    PaymentWebhooks(ProviderRegistry providers,PaymentTransactions transactions,tools.jackson.databind.ObjectMapper json,RefundService refunds) {
+        this.refunds=refunds;
         this.providers=providers; this.transactions=transactions; this.json=json;
     }
     public UUID receive(String provider,byte[] payload,Map<String,String> headers) {
         if (payload.length>65536) { throw new ApiException(413,"PAYMENT_WEBHOOK_TOO_LARGE","Réception trop volumineuse."); }
+        if(refunds.recognizes(provider,payload))return refunds.receive(payload,headers);
         var adapter=providers.require(provider);
         String fingerprint=hash(payload);
         boolean authentic;

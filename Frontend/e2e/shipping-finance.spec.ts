@@ -121,12 +121,22 @@ test('crédit, non finalisé et erreur provider ne déclenchent pas un faux paie
   page,
 }) => {
   const s = await setup(page);
-  s.value = { ...initial, status: 'CREDIT_DUE', creditAmount: 500, amountDue: 0 };
+  s.value = {
+    ...initial,
+    status: 'CREDIT_DUE',
+    creditAmount: 500,
+    amountDue: 0,
+    creditStableForRefund: false,
+  };
   await page.goto('/mes-commandes/' + number);
   await expect(page.getByText(/Crédit en votre faveur/)).toBeVisible();
-  await expect(page.getByText('Ce montant doit être régularisé par la boutique.')).toBeVisible();
+  await expect(page.getByText('Il sera régularisé après la remise de votre commande.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Payer.*transport/ })).toHaveCount(0);
   await expect(page.getByText('Remboursement en cours')).toHaveCount(0);
+  s.value = { ...s.value, creditStableForRefund: true };
+  await page.getByRole('button', { name: 'Actualiser le suivi' }).click();
+  await expect(page.getByText('Ce montant doit être régularisé par la boutique.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Payer.*transport/ })).toHaveCount(0);
   s.value = { ...initial, status: 'NOT_FINALIZED' };
   await page.getByRole('button', { name: 'Actualiser le suivi' }).click();
   await expect(page.getByText(/Aucun paiement transport/)).toBeVisible();

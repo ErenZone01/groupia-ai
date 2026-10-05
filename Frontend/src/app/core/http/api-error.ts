@@ -1,5 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  CREDIT_NOT_STABLE_FOR_REFUND: 'Le crédit pourra être régularisé après la remise de la commande.',
+  SHIPPING_CREDIT_NOT_DUE: 'Aucun crédit stable ne peut être régularisé. Actualisez la commande.',
+  REFUND_ALREADY_EXISTS:
+    'Une régularisation existe déjà. Consultez son état avant toute nouvelle action.',
+  REFUND_EVIDENCE_REQUIRED:
+    'Renseignez la référence externe ou la note de confirmation pour les espèces.',
+  REFUND_CONFIRMATION_REQUIRED: 'Confirmez explicitement la restitution du crédit complet.',
+  REFUND_RECIPIENT_UNSUPPORTED:
+    'Le remboursement automatique exige le numéro sénégalais enregistré sur la commande.',
+  PAYOUT_DISABLED:
+    'Les remboursements Bictorys sont désactivés. Une restitution déjà effectuée peut être déclarée.',
   ORDER_FULFILLMENT_LOCKED:
     'Cette commande est prête ou déjà retirée. Retirez sa mise à disposition avant de corriger le transport.',
   ORDER_VERSION_CONFLICT: 'La commande a changé. Actualisez-la avant de confirmer à nouveau.',

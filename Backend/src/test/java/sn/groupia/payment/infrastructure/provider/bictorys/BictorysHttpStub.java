@@ -7,7 +7,7 @@ import java.util.concurrent.*;
 import java.io.IOException;
 /** Local HTTP only. Fixtures are synthetic and contain no provider credentials. */
 public final class BictorysHttpStub implements AutoCloseable {
-    public record Request(String method,String path,String apiKey,String body) {}
+    public record Request(String method,String path,String apiKey,String body,String idempotencyKey) {}
     record Reply(int status,String body,long delay,boolean disconnect) {}
     final BlockingQueue<Reply> replies=new LinkedBlockingQueue<>();
     public final List<Request> requests=new CopyOnWriteArrayList<>();
@@ -19,7 +19,7 @@ public final class BictorysHttpStub implements AutoCloseable {
         server.createContext("/",exchange->{
             var bytes=exchange.getRequestBody().readAllBytes();
             requests.add(new Request(exchange.getRequestMethod(),exchange.getRequestURI().toString(),
-                    exchange.getRequestHeaders().getFirst("X-Api-Key"),new String(bytes,StandardCharsets.UTF_8)));
+                    exchange.getRequestHeaders().getFirst("X-Api-Key"),new String(bytes,StandardCharsets.UTF_8),exchange.getRequestHeaders().getFirst("idempotency-key")));
             var reply=replies.poll();
             if(reply==null){reply=new Reply(500,"unexpected request",0,false);}
             try {

@@ -7,6 +7,7 @@ import { FulfillmentRow } from '../models/fulfillment-row';
 export interface FulfillmentBatch {
   campaign?: CampaignLifecycleView;
   canManageFulfillment?: boolean;
+  canManageRefunds?: boolean;
   counts?: FulfillmentCounts;
   orders?: Array<FulfillmentRow>;
 }

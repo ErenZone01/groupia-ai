@@ -20,8 +20,9 @@ public class PaymentTransactions {
     private final ApplicationEventPublisher events;
     private final Clock clock;
     private final ProviderRegistry providers;
-    PaymentTransactions(FinancialStore store,ApplicationEventPublisher events,Clock clock,ProviderRegistry providers) {
-        this.store=store; this.events=events; this.clock=clock; this.providers=providers;
+    private final sn.groupia.payment.domain.repository.RefundStore refunds;
+    PaymentTransactions(FinancialStore store,ApplicationEventPublisher events,Clock clock,ProviderRegistry providers,sn.groupia.payment.domain.repository.RefundStore refunds) {
+        this.store=store; this.events=events; this.clock=clock; this.providers=providers;this.refunds=refunds;
     }
     @Transactional(propagation=Propagation.MANDATORY)
     public PaymentRequestView create(CreatePaymentRequest c) {
@@ -137,6 +138,7 @@ public class PaymentTransactions {
         if (o.providerTransactionId()==null || o.providerTransactionId().isBlank() || o.providerTransactionId().length()>160
                 || (p.getProviderTransactionId()!=null && !p.getProviderTransactionId().equals(o.providerTransactionId()))) { return "TRANSACTION_MISMATCH"; }
         store.coordinate("transaction:"+p.getProvider()+":"+p.getProviderAccountReference()+":"+o.providerTransactionId());
+        if(refunds.isRefundTransaction(p.getProvider(),p.getProviderAccountReference(),o.providerTransactionId()))return "TRANSACTION_MISMATCH";
         var existing=store.byProviderTransaction(p.getProvider(),p.getProviderAccountReference(),o.providerTransactionId());
         if (existing.isPresent() && !existing.get().getId().equals(p.getId())) { return "TRANSACTION_MISMATCH"; }
         return null;

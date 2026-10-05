@@ -202,3 +202,9 @@ Le total transport payé additionne le snapshot initial de la commande confirmé
 ## Distribution V1
 
 ARRIVED ne signifie pas READY. Transport FINAL + SETTLED/CREDIT_DUE + absence de paiement incertain + attestation humaine permettent READY. BALANCE_DUE bloque préparation et retrait. READY est révocable avec motif avant remise, et bloque les corrections transport. PICKED_UP est définitif ; Order devient COMPLETED seulement si SETTLED. Le groupage reste DISTRIBUTING. Voir [distribution-v1.md](distribution-v1.md).
+
+## Credit Resolution V1 — application de BR-45
+
+Après PICKED_UP uniquement, OWNER/MANAGER avec MANAGE_REFUNDS peuvent restituer le CREDIT_DUE complet calculé sous verrou serveur. Refund appartient à payment et conserve ses snapshots immuables ; les Payment et PaymentRequest historiques ne sont jamais réécrits. BICTORYS_PAYOUT exige une preuve corrélée, distincte du simple accusé d'initiation. MANUAL_EXTERNAL atteste une restitution déjà réalisée, avec référence numérique obligatoire ou note obligatoire pour les espèces.
+
+Seuls les refunds SUCCEEDED réduisent le transport payé net. PENDING, REVIEW_REQUIRED et timeout gardent le crédit ouvert et interdisent un second envoi. En V1, une seule opération logique par commande est admise, y compris après échec certain ; le remplacement est différé. CREDIT_DUE → PICKED_UP → refund SUCCEEDED → SETTLED → Order COMPLETED est consommé de façon idempotente, sans changer pickedUpAt ni clôturer le groupage. Voir [règles, API et recette](shipping-credit-resolution.md).

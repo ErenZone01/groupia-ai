@@ -30,6 +30,8 @@ final class BictorysWebhookParser {
     ProviderObservation parse(byte[] body) {return observation(transactionNode(body),true);}
     ProviderObservation observation(JsonNode node) {return observation(node,false);}
     private ProviderObservation observation(JsonNode node,boolean webhook) {
+        if(node.has("transactionType") && !"payment".equals(text(node,"transactionType")))
+            throw new BictorysException("BICTORYS_UNSUPPORTED_EVENT");
         String id=identifier(node,"id"),status=text(node,"status"),currency=text(node,"currency");
         if(id==null || status==null || currency==null || !node.path("amount").isNumber()) {
             throw new BictorysException("BICTORYS_INCOMPLETE_EVIDENCE");

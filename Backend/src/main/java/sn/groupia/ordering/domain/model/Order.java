@@ -117,6 +117,9 @@ public class Order {
             throw new ApiException(409,"ORDER_FULFILLMENT_CONFLICT","Cette action n'est plus disponible. Rechargez la commande.");
     }
     public Instant getReadyForPickupAt(){return readyForPickupAt;}
+    public void completeAfterCreditResolution(Instant now){
+        if(fulfillmentStatus==FulfillmentStatus.PICKED_UP && status==OrderStatus.CONFIRMED){status=OrderStatus.COMPLETED;completedAt=now;}
+    }
     public UUID getId() { return id; }
     public UUID getOrganizationId() { return organizationId; }
     public UUID getCampaignId() { return campaignId; }

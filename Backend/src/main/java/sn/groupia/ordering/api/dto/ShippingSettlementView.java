@@ -5,7 +5,9 @@ import java.util.UUID;
 public record ShippingSettlementView(BigDecimal finalShippingAmount,BigDecimal initialShippingPaidAmount,
     BigDecimal additionalShippingPaidAmount,BigDecimal totalShippingPaidAmount,Status status,
     BigDecimal amountDue,BigDecimal creditAmount,String currency,UUID currentShippingCalculationId,
-    Long revision,CurrentObligation currentPaymentRequest,boolean paymentInProgress) {
+    Long revision,CurrentObligation currentPaymentRequest,boolean paymentInProgress,
+    BigDecimal successfulShippingCreditRefunds,BigDecimal netShippingPaid,boolean creditStableForRefund,
+    java.util.List<sn.groupia.payment.api.dto.RefundSummary> refunds) {
     public enum Status { NOT_FINALIZED, BALANCE_DUE, SETTLED, CREDIT_DUE }
     public record CurrentObligation(String status,BigDecimal amount) {}
 }

@@ -154,3 +154,11 @@ PROVIDER_STATUS_UNKNOWN conserve les états inconnus pour investigation.
 PAYMENT_REFERENCE_MISMATCH indique un numéro de commande incohérent. Aucun de ces
 motifs ne justifie un force-success ou une nouvelle initiation.
 Voir [ADR-0012](../adr/0012-bictorys-sandbox-adapter.md) et le [parcours manuel](bictorys-sandbox.md).
+
+## Remboursements transport V1
+
+Les payouts sont désactivés par défaut. Activer GROUPIA_BICTORYS_PAYOUTS_ENABLED exige une clé privée et un merchant secret code dédiés dans l'environnement. Une initiation réussie reste PENDING ; timeout, preuve faible ou incohérence gardent le crédit ouvert. Ne jamais forcer SUCCEEDED, réémettre un payout ou déclarer une restitution manuelle pour contourner une tentative incertaine.
+
+La file privée GET /api/organizations/{organizationId}/refunds/review exige VIEW_PAYMENTS ; POST /api/organizations/{organizationId}/refunds/{refundId}/reconcile exige MANAGE_REFUNDS et effectue une vérification ponctuelle hors transaction. Un reçu inconnu/malformé reste consultable dans refund_webhook_receipts pour investigation opérateur, sans payload brut ni secrets. Les événements ShippingCreditRefundSettled incomplets suivent la stratégie existante de reprise Modulith ; leur rejeu ne duplique pas la clôture de commande.
+
+La provenance MANUAL_EXTERNAL reste une déclaration de la boutique, jamais une vérification Bictorys. Détails, limites de reprise et recette : [shipping-credit-resolution.md](shipping-credit-resolution.md).

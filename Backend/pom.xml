@@ -185,6 +185,7 @@
 				<configuration>
 					<systemPropertyVariables>
 						<groupia.payment.bictorys.enabled>false</groupia.payment.bictorys.enabled>
+                        <groupia.payment.bictorys.payouts.enabled>false</groupia.payment.bictorys.payouts.enabled>
                         <groupia.notification.whatsapp.enabled>false</groupia.notification.whatsapp.enabled>
                         <!-- Opt-in slices configure themselves; local .env must not add event consumers to unrelated tests. -->
                         <groupia.customer-access.enabled>false</groupia.customer-access.enabled>

@@ -16,3 +16,4 @@ export { OrderShippingControllerService } from './services/order-shipping-contro
 export { OrderFulfillmentControllerService } from './services/order-fulfillment-controller.service';
 export { RefundControllerService } from './services/refund-controller.service';
 export { OrderCreditControllerService } from './services/order-credit-controller.service';
+export { MerchantSettlementControllerService } from './services/merchant-settlement-controller.service';

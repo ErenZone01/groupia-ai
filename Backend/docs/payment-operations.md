@@ -162,3 +162,21 @@ Les payouts sont désactivés par défaut. Activer GROUPIA_BICTORYS_PAYOUTS_ENAB
 La file privée GET /api/organizations/{organizationId}/refunds/review exige VIEW_PAYMENTS ; POST /api/organizations/{organizationId}/refunds/{refundId}/reconcile exige MANAGE_REFUNDS et effectue une vérification ponctuelle hors transaction. Un reçu inconnu/malformé reste consultable dans refund_webhook_receipts pour investigation opérateur, sans payload brut ni secrets. Les événements ShippingCreditRefundSettled incomplets suivent la stratégie existante de reprise Modulith ; leur rejeu ne duplique pas la clôture de commande.
 
 La provenance MANUAL_EXTERNAL reste une déclaration de la boutique, jamais une vérification Bictorys. Détails, limites de reprise et recette : [shipping-credit-resolution.md](shipping-credit-resolution.md).
+
+## Exploitation Merchant Settlement V1
+
+Voir [merchant-settlement-v1.md](merchant-settlement-v1.md) pour API, recette et limites.
+Les paiements entrants, refunds clients et versements boutiques restent distincts.
+`GROUPIA_BICTORYS_PAYOUTS_ENABLED` continue de piloter les refunds existants.
+`GROUPIA_MERCHANT_PAYOUTS_ENABLED=false` est un opt-in séparé ; l'adaptateur marchand
+de production reste indisponible tant que le contrat réel n'est pas implémenté.
+Aucun credential marchand requis au démarrage provider désactivé.
+
+Surveiller les publications FAILED/incomplètes de MerchantLedgerListeners et les
+MerchantPayout REVIEW_REQUIRED. Réutiliser la reprise durable décrite plus haut,
+après correction de la cause. Ne pas UPDATE le ledger, forcer SUCCEEDED ou libérer
+une réservation dont l'issue externe est inconnue. La réconciliation serveur ne
+renvoie jamais un second payout. Sans provider disponible elle retourne 503.
+
+Le backfill reprend les obligations déjà réglées et les refunds Bictorys réussis ;
+MANUAL_EXTERNAL n'est jamais redébité au marchand. Aucun frais PSP n'est soustrait.

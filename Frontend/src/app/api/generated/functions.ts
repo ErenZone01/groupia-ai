@@ -133,3 +133,17 @@ export type { ShippingCredit$Params as ShippingCredit$Params } from './fn/order-
 export { shippingCredit as shippingCredit } from './fn/order-credit-controller/shipping-credit';
 export type { ResolveShippingCredit$Params as ResolveShippingCredit$Params } from './fn/order-credit-controller/resolve-shipping-credit';
 export { resolveShippingCredit as resolveShippingCredit } from './fn/order-credit-controller/resolve-shipping-credit';
+export type { MerchantPayoutDestination$Params as MerchantPayoutDestination$Params } from './fn/merchant-settlement-controller/merchant-payout-destination';
+export { merchantPayoutDestination as merchantPayoutDestination } from './fn/merchant-settlement-controller/merchant-payout-destination';
+export type { ChangeMerchantPayoutDestination$Params as ChangeMerchantPayoutDestination$Params } from './fn/merchant-settlement-controller/change-merchant-payout-destination';
+export { changeMerchantPayoutDestination as changeMerchantPayoutDestination } from './fn/merchant-settlement-controller/change-merchant-payout-destination';
+export type { ReconcileMerchantPayout$Params as ReconcileMerchantPayout$Params } from './fn/merchant-settlement-controller/reconcile-merchant-payout';
+export { reconcileMerchantPayout as reconcileMerchantPayout } from './fn/merchant-settlement-controller/reconcile-merchant-payout';
+export type { RequestMerchantPayout$Params as RequestMerchantPayout$Params } from './fn/merchant-settlement-controller/request-merchant-payout';
+export { requestMerchantPayout as requestMerchantPayout } from './fn/merchant-settlement-controller/request-merchant-payout';
+export type { MerchantPayoutHistory$Params as MerchantPayoutHistory$Params } from './fn/merchant-settlement-controller/merchant-payout-history';
+export { merchantPayoutHistory as merchantPayoutHistory } from './fn/merchant-settlement-controller/merchant-payout-history';
+export type { MerchantBalance$Params as MerchantBalance$Params } from './fn/merchant-settlement-controller/merchant-balance';
+export { merchantBalance as merchantBalance } from './fn/merchant-settlement-controller/merchant-balance';
+export type { CampaignMerchantSettlement$Params as CampaignMerchantSettlement$Params } from './fn/merchant-settlement-controller/campaign-merchant-settlement';
+export { campaignMerchantSettlement as campaignMerchantSettlement } from './fn/merchant-settlement-controller/campaign-merchant-settlement';

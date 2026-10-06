@@ -161,4 +161,24 @@ Graphe inchangé. ordering utilise grouping::api/CampaignDistribution pour le ve
 
 ## Credit Resolution V1
 
-Graphe inchangé : ordering consomme payment::api/RefundOperations pour réserver et lire les restitutions ; payment ne lit aucune classe interne ordering. OrderCredits autorise et calcule sous verrou commande. La réservation locale est atomique ; l'appel provider se fait après commit. L'événement public durable ShippingCreditRefundSettled porte les identifiants et le montant utiles, sans destinataire ni secret. OrderRefundListener recalcule la position via les API exposées et complète la commande de façon idempotente. Le provider payout, les receipts et leur persistence restent internes à payment. Voir [ADR-0019](../adr/0019-shipping-credit-resolution.md).
+Graphe inchangé : ordering consomme payment::api/RefundOperations pour réserver et lire les restitutions ; payment ne lit aucune classe interne ordering. OrderCredits autorise et calcule sous verrou commande. La réservation locale est atomique ; l'appel provider se fait après commit. L'événement public durable ShippingCreditRefundSettled porte les identifiants et le montant utiles, sans destinataire ni secret. OrderRefundListener recalcule la position via les API exposées et complète la commande de façon idempotente. Le provider payout de remboursement client, les receipts et leur persistence restent internes à payment. Voir [ADR-0019](../adr/0019-shipping-credit-resolution.md).
+
+## Module settlement — Merchant Settlement V1
+
+`settlement` est un module fermé vérifié par ApplicationModules.verify().
+Dépendances autorisées : organization::api, payment::api, ordering::api,
+grouping::api, shared::api. Aucune dépendance inverse ajoutée.
+
+- organization : permission/acteur et isolation ;
+- payment : faits PaymentRequest/Refund et événements financiers durables ;
+- ordering : MerchantOrderFacts et OrderCommerciallyAccepted ;
+- grouping : MerchantCampaignFacts (lecture et verrou de campagne) ;
+- shared : erreurs API.
+
+Les nouveaux ports publics de faits ne réalisent pas l'autorisation utilisateur :
+le point d'entrée settlement l'impose, ou le consumer traite un événement interne
+durable. Ils vérifient le périmètre organizationId. Aucun repository intermodule.
+Le JDBC du module n'accède qu'à ses trois tables. Le backfill SQL 020 utilise les
+facts historiques lors de la migration, sans couplage repository à l'exécution.
+
+[ADR-0020](../adr/0020-merchant-settlement.md), [contrat](merchant-settlement-v1.md).

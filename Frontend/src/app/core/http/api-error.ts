@@ -1,5 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  MERCHANT_PAYOUT_DISABLED: 'Les versements automatiques sont actuellement indisponibles.',
+  MERCHANT_FUNDS_NOT_AVAILABLE:
+    'Aucun montant disponible. Vérifiez la clôture et le solde du groupage.',
+  MERCHANT_PAYOUT_IN_PROGRESS: 'Un versement est déjà en cours. Les fonds restent réservés.',
+  PAYOUT_DESTINATION_REQUIRED: 'La propriétaire doit renseigner une destination de versement.',
+  PAYOUT_DESTINATION_CHANGED:
+    'La destination a changé. Actualisez et vérifiez-la avant de confirmer.',
+  PAYOUT_DESTINATION_INVALID: 'Vérifiez la méthode, le titulaire et le numéro sénégalais.',
+  PAYOUT_CONFIRMATION_REQUIRED: 'Confirmez explicitement cette opération.',
+  PAYOUT_IDEMPOTENCY_CONFLICT:
+    'Cette demande correspond à un autre versement. Actualisez son état.',
   CREDIT_NOT_STABLE_FOR_REFUND: 'Le crédit pourra être régularisé après la remise de la commande.',
   SHIPPING_CREDIT_NOT_DUE: 'Aucun crédit stable ne peut être régularisé. Actualisez la commande.',
   REFUND_ALREADY_EXISTS:

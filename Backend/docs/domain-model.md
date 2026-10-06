@@ -334,3 +334,18 @@ Order conserve readyForPickupAt courant, pickedUpAt définitif et completedAt co
 Refund est un agrégat payment distinct des encaissements : UUID boutique/commande/calcul, montant XOF, purpose SHIPPING_CREDIT, méthode et provenance, statut, références métier/provider/idempotence, destinataire snapshoté, acteur/date serveur, preuve temporelle, réconciliation et version. Les receipts normalisés des webhooks sortants sont persistés séparément ; aucun lien JPA cross-module. La migration 019 protège unicité, snapshots et succès immuables.
 
 ShippingSettlementView expose totalShippingPaidAmount brut historique, successfulShippingCreditRefunds et netShippingPaid. RefundSummary expose uniquement montant/moyen/statut/dates/provenance au suivi client ; RefundView réserve l'identifiant et la référence externe masquée à la gérante. ShippingCreditRefundSettled est un événement durable consommé par ordering. Voir [modèle détaillé](shipping-credit-resolution.md) et [ADR-0019](../adr/0019-shipping-credit-resolution.md).
+
+## Merchant Settlement V1 (2026-10-06)
+
+Module `settlement` : `MerchantLedgerEntry` (fait append-only, source unique),
+`MerchantPayoutDestination` (révision active unique par boutique) et `MerchantPayout`
+(réservation et preuve provider, snapshot de destination immuable). Aucun lien JPA
+intermodule. Les UUID organization/campaign/order référencent les faits publics.
+
+Ledger : ORDER_COLLECTION, SHIPPING_BALANCE_COLLECTION,
+PLATFORM_FUNDED_CUSTOMER_REFUND, MERCHANT_PAYOUT ; CREDIT/DEBIT et XOF exact.
+Payout : CREATED, PENDING, REVIEW_REQUIRED réservent ; SUCCEEDED débite une fois ;
+FAILED/CANCELLED libèrent après preuve serveur acceptable. Aucun succès manuel.
+MANUAL_EXTERNAL ne produit aucun débit marchand.
+
+[Modèle, calculs et historique 019→020](merchant-settlement-v1.md).

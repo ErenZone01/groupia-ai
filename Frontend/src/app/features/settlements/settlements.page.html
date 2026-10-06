@@ -1,0 +1,132 @@
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Votre boutique</p>
+    <h1>Mes versements</h1>
+  </div>
+  <button
+    gButton
+    variant="secondary"
+    [disabled]="store.busy() || store.loading()"
+    (click)="store.error.set(''); store.load()"
+  >
+    Actualiser les versements
+  </button>
+</div>
+@if (store.error()) {
+  <p class="notice" role="alert">{{ store.error() }}</p>
+}
+@if (store.loading()) {
+  <g-skeleton />
+}
+@if (store.balance(); as b) {
+  <div class="sections">
+    <g-card
+      ><h2>Solde boutique</h2>
+      <g-merchant-balance-summary [value]="b" />
+      <p>Les encaissements deviennent disponibles après la clôture des ventes du groupage.</p>
+      <p>
+        Une restitution que vous avez effectuée hors Groupia n’est pas déduite une seconde fois de
+        votre solde.
+      </p>
+      @if (!b.providerAvailable) {
+        <p class="notice">
+          Les versements automatiques sont actuellement indisponibles. Votre solde reste suivi.
+        </p>
+      }
+    </g-card>
+    <g-card
+      ><h2>Destination des versements</h2>
+      @if (store.destination(); as d) {
+        <p>{{ method(d.method) }} · {{ d.holderName }} · {{ d.maskedPhone }}</p>
+      } @else {
+        <p>Aucune destination renseignée.</p>
+      }
+      @if (b.canManageDestination) {
+        @if (editing()) {
+          <g-payout-destination-editor [busy]="store.busy()" (save)="save($event)" />
+        } @else {
+          <button gButton variant="secondary" (click)="editing.set(true)" [disabled]="store.busy()">
+            Configurer la destination
+          </button>
+        }
+      } @else {
+        <p>Seule la propriétaire peut modifier la destination.</p>
+      }
+    </g-card>
+    <g-card
+      ><h2>Fonds par groupage</h2>
+      @for (row of b.campaigns; track row.campaignId) {
+        <article>
+          <h3>
+            <a [routerLink]="['/app/groupages', row.campaignId]">{{ row.title }}</a>
+          </h3>
+          <g-merchant-balance-summary [value]="row" />
+          @if (row.status === 'OPEN' || row.status === 'DRAFT') {
+            <p>Fonds disponibles après clôture des ventes.</p>
+          }
+          @if (b.canManageSettlements) {
+            <button
+              gButton
+              [disabled]="
+                store.busy() ||
+                store.loading() ||
+                !b.providerAvailable ||
+                !store.destination()?.id ||
+                !(row.availableForPayout! > 0)
+              "
+              (click)="ask(row)"
+            >
+              Recevoir {{ money(row.availableForPayout) }}
+            </button>
+          }
+        </article>
+      } @empty {
+        <p>Aucun encaissement marchand pour le moment.</p>
+      }
+    </g-card>
+    <g-card
+      ><h2>Historique des versements</h2>
+      @for (p of store.history(); track p.id) {
+        <article>
+          <h3>{{ status(p.status) }} · {{ money(p.amount) }}</h3>
+          <p>
+            {{ method(p.method) }} · {{ p.maskedPhone }} ·
+            {{ date(p.succeededAt || p.requestedAt) }}
+          </p>
+          @if (p.reconciliationRequired) {
+            <p>Résultat à vérifier. Les fonds restent réservés.</p>
+          }
+          @if (p.status !== 'SUCCEEDED' && b.canManageSettlements && b.providerAvailable) {
+            <button
+              gButton
+              variant="secondary"
+              [disabled]="store.busy()"
+              (click)="store.reconcile(p.id!)"
+            >
+              Vérifier le versement
+            </button>
+          }
+        </article>
+      } @empty {
+        <p>Aucun versement demandé.</p>
+      }
+    </g-card>
+  </div>
+}
+<dialog #modal aria-label="Confirmer le versement" (cancel)="cancel($event)">
+  @if (selected(); as row) {
+    <h2>Recevoir {{ money(row.availableForPayout) }}</h2>
+    <p>{{ row.title }}</p>
+    <p>
+      {{ method(store.destination()?.method) }} · {{ store.destination()?.holderName }} ·
+      {{ store.destination()?.maskedPhone }}
+    </p>
+    <p>
+      Le montant disponible sera recalculé par Groupia. Vérifiez la destination avant de confirmer.
+    </p>
+    <div class="actions">
+      <button gButton [loading]="store.busy()" (click)="confirm()">Confirmer le versement</button>
+      <button gButton variant="ghost" [disabled]="store.busy()" (click)="close()">Annuler</button>
+    </div>
+  }
+</dialog>

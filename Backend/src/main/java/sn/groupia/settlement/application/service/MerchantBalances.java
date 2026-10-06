@@ -1,0 +1,52 @@
+package sn.groupia.settlement.application.service;
+import java.math.BigDecimal;
+import java.util.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
+import sn.groupia.settlement.domain.model.*;
+import sn.groupia.settlement.api.dto.*;
+import sn.groupia.grouping.api.MerchantCampaignFacts;
+import sn.groupia.ordering.api.MerchantOrderFacts;
+@Service @Transactional(readOnly=true)
+public class MerchantBalances {
+    private final MerchantFinanceStore store;
+    private final MerchantCampaignFacts campaigns;
+    private final MerchantOrderFacts orders;
+    MerchantBalances(MerchantFinanceStore s,MerchantCampaignFacts c,MerchantOrderFacts o) { store=s;campaigns=c;orders=o; }
+    /** Caller authorizes the organization. Shared by reads and the locked reservation transaction. */
+    public MerchantBalance calculate(UUID org,UUID includeCampaign,boolean manage,boolean destination,boolean provider) {
+        var entries=store.ledger(org);var payouts=store.payouts(org);
+        var ids=new TreeSet<UUID>();entries.forEach(e->ids.add(e.campaignId()));payouts.forEach(p->ids.add(p.campaignId()));
+        if(includeCampaign!=null)ids.add(includeCampaign);
+        var rows=new ArrayList<CampaignSettlement>();
+        for(var id:ids) {
+            var campaign=campaigns.read(org,id);
+            BigDecimal gross=BigDecimal.ZERO,fees=BigDecimal.ZERO,refund=BigDecimal.ZERO,paid=BigDecimal.ZERO,eligible=BigDecimal.ZERO,reserved=BigDecimal.ZERO;
+            for(var e:entries)if(e.campaignId().equals(id)) {
+                if(!e.currency().equals("XOF"))throw new IllegalStateException("Merchant currency mismatch");
+                if(e.direction().equals("CREDIT")) {
+                    gross=gross.add(e.amount());fees=fees.add(e.platformFeeAmount());
+                    if(campaign.available()&&orders.read(org,e.orderId()).accepted())eligible=eligible.add(e.amount());
+                } else {
+                    if(e.type().equals("MERCHANT_PAYOUT"))paid=paid.add(e.amount());else refund=refund.add(e.amount());
+                    eligible=eligible.subtract(e.amount());
+                }
+            }
+            for(var p:payouts)if(p.campaignId().equals(id)&&p.reserved())reserved=reserved.add(p.amount());
+            var balance=gross.subtract(refund).subtract(paid);
+            rows.add(new CampaignSettlement(id,campaign.title(),campaign.status(),"XOF",gross,fees,refund,paid,balance,
+                eligible,reserved,eligible.subtract(reserved).max(BigDecimal.ZERO),balance.negate().max(BigDecimal.ZERO)));
+        }
+        BigDecimal gross=BigDecimal.ZERO,fees=BigDecimal.ZERO,refund=BigDecimal.ZERO,paid=BigDecimal.ZERO,eligible=BigDecimal.ZERO,reserved=BigDecimal.ZERO;
+        for(var r:rows) { gross=gross.add(r.grossMerchantCollections());fees=fees.add(r.platformFees());refund=refund.add(r.platformFundedRefunds());
+            paid=paid.add(r.merchantPayouts());eligible=eligible.add(r.eligibleBalance());reserved=reserved.add(r.reservedForPayout()); }
+        var available=eligible.subtract(reserved).max(BigDecimal.ZERO);
+        var limited=rows.stream().map(r->new CampaignSettlement(r.campaignId(),r.title(),r.status(),r.currency(),
+            r.grossMerchantCollections(),r.platformFees(),r.platformFundedRefunds(),r.merchantPayouts(),r.collectedBalance(),
+            r.eligibleBalance(),r.reservedForPayout(),r.availableForPayout().min(available),r.deficit())).toList();
+        var balance=gross.subtract(refund).subtract(paid);
+        return new MerchantBalance("XOF",gross,fees,refund,paid,balance,eligible,reserved,available,balance.negate().max(BigDecimal.ZERO),
+            manage,destination,provider,limited);
+    }
+}

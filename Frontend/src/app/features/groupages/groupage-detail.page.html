@@ -36,6 +36,21 @@
     <g-card>
       @if (tab() === 'overview') {
         @if (
+          [
+            'CLOSED',
+            'SUPPLIER_ORDERED',
+            'IN_TRANSIT',
+            'ARRIVED',
+            'DISTRIBUTING',
+            'COMPLETED',
+          ].includes(group.status ?? '')
+        ) {
+          <g-merchant-funds-panel
+            [organizationId]="context.selectedId()!"
+            [campaignId]="group.id!"
+          />
+        }
+        @if (
           ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(
             group.status ?? ''
           )

@@ -1,3 +1,4 @@
+import { MerchantFundsPanel } from '../settlements/merchant-funds-panel';
 import { DistributionPanel } from './distribution-panel';
 import { LogisticsPanel } from './logistics-panel';
 import { SupplierSummaryPanel } from '../orders/supplier-summary-panel';
@@ -37,6 +38,7 @@ import {
     SupplierSummaryPanel,
     LogisticsPanel,
     DistributionPanel,
+    MerchantFundsPanel,
     Card,
     Badge,
     Button,

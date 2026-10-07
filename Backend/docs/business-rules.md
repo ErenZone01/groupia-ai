@@ -96,7 +96,7 @@ Ces questions ne remettent pas en cause les décisions validées. Le premier ver
 | --- | --- |
 | Premier parcours et critères | Résolu : inscription, login, création atomique avec OWNER, liste et lecture autorisées, refus inter-organisation |
 | Authentification et premier OWNER | Résolu : téléphone normalisé + mot de passe, JWT ; le créateur authentifié devient OWNER dans la transaction de création |
-| Qui encaisse et pour quel compte marchand ? Frais fixes configurables et total initial sont définis dans la quatrième tranche. | Intégration prestataire |
+| Groupia encaisse le total ; goods + shipping sont dus à la boutique, fee reste hors ledger marchand. Décidé par Merchant Settlement V1. Le contrat de reversement réel et les frais PSP restent à définir. | Activation du provider de versement |
 | Date retenue pour INITIAL_ORDER : validation Groupia avant échéance stricte (ADR-0010). La fenêtre reste configurable, 30 minutes par défaut. Le traitement commercial des paiements en vol à la clôture de campagne reste à préciser. | Clôture opérationnelle |
 | Quels tarifs/unités et quelle définition du poids ou volume facturable sont proposés au lancement ? Le gel des conditions de transport après OPEN est désormais fixé par la troisième tranche. | Devis et facturation transport ; les snapshots historiques restent acquis |
 | Quelles annulations sont permises, à quels stades et avec quels frais conservés/restitués ? | Annulation et remboursement |
@@ -208,3 +208,22 @@ ARRIVED ne signifie pas READY. Transport FINAL + SETTLED/CREDIT_DUE + absence de
 Après PICKED_UP uniquement, OWNER/MANAGER avec MANAGE_REFUNDS peuvent restituer le CREDIT_DUE complet calculé sous verrou serveur. Refund appartient à payment et conserve ses snapshots immuables ; les Payment et PaymentRequest historiques ne sont jamais réécrits. BICTORYS_PAYOUT exige une preuve corrélée, distincte du simple accusé d'initiation. MANUAL_EXTERNAL atteste une restitution déjà réalisée, avec référence numérique obligatoire ou note obligatoire pour les espèces.
 
 Seuls les refunds SUCCEEDED réduisent le transport payé net. PENDING, REVIEW_REQUIRED et timeout gardent le crédit ouvert et interdisent un second envoi. En V1, une seule opération logique par commande est admise, y compris après échec certain ; le remplacement est différé. CREDIT_DUE → PICKED_UP → refund SUCCEEDED → SETTLED → Order COMPLETED est consommé de façon idempotente, sans changer pickedUpAt ni clôturer le groupage. Voir [règles, API et recette](shipping-credit-resolution.md).
+
+## Fonds boutique et reversements V1
+
+- L'entitlement marchand est goods + shipping, jamais feeAmount.
+- Un règlement initial exige aussi une commande CONFIRMED/COMPLETED.
+- SHIPPING_BALANCE settled crédite tout le transport, sans frais supplémentaires.
+- Seul un refund BICTORYS_PAYOUT SUCCEEDED débite le marchand. MANUAL_EXTERNAL
+  a été financé par la boutique : aucune seconde déduction.
+- OPEN : visible mais indisponible. CLOSED et étapes suivantes : éligible.
+- Le disponible soustrait les réservations CREATED/PENDING/REVIEW_REQUIRED et
+  compense d'abord la dette globale de la boutique. Aucun prélèvement automatique.
+- Un payout porte sur tout le disponible serveur d'une campagne, sans saisie de montant.
+- OWNER seul modifie la destination ; OWNER/MANAGER demandent ou réconcilient.
+- La preuve provider seule autorise le succès. SupplierOrdered n'est pas bloqué
+  par un payout absent/en attente/indisponible dans cette V1.
+
+PSP fee allocation policy not implemented.
+
+[Contrat complet et décisions de disponibilité](merchant-settlement-v1.md).

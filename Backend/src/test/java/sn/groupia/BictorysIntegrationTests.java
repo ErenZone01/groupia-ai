@@ -463,7 +463,7 @@ class BictorysIntegrationTests {
     private String paymentStatus(UUID id){return jdbc.queryForObject("select status from payments where id=?",String.class,id);}
     private String reason(UUID id){return jdbc.queryForObject("select reconciliation_reason from payments where id=?",String.class,id);}
     private String orderStatus(){return jdbc.queryForObject("select status from orders",String.class);}
-    private long settlementCount(){return jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled'",Long.class);}
+    private long settlementCount(){return jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and listener_id like '%OrderSettlementListener%'",Long.class);}
     private long count(String table){return jdbc.queryForObject("select count(*) from "+table,Long.class);}
     private String key(){return UUID.randomUUID().toString();}
     private String secret(){return checkout.get("trackingToken").asText();}

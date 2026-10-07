@@ -15,7 +15,7 @@ import sn.groupia.shared.api.ApiException;
 public class OrganizationAuthorization implements OrganizationAccess {
     private static final Map<OrganizationRole, Set<OrganizationPermission>> PERMISSIONS = Map.of(
             OrganizationRole.OWNER, Set.of(OrganizationPermission.values()),
-            OrganizationRole.MANAGER, Set.of(OrganizationPermission.MANAGE_REFUNDS, OrganizationPermission.MANAGE_FULFILLMENT, OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG, OrganizationPermission.VIEW_GROUPINGS, OrganizationPermission.MANAGE_GROUPINGS),
+            OrganizationRole.MANAGER, Set.of(OrganizationPermission.MANAGE_SETTLEMENTS, OrganizationPermission.MANAGE_REFUNDS, OrganizationPermission.MANAGE_FULFILLMENT, OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG, OrganizationPermission.VIEW_GROUPINGS, OrganizationPermission.MANAGE_GROUPINGS),
             OrganizationRole.OPERATOR, Set.of(OrganizationPermission.MANAGE_FULFILLMENT, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS),
             OrganizationRole.VIEWER, Set.of(OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS));
 
@@ -60,7 +60,7 @@ public class OrganizationAuthorization implements OrganizationAccess {
 
     // Existing organization reads retain their historical policy; catalogue and grouping operations require an active organization.
     private void requireActiveBusinessOrganization(UUID organizationId, OrganizationPermission permission) {
-        if ((permission == OrganizationPermission.MANAGE_REFUNDS || permission == OrganizationPermission.MANAGE_FULFILLMENT || permission == OrganizationPermission.VIEW_CATALOG || permission == OrganizationPermission.MANAGE_CATALOG
+        if ((permission == OrganizationPermission.MANAGE_SETTLEMENTS || permission == OrganizationPermission.MANAGE_PAYOUT_DESTINATION || permission == OrganizationPermission.MANAGE_REFUNDS || permission == OrganizationPermission.MANAGE_FULFILLMENT || permission == OrganizationPermission.VIEW_CATALOG || permission == OrganizationPermission.MANAGE_CATALOG
                 || permission == OrganizationPermission.VIEW_PAYMENTS || permission == OrganizationPermission.VIEW_ORDERS || permission == OrganizationPermission.VIEW_GROUPINGS || permission == OrganizationPermission.MANAGE_GROUPINGS)
                 && organizations.findActiveById(organizationId).isEmpty()) {
             throw new ApiException(404, "ORGANIZATION_NOT_FOUND", "Organisation indisponible.");

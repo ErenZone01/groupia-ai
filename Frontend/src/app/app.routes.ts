@@ -119,6 +119,12 @@ export const routes: Routes = [
       },
       { path: 'commandes', redirectTo: 'orders', pathMatch: 'full' },
       {
+        path: 'versements',
+        title: 'Mes versements · Groupia',
+        loadComponent: () =>
+          import('./features/settlements/settlements.page').then((m) => m.SettlementsPage),
+      },
+      {
         path: 'paiements',
         title: 'Paiements · Groupia',
         loadComponent: () =>

@@ -315,10 +315,10 @@ class PaymentIntegrationTests {
         long version=jdbc.queryForObject("select version from orders",Long.class);
         String confirmed=jdbc.queryForObject("select confirmed_at::text from orders",String.class);
         new TransactionTemplate(transactions).executeWithoutResult(s->publisher.publishEvent(event));
-        await(()->jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and completion_date is not null",Long.class)==2);
+        await(()->jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and listener_id like '%OrderSettlementListener%' and completion_date is not null",Long.class)==2);
         assertThat(jdbc.queryForObject("select version from orders",Long.class)).isEqualTo(version);
         assertThat(jdbc.queryForObject("select confirmed_at::text from orders",String.class)).isEqualTo(confirmed);
-        assertThat(jdbc.queryForObject("select count(*) from event_publication where event_type like '%OrderCommerciallyAccepted'",Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from event_publication where event_type like '%OrderCommerciallyAccepted' and listener_id like '%LateAcceptanceListener%'",Long.class)).isEqualTo(1);
     }
 
     @ParameterizedTest @ValueSource(strings={"CANCELLED","EXPIRED","COMPLETED"})
@@ -326,7 +326,7 @@ class PaymentIntegrationTests {
         var id=start();
         jdbc.update("update orders set status=?",status);
         webhook("ineligible",provider.status(merchant(id),PaymentStatus.SUCCEEDED)).andExpect(status().isAccepted());
-        await(()->jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and completion_date is not null",Long.class)==1);
+        await(()->jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and listener_id like '%OrderSettlementListener%' and completion_date is not null",Long.class)==1);
         assertThat(orderStatus()).isEqualTo(status);
         assertThat(jdbc.queryForObject("select confirmed_at from orders",String.class)).isNull();
     }
@@ -344,7 +344,7 @@ class PaymentIntegrationTests {
         } finally { jdbc.execute("alter table orders drop constraint test_consumer_failure"); }
         failedPublications.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO).withFilter(p->p.getCompletionAttempts()<5));
         awaitConfirmed();
-        assertThat(jdbc.queryForObject("select completion_attempts from event_publication where event_type like '%PaymentRequestSettled'",Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select completion_attempts from event_publication where event_type like '%PaymentRequestSettled' and listener_id like '%OrderSettlementListener%'",Integer.class)).isEqualTo(2);
     }
 
     @Test void publicationWriteFailureIsRecoverableFromDurableWebhook() throws Exception {
@@ -519,7 +519,7 @@ class PaymentIntegrationTests {
     private String paymentStatus(UUID id){return jdbc.queryForObject("select status from payments where id=?",String.class,id);}
     private String reason(UUID id){return jdbc.queryForObject("select reconciliation_reason from payments where id=?",String.class,id);}
     private String orderStatus(){return jdbc.queryForObject("select status from orders",String.class);}
-    private long settlementCount(){return jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled'",Long.class);}
+    private long settlementCount(){return jdbc.queryForObject("select count(*) from event_publication where event_type like '%PaymentRequestSettled' and listener_id like '%OrderSettlementListener%'",Long.class);}
     private long count(String table){return jdbc.queryForObject("select count(*) from "+table,Long.class);}
 
     @Test void authenticUnclassifiedParseFailureHasSafeFallback() throws Exception {

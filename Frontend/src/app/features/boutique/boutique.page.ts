@@ -33,6 +33,7 @@ import { statusLabel } from '../../shared/utils/display';
         >
       }
       <div class="actions">
+        <a gButton variant="secondary" routerLink="/app/versements">Mes versements</a>
         <a gButton routerLink="/app/products">Voir les produits</a
         ><button gButton variant="secondary" (click)="auth.logout()">Se déconnecter</button>
       </div></g-card

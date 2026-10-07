@@ -29,6 +29,7 @@ import sn.groupia.shared.api.ApiException;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.hamcrest.Matchers.hasSize;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -51,11 +52,19 @@ class CatalogIntegrationTests {
 
     @BeforeEach
     void setup() throws Exception {
-        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication CASCADE");
         if (fixtureHash == null) { fixtureHash = passwords.encode("Fixture catalogue 2026!"); }
         userId = account("+221771234567");
         token = token(userId);
         organizationId = organization(token, "Catalogue A");
+    }
+
+    @AfterEach
+    void awaitModuleEvents() {
+        await().atMost(java.time.Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(jdbc.queryForObject(
+                        "select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",
+                        Long.class)).isZero());
     }
 
     @Test

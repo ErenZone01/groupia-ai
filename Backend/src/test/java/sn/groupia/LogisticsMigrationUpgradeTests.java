@@ -37,7 +37,7 @@ class LogisticsMigrationUpgradeTests {
             var checksums=jdbc.queryForList("select id,md5sum from databasechangelog order by orderexecuted");
             try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}
             assertThat(jdbc.queryForList("select id,departed_at,arrived_at,created_at,updated_at,tracking_reference,note,expected_arrival_at from shipments order by id")).isEqualTo(before);
-            assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '013-%' and id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' order by orderexecuted")).isEqualTo(checksums);
+            assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '013-%' and id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' order by orderexecuted")).isEqualTo(checksums);
             assertThat(jdbc.queryForObject("select count(*) from shipment_facts where legacy and source='UNKNOWN'",Integer.class)).isEqualTo(3);
             assertThat(jdbc.queryForObject("select count(*) from shipments where departure_confirmed_at=created_at and (arrived_at is null or arrival_confirmed_at=updated_at)",Integer.class)).isEqualTo(2);
             jdbc.update("update shipments set provider_name='New information',version=version+1 where arrived_at is not null");

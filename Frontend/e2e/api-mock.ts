@@ -134,6 +134,37 @@ export async function mockApi(
         return reply(created, 201);
       }
     }
+    if (path.endsWith('/subscription/history')) return reply([]);
+    if (path.endsWith('/subscription/billing-contact')) {
+      const contact = { name: 'Boutique du Soleil', phoneE164: '+221771234567' };
+      if (method === 'PUT') return reply({ ...contact, ...body });
+      return reply(contact);
+    }
+    if (path.endsWith('/subscription/start') || path.endsWith('/subscription/cancel')) {
+      return reply({
+        access: { status: 'ACTIVE', canStartNewBusiness: true },
+        canManageSubscription: true,
+        billingProviderAvailable: false,
+        billingProviderSetupPending: false,
+        planConfigured: false,
+        billingContact: { name: 'Boutique du Soleil', phoneE164: '+221771234567' },
+      });
+    }
+    if (path.endsWith('/subscription')) {
+      return reply({
+        access: {
+          status: 'ACTIVE',
+          canStartNewBusiness: true,
+          currentPeriodEndsAt: '2099-10-01T00:00:00Z',
+          reason: 'SUBSCRIPTION_ACTIVE',
+        },
+        canManageSubscription: true,
+        billingProviderAvailable: false,
+        billingProviderSetupPending: false,
+        planConfigured: false,
+        billingContact: { name: 'Boutique du Soleil', phoneE164: '+221771234567' },
+      });
+    }
     if (/\/orders$/.test(path))
       return reply({
         items: [],

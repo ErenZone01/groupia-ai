@@ -7,6 +7,7 @@ export type { AddShipmentFact } from './models/add-shipment-fact';
 export type { ArriveCampaign } from './models/arrive-campaign';
 export type { AssessmentSeed } from './models/assessment-seed';
 export type { Attempt } from './models/attempt';
+export type { BillingContactInput } from './models/billing-contact-input';
 export type { CampaignLifecycleView } from './models/campaign-lifecycle-view';
 export type { CampaignPage } from './models/campaign-page';
 export type { CampaignSettlement } from './models/campaign-settlement';
@@ -97,6 +98,10 @@ export type { ShippingMeasurementView } from './models/shipping-measurement-view
 export type { ShippingPaymentInput } from './models/shipping-payment-input';
 export type { ShippingSettlementView } from './models/shipping-settlement-view';
 export type { ShippingTerms } from './models/shipping-terms';
+export type { SubscriptionAccessView } from './models/subscription-access-view';
+export type { SubscriptionBillingContactView } from './models/subscription-billing-contact-view';
+export type { SubscriptionDetails } from './models/subscription-details';
+export type { SubscriptionPeriodView } from './models/subscription-period-view';
 export type { SupplierOrderResponse } from './models/supplier-order-response';
 export type { SupplierOrderView } from './models/supplier-order-view';
 export type { SupplierProjectionLine } from './models/supplier-projection-line';

@@ -36,7 +36,7 @@ class MerchantSettlementMigrationTests {
             assertThat(j.queryForObject("select count(*) from merchant_ledger_entries l join payment_requests r on r.id=l.source_id where l.recorded_at<>r.closed_at",Integer.class)).isZero();
             assertThat(j.queryForObject("select count(*) from merchant_ledger_entries l join payment_refunds r on r.id=l.source_id where l.recorded_at<>r.completed_at",Integer.class)).isZero();
             for(var table:originals.keySet())assertThat(j.queryForList("select * from "+table+" order by id")).isEqualTo(originals.get(table));
-            assertThat(j.queryForList("select id,md5sum from databasechangelog where id not like '020-%' order by orderexecuted")).isEqualTo(checksums);
+            assertThat(j.queryForList("select id,md5sum from databasechangelog where id not like '020-%' and id not like '021-%' order by orderexecuted")).isEqualTo(checksums);
             assertThatThrownBy(()->j.update("delete from merchant_ledger_entries")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             assertThatThrownBy(()->j.update("update merchant_ledger_entries set amount=1")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             var ledgerBefore=j.queryForList("select * from merchant_ledger_entries order by id");

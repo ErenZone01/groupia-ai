@@ -1,5 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  SUBSCRIPTION_REQUIRED:
+    "L'essai gratuit est terminé. Un abonnement actif est requis pour créer ou ouvrir un nouveau groupage.",
+  SUBSCRIPTION_BILLING_UNAVAILABLE:
+    "Le paiement d'abonnement n'est pas encore disponible. Aucun paiement n'a été initié.",
+  SUBSCRIPTION_BILLING_CONTACT_REQUIRED:
+    'Ajoutez un téléphone de facturation avant de configurer le paiement.',
+  SUBSCRIPTION_PLAN_NOT_CONFIGURED:
+    "Le tarif et le plan d'abonnement ne sont pas encore configurés.",
+  SUBSCRIPTION_PROVIDER_SETUP_PENDING:
+    "La configuration provider est en cours de vérification. N'envoyez pas une nouvelle demande.",
+  INVALID_SUBSCRIPTION_BILLING_CONTACT:
+    'Vérifiez le nom, le téléphone sénégalais et le format du courriel.',
   MERCHANT_PAYOUT_DISABLED: 'Les versements automatiques sont actuellement indisponibles.',
   MERCHANT_FUNDS_NOT_AVAILABLE:
     'Aucun montant disponible. Vérifiez la clôture et le solde du groupage.',

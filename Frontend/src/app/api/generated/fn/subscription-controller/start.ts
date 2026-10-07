@@ -7,21 +7,16 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { CampaignView } from '../../models/campaign-view';
-import { CancelCampaign } from '../../models/cancel-campaign';
+import { SubscriptionDetails } from '../../models/subscription-details';
 
-export interface Cancel$Params {
+export interface Start$Params {
   organizationId: string;
-  campaignId: string;
-      body: CancelCampaign
 }
 
-export function cancel(http: HttpClient, rootUrl: string, params: Cancel$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignView>> {
-  const rb = new RequestBuilder(rootUrl, cancel.PATH, 'post');
+export function start(http: HttpClient, rootUrl: string, params: Start$Params, context?: HttpContext): Observable<StrictHttpResponse<SubscriptionDetails>> {
+  const rb = new RequestBuilder(rootUrl, start.PATH, 'post');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
-    rb.path('campaignId', params.campaignId, {});
-    rb.body(params.body, 'application/json');
   }
 
   return http.request(
@@ -29,9 +24,9 @@ export function cancel(http: HttpClient, rootUrl: string, params: Cancel$Params,
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<CampaignView>;
+      return r as StrictHttpResponse<SubscriptionDetails>;
     })
   );
 }
 
-cancel.PATH = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/cancel';
+start.PATH = '/api/organizations/{organizationId}/subscription/start';

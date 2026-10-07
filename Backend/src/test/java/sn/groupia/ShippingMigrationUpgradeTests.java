@@ -29,7 +29,7 @@ class ShippingMigrationUpgradeTests {
  assertThat(upgraded.remove("ready_for_pickup_at")).isNull();assertThat(upgraded).isEqualTo(before);
  assertThat(jdbc.queryForList("select * from shipment_facts")).isEqualTo(facts);
  assertThat(jdbc.queryForList("select * from shipments")).isEqualTo(shipments);
- assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' order by orderexecuted")).isEqualTo(checksums);
+ assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' order by orderexecuted")).isEqualTo(checksums);
  assertThat(jdbc.queryForObject("select volumetric_divisor from grouping_campaigns where id=?",java.math.BigDecimal.class,campaign)).isNull();
  for(String table:List.of("shipping_assessments","shipping_measurements","shipping_calculations"))assertThat(jdbc.queryForObject("select count(*) from "+table,Integer.class)).isZero();
  try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}

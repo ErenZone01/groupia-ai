@@ -29,7 +29,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest @AutoConfigureMockMvc @Import(TestcontainersConfiguration.class) @RecordApplicationEvents
+@SpringBootTest(properties = "groupia.subscription.enforcement-enabled=true") @AutoConfigureMockMvc @Import(TestcontainersConfiguration.class) @RecordApplicationEvents
 class OrderingIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -48,7 +48,7 @@ class OrderingIntegrationTests {
     private final String phone = "77 123 45 67";
 
     @BeforeEach void setup() throws Exception {
-        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication CASCADE");
         if (fixtureHash == null) { fixtureHash = passwords.encode("Commande fixture 2026!"); }
         actor = UUID.randomUUID();
         jdbc.update("insert into user_accounts (id,phone_number,password_hash,status,created_at,updated_at) values (?, '+221771234567', ?, 'ACTIVE', current_timestamp, current_timestamp)", actor, fixtureHash);
@@ -93,6 +93,17 @@ class OrderingIntegrationTests {
                 .matches("[0-9a-f]{64}").isNotEqualTo(order.get("trackingToken").asText());
         assertThat(order.get("trackingToken").asText()).matches("[A-Za-z0-9_-]{43}");
         assertThat(jdbc.queryForObject("select row_to_json(o)::text from orders o", String.class)).doesNotContain(order.get("trackingToken").asText());
+    }
+
+    @Test void openCampaignCheckoutRemainsAvailableAfterTheOrganizationTrialExpires() throws Exception {
+        jdbc.update("""
+                update organization_subscriptions
+                   set trial_started_at=current_timestamp - interval '2 seconds',
+                       trial_ends_at=current_timestamp - interval '1 second',
+                       status='TRIALING'
+                 where organization_id=?
+                """, org);
+        checkout(key, input()).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("PENDING_PAYMENT"));
     }
 
     @Test void newCheckoutNeverMergesPhoneAndNumbersAreUnique() throws Exception {

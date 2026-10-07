@@ -21,7 +21,7 @@ class ShippingFinanceMigrationTests {
  var checksums=jdbc.queryForList("select id,md5sum from databasechangelog order by orderexecuted");
  try(var resources=new ClassLoaderResourceAccessor()){migrate(db,resources);}
  assertThat(jdbc.queryForList("select * from payment_requests")).isEqualTo(before);var upgraded=jdbc.queryForList("select * from orders");upgraded.forEach(r->assertThat(r.remove("ready_for_pickup_at")).isNull());assertThat(upgraded).isEqualTo(orders);
- assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' order by orderexecuted")).isEqualTo(checksums);
+ assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' order by orderexecuted")).isEqualTo(checksums);
  assertThatThrownBy(()->jdbc.update("update payment_requests set expires_at=null where purpose='INITIAL_ORDER'"))
    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
  String insert="insert into payment_requests(id,organization_id,order_id,purpose,business_reference,expected_amount,goods_amount,fee_amount,shipping_amount,currency,acceptance_status,expires_at,created_at) select gen_random_uuid(),organization_id,id,'SHIPPING_BALANCE',?, ?,0,0,?,'XOF','OPEN',null,now() from orders where id=?";

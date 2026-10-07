@@ -125,6 +125,12 @@ export const routes: Routes = [
           import('./features/settlements/settlements.page').then((m) => m.SettlementsPage),
       },
       {
+        path: 'abonnement',
+        title: 'Abonnement · Groupia',
+        loadComponent: () =>
+          import('./features/subscription/subscription.page').then((m) => m.SubscriptionPage),
+      },
+      {
         path: 'paiements',
         title: 'Paiements · Groupia',
         loadComponent: () =>

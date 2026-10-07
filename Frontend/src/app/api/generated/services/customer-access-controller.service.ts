@@ -102,6 +102,33 @@ export class CustomerAccessControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `initiateCustomerShippingPayment()` */
+  static readonly InitiateCustomerShippingPaymentPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payments';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `initiateCustomerShippingPayment()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  initiateCustomerShippingPayment$Response(params: InitiateCustomerShippingPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerPaymentAttempt>> {
+    const obs = initiateCustomerShippingPayment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `initiateCustomerShippingPayment$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  initiateCustomerShippingPayment(params: InitiateCustomerShippingPayment$Params, context?: HttpContext): Observable<CustomerPaymentAttempt> {
+    const resp = this.initiateCustomerShippingPayment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CustomerPaymentAttempt>): CustomerPaymentAttempt => r.body)
+    );
+  }
+
   /** Path part for operation `revokeCustomerLink()` */
   static readonly RevokeCustomerLinkPath = '/api/public/customer-access/orders/{orderNumber}/revoke-link';
 
@@ -342,33 +369,6 @@ export class CustomerAccessControllerService extends BaseService {
     const resp = this.customerCsrf$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CsrfView>): CsrfView => r.body)
-    );
-  }
-
-  /** Path part for operation `initiateCustomerShippingPayment()` */
-  static readonly InitiateCustomerShippingPaymentPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payments';
-
-  /**
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `initiateCustomerShippingPayment()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  initiateCustomerShippingPayment$Response(params: InitiateCustomerShippingPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerPaymentAttempt>> {
-    const obs = initiateCustomerShippingPayment(this.http, this.rootUrl, params, context);
-    return obs;
-  }
-
-  /**
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `initiateCustomerShippingPayment$Response()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  initiateCustomerShippingPayment(params: InitiateCustomerShippingPayment$Params, context?: HttpContext): Observable<CustomerPaymentAttempt> {
-    const resp = this.initiateCustomerShippingPayment$Response(params, context);
-    return resp.pipe(
-      map((r: StrictHttpResponse<CustomerPaymentAttempt>): CustomerPaymentAttempt => r.body)
     );
   }
 

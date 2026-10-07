@@ -32,7 +32,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "groupia.subscription.enforcement-enabled=true")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @RecordApplicationEvents
@@ -53,7 +53,7 @@ class GroupingIntegrationTests {
 
     @BeforeEach
     void setup() throws Exception {
-        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication");
+        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication CASCADE");
         if (fixtureHash == null) { fixtureHash = passwords.encode("Fixture groupage 2026!"); }
         actorId = account("+221771234567");
         token = token(actorId);
@@ -76,6 +76,37 @@ class GroupingIntegrationTests {
         for (String field : List.of("publicIdentifier", "slug", "organizationId", "status", "currency")) {
             perform(post(base()), Map.of("title", "Injection", field, "forged")).andExpect(status().isBadRequest());
         }
+
+    }
+
+    @Test
+    void expiredTrialBlocksNewBusinessButLeavesDraftEditsAndExistingOpenCampaignsAvailable() throws Exception {
+        var draft = addOffer(draft(), variantId, "1000");
+        expireTrial();
+        perform(post(base()), Map.of("title", "Nouveau groupage"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SUBSCRIPTION_REQUIRED"));
+        draft = body(perform(put(path(draft)),
+                Map.of("version", draft.get("version").asLong(), "title", "Brouillon modifié"))
+                .andExpect(status().isOk()).andReturn());
+        draft = body(perform(get(path(draft))).andExpect(status().isOk()).andReturn());
+        perform(post(path(draft) + "/open"), version(draft))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SUBSCRIPTION_REQUIRED"));
+
+        jdbc.update("update organization_subscriptions set trial_ends_at=current_timestamp + interval '1 month', status='TRIALING' where organization_id=?", organizationId);
+        var published = open(addOffer(draft(), variantId, "1000"));
+        expireTrial();
+        publicGet(published).andExpect(status().isOk()).andExpect(jsonPath("$.orderable").value(true));
+        perform(post(path(published) + "/close"), version(published)).andExpect(status().isOk());
+    }
+
+    private void expireTrial() {
+        jdbc.update("""
+                update organization_subscriptions
+                   set trial_started_at=current_timestamp - interval '2 seconds',
+                       trial_ends_at=current_timestamp - interval '1 second',
+                       status='TRIALING'
+                 where organization_id=?
+                """, organizationId);
     }
 
     @Test

@@ -56,13 +56,47 @@ class MerchantSettlementFixtures {
     }
     static UUID refund(JdbcTemplate j,Fixture f,String method) {
         UUID id=UUID.randomUUID();boolean platform=method.equals("BICTORYS_PAYOUT");
+        UUID calculation=settledShippingCredit(j,f);
         j.update("""
             insert into payment_refunds(id,organization_id,order_id,calculation_id,amount,currency,purpose,method,external_method,status,
                 business_reference,merchant_reference,provider,provider_account_reference,provider_transaction_id,provider_idempotency_key,
                 recipient_phone_snapshot,recipient_name_snapshot,initiated_by,initiated_at,completed_at,reconciliation_required,manual_reference)
             values (?,?,?,?,500,'XOF','SHIPPING_CREDIT',?,'WAVE','SUCCEEDED',?,?,?,?,?,?,'+221771234567','Cliente Fixture',?,now(),now(),false,?)
-            """,id,f.org(),f.order(),UUID.randomUUID(),method,"CREDIT:"+id,"GPR-"+id,platform?"BICTORYS":"MANUAL_EXTERNAL",
+            """,id,f.org(),f.order(),calculation,method,"CREDIT:"+id,"GPR-"+id,platform?"BICTORYS":"MANUAL_EXTERNAL",
                 platform?"sandbox":"internal",platform?"REFUND-"+id:null,UUID.randomUUID(),f.actor(),platform?null:"external-fixture");
         return id;
+    }
+    private static UUID settledShippingCredit(JdbcTemplate j,Fixture f) {
+        UUID assessment=UUID.randomUUID(),calculation=UUID.randomUUID();
+        j.update("""
+            insert into shipping_assessments(id,organization_id,campaign_id,order_id,snapshot,status,version,created_at,updated_at)
+            select ?,o.organization_id,o.campaign_id,o.id,
+                jsonb_build_object('organizationId',o.organization_id,'campaignId',o.campaign_id,'orderId',o.id,
+                    'terms',o.shipping_terms_snapshot,'totalItems',1,'estimatedWeightKg',null,
+                    'estimatedVolumeCbm',null,'estimatedShippingAmount',o.estimated_shipping_amount),
+                'PENDING',0,now(),now()
+            from orders o where o.id=?
+            """,assessment,f.order());
+        j.update("""
+            insert into shipping_calculations(id,assessment_id,revision,kind,explanation,actor_id,recorded_at)
+            values (?, ?,1,'FINAL',
+                '{"origin":"PROVIDER_QUOTED","transportMode":"AIR","pricingMethod":"FIXED","method":"FIXED",
+                 "currency":"XOF","amount":4500,"roundingRule":"HALF_UP","source":"MANAGER"}'::jsonb,?,now())
+            """,calculation,assessment,f.actor());
+        j.update("""
+            update shipping_assessments set status='FINALIZED',version=version+1,
+                current_final_calculation_id=?,updated_at=now() where id=?
+            """,calculation,assessment);
+        j.update("""
+            update orders set fulfillment_status='PICKED_UP',ready_for_pickup_at=now(),
+                picked_up_at=now(),version=version+1 where id=? and status='CONFIRMED'
+            """,f.order());
+        for(String type:List.of("READY_FOR_PICKUP","PICKED_UP")) {
+            j.update("""
+                insert into order_fulfillment_events(id,organization_id,campaign_id,order_id,type,actor_id,recorded_at)
+                values (?,?,?,?,?,?,now())
+                """,UUID.randomUUID(),f.org(),f.campaign(),f.order(),type,f.actor());
+        }
+        return calculation;
     }
 }

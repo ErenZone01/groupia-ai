@@ -361,7 +361,8 @@ calendaire dans le fuseau de la boutique.
 L'entitlement est une projection serveur du trial et des périodes payées vérifiées.
 Il ne modifie pas les commandes déjà engagées ni les obligations financières.
 L'application du contrôle est limitée à la création et l'ouverture de nouveaux
-groupages. La migration 021 crée le schéma et le backfill legacy idempotent.
+groupages. La migration 021 crée le schéma initial; 022 ajoute les métadonnées
+de cutover et rend le backfill legacy idempotent sur les deux chemins d'upgrade.
 
 Le provider d'abonnement est indisponible par défaut. La configuration d'une
 subscription provider ne crée pas de période payée ; aucune preuve webhook

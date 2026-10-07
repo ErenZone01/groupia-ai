@@ -43,6 +43,7 @@ L'état d'abonnement n'est pas une autorité sur les obligations existantes :
 l'accès aux workflows déjà engagés reste inchangé après expiration. Le paiement
 automatique et la validation des webhooks d'abonnement Bictorys restent bloqués
 jusqu'à un contrat provider fiable. Les migrations 001–020 ne changent pas ;
-021 est la seule migration de schéma de cette tranche.
+021 contient le schéma historique déjà appliqué et reste immuable. La migration
+022 porte les métadonnées de cutover et les évolutions compatibles ultérieures.
 
 Voir [contrat, permissions et recette](../docs/subscription-v1.md).

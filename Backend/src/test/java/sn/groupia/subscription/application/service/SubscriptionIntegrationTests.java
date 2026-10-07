@@ -49,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "groupia.subscription.enforcement-enabled=true",
         "groupia.subscription.bictorys-enabled=true",
         "groupia.subscription.monthly-xof=1234",
+        "groupia.subscription.trial-months=2",
         "groupia.subscription.bictorys-plan-id=test-plan"
 })
 @AutoConfigureMockMvc
@@ -97,7 +98,7 @@ class SubscriptionIntegrationTests {
         var organization = createOrganization(created);
         var access = entitlements.access(organization);
         assertThat(access.trialStartedAt()).isEqualTo(created);
-        assertThat(access.trialEndsAt()).isEqualTo(creation.plusMonths(1).toInstant());
+        assertThat(access.trialEndsAt()).isEqualTo(creation.plusMonths(2).toInstant());
         assertThat(access.trialProvenance()).isEqualTo("ORGANIZATION_CREATED");
         assertThat(access.canStartNewBusiness()).isTrue();
         assertThat(access.reason()).isEqualTo(SubscriptionAccessReason.TRIAL_ACTIVE);
@@ -110,7 +111,7 @@ class SubscriptionIntegrationTests {
         var access = entitlements.access(legacy);
         assertThat(access.trialStartedAt()).isEqualTo(cutoff);
         assertThat(access.trialEndsAt()).isEqualTo(cutoff.atZone(java.time.ZoneId.of("Africa/Dakar"))
-                .plusMonths(1).toInstant());
+                .plusMonths(2).toInstant());
         assertThat(access.trialProvenance()).isEqualTo("LEGACY_MIGRATION_TRIAL");
         assertThat(access.canStartNewBusiness()).isTrue();
     }
@@ -201,6 +202,37 @@ class SubscriptionIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from subscription_periods where organization_id=?",
                 Integer.class, organizationId)).isEqualTo(1);
         assertThat(entitlements.access(organizationId).currentPeriodEndsAt()).isEqualTo(firstEnd);
+    }
+
+    @Test
+    void standardMonthlyPaymentUsesOneCalendarMonthEvenWithTwoMonthTrialAtMonthEnd() {
+        var zone = ZoneId.of("Africa/Dakar");
+        Instant organizationCreated = clock.instant().minusSeconds(60L * 60 * 24 * 40);
+        organizationId = createOrganization(organizationCreated);
+        var subscription = provisioning.ensure(organizationId);
+        var migrationCutover = subscriptions.migrationAppliedAt().orElseThrow();
+        assertThat(subscription.trialEndsAt())
+                .isEqualTo(migrationCutover.atZone(zone).plusMonths(2).toInstant());
+        jdbc.update("""
+                update organization_subscriptions
+                   set trial_started_at=current_timestamp - interval '2 months',
+                       trial_ends_at=current_timestamp - interval '1 month'
+                 where organization_id=?
+                """, organizationId);
+
+        Instant paidAt = Instant.parse("2027-01-31T12:00:00Z");
+        var evidence = new VerifiedSubscriptionPayment("TEST", "month-end-transaction", "month-end-invoice",
+                new BigDecimal("1234"), "XOF", paidAt);
+        payments.recordVerifiedPayment(organizationId, evidence);
+
+        assertThat(jdbc.queryForObject("""
+                select period_start from subscription_periods where organization_id=?
+                """, java.sql.Timestamp.class, organizationId).toInstant()).isEqualTo(paidAt);
+        assertThat(jdbc.queryForObject("""
+                select period_end from subscription_periods where organization_id=?
+                """, java.sql.Timestamp.class, organizationId).toInstant())
+                .isEqualTo(paidAt.atZone(zone).plusMonths(1).toInstant())
+                .isEqualTo(Instant.parse("2027-02-28T12:00:00Z"));
     }
 
     @Test

@@ -65,11 +65,19 @@ de rendre le démarrage possible.
 
 ## Schéma et migrations
 
-La migration `021-subscriptions.sql` crée l'abonnement unique par boutique,
-le contact de facturation, les périodes et les métadonnées de cutover, puis
-attribue un trial aux boutiques existantes de façon idempotente. Les migrations
-001–020 sont immuables. Après application de 021, tout correctif de schéma
-nécessite une migration ultérieure.
+La migration `021-subscriptions.sql` crée l'abonnement unique par boutique, le
+contact de facturation et les périodes, puis attribue un trial aux boutiques
+existantes. `022-subscription-compatibility.sql` ajoute les métadonnées de
+cutover, retire la contrainte historique qui empêchait un paiement vérifié
+antérieur à son enregistrement et rejoue le backfill de façon idempotente.
+021 restaure exactement le SQL déjà appliqué (checksum Liquibase
+`9:1c621751968700b8e7bb2930af6c2eba`); les changements de schéma sont portés
+par 022. 022 récupère l'instant de cutover original depuis les trials legacy
+créés uniformément par 021. Les migrations 001–021 sont immuables.
+
+Un paiement prouvé de plan `STANDARD_MONTHLY` ouvre une période d'un mois
+calendaire dans le fuseau de la boutique. La durée configurable du trial ne
+change pas la durée d'une période payée.
 
 Voir aussi [règles métier](business-rules.md), [modèle métier](domain-model.md),
 [dépendances Modulith](module-dependencies.md) et [ADR-0021](../adr/0021-subscription-entitlements.md).

@@ -1,6 +1,5 @@
 --liquibase formatted sql
 --changeset groupia:021-subscriptions dbms:postgresql
---validCheckSum: 9:1c621751968700b8e7bb2930af6c2eba
 CREATE TABLE organization_subscriptions (
     id uuid PRIMARY KEY,
     organization_id uuid NOT NULL UNIQUE REFERENCES organizations(id),
@@ -67,17 +66,11 @@ CREATE TABLE subscription_periods (
     created_at timestamptz NOT NULL,
     UNIQUE (provider, provider_transaction_id),
     UNIQUE (provider, provider_reference),
-    CHECK (period_end > period_start)
+    CHECK (period_end > period_start),
+    CHECK (paid_at >= created_at)
 );
 CREATE INDEX ix_subscription_period_history
     ON subscription_periods(organization_id, period_start DESC, id);
-
-CREATE TABLE subscription_migration_metadata (
-    id smallint PRIMARY KEY CHECK (id = 1),
-    applied_at timestamptz NOT NULL
-);
-INSERT INTO subscription_migration_metadata(id, applied_at)
-VALUES (1, transaction_timestamp());
 
 -- Existing organizations receive a clearly attributed migration trial, not a trial
 -- backdated to organization.created_at.
@@ -85,11 +78,10 @@ INSERT INTO organization_subscriptions (
     id, organization_id, status, trial_started_at, trial_ends_at, trial_provenance,
     created_at, updated_at
 )
-SELECT gen_random_uuid(), o.id, 'TRIALING', m.applied_at,
-       ((m.applied_at AT TIME ZONE o.timezone) + interval '1 month') AT TIME ZONE o.timezone,
-       'LEGACY_MIGRATION_TRIAL', m.applied_at, m.applied_at
+SELECT gen_random_uuid(), o.id, 'TRIALING', transaction_timestamp(),
+       ((transaction_timestamp() AT TIME ZONE o.timezone) + interval '1 month') AT TIME ZONE o.timezone,
+       'LEGACY_MIGRATION_TRIAL', transaction_timestamp(), transaction_timestamp()
 FROM organizations o
-JOIN subscription_migration_metadata m ON m.id = 1
 ON CONFLICT (organization_id) DO NOTHING;
 
 INSERT INTO subscription_billing_contacts (

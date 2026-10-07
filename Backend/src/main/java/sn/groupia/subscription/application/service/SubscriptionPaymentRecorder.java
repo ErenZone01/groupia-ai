@@ -11,6 +11,8 @@ import sn.groupia.subscription.domain.repository.SubscriptionStore;
 
 @Service
 class SubscriptionPaymentRecorder {
+    private static final int STANDARD_MONTHS = 1;
+
     private final SubscriptionProvisioning provisioning;
     private final SubscriptionStore subscriptions;
     private final SubscriptionSettings settings;
@@ -47,7 +49,7 @@ class SubscriptionPaymentRecorder {
         }
         var timezone = organizations.subscriptionFacts(organizationId).timezone();
         var end = start.atZone(ZoneId.of(timezone))
-                .plusMonths(settings.getTrialMonths()).toInstant();
+                .plusMonths(STANDARD_MONTHS).toInstant();
         var period = new SubscriptionPeriod(UUID.randomUUID(), organizationId, subscription.id(),
                 "STANDARD_MONTHLY", amount, "XOF", "MONTHLY", start, end, evidence.provider(),
                 evidence.providerTransactionId(), evidence.providerReference(), "PAID", evidence.paidAt(),

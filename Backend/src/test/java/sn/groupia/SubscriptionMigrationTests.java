@@ -41,6 +41,12 @@ class SubscriptionMigrationTests {
             assertThat(jdbc.queryForObject(
                     "select md5sum from databasechangelog where id='021-subscriptions'", String.class))
                     .isEqualTo("9:1c621751968700b8e7bb2930af6c2eba");
+            assertThat(jdbc.queryForObject(
+                    "select md5sum from databasechangelog where id='022-subscription-migration-metadata'",
+                    String.class)).isEqualTo("9:eacae86d733433f7250342b22285a176");
+            assertThat(jdbc.queryForObject(
+                    "select md5sum from databasechangelog where id='022-subscription-backfill'",
+                    String.class)).isEqualTo("9:b6513b428b9baa70d24ac334e178dfc0");
             assertThat(jdbc.queryForObject("select count(*) from organization_subscriptions", Integer.class)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from subscription_billing_contacts", Integer.class)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from subscription_periods", Integer.class)).isZero();

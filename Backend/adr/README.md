@@ -60,3 +60,4 @@ timeline privée append-only et migration historique sans perte de données.
 - [0019 — Régularisation des crédits transport après remise](0019-shipping-credit-resolution.md)
 
 - [0020 — Ledger marchand et reversements](0020-merchant-settlement.md)
+- [0021 — Entitlements d'abonnement et continuité des workflows](0021-subscription-entitlements.md)

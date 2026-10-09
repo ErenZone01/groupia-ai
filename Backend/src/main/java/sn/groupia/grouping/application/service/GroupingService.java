@@ -16,6 +16,7 @@ import sn.groupia.grouping.domain.repository.*;
 import sn.groupia.organization.api.*;
 import sn.groupia.shared.api.ApiException;
 import sn.groupia.shipping.api.dto.ShippingTerms;
+import sn.groupia.subscription.api.SubscriptionEntitlements;
 
 @Service
 @Transactional(readOnly = true)
@@ -26,17 +27,21 @@ public class GroupingService implements GroupingQueries {
     private final CatalogVariants catalog;
     private final OrganizationAccess access;
     private final OrganizationAvailability organizations;
+    private final SubscriptionEntitlements subscriptionEntitlements;
     private final Clock clock;
 
     public GroupingService(Campaigns campaigns, Offers offers, GroupingChanges changes, CatalogVariants catalog,
-            OrganizationAccess access, OrganizationAvailability organizations, Clock clock) {
+            OrganizationAccess access, OrganizationAvailability organizations,
+            SubscriptionEntitlements subscriptionEntitlements, Clock clock) {
         this.campaigns = campaigns; this.offers = offers; this.changes = changes; this.catalog = catalog;
-        this.access = access; this.organizations = organizations; this.clock = clock;
+        this.access = access; this.organizations = organizations; this.subscriptionEntitlements = subscriptionEntitlements;
+        this.clock = clock;
     }
 
     @Transactional
     public CampaignView create(UUID organizationId, String title, String description, Instant closesAt, ShippingTerms terms) {
         access.requirePermission(organizationId, OrganizationPermission.MANAGE_GROUPINGS);
+        subscriptionEntitlements.requireNewBusinessAllowed(organizationId);
         return view(campaigns.save(GroupingCampaign.create(organizationId, title, description, closesAt, terms, clock.instant())));
     }
 
@@ -86,6 +91,7 @@ public class GroupingService implements GroupingQueries {
     @Transactional
     public CampaignView open(UUID organizationId, UUID campaignId, long version) {
         return transition(organizationId, campaignId, version, campaign -> {
+            subscriptionEntitlements.requireNewBusinessAllowed(organizationId);
             var active = offers.active(organizationId, campaignId);
             campaign.open(active.size(), clock.instant());
             var variants = catalog.findByIds(organizationId,

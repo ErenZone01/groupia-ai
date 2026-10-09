@@ -16,8 +16,8 @@ import { addOffer } from '../fn/grouping-controller/add-offer';
 import { AddOffer$Params } from '../fn/grouping-controller/add-offer';
 import { CampaignPage } from '../models/campaign-page';
 import { CampaignView } from '../models/campaign-view';
-import { cancel } from '../fn/grouping-controller/cancel';
-import { Cancel$Params } from '../fn/grouping-controller/cancel';
+import { cancel1 } from '../fn/grouping-controller/cancel-1';
+import { Cancel1$Params } from '../fn/grouping-controller/cancel-1';
 import { close } from '../fn/grouping-controller/close';
 import { Close$Params } from '../fn/grouping-controller/close';
 import { create2 } from '../fn/grouping-controller/create-2';
@@ -311,28 +311,28 @@ export class GroupingControllerService extends BaseService {
     );
   }
 
-  /** Path part for operation `cancel()` */
-  static readonly CancelPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/cancel';
+  /** Path part for operation `cancel1()` */
+  static readonly Cancel1Path = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/cancel';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `cancel()` instead.
+   * To access only the response body, use `cancel1()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  cancel$Response(params: Cancel$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignView>> {
-    const obs = cancel(this.http, this.rootUrl, params, context);
+  cancel1$Response(params: Cancel1$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignView>> {
+    const obs = cancel1(this.http, this.rootUrl, params, context);
     return obs;
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `cancel$Response()` instead.
+   * To access the full response (for headers, for example), `cancel1$Response()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  cancel(params: Cancel$Params, context?: HttpContext): Observable<CampaignView> {
-    const resp = this.cancel$Response(params, context);
+  cancel1(params: Cancel1$Params, context?: HttpContext): Observable<CampaignView> {
+    const resp = this.cancel1$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CampaignView>): CampaignView => r.body)
     );

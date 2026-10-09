@@ -4,12 +4,14 @@ import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { MobileBottomNav } from './mobile-bottom-nav';
 import { BoutiqueGate } from './boutique-gate';
+import { SubscriptionNotice } from '../../features/subscription/subscription-notice';
 @Component({
   selector: 'g-manager-layout',
-  imports: [RouterOutlet, Sidebar, Topbar, MobileBottomNav, BoutiqueGate],
+  imports: [RouterOutlet, Sidebar, Topbar, MobileBottomNav, BoutiqueGate, SubscriptionNotice],
   template: `<a class="skip" href="#main-content">Aller au contenu</a><g-sidebar />
     <div class="workspace">
       <g-topbar />
+      <g-subscription-notice />
       <main id="main-content" tabindex="-1">
         <g-boutique-gate><router-outlet /></g-boutique-gate>
       </main>

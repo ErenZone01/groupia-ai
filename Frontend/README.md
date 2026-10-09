@@ -4,7 +4,7 @@ La tranche Commandes côté gérante est décrite dans [son bilan et ses limites
 
 Le parcours public panier → coordonnées → paiement → suivi est documenté dans [le bilan et la recette manuelle](docs/public-checkout.md).
 
-Angular **22.2.0**, composants standalone, Signals, Router, HttpClient, SCSS. La fondation et le design system sont conservés. Le backend Spring Boot et les migrations SQL ne sont pas modifiés.
+Angular **22.2.0**, composants standalone, Signals, Router, HttpClient, SCSS. La fondation et le design system sont conservés. Le backend Spring Boot reste la source d'autorité ; le client Subscription V1 est généré depuis son contrat OpenAPI.
 
 ## Démarrer
 
@@ -41,11 +41,12 @@ Routes principales :
 | /app/groupages | Authentifié |
 | /app/groupages/nouveau | Authentifié |
 | /app/groupages/:id | Authentifié |
+| /app/abonnement | Authentifié ; lecture OWNER/MANAGER, gestion OWNER |
 | /public/groupages/:publicIdentifier | Public, sans JWT |
 | /public/groupages/:publicIdentifier/cart, /checkout | Public, sans JWT |
 | /public/order | Public, token de suivi en session |
 
-Les anciens liens /accueil, /catalogue, /groupages, /boutique, /commandes et /paiements redirigent vers le nouvel espace /app. /g/:publicId reste un alias de la vitrine. Toutes les pages métier sont lazy-loaded. /app/atelier conserve la démonstration des composants, protégée par la connexion.
+Les anciens liens /accueil, /catalogue, /groupages, /boutique, /commandes et /paiements redirigent vers le nouvel espace /app. /g/:publicId reste un alias de la vitrine. Toutes les pages métier sont lazy-loaded. /app/atelier conserve la démonstration des composants, protégée par la connexion. Une bannière non bloquante informe de l'essai ou de la nécessité d'un abonnement et renvoie vers /app/abonnement.
 
 ## Génération OpenAPI
 
@@ -66,13 +67,13 @@ npm run api:generate
 
 - `openapi.json` est le contrat backend, pas une copie de DTO écrite à la main.
 - `ng-openapi-gen.json` et `tools/generate-api.mjs` pilotent la génération.
-- `src/app/api/generated` contient **53 modèles et 7 services générés**. Ne pas modifier ni reformater ces fichiers à la main.
+- `src/app/api/generated` contient **115 modèles et 17 services générés**. Ne pas modifier ni reformater ces fichiers à la main.
 - `GroupiaApi` fournit des noms stables à l’application ; les suffixes d’opérations générés par Spring restent confinés dans cet adaptateur.
 - Spring déclare plusieurs réponses structurées en `*/*`. Le script utilise l’option officielle `customizedResponseType` pour les décoder en JSON. Le contrat source reste intact.
 - `provideApiConfiguration('')` utilise les URLs relatives. L’interceptor s’applique au client généré.
 - Les contrats générés alimentent les parcours public et Commandes côté gérante ; le calcul fournisseur reste bloqué par les données absentes de la projection de liste.
 
-**Provenance du snapshot initial** : export réel `Backend/target/groupia-openapi.json`, produit le 24 septembre 2026 par `OpenApiIntegrationTests` via GET /v3/api-docs. Le serveur local refusait les connexions sur 8080 lors de cette tranche. Les endpoints et invariants utilisés ont aussi été relus dans les controllers/domaines actuels. Rafraîchir avec `npm run api:generate` au prochain démarrage du backend.
+**Provenance du snapshot** : export réel `Backend/target/groupia-openapi.json`, rafraîchi le 7 octobre 2026 par `OpenApiIntegrationTests` via GET /v3/api-docs. Les modèles et services sont régénérés depuis ce snapshot versionné. La page Abonnement n'envoie aucun montant ; le backend décide du tarif, de l'entitlement et de la preuve de paiement.
 
 ## Architecture et fichiers principaux
 
@@ -94,6 +95,7 @@ src/app/
 ├── features/
 │   ├── auth/                          connexion et inscription
 │   ├── boutique/                      onboarding, sélection, déconnexion
+│   ├── subscription/                  abonnement, entitlement et contact de facturation
 │   ├── catalog/
 │   │   ├── catalog.page.ts
 │   │   ├── catalog.store.ts
@@ -132,6 +134,11 @@ Aucun service UI générique ne porte de règle métier. Les stores des features
 | PUT | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/offers/{offerId} |
 | POST | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/open |
 | POST | /api/organizations/{organizationId}/grouping-campaigns/{campaignId}/close |
+| GET | /api/organizations/{organizationId}/subscription |
+| GET, PUT | /api/organizations/{organizationId}/subscription/billing-contact |
+| POST | /api/organizations/{organizationId}/subscription/start |
+| POST | /api/organizations/{organizationId}/subscription/cancel |
+| GET | /api/organizations/{organizationId}/subscription/history |
 | GET | /api/public/groupings/{publicIdentifier} |
 
 Les identifiants de boutique viennent du contexte autorisé, jamais d’une saisie manuelle.

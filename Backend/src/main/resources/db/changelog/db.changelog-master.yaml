@@ -59,3 +59,9 @@ databaseChangeLog:
   - include:
       file: 020-merchant-settlement.sql
       relativeToChangelogFile: true
+  - include:
+      file: 021-subscriptions.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 022-subscription-compatibility.sql
+      relativeToChangelogFile: true

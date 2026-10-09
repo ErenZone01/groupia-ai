@@ -6,5 +6,6 @@ export const navigation = [
   { path: '/app/paiements', label: 'Paiements', shortLabel: 'Paiements', icon: 'card' },
   { path: '/app/boutique', label: 'Ma boutique', shortLabel: 'Boutique', icon: 'store' },
   { path: '/app/versements', label: 'Mes versements', shortLabel: 'Versements', icon: 'card' },
+  { path: '/app/abonnement', label: 'Abonnement', shortLabel: 'Abonnement', icon: 'card' },
 ] as const;
 export const mobileNavigation = [navigation[0], navigation[1], navigation[3], navigation[5]];

@@ -30,7 +30,7 @@ class CreditResolutionMigrationTests {
             try(var resources=new ClassLoaderResourceAccessor()){migrations.migrate(db,resources);}
             assertThat(jdbc.queryForList("select * from orders order by id")).isEqualTo(before);
             assertThat(jdbc.queryForList("select * from order_fulfillment_events order by recording_sequence")).isEqualTo(events);
-            assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '019-%' and id not like '020-%' order by orderexecuted")).isEqualTo(checksums);
+            assertThat(jdbc.queryForList("select id,md5sum from databasechangelog where id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' order by orderexecuted")).isEqualTo(checksums);
             assertThat(jdbc.queryForObject("select count(*) from payment_refunds",Integer.class)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from refund_webhook_receipts",Integer.class)).isZero();
             for(String field:List.of("amount","currency","recipient_phone_snapshot","business_reference","provider_idempotency_key")){
@@ -61,4 +61,3 @@ class CreditResolutionMigrationTests {
             'Fixture',gen_random_uuid(),now(),false,null,'Restitution espèces')
         """.formatted(order);}
 }
-

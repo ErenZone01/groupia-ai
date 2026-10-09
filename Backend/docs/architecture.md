@@ -2,12 +2,13 @@
 
 Le point d'entrée est `sn.groupia.GroupiaApplication`. Les modules sont ses
 sous-packages directs : identity, organization, catalog, grouping, ordering,
-payment, shipping, notification, media, audit et shared.
+customeraccess, procurement, settlement, subscription, payment, shipping,
+notification, media, audit et shared.
 
 ## Frontières
 
 Chaque module est déclaré par `@ApplicationModule` et reste fermé.
-Les dix modules métier suivent intégralement la structure de `AGENTS.md`.
+Les modules métier suivent la structure de `AGENTS.md`.
 Les fichiers `package-info.java` conservent les packages dans Git sans ajouter
 d'entités, de services fictifs, de controllers ou de repositories.
 
@@ -33,7 +34,7 @@ Ne pas ouvrir les modules ni exclure des packages pour faire passer la vérifica
   Il n'est pas déclaré comme module partagé automatiquement chargé dans tous
   les tests Modulith. Tout futur contenu doit avoir une justification concrète.
 - Les trois packages publics d'un module constituent une seule interface `api`.
-- Le test contrôle aussi la détection exacte des onze modules, leur fermeture
+- Le test contrôle aussi la détection exacte des quinze modules, leur fermeture
   et l'absence de types publics à la racine des modules métier.
 - Le point d'entrée et les tests existants sont déplacés depuis
   `sn.groupia.groupia_ai` vers `sn.groupia` pour couvrir tous les modules.
@@ -65,6 +66,16 @@ Depuis la racine sous PowerShell, avec Java 21 et Docker démarré :
 `ApplicationModules.of(GroupiaApplication.class).verify()` sans filtre ni
 exclusion. Il fonctionne sans démarrer Spring ni PostgreSQL. Le test de
 contexte existant utilise PostgreSQL via Testcontainers et nécessite Docker.
+
+## Subscription V1
+
+Le module `subscription` isole les essais, périodes payées et coordonnées de
+facturation. `grouping` utilise uniquement `subscription::api` pour protéger
+la création et l'ouverture des groupages ; l'expiration ne bloque pas les
+workflows commerciaux déjà engagés. Le provider Bictorys d'abonnement reste
+désactivé tant qu'aucune preuve serveur fiable de paiement n'est validée.
+Voir [Subscription V1](subscription-v1.md) et
+[ADR-0021](../adr/0021-subscription-entitlements.md).
 
 Pour exécuter seulement la vérification architecturale :
 

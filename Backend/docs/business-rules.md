@@ -227,3 +227,14 @@ Seuls les refunds SUCCEEDED réduisent le transport payé net. PENDING, REVIEW_R
 PSP fee allocation policy not implemented.
 
 [Contrat complet et décisions de disponibilité](merchant-settlement-v1.md).
+
+## Abonnement boutique V1
+
+- Chaque boutique dispose d'un essai gratuit d'un mois calendaire dans son fuseau horaire ; ce n'est pas une durée fixe de 30 jours.
+- Une boutique déjà présente au déploiement reçoit un essai explicitement attribué à la date de cutover de la migration, pas antidaté à sa création.
+- Un entitlement actif est requis uniquement pour créer un nouveau groupage ou ouvrir un brouillon. La consultation publique, les commandes déjà engagées, la clôture et les workflows financiers/transport/remise restent accessibles.
+- L'entitlement est calculé côté serveur à partir de l'essai et des périodes réellement payées. Une configuration ou une demande de démarrage chez un provider ne constitue jamais une preuve de paiement.
+- OWNER et MANAGER peuvent consulter l'abonnement ; OWNER seul modifie les coordonnées de facturation, démarre ou annule un abonnement.
+- Tant qu'une preuve de paiement provider fiable n'est pas disponible, l'intégration Bictorys d'abonnement reste désactivée. Aucun accès payant n'est activé par une confirmation navigateur.
+
+[Contrat Subscription V1](subscription-v1.md) et [ADR-0021](../adr/0021-subscription-entitlements.md).

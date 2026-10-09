@@ -349,3 +349,24 @@ FAILED/CANCELLED libèrent après preuve serveur acceptable. Aucun succès manue
 MANUAL_EXTERNAL ne produit aucun débit marchand.
 
 [Modèle, calculs et historique 019→020](merchant-settlement-v1.md).
+
+## Subscription V1 (2026-10)
+
+Le module `subscription` possède `OrganizationSubscription`, `SubscriptionBillingContact`
+et l'historique append-only `SubscriptionPeriod`. Le trial est provisionné une fois
+à la création de la boutique ; les organisations existant au cutover reçoivent un
+trial dont la provenance est `LEGACY_MIGRATION_TRIAL`. Sa fin est calculée par mois
+calendaire dans le fuseau de la boutique.
+
+L'entitlement est une projection serveur du trial et des périodes payées vérifiées.
+Il ne modifie pas les commandes déjà engagées ni les obligations financières.
+L'application du contrôle est limitée à la création et l'ouverture de nouveaux
+groupages. La migration 021 crée le schéma initial; 022 ajoute les métadonnées
+de cutover et rend le backfill legacy idempotent sur les deux chemins d'upgrade.
+
+Le provider d'abonnement est indisponible par défaut. La configuration d'une
+subscription provider ne crée pas de période payée ; aucune preuve webhook
+Bictorys vérifiée ne permet encore l'activation automatique.
+
+[Contrat Subscription V1](subscription-v1.md) et
+[ADR-0021](../adr/0021-subscription-entitlements.md).

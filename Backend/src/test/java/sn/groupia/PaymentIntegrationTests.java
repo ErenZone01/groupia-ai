@@ -68,7 +68,7 @@ class PaymentIntegrationTests {
 
     @BeforeEach void setup() throws Exception {
         await(()->jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)==0);
-        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
+        jdbc.execute("TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication CASCADE");
         provider.reset(); clock.reset(); remote="192.0.2."+addressSequence.incrementAndGet();
         if(passwordHash==null){passwordHash=passwords.encode("Financial fixture 2026!");}
         actor=UUID.randomUUID();
@@ -85,6 +85,7 @@ class PaymentIntegrationTests {
         campaign=read(auth(post(path+"/open"),Map.of("version",campaign.get("version").asLong())).andExpect(status().isOk()).andReturn());
         checkoutKey=UUID.randomUUID().toString();
         checkout=read(place(checkoutKey).andExpect(status().isCreated()).andReturn());
+        await(()->jdbc.queryForObject("select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",Long.class)==0);
     }
 
     @Test void checkoutCreatesOneInitialObligationWithIdenticalDeadlineAndBreakdown() throws Exception {
@@ -349,7 +350,7 @@ class PaymentIntegrationTests {
 
     @Test void publicationWriteFailureIsRecoverableFromDurableWebhook() throws Exception {
         var id=start();
-        jdbc.execute("alter table event_publication add constraint test_publication_failure check(false)");
+        jdbc.execute("alter table event_publication add constraint test_publication_failure check(false) not valid");
         try {
             webhook("registry-failed",provider.status(merchant(id),PaymentStatus.SUCCEEDED)).andExpect(status().isInternalServerError());
             assertThat(paymentStatus(id)).isEqualTo("PENDING");
@@ -495,7 +496,7 @@ class PaymentIntegrationTests {
     }
     @Test void repeatedTransactionFailuresAlsoStopForInvestigation() throws Exception {
         var id=start(); var success=provider.status(merchant(id),PaymentStatus.SUCCEEDED);
-        jdbc.execute("alter table event_publication add constraint test_publication_failure check(false)");
+        jdbc.execute("alter table event_publication add constraint test_publication_failure check(false) not valid");
         try {
             webhook("transaction-poison",success).andExpect(status().isInternalServerError());
             for(int i=0;i<4;i++){clock.advance(Duration.ofMinutes(5)); webhooks.retryPending();}

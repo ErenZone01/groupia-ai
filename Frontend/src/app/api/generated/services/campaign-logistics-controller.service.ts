@@ -30,76 +30,6 @@ export class CampaignLogisticsControllerService extends BaseService {
     super(config, http);
   }
 
-  /** Path part for operation `shipCampaign()` */
-  static readonly ShipCampaignPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/ship';
-
-  /**
-   * Confirmer le départ communiqué, date réelle facultative.
-   *
-   *
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `shipCampaign()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  shipCampaign$Response(params: ShipCampaign$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
-    const obs = shipCampaign(this.http, this.rootUrl, params, context);
-    return obs;
-  }
-
-  /**
-   * Confirmer le départ communiqué, date réelle facultative.
-   *
-   *
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `shipCampaign$Response()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  shipCampaign(params: ShipCampaign$Params, context?: HttpContext): Observable<CampaignShipmentView> {
-    const resp = this.shipCampaign$Response(params, context);
-    return resp.pipe(
-      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
-    );
-  }
-
-  /** Path part for operation `arriveCampaign()` */
-  static readonly ArriveCampaignPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/arrive';
-
-  /**
-   * Confirmer l’arrivée à destination, date réelle facultative.
-   *
-   *
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `arriveCampaign()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  arriveCampaign$Response(params: ArriveCampaign$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
-    const obs = arriveCampaign(this.http, this.rootUrl, params, context);
-    return obs;
-  }
-
-  /**
-   * Confirmer l’arrivée à destination, date réelle facultative.
-   *
-   *
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `arriveCampaign$Response()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  arriveCampaign(params: ArriveCampaign$Params, context?: HttpContext): Observable<CampaignShipmentView> {
-    const resp = this.arriveCampaign$Response(params, context);
-    return resp.pipe(
-      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
-    );
-  }
-
   /** Path part for operation `readCampaignShipment()` */
   static readonly ReadCampaignShipmentPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/shipment';
 
@@ -235,6 +165,76 @@ export class CampaignLogisticsControllerService extends BaseService {
    */
   addCampaignShipmentFact(params: AddCampaignShipmentFact$Params, context?: HttpContext): Observable<CampaignShipmentView> {
     const resp = this.addCampaignShipmentFact$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
+    );
+  }
+
+  /** Path part for operation `shipCampaign()` */
+  static readonly ShipCampaignPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/ship';
+
+  /**
+   * Confirmer le départ communiqué, date réelle facultative.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `shipCampaign()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  shipCampaign$Response(params: ShipCampaign$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
+    const obs = shipCampaign(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Confirmer le départ communiqué, date réelle facultative.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `shipCampaign$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  shipCampaign(params: ShipCampaign$Params, context?: HttpContext): Observable<CampaignShipmentView> {
+    const resp = this.shipCampaign$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
+    );
+  }
+
+  /** Path part for operation `arriveCampaign()` */
+  static readonly ArriveCampaignPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/arrive';
+
+  /**
+   * Confirmer l’arrivée à destination, date réelle facultative.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `arriveCampaign()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  arriveCampaign$Response(params: ArriveCampaign$Params, context?: HttpContext): Observable<StrictHttpResponse<CampaignShipmentView>> {
+    const obs = arriveCampaign(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Confirmer l’arrivée à destination, date réelle facultative.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `arriveCampaign$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  arriveCampaign(params: ArriveCampaign$Params, context?: HttpContext): Observable<CampaignShipmentView> {
+    const resp = this.arriveCampaign$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CampaignShipmentView>): CampaignShipmentView => r.body)
     );

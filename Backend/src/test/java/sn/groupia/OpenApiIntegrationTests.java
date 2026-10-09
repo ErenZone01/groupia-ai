@@ -42,6 +42,23 @@ class OpenApiIntegrationTests {
         assertThat(doc.at("/components/schemas/OrderReplay/properties/replayed").isMissingNode()).isFalse();
         assertThat(doc.at("/components/schemas/PaymentRequestView/properties/expiresAt/nullable").asBoolean()).isTrue();
     }
+    @Test void subscriptionContractIsAuthenticatedAndHasNoClientSuppliedPrice() throws Exception {
+        var doc=spec();
+        var paths=doc.path("paths");
+        String base="/api/organizations/{organizationId}/subscription";
+        for(String path:List.of(base,base+"/billing-contact",base+"/start",base+"/cancel",base+"/history")) {
+            paths.path(path).properties().forEach(operation ->
+                assertThat(operation.getValue().path("security").toString()).contains("BearerJWT"));
+        }
+        assertThat(paths.path(base+"/start").path("post").path("requestBody").isMissingNode()).isTrue();
+        assertThat(paths.path(base+"/cancel").path("post").path("requestBody").isMissingNode()).isTrue();
+        assertThat(doc.at("/components/schemas/SubscriptionDetails/properties").propertyNames())
+                .contains("access","canManageSubscription","billingProviderAvailable","planConfigured","billingContact");
+        assertThat(doc.at("/components/schemas/SubscriptionAccessView/properties").propertyNames())
+                .contains("canStartNewBusiness","trialStartedAt","trialEndsAt","reason");
+        assertThat(doc.at("/components/schemas/SubscriptionPeriodView/properties").propertyNames())
+                .contains("periodStart","periodEnd","status","paidAt");
+    }
     private void assertReferences(JsonNode root,JsonNode node) {
         if(node.isObject() && node.has("$ref") && node.get("$ref").asText().startsWith("#/")) {
             assertThat(root.at(node.get("$ref").asText().substring(1)).isMissingNode()).as(node.get("$ref").asText()).isFalse();

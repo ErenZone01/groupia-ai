@@ -1,6 +1,8 @@
 const http = require('node:http'),
   fs = require('node:fs'),
   path = require('node:path');
+const crypto = require('node:crypto');
+const securityHeaders = require('./security-headers.cjs');
 const root = path.resolve(__dirname, '../dist/groupia/browser');
 const mime = {
   '.html': 'text/html',
@@ -12,6 +14,15 @@ const mime = {
 };
 http
   .createServer((req, res) => {
+    const nonce = crypto.randomBytes(24).toString('base64');
+    for (const [name, value] of Object.entries(
+      securityHeaders(nonce, process.env.GROUPIA_HTTPS === 'true'),
+    ))
+      res.setHeader(name, value);
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405, { Allow: 'GET, HEAD' });
+      return res.end();
+    }
     let pathname;
     try {
       pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -34,6 +45,14 @@ http
     res.setHeader('Referrer-Policy', 'no-referrer');
     if (pathname.startsWith('/s/')) res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', mime[path.extname(file)] || 'application/octet-stream');
+    if (path.extname(file) === '.html') {
+      res.setHeader('Cache-Control', 'no-store');
+      const html = fs
+        .readFileSync(file, 'utf8')
+        .replace('<app-root>', '<app-root ngCspNonce="' + nonce + '">');
+      return res.end(req.method === 'HEAD' ? undefined : html);
+    }
+    if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
   })
-  .listen(4300, '127.0.0.1');
+  .listen(Number(process.env.PORT || 4300), process.env.HOST || '127.0.0.1');

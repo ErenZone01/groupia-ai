@@ -40,7 +40,9 @@ export class AuthService {
     this.generation.update((n) => n + 1);
     try {
       this.window?.sessionStorage.setItem('groupia.session', JSON.stringify(value));
-    } catch {}
+    } catch {
+      /* Storage may be unavailable; keep the in-memory state. */
+    }
     this.scheduleExpiry();
   }
   token(): string | null {
@@ -57,7 +59,9 @@ export class AuthService {
     this.generation.update((n) => n + 1);
     try {
       this.window?.sessionStorage.removeItem('groupia.session');
-    } catch {}
+    } catch {
+      /* Storage may be unavailable; keep the in-memory state. */
+    }
   }
   logout() {
     this.clear();
@@ -94,7 +98,9 @@ export class AuthService {
       )
         return value;
       this.window?.sessionStorage.removeItem('groupia.session');
-    } catch {}
+    } catch {
+      /* Storage may be unavailable; keep the in-memory state. */
+    }
     return null;
   }
 }

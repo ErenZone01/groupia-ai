@@ -5,7 +5,6 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { apiTestProviders } from '../../testing/api-test';
 import { OrdersStore } from './orders.store';
-import { OrdersApi } from './orders-api';
 import { OrdersDashboardStore } from '../dashboard/orders-dashboard.store';
 import { OrderDetailPage } from './order-detail.page';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
@@ -183,32 +182,30 @@ describe('Détail historique de commande', () => {
   it('affiche les snapshots, le contact et les montants sans lecture du catalogue', () => {
     const fixture = TestBed.createComponent(OrderDetailPage);
     fixture.detectChanges();
-    http
-      .expectOne('/api/organizations/shop/orders/order')
-      .flush({
-        id: 'order',
-        campaignId: 'campaign',
-        customerContactSnapshot: { firstName: 'Awa', lastName: 'Diop', phoneE164: '+221771234567' },
-        order: {
-          orderNumber: 'GRP-1',
-          status: 'CONFIRMED',
-          goodsSubtotal: 10000,
-          platformFeeAmount: 300,
-          initialAmountDue: 10300,
-          currency: 'XOF',
-          items: [
-            {
-              lineNumber: 1,
-              productNameSnapshot: 'Ancien nom',
-              productDescriptionSnapshot: 'Description achetée',
-              variantAttributesSnapshot: { color: 'Blanc', size: 'M' },
-              quantity: 2,
-              unitPriceSnapshot: 5000,
-              lineTotal: 10000,
-            },
-          ],
-        },
-      });
+    http.expectOne('/api/organizations/shop/orders/order').flush({
+      id: 'order',
+      campaignId: 'campaign',
+      customerContactSnapshot: { firstName: 'Awa', lastName: 'Diop', phoneE164: '+221771234567' },
+      order: {
+        orderNumber: 'GRP-1',
+        status: 'CONFIRMED',
+        goodsSubtotal: 10000,
+        platformFeeAmount: 300,
+        initialAmountDue: 10300,
+        currency: 'XOF',
+        items: [
+          {
+            lineNumber: 1,
+            productNameSnapshot: 'Ancien nom',
+            productDescriptionSnapshot: 'Description achetée',
+            variantAttributesSnapshot: { color: 'Blanc', size: 'M' },
+            quantity: 2,
+            unitPriceSnapshot: 5000,
+            lineTotal: 10000,
+          },
+        ],
+      },
+    });
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('Ancien nom');

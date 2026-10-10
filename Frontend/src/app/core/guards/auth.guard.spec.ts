@@ -1,11 +1,6 @@
 import { apiTestProviders } from '../../testing/api-test';
 import { TestBed } from '@angular/core/testing';
-import {
-  ActivatedRouteSnapshot,
-  provideRouter,
-  RouterStateSnapshot,
-  UrlTree,
-} from '@angular/router';
+import { ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { AuthService } from '../auth/auth.service';
 describe('authGuard (production configuration)', () => {

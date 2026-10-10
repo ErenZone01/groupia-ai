@@ -69,7 +69,9 @@ export class BoutiqueContextService {
       let saved: string | null = null;
       try {
         saved = this.window?.localStorage.getItem('groupia.boutique') ?? null;
-      } catch {}
+      } catch {
+        /* Storage may be unavailable; keep the in-memory state. */
+      }
       this.select(result.find((b) => b.id === saved)?.id ?? result[0]?.id ?? null);
       this.ready.set(true);
     } catch (error) {
@@ -82,7 +84,9 @@ export class BoutiqueContextService {
     try {
       if (valid) this.window?.localStorage.setItem('groupia.boutique', valid);
       else this.window?.localStorage.removeItem('groupia.boutique');
-    } catch {}
+    } catch {
+      /* Storage may be unavailable; keep the in-memory state. */
+    }
   }
   async create(name: string) {
     const generation = this.auth.generation();

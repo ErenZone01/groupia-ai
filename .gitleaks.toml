@@ -1,0 +1,18 @@
+[extend]
+useDefault = true
+
+# Reviewed public, nonfunctional magic-link fixture. Never a provider credential.
+[[allowlists]]
+description = "Literal synthetic browser fixture, restricted to its test file"
+condition = "AND"
+paths = ['''Frontend/e2e/customer-access\.spec\.ts$''']
+regexTarget = "secret"
+regexes = ['''^v1\.opaque\.test-signature$''']
+
+# SHA-256 digests of immutable SQL, not credentials. Only this manifest and hex digests.
+[[allowlists]]
+description = "Migration SHA256 manifest"
+condition = "AND"
+paths = ['''tools/migrations-sha256\.json$''']
+regexTarget = "secret"
+regexes = ['''^[0-9a-f]{64}$''']

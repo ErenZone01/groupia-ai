@@ -28,7 +28,7 @@ export class LogisticsDetailsEditor {
   readonly disabled = input(false);
   readonly busy = input(false);
   readonly save = output<LogisticsEdit>();
-  readonly cancel = output<void>();
+  readonly dismissed = output<void>();
   readonly options = logisticsFactOptions;
   providerName = '';
   providerContact = '';

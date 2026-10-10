@@ -2,7 +2,6 @@ import { Component, computed, effect, inject, input, output, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { CatalogStore } from '../catalog/catalog.store';
 import { GroupageLine } from './groupage.store';
-import { ProductVariantView } from '../../api/generated/models';
 import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/forms/input';
 import { Select } from '../../shared/forms/select';

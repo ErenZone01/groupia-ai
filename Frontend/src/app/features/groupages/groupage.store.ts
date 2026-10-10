@@ -112,7 +112,9 @@ export class GroupageStore {
         this.stale.set(true);
         try {
           await this.load(organizationId, this.current()!.id!);
-        } catch {}
+        } catch {
+          /* Preserve the original conflict if refreshing the server state also fails. */
+        }
       }
       throw error;
     } finally {

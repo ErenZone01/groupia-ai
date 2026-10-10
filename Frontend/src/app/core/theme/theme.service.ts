@@ -38,7 +38,9 @@ export class ThemeService {
     this.choice.set(v);
     try {
       this.window?.localStorage.setItem('groupia.theme', v);
-    } catch {}
+    } catch {
+      /* Storage may be unavailable; keep the in-memory state. */
+    }
     this.apply();
   }
   private read(): ThemePreference {

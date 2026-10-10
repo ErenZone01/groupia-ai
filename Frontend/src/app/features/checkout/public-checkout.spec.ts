@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
 import { CartStore } from './cart.store';
 import { CheckoutStore } from './checkout.store';
 import { PublicOrderSessionService, safeCheckoutUrl } from './public-order-session.service';
@@ -107,10 +107,11 @@ describe('Panier et checkout publics', () => {
         }),
       ).toHaveLength(1),
     );
-    let req: any;
+    let req: TestRequest | undefined;
     await vi.waitFor(() => {
       req = http.expectOne('/api/public/groupings/group/checkout');
     });
+    if (!req) throw new Error('Checkout request missing');
     return { store, result, req };
   }
   it('réutilise la clé après erreur réseau et normalise le contenu', async () => {

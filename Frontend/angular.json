@@ -48,7 +48,15 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              }
             },
             "development": {
               "optimization": false,
@@ -77,7 +85,9 @@
           "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "proxy.conf.json",
-            "allowedHosts": [".trycloudflare.com"]
+            "allowedHosts": [
+              ".trycloudflare.com"
+            ]
           }
         },
         "test": {

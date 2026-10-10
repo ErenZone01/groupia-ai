@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-import sn.groupia.identity.api.dto.UserAccountView;
 import sn.groupia.identity.application.service.AccessTokens;
 import sn.groupia.identity.application.service.AuthenticationService;
 
@@ -12,28 +11,54 @@ import sn.groupia.identity.application.service.AuthenticationService;
 @RequestMapping("/api/auth")
 class AuthController {
     private final AuthenticationService authentication;
-    AuthController(AuthenticationService authentication) { this.authentication = authentication; }
+    private final sn.groupia.identity.infrastructure.hardening.AuthRateLimits limits;
+
+    AuthController(
+            AuthenticationService authentication,
+            sn.groupia.identity.infrastructure.hardening.AuthRateLimits limits) {
+        this.authentication = authentication;
+        this.limits = limits;
+    }
 
     @PostMapping("/register")
-    ResponseEntity<UserAccountView> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
-                .body(authentication.register(request.phoneNumber(), request.password(), request.email()));
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        limits.subject("register", request.phoneNumber());
+        try {
+            authentication.register(request.phoneNumber(), request.password(), request.email());
+        } catch (sn.groupia.shared.api.ApiException ex) {
+            if (!ex.code().equals("PHONE_ALREADY_REGISTERED")) throw ex;
+        }
+        return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();
     }
 
     @PostMapping("/login")
     ResponseEntity<AccessTokens.AccessToken> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        limits.subject("login", request.phoneNumber());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(authentication.login(request.phoneNumber(), request.password()));
     }
 
-    record RegisterRequest(@NotBlank @Size(max = 40) String phoneNumber,
+    record RegisterRequest(
+            @NotBlank @Size(max = 40) String phoneNumber,
             @NotBlank @Size(max = 72) String password,
-            @Email @Size(max = 254) @Pattern(regexp = ".*\\S.*", message = "doit être renseigné ou absent") String email) {
-        @Override public String toString() { return "RegisterRequest[REDACTED]"; }
+            @Email
+                    @Size(max = 254)
+                    @Pattern(regexp = ".*\\S.*", message = "doit être renseigné ou absent")
+                    String email) {
+        @Override
+        public String toString() {
+            return "RegisterRequest[REDACTED]";
+        }
     }
 
-    record LoginRequest(@NotBlank @Size(max = 40) String phoneNumber,
+    record LoginRequest(
+            @NotBlank @Size(max = 40) String phoneNumber,
             @NotBlank @Size(max = 72) String password) {
-        @Override public String toString() { return "LoginRequest[REDACTED]"; }
+        @Override
+        public String toString() {
+            return "LoginRequest[REDACTED]";
+        }
     }
 }

@@ -15,7 +15,6 @@ import { login } from '../fn/auth-controller/login';
 import { Login$Params } from '../fn/auth-controller/login';
 import { register } from '../fn/auth-controller/register';
 import { Register$Params } from '../fn/auth-controller/register';
-import { UserAccountView } from '../models/user-account-view';
 
 @Injectable({ providedIn: 'root' })
 export class AuthControllerService extends BaseService {
@@ -32,7 +31,7 @@ export class AuthControllerService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  register$Response(params: Register$Params, context?: HttpContext): Observable<StrictHttpResponse<UserAccountView>> {
+  register$Response(params: Register$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
     const obs = register(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -43,10 +42,10 @@ export class AuthControllerService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  register(params: Register$Params, context?: HttpContext): Observable<UserAccountView> {
+  register(params: Register$Params, context?: HttpContext): Observable<void> {
     const resp = this.register$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<UserAccountView>): UserAccountView => r.body)
+      map((r: StrictHttpResponse<void>): void => r.body)
     );
   }
 

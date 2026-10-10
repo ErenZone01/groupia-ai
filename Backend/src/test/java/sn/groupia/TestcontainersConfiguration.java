@@ -15,7 +15,7 @@ class TestcontainersConfiguration {
     @Bean
     @ServiceConnection
     PostgreSQLContainer postgresContainer() {
-        return new PostgreSQLContainer(DockerImageName.parse("postgres:latest"));
+        return new PostgreSQLContainer(DockerImageName.parse("postgres:18.6"));
     }
 
     @Bean
@@ -23,7 +23,13 @@ class TestcontainersConfiguration {
         byte[] secret = new byte[32];
         new SecureRandom().nextBytes(secret);
         String encoded = Base64.getEncoder().encodeToString(secret);
+        byte[] magicKey = new byte[32], otpKey = new byte[32];
+        new SecureRandom().nextBytes(magicKey);
+        new SecureRandom().nextBytes(otpKey);
+        String magicEncoded = Base64.getEncoder().encodeToString(magicKey);
+        String otpEncoded = Base64.getEncoder().encodeToString(otpKey);
         return registry -> {
+            registry.add("groupia.security.auth-rate-limit.enabled", () -> "false");
             registry.add("groupia.payment.bictorys.enabled", () -> "false");
             registry.add("groupia.ordering.expiration.enabled", () -> "false");
             registry.add("groupia.events.recovery.enabled", () -> "false");
@@ -32,6 +38,8 @@ class TestcontainersConfiguration {
             registry.add("groupia.ordering.payment-window-minutes", () -> "30");
             registry.add("groupia.ordering.tracking-lifetime-days", () -> "180");
             registry.add("groupia.security.jwt.secret-base64", () -> encoded);
+            registry.add("groupia.customer-access.magic-key-base64", () -> magicEncoded);
+            registry.add("groupia.customer-access.otp-pepper-base64", () -> otpEncoded);
             registry.add("groupia.security.jwt.issuer", () -> "https://groupia.test");
             registry.add("groupia.security.jwt.audience", () -> "groupia-api-test");
             registry.add("groupia.security.jwt.access-token-ttl", () -> "15m");

@@ -14,33 +14,49 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<Object> applicationFailure(ApiException ex, WebRequest request) {
         var body = problem(ex.status(), ex.code(), ex.getMessage());
-        if (!ex.details().isEmpty()) { body.setProperty("details", ex.details()); }
-        return handleExceptionInternal(ex, body,
-                new HttpHeaders(), HttpStatusCode.valueOf(ex.status()), request);
+        if (!ex.details().isEmpty()) {
+            body.setProperty("details", ex.details());
+        }
+        var headers = new HttpHeaders();
+        if (ex.code().equals("AUTH_RATE_LIMITED"))
+            headers.set("Retry-After", ex.details().get("retryAfterSeconds").toString());
+        return handleExceptionInternal(
+                ex, body, headers, HttpStatusCode.valueOf(ex.status()), request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
-            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
         var body = problem(400, "VALIDATION_FAILED", "La requête contient des données invalides.");
-        List<FieldError> errors = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> new FieldError(error.getField(), error.getDefaultMessage()))
-                .distinct().toList();
+        List<FieldError> errors =
+                ex.getBindingResult().getFieldErrors().stream()
+                        .map(error -> new FieldError(error.getField(), error.getDefaultMessage()))
+                        .distinct()
+                        .toList();
         body.setProperty("errors", errors);
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body,
-            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        if (!(body instanceof ProblemDetail detail && detail.getProperties() != null
+    protected ResponseEntity<Object> handleExceptionInternal(
+            Exception ex,
+            Object body,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        if (!(body instanceof ProblemDetail detail
+                && detail.getProperties() != null
                 && detail.getProperties().containsKey("code"))) {
-            String code = switch (status.value()) {
-                case 404 -> "RESOURCE_NOT_FOUND";
-                case 405 -> "METHOD_NOT_ALLOWED";
-                case 415 -> "UNSUPPORTED_MEDIA_TYPE";
-                default -> "INVALID_REQUEST";
-            };
+            String code =
+                    switch (status.value()) {
+                        case 404 -> "RESOURCE_NOT_FOUND";
+                        case 405 -> "METHOD_NOT_ALLOWED";
+                        case 415 -> "UNSUPPORTED_MEDIA_TYPE";
+                        default -> "INVALID_REQUEST";
+                    };
             body = problem(status.value(), code, "La requête ne peut pas être traitée.");
         }
         return super.handleExceptionInternal(ex, body, headers, status, request);

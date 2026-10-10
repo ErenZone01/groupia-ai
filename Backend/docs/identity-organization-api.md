@@ -24,7 +24,7 @@ Le support Compose fournit la connexion PostgreSQL. Conserver la même clé entr
 
 | Méthode | URL | Authentification | Succès |
 | --- | --- | --- | --- |
-| POST | /api/auth/register | publique | 201 UserAccountView |
+| POST | /api/auth/register | publique | 202 sans corps (nouveau compte ou numéro déjà inscrit) |
 | POST | /api/auth/login | publique | 200 accessToken/tokenType/expiresIn |
 | POST | /api/organizations | Bearer JWT + compte actif | 201 OrganizationView, Location |
 | GET | /api/organizations?page=0&size=20 | Bearer JWT + compte actif | 200 tableau des organisations autorisées |
@@ -92,7 +92,7 @@ Content-Type applicatif ProblemDetail (application/problem+json), avec status, t
 | 403 | ACCESS_DENIED | refus par le filtre de sécurité |
 | 404 | ORGANIZATION_NOT_FOUND | membre autorisé mais organisation indisponible/archivée |
 | 404 | RESOURCE_NOT_FOUND | route absente après authentification |
-| 409 | PHONE_ALREADY_REGISTERED | téléphone normalisé déjà inscrit |
+| 429 | AUTH_RATE_LIMITED | quota réseau ou sujet dépassé ; Retry-After |
 | 405 / 415 | METHOD_NOT_ALLOWED / UNSUPPORTED_MEDIA_TYPE | protocole HTTP invalide |
 | 500 | INTERNAL_ERROR | échec inattendu, sans détail technique ni stack trace |
 
@@ -127,3 +127,5 @@ Les journaux locaux sont dans `target/final-slice-test.log` et `target/final-sli
 Les GET OpenAPI et Swagger UI sont désormais accessibles sans JWT pour documenter
 et importer les contrats ; Actuator et les routes organisateur restent protégés.
 Voir [ADR-0013](../adr/0013-openapi-and-postman-workflow.md) et le [parcours Postman](../postman/README.md).
+
+Durcissement V1 : toutes les tentatives login/register consomment les quotas PostgreSQL. Une inscription répétée valide renvoie 202, ne modifie aucun compte existant et ne délivre aucun JWT. Voir production-hardening.md.

@@ -47,7 +47,7 @@ export class AuthPage {
           ...(this.email.trim() ? { email: this.email.trim() } : {}),
         });
         this.password = '';
-        this.toast.show('Votre compte est créé. Vous pouvez vous connecter.');
+        this.toast.show('Demande prise en compte. Vous pouvez essayer de vous connecter.');
         await this.router.navigateByUrl('/connexion');
       } else {
         await this.auth.login({ phoneNumber: this.phoneNumber.trim(), password: this.password });

@@ -149,7 +149,7 @@ export class CreditResolution {
     this.busy.set(true);
     this.error.set('');
     try {
-      const value = await firstValueFrom(
+      await firstValueFrom(
         this.api
           .resolveShippingCredit({
             organizationId: this.organizationId(),

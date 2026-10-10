@@ -180,7 +180,7 @@
 	<build>
 		<plugins>
             <plugin>
-                <groupId>com.diffplug.spotless</groupId><artifactId>spotless-maven-plugin</artifactId><version>3.7.0</version>
+                <groupId>com.diffplug.spotless</groupId><artifactId>spotless-maven-plugin</artifactId><version>3.10.3</version>
                 <configuration><ratchetFrom>873605a27d1b34e5b0dd4a373db5dcfe3270da53</ratchetFrom><java><googleJavaFormat><version>1.28.0</version><style>AOSP</style></googleJavaFormat></java></configuration>
                 <executions><execution><goals><goal>check</goal></goals><phase>verify</phase></execution></executions>
             </plugin>

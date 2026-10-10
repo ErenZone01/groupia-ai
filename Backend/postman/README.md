@@ -51,7 +51,7 @@ La collection appelle uniquement Groupia sur localhost, avec PostgreSQL réel. L
    - `firstName` / `lastName` : Test / Groupia par défaut ;
    - `runPhase=A`, `newScenario=false`, `baseUrl=http://localhost:8080`.
 
-   Si le téléphone est déjà inscrit, register accepte uniquement le conflit PHONE_ALREADY_REGISTERED puis login vérifie réellement le mot de passe. Aucun compte existant n'est modifié. Ne pas importer un environnement rempli dans le dépôt ni partager ses valeurs sensibles.
+   Si le téléphone est déjà inscrit, register renvoie le même 202 sans corps puis login vérifie réellement le mot de passe. Aucun compte existant n'est modifié. Ne pas importer un environnement rempli dans le dépôt ni partager ses valeurs sensibles.
 
 8. Ouvrir **Run collection** sur la collection entière. Choisir **1 itération**, délai **1000 ms**, et activer **Keep variable values / conserver les valeurs des variables**. Lancer PHASE A. Les requêtes B/N sont ignorées automatiquement. L'exécution s'arrête après le reçu financier. Il faut conserver ces variables pour la phase suivante.
 

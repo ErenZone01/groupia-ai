@@ -84,7 +84,7 @@
     <button gButton [disabled]="form.invalid || disabled() || busy()" [loading]="busy()">
       Enregistrer
     </button>
-    <button gButton type="button" variant="ghost" [disabled]="busy()" (click)="cancel.emit()">
+    <button gButton type="button" variant="ghost" [disabled]="busy()" (click)="dismissed.emit()">
       Annuler
     </button>
   </div>

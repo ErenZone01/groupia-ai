@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component } from '@angular/core';
 import { Icon } from './icon';
 @Component({
   selector: 'g-brand',

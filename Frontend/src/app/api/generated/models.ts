@@ -112,7 +112,6 @@ export type { UpdateOffer } from './models/update-offer';
 export type { UpdateProduct } from './models/update-product';
 export type { UpdateShipment } from './models/update-shipment';
 export type { UpdateShipmentEta } from './models/update-shipment-eta';
-export type { UserAccountView } from './models/user-account-view';
 export type { VariantChange } from './models/variant-change';
 export type { VariantInput } from './models/variant-input';
 export type { VersionInput } from './models/version-input';

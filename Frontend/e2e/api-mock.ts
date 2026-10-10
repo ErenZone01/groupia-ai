@@ -103,7 +103,7 @@ export async function mockApi(
     }
     if (path === '/api/auth/register') {
       expect(req.headers()['authorization']).toBeUndefined();
-      return reply({ id: 'new-user', phoneNumber: body.phoneNumber }, 201);
+      return route.fulfill({ status: 202, body: '' });
     }
     if (path.startsWith('/api/public/groupings/')) {
       state.publicAuth.push(req.headers()['authorization']);

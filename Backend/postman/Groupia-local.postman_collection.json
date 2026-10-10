@@ -30,7 +30,7 @@
         "type": "text/javascript",
         "exec": [
           "let document;",
-          "try { document=pm.response.json(); } catch(e) { pm.execution.setNextRequest(null);throw new Error(\"Reponse JSON attendue : verifier le serveur Groupia.\"); }",
+          "const emptyRegistration=pm.info.requestName===\"A | Register ou compte existant\" && pm.response.code===202 && pm.response.text()===\"\";\nif(!emptyRegistration) { try { document=pm.response.json(); } catch(e) { pm.execution.setNextRequest(null);throw new Error(\"Reponse JSON attendue : verifier le serveur Groupia.\"); } }",
           "const forbidden=/^(password|passwordHash|password_hash|apiKey|api_key|webhookSecret|webhook_secret|privateKey|private_key|providerIdempotencyKey|trackingTokenHash|tracking_token_hash|authorization|x-secret-key)$/i;",
           "const found=[];",
           "function scan(value) { if(value && typeof value===\"object\") { Object.keys(value).forEach(key=>{if(forbidden.test(key))found.push(key);scan(value[key]);}); } }",
@@ -145,14 +145,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const r=pm.response.json();",
-                  "function check(name,ok) { pm.test(name,()=>pm.expect(Boolean(ok),name).to.eql(true)); if(!ok){pm.execution.setNextRequest(null);throw new Error(name);} }",
-                  "function save(name,value) { check(name+\" present\",typeof value===\"string\" && value.length>0);pm.environment.set(name,value); }",
-                  "function status(code) {check(\"HTTP \"+code+\" attendu\",pm.response.code===code);}",
-                  "",
-                  "",
-                  "check(\"Inscription creee ou telephone deja inscrit\",pm.response.code===201 || (pm.response.code===409 && r.code===\"PHONE_ALREADY_REGISTERED\"));",
-                  "if(pm.response.code===201)check(\"Compte actif avec ID\",Boolean(r.id) && r.status===\"ACTIVE\");"
+                  "pm.test(\"Inscription acceptée sans divulgation\", () => { pm.response.to.have.status(202); pm.expect(pm.response.text()).to.eql(\"\"); });"
                 ]
               }
             }

@@ -56,9 +56,8 @@ import { EmptyState } from '../../shared/feedback/empty-state';
             <option>Première option</option>
             <option>Deuxième option</option>
           </select></label
-        ><g-search-input /><label class="row"
-          >Notifications<g-toggle label="Notifications" [(checked)]="enabled"
-        /></label>
+        ><g-search-input />
+        <div class="row">Notifications<g-toggle label="Notifications" [(checked)]="enabled" /></div>
       </div>
       <g-tabs id="showcase" [tabs]="tabs" [(active)]="active"
         ><p>

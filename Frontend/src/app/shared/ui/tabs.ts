@@ -78,7 +78,7 @@ export class Tabs {
   navigate(e: KeyboardEvent, current: string) {
     const tabs = this.tabs().filter((t) => !t.disabled),
       index = tabs.findIndex((t) => t.id === current);
-    let next = index;
+    let next: number;
     if (e.key === 'ArrowRight') next = (index + 1) % tabs.length;
     else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
     else if (e.key === 'Home') next = 0;

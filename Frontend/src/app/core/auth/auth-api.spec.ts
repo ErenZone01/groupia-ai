@@ -44,7 +44,7 @@ describe('Authentification réelle via le client généré', () => {
     });
     const req = http.expectOne('/api/auth/register');
     expect(req.request.headers.has('Authorization')).toBe(false);
-    req.flush({ id: 'user', phoneNumber: '+221771234567' });
+    req.flush(null, { status: 202, statusText: 'Accepted' });
     await pending;
     expect(auth.signedIn()).toBe(false);
   });

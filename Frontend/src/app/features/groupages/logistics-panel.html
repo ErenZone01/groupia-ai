@@ -105,7 +105,7 @@
             [disabled]="stale()"
             [busy]="busy()"
             (save)="saveDetails($event)"
-            (cancel)="detailsMode.set(null)"
+            (dismissed)="detailsMode.set(null)"
           />
         }
       }

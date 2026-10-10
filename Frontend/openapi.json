@@ -6055,12 +6055,15 @@
               }
             }
           },
-          "201" : {
-            "description" : "Created",
+          "202" : {
+            "description" : "Accepted"
+          },
+          "429" : {
+            "description" : "Authentication attempt quota exceeded; Retry-After header indicates when to retry",
             "content" : {
-              "*/*" : {
+              "application/problem+json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/UserAccountView"
+                  "$ref" : "#/components/schemas/GroupiaProblem"
                 }
               }
             }
@@ -6136,6 +6139,16 @@
           },
           "401" : {
             "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Authentication attempt quota exceeded; Retry-After header indicates when to retry",
             "content" : {
               "application/problem+json" : {
                 "schema" : {
@@ -10753,28 +10766,6 @@
             "pattern" : ".*\\S.*",
             "type" : "string",
             "format" : "email"
-          }
-        }
-      },
-      "UserAccountView" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "phoneNumber" : {
-            "type" : "string"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
           }
         }
       },

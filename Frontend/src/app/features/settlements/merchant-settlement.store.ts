@@ -92,7 +92,7 @@ export class MerchantSettlementStore {
       !b?.canManageSettlements ||
       !b.providerAvailable ||
       !d?.id ||
-      !(row?.availableForPayout! > 0)
+      !((row?.availableForPayout ?? 0) > 0)
     )
       return;
     const org = this.org,

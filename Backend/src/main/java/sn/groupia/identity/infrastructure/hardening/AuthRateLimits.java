@@ -34,6 +34,7 @@ public class AuthRateLimits {
     }
 
     public void network(String operation, String address) {
+        if (!settings.networkEnabled()) return;
         consume(
                 operation + "-network",
                 address == null ? "unknown" : address,

@@ -24,6 +24,7 @@ import sn.groupia.identity.domain.repository.AuthLimitBuckets;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
             "management.server.port=0",
+            "groupia.security.auth-rate-limit.network-enabled=true",
             "groupia.security.auth-rate-limit.login-network=6",
             "groupia.security.auth-rate-limit.login-subject=3",
             "groupia.security.auth-rate-limit.register-network=3",
@@ -170,6 +171,32 @@ class ProductionHardeningTests {
                                 Integer.class,
                                 key))
                 .isEqualTo(5);
+    }
+
+    @Test
+    void concurrentDistinctBucketsCannotExceedStorageCapacity() throws Exception {
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(8)) {
+            var work = new ArrayList<Future<Boolean>>();
+            for (int i = 0; i < 48; i++) {
+                String key = String.format("%064x", i);
+                work.add(
+                        executor.submit(
+                                () -> {
+                                    start.await();
+                                    return buckets.consume(
+                                            "login-subject", key, 5, Duration.ofMinutes(1), 20);
+                                }));
+            }
+            start.countDown();
+            int accepted = 0;
+            for (var result : work) if (result.get(20, TimeUnit.SECONDS)) accepted++;
+            assertThat(accepted).isEqualTo(20);
+        }
+        assertThat(jdbc.queryForObject("select count(*) from auth_rate_limits", Integer.class))
+                .isEqualTo(20);
+        assertThat(jdbc.queryForObject("select sum(attempts) from auth_rate_limits", Integer.class))
+                .isEqualTo(20);
     }
 
     @Test

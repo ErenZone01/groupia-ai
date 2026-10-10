@@ -1,5 +1,36 @@
 # Validation locale — Production hardening V1
 
+## Correction de topologie après review
+
+Base de cette correction : `1bcb44ffbebd11e5f7746aa0761142c6001a119c`. Branche conservée : `production-hardening-v1`.
+
+- `network-enabled=false` par défaut dans le profil prod ; true hors prod et pour les tests explicites du budget réseau. Aucun bucket réseau n'est consommé lorsque ce drapeau est false.
+- Le limiteur sujet PostgreSQL/HMAC reste actif avec `enabled=true`, y compris pour plusieurs utilisateurs partageant la même adresse proxy et lorsque les headers Forwarded changent.
+- Le backend ne fait toujours pas confiance à X-Forwarded-For. Le vrai quota par IP cliente relève de l'edge Cloudflare ; une réactivation backend exige une configuration explicite de trusted proxies et ses tests anti-usurpation.
+- Le verrou global est conservé : des verrous par bucket seuls ne garantissent pas la capacité globale entre créations de clés distinctes. Le guide et l'ADR détaillent les prérequis d'une future optimisation et les mesures à relever avant scale.
+- Aucune modification SQL, y compris 023. Aucun changement frontend, dépendance ou contrat OpenAPI.
+
+Tests de régression ajoutés : `SharedProxyAuthRateLimitTests` (3 tests) et création concurrente de 48 buckets sous une capacité de 20 dans `ProductionHardeningTests`. La suite existante vérifie toujours le budget d'une même clé, l'expiration, le cleanup et les headers forgés avec le quota réseau activé.
+
+| Vérification de la correction | Résultat |
+| --- | --- |
+| Tests ciblés sécurité / topologie / Modulith | 16 tests réussis |
+| `./mvnw.cmd test` | 774 tests réussis, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS |
+| `./mvnw.cmd verify` | 774 tests réussis, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS, packaging et Spotless verts |
+| Frontend lint / build production | PASS |
+| Frontend `npm test` | 280 tests réussis dans 31 fichiers |
+| Frontend Playwright | 147 tests réussis |
+| Garde-fou migrations | 22 conformes ; 4 tests du script réussis |
+| `ApplicationModules.verify()` | PASS dans test et verify ; 3 ModularityTests verts à chaque exécution |
+| Scan des secrets | 0 détection, valeurs jamais affichées |
+| `git diff --check` | PASS |
+
+Logs de cette correction, ignorés par Git : `Backend/target/topology-*.log` et `Frontend/artifacts/topology-*.log`.
+
+Fichiers de la correction : `AuthLimitSettings.java`, `AuthRateLimits.java`, `application-prod.properties`, `ProductionHardeningTests.java`, nouveau `SharedProxyAuthRateLimitTests.java`, ADR 0022, guide de production et présent rapport. Le reste de l'inventaire ci-dessous correspond à la tranche initiale.
+
+## Validation initiale avant la correction de topologie
+
 Date : 10 octobre 2026. Branche : `production-hardening-v1`.
 Base attendue : `873605a27d1b34e5b0dd4a373db5dcfe3270da53`.
 
@@ -33,7 +64,7 @@ Les avertissements Angular NG8107 préexistants dans l'éditeur de transport ne 
 
 Appliquer [la checklist de rotation](../../SECURITY-ROTATION.md) et [le guide de production](production-hardening.md), notamment : secrets indépendants, révocation des anciennes clés, `POSTGRES_PASSWORD` réel pour Compose local, profil prod, HTTPS/proxy et quotas edge, management privé, collecte/alertes, protection GitHub et restauration de sauvegarde dans un environnement isolé.
 
-Aucune rotation fournisseur, charge sur une base réelle, restauration de sauvegarde, mise en production, fusion ou publication Git n'a été effectuée. Le verrou global du limiteur, le quota réseau partagé derrière un proxy et le backlog du scheduler restent à mesurer. SpotBugs et un scanner CVE JVM dédié sont différés, comme expliqué dans le guide.
+Aucune rotation fournisseur, charge sur une base réelle, restauration de sauvegarde, mise en production ou fusion n'a été effectuée. Le verrou global du limiteur, le quota réseau partagé derrière un proxy et le backlog du scheduler restent à mesurer. SpotBugs et un scanner CVE JVM dédié sont différés, comme expliqué dans le guide.
 
 ## Inventaire des fichiers
 

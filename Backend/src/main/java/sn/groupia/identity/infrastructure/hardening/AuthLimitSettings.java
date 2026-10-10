@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("groupia.security.auth-rate-limit")
 public record AuthLimitSettings(
         @DefaultValue("true") boolean enabled,
+        @DefaultValue("true") boolean networkEnabled,
         String keyBase64,
         @DefaultValue("15m") Duration window,
         @DefaultValue("60") int loginNetwork,

@@ -130,7 +130,7 @@ class DistributionChecksumUpgradeTests {
             assertThat(jdbc.queryForList("select * from orders order by id")).isEqualTo(orders);
             assertThat(
                             jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' order by orderexecuted"))
                     .isEqualTo(checksums);
         }
     }

@@ -63,3 +63,4 @@ timeline privée append-only et migration historique sans perte de données.
 - [0021 — Entitlements d'abonnement et continuité des workflows](0021-subscription-entitlements.md)
 
 - [0022 — Quotas auth et politique de production](0022-production-hardening.md)
+- [0023 — Payment Review / Duplicate Provider Success](0023-payment-review-duplicate-payin.md)

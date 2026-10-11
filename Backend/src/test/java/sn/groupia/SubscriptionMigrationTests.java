@@ -222,7 +222,7 @@ class SubscriptionMigrationTests {
             assertThat(
                             jdbc.queryForList(
                                     """
-                    select id,md5sum from databasechangelog where id not like '021-%' and id not like '022-%' and id not like '023-%'
+                    select id,md5sum from databasechangelog where id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%'
                     order by orderexecuted
                     """))
                     .isEqualTo(previousChecksums);

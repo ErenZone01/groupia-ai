@@ -112,6 +112,34 @@ class OpenApiIntegrationTests {
                 .contains("periodStart", "periodEnd", "status", "paidAt");
     }
 
+    @Test
+    void paymentReviewContractIsPrivateAndResolutionHasOnlyExternalEvidence() throws Exception {
+        var doc = spec();
+        String base = "/api/organizations/{organizationId}/payment-reviews";
+        for (String path :
+                List.of(base, base + "/{reviewId}", base + "/{reviewId}/resolve-refunded")) {
+            doc.path("paths")
+                    .path(path)
+                    .properties()
+                    .forEach(
+                            operation ->
+                                    assertThat(operation.getValue().path("security").toString())
+                                            .contains("BearerJWT"));
+        }
+        assertThat(
+                        doc.at("/components/schemas/ResolvePaymentReviewRefunded/properties")
+                                .propertyNames())
+                .containsExactlyInAnyOrder("externalRefundReference", "resolutionNote");
+        assertThat(doc.at("/components/schemas/PaymentReviewView/properties").propertyNames())
+                .contains(
+                        "principalPaymentId",
+                        "anomalousPaymentId",
+                        "anomalousProviderTransactionId",
+                        "observedAmount",
+                        "resolvedBy",
+                        "resolvedAt");
+    }
+
     private void assertReferences(JsonNode root, JsonNode node) {
         if (node.isObject() && node.has("$ref") && node.get("$ref").asText().startsWith("#/")) {
             assertThat(root.at(node.get("$ref").asText().substring(1)).isMissingNode())

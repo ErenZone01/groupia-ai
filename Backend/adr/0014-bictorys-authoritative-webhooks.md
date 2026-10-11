@@ -40,6 +40,14 @@ ces endpoints ne participent plus à l'acceptation du webhook.
 
 ## Éligibilité et historique
 
+**Évolution du 11 octobre 2026 :** [ADR-0023](0023-payment-review-duplicate-payin.md)
+remplace le traitement ci-dessous pour les succès secondaires d'une obligation
+déjà réglée. Une preuve valide crée maintenant une PaymentReview avec snapshot
+du débit supplémentaire, y compris pour plusieurs transactions sur une même
+tentative. Le principal reste inchangé ; aucun GET `/status` ni second règlement
+n'est ajouté. Le traitement `LATE_SUCCESS` sans principal et l'absence de backfill
+restent inchangés.
+
 Conformément à la nouvelle instruction explicite, une tentative Bictorys non
 confirmée reste non confirmée si sa demande est expirée/annulée (LATE_SUCCESS) ou
 déjà réglée par une autre tentative (DUPLICATE_SUCCESS). Le receipt et l'anomalie

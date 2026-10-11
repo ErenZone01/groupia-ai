@@ -93,6 +93,25 @@ module d'audit générique ni nouvel événement sans consommateur n'est ajouté
 
 ## Vérification
 
+### Compatibilité du premier démarrage local de 024
+
+Le 11 octobre 2026, la base locale a exécuté 024 pendant le développement avec
+le checksum `9:982310b2ff67921dfa159b9ee836d093`. Le regroupement ultérieur des
+trois déclarations PL/pgSQL sous un seul `DECLARE` a produit le checksum
+`9:d8e3832bf57aecfbc7bad0ce01454bd9`, sans changement de comportement, de table,
+de contrainte ou d'index. Les deux formes sont acceptées par PostgreSQL.
+
+024 accepte uniquement ce checksum historique supplémentaire via `validCheckSum`.
+Son SQL exécutable et son checksum courant restent identiques. Aucun reset global
+de checksums, aucune modification de `DATABASECHANGELOG`, aucun rejeu ni nouvelle
+migration de données ne sont nécessaires. Les migrations 001–023 restent intactes.
+
+Un test exécute réellement chacune des deux variantes, vérifie leurs checksums,
+puis relance Liquibase avec des reviews ouvertes et résolues. Il vérifie la
+préservation des données, du checksum stocké, des fonctions et des protections
+d'immutabilité. Une variante inconnue reste refusée. Pour le lancement local :
+`docker compose up -d postgres`, puis `.\mvnw.cmd spring-boot:run` depuis Backend.
+
 Tests sur PostgreSQL Testcontainers : doubles succès sur une ou deux tentatives,
 identités NULL, preuves invalides, transactions réutilisées, allocation concurrente,
 résolutions concurrentes et contradictoires, autorisations/isolation, rollback de

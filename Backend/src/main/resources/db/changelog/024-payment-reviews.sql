@@ -1,5 +1,6 @@
 --liquibase formatted sql
 --changeset groupia:024-payment-reviews dbms:postgresql splitStatements:false
+--validCheckSum: 9:982310b2ff67921dfa159b9ee836d093
 CREATE TABLE payment_reviews (
     id UUID PRIMARY KEY,
     organization_id UUID NOT NULL,

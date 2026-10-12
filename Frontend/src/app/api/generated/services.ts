@@ -11,10 +11,12 @@ export { CustomerAccessControllerService } from './services/customer-access-cont
 export { PaymentControllerService } from './services/payment-controller.service';
 export { OrganizationControllerService } from './services/organization-controller.service';
 export { RefundControllerService } from './services/refund-controller.service';
+export { PaymentReviewControllerService } from './services/payment-review-controller.service';
 export { OrderCreditControllerService } from './services/order-credit-controller.service';
 export { SupplierOrderControllerService } from './services/supplier-order-controller.service';
 export { OrderShippingControllerService } from './services/order-shipping-controller.service';
 export { OrderFulfillmentControllerService } from './services/order-fulfillment-controller.service';
+export { GroupingCompletionControllerService } from './services/grouping-completion-controller.service';
 export { AuthControllerService } from './services/auth-controller.service';
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';

@@ -32,6 +32,13 @@
       </div>
     </section>
   }
+  @if (group.status === 'DISTRIBUTING' || group.status === 'COMPLETED') {
+    <g-completion-panel
+      [campaign]="group"
+      [organizationId]="context.selectedId()!"
+      (refreshCampaign)="load()"
+    />
+  }
   <g-tabs id="groupage-sections" [tabs]="tabs()" [(active)]="tab" label="Sections du groupage">
     <g-card>
       @if (tab() === 'overview') {

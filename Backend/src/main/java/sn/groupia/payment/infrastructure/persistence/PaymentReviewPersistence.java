@@ -60,6 +60,14 @@ class PaymentReviewPersistence implements PaymentReviewStore {
         em.flush();
     }
 
+    public List<PaymentReview> forRequest(UUID request) {
+        return em.createQuery(
+                        "select r from PaymentReview r where r.paymentRequestId=:id",
+                        PaymentReview.class)
+                .setParameter("id", request)
+                .getResultList();
+    }
+
     public boolean hasOpen(UUID paymentId) {
         return em.createQuery(
                                 "select count(r) from PaymentReview r where r.anomalousPaymentId=:p and r.status=:s",

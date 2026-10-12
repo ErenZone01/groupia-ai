@@ -59,6 +59,7 @@ import { money } from '../../shared/utils/display';
       @for (row of rows(); track row.orderId) {
         <g-shipping-order-editor
           [row]="row"
+          [readOnly]="readOnly()"
           [organizationId]="organizationId()"
           [campaignId]="campaignId()"
           (changed)="apply(row.orderId!, $event)"
@@ -94,6 +95,7 @@ import { money } from '../../shared/utils/display';
   `,
 })
 export class ShippingBatch {
+  readonly readOnly = input(false);
   readonly organizationId = input.required<string>();
   readonly campaignId = input.required<string>();
   readonly rows = signal<OrderShippingRow[]>([]);

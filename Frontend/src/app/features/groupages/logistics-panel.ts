@@ -1,5 +1,14 @@
 import { ShippingBatch } from './shipping-batch';
-import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subscription } from 'rxjs';
 import {
@@ -102,8 +111,10 @@ export class LogisticsPanel {
   private request?: Subscription;
   constructor() {
     effect(() => {
-      const key = this.organizationId() + '/' + this.campaign().id;
-      if (key !== this.context) {
+      const incoming = this.campaign();
+      const local = untracked(this.lifecycle);
+      const key = this.organizationId() + '/' + incoming.id;
+      if (key !== this.context || (local && (incoming.version ?? 0) > (local.version ?? 0))) {
         this.context = key;
         this.departure = this.expected = this.reference = this.note = this.arrival = '';
         this.source = 'UNKNOWN';

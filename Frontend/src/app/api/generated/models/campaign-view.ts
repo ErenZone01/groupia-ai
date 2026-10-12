@@ -8,6 +8,7 @@ export interface CampaignView {
   cancelledAt?: string;
   closedAt?: string;
   closesAt?: string;
+  completedAt?: string;
   createdAt?: string;
   currency?: string;
   description?: string;

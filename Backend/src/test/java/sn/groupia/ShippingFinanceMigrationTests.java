@@ -58,7 +58,7 @@ class ShippingFinanceMigrationTests {
             assertThat(upgraded).isEqualTo(orders);
             assertThat(
                             jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThatThrownBy(
                             () ->

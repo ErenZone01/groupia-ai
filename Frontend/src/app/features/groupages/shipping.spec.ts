@@ -73,6 +73,20 @@ describe('Saisie du transport', () => {
     fixture.destroy();
     http.verify();
   });
+  it('reste consultable sans action ni requête de mutation après completion', () => {
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+    const c = fixture.componentInstance;
+    c.begin();
+    c.info = { actualWeightKg: 2 };
+    c.saveMeasure();
+    c.showPreview();
+    c.finalize();
+    expect(c.editing()).toBe(false);
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Renseigner le transport');
+    http.expectNone((r) => r.method === 'POST');
+  });
   it('enregistre uniquement une mesure avec la version serveur', () => {
     const c = fixture.componentInstance;
     c.begin();

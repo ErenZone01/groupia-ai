@@ -64,3 +64,5 @@ timeline privée append-only et migration historique sans perte de données.
 
 - [0022 — Quotas auth et politique de production](0022-production-hardening.md)
 - [0023 — Payment Review / Duplicate Provider Success](0023-payment-review-duplicate-payin.md)
+
+- [0024 — Fin définitive des groupages](0024-grouping-completion.md)

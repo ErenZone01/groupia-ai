@@ -94,6 +94,15 @@ export async function mockApi(
     state.calls.push({ path, method, body });
     const reply = (json: unknown, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
+    if (path.endsWith('/completion') && method === 'GET')
+      return reply({
+        eligible: false,
+        canComplete: false,
+        campaignStatus: state.groups[0]?.status,
+        campaignVersion: state.groups[0]?.version,
+        totalOrders: 0,
+        blockers: [],
+      });
     if (path.endsWith('/shipping-assessments') && method === 'GET') return reply([]);
     if (path === '/api/auth/login') {
       expect(req.headers()['authorization']).toBeUndefined();

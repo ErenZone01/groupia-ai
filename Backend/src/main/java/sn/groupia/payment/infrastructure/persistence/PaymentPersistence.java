@@ -23,6 +23,31 @@ class PaymentPersistence implements FinancialStore {
         this.jdbc = jdbc;
     }
 
+    public List<PaymentRequest> allRequests(UUID org, UUID order) {
+        return em.createQuery(
+                        "select r from PaymentRequest r where r.organizationId=:org and r.orderId=:order order by r.createdAt,r.id",
+                        PaymentRequest.class)
+                .setParameter("org", org)
+                .setParameter("order", order)
+                .getResultList();
+    }
+
+    public boolean pendingReceipts(UUID request) {
+        // Read only: processWebhook locks receipt BEFORE request. Never lock receipts here.
+        return Boolean.TRUE.equals(
+                jdbc.queryForObject(
+                        """
+            select exists(select 1 from payment_webhook_events e join payments p
+              on p.merchant_reference=e.observation->>'merchantReference'
+              and p.provider=e.provider
+              and p.provider_account_reference is not distinct from e.provider_account_reference
+            where p.payment_request_id=? and e.authenticity_verification_result='VALID'
+              and e.processing_status in ('RECEIVED','RETRYABLE_FAILURE'))
+            """,
+                        Boolean.class,
+                        request));
+    }
+
     @Override
     public void coordinate(String key) {
         try {

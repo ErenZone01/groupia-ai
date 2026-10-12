@@ -16,6 +16,8 @@ public interface PaymentReviewStore {
 
     boolean hasOpen(UUID paymentId);
 
+    List<PaymentReview> forRequest(UUID request);
+
     Page list(UUID organizationId, PaymentReviewStatus status, int page, int size);
 
     record Page(List<PaymentReview> items, long total) {}

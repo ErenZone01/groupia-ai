@@ -3448,6 +3448,115 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/payment-reviews/{reviewId}/resolve-refunded" : {
+      "post" : {
+        "tags" : [ "payment-review-controller" ],
+        "summary" : "Constater un remboursement externe déjà effectué",
+        "operationId" : "resolvePaymentReviewRefunded",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "reviewId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResolvePaymentReviewRefunded"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentReviewView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/orders/{orderId}/shipping-credit" : {
       "get" : {
         "tags" : [ "order-credit-controller" ],
@@ -5675,6 +5784,115 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/complete" : {
+      "post" : {
+        "tags" : [ "grouping-completion-controller" ],
+        "summary" : "Terminer définitivement le groupage",
+        "operationId" : "completeGrouping",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmCompletion"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupingCompletionView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/close" : {
       "post" : {
         "tags" : [ "grouping-controller" ],
@@ -6015,6 +6233,9 @@
           "required" : true
         },
         "responses" : {
+          "202" : {
+            "description" : "Accepted"
+          },
           "400" : {
             "description" : "Invalid JSON, fields or business input",
             "content" : {
@@ -6054,9 +6275,6 @@
                 }
               }
             }
-          },
-          "202" : {
-            "description" : "Accepted"
           },
           "429" : {
             "description" : "Authentication attempt quota exceeded; Retry-After header indicates when to retry",
@@ -7205,6 +7423,221 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/payment-reviews" : {
+      "get" : {
+        "tags" : [ "payment-review-controller" ],
+        "summary" : "Anomalies de paiement à examiner",
+        "operationId" : "listPaymentReviews",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentReviewPage"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/payment-reviews/{reviewId}" : {
+      "get" : {
+        "tags" : [ "payment-review-controller" ],
+        "summary" : "Consulter une anomalie de paiement",
+        "operationId" : "getPaymentReview",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "reviewId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentReviewView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/payment-requests" : {
       "get" : {
         "tags" : [ "payment-controller" ],
@@ -8216,6 +8649,105 @@
           "BearerJWT" : [ ]
         } ]
       }
+    },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/completion" : {
+      "get" : {
+        "tags" : [ "grouping-completion-controller" ],
+        "summary" : "Diagnostic de fin du groupage",
+        "operationId" : "groupingCompletion",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupingCompletionView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
     }
   },
   "components" : {
@@ -8577,6 +9109,10 @@
             "format" : "date-time"
           },
           "closedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
             "type" : "string",
             "format" : "date-time"
           },
@@ -9252,10 +9788,10 @@
           "inline" : {
             "type" : "boolean"
           },
-          "formData" : {
+          "attachment" : {
             "type" : "boolean"
           },
-          "attachment" : {
+          "formData" : {
             "type" : "boolean"
           }
         }
@@ -9368,13 +9904,48 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "range" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpRange"
+            }
+          },
+          "cacheControl" : {
+            "type" : "string"
+          },
+          "pragma" : {
+            "type" : "string"
+          },
+          "upgrade" : {
+            "type" : "string"
+          },
+          "ifMatch" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "etag" : {
+            "type" : "string"
+          },
           "accept" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/MediaType"
             }
           },
-          "ifNoneMatch" : {
+          "allow" : {
+            "uniqueItems" : true,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpMethod"
+            }
+          },
+          "expires" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "vary" : {
             "type" : "array",
             "items" : {
               "type" : "string"
@@ -9386,13 +9957,19 @@
               "type" : "string"
             }
           },
-          "range" : {
+          "origin" : {
+            "type" : "string"
+          },
+          "contentDisposition" : {
+            "$ref" : "#/components/schemas/ContentDisposition"
+          },
+          "acceptPatch" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/HttpRange"
+              "$ref" : "#/components/schemas/MediaType"
             }
           },
-          "origin" : {
+          "contentLanguage" : {
             "type" : "string"
           },
           "acceptLanguage" : {
@@ -9414,63 +9991,15 @@
             "type" : "string",
             "writeOnly" : true
           },
-          "acceptPatch" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/MediaType"
-            }
-          },
           "bearerAuth" : {
             "type" : "string",
             "writeOnly" : true
           },
-          "contentLanguage" : {
-            "type" : "string"
-          },
-          "contentDisposition" : {
-            "$ref" : "#/components/schemas/ContentDisposition"
-          },
-          "cacheControl" : {
-            "type" : "string"
-          },
-          "vary" : {
+          "ifNoneMatch" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
-          },
-          "accessControlAllowCredentials" : {
-            "type" : "boolean"
-          },
-          "accessControlAllowMethods" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HttpMethod"
-            }
-          },
-          "accessControlExposeHeaders" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "accessControlAllowHeaders" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "accessControlAllowOrigin" : {
-            "type" : "string"
-          },
-          "accessControlRequestHeaders" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "accessControlRequestMethod" : {
-            "$ref" : "#/components/schemas/HttpMethod"
           },
           "acceptLanguageAsLocales" : {
             "type" : "array",
@@ -9486,31 +10015,38 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "allow" : {
-            "uniqueItems" : true,
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HttpMethod"
-            }
-          },
-          "etag" : {
+          "accessControlAllowOrigin" : {
             "type" : "string"
           },
-          "expires" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "ifMatch" : {
+          "accessControlExposeHeaders" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
           },
-          "pragma" : {
-            "type" : "string"
+          "accessControlAllowMethods" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpMethod"
+            }
           },
-          "upgrade" : {
-            "type" : "string"
+          "accessControlAllowCredentials" : {
+            "type" : "boolean"
+          },
+          "accessControlAllowHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlRequestHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlRequestMethod" : {
+            "$ref" : "#/components/schemas/HttpMethod"
           }
         }
       },
@@ -9545,10 +10081,10 @@
           "concrete" : {
             "type" : "boolean"
           },
-          "wildcardSubtype" : {
+          "wildcardType" : {
             "type" : "boolean"
           },
-          "wildcardType" : {
+          "wildcardSubtype" : {
             "type" : "boolean"
           },
           "subtypeSuffix" : {
@@ -9744,6 +10280,93 @@
         "properties" : {
           "version" : {
             "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ResolvePaymentReviewRefunded" : {
+        "type" : "object",
+        "properties" : {
+          "externalRefundReference" : {
+            "type" : "string"
+          },
+          "resolutionNote" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PaymentReviewView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "paymentRequestId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "principalPaymentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "anomalousPaymentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "anomalousProvider" : {
+            "type" : "string"
+          },
+          "anomalousProviderAccountReference" : {
+            "type" : "string"
+          },
+          "anomalousProviderTransactionId" : {
+            "type" : "string"
+          },
+          "observedAmount" : {
+            "type" : "number"
+          },
+          "observedCurrency" : {
+            "type" : "string"
+          },
+          "providerOccurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "detectedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resolvedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resolvedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "externalRefundReference" : {
+            "type" : "string"
+          },
+          "resolutionNote" : {
+            "type" : "string"
+          },
+          "version" : {
             "type" : "integer",
             "format" : "int64"
           }
@@ -10706,6 +11329,82 @@
           }
         }
       },
+      "ConfirmCompletion" : {
+        "required" : [ "version" ],
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "confirmed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Blocker" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "orderNumber" : {
+            "type" : "string"
+          }
+        }
+      },
+      "GroupingCompletionView" : {
+        "type" : "object",
+        "properties" : {
+          "eligible" : {
+            "type" : "boolean"
+          },
+          "canComplete" : {
+            "type" : "boolean"
+          },
+          "campaignStatus" : {
+            "type" : "string"
+          },
+          "campaignVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totalOrders" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "completedOrders" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "terminalUnexecutedOrders" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "counts" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "blockers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Blocker"
+            }
+          }
+        }
+      },
       "CancelCampaign" : {
         "required" : [ "reason", "version" ],
         "type" : "object",
@@ -11177,6 +11876,33 @@
             "format" : "date-time"
           },
           "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PaymentReviewPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PaymentReviewView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
             "type" : "integer",
             "format" : "int64"
           }

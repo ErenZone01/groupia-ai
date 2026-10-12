@@ -1,0 +1,75 @@
+@if (!forbidden()) {
+  <section aria-labelledby="completion-title">
+    <h2 id="completion-title">Fin du groupage</h2>
+    @if (loading()) {
+      <p role="status">Vérification des commandes et des règlements…</p>
+    }
+    @if (error()) {
+      <p role="alert" class="form-error">{{ error() }}</p>
+    }
+    @if (diagnostic(); as d) {
+      @if (d.campaignStatus === 'COMPLETED') {
+        <p>
+          Groupage terminé.
+          {{ d.completedAt ? dateLabel(d.completedAt) : 'Date historique non renseignée.' }}
+        </p>
+        <p>Les historiques et les reversements de votre boutique restent accessibles.</p>
+      } @else {
+        <p>
+          {{ d.completedOrders ?? 0 }} commande(s) terminée(s) sur {{ d.totalOrders ?? 0 }} ·
+          {{ d.terminalUnexecutedOrders ?? 0 }} expirée(s) ou annulée(s).
+        </p>
+        @if (d.eligible) {
+          <p>
+            Les commandes, retraits, transports, paiements, remboursements et anomalies connus sont
+            régularisés.
+          </p>
+        } @else {
+          <p>Terminez les opérations suivantes avant de fermer définitivement ce groupage.</p>
+        }
+      }
+      @if (visibleBlockers(d).length) {
+        <ul>
+          @for (blocker of visibleBlockers(d); track $index) {
+            <li>
+              {{ label(blocker.code) }}
+              @if (blocker.orderId) {
+                <a [routerLink]="['/app/orders', blocker.orderId]">{{
+                  blocker.orderNumber || 'Voir la commande'
+                }}</a>
+              }
+            </li>
+          }
+        </ul>
+      }
+      @if (d.campaignStatus === 'COMPLETED' && (d.blockers?.length ?? 0) > 1) {
+        <p class="notice">
+          Un incident financier tardif nécessite une vérification. Le groupage reste terminé.
+        </p>
+      }
+      @if (d.canComplete && d.campaignStatus === 'DISTRIBUTING') {
+        <button gButton [disabled]="!d.eligible || busy() || loading()" (click)="ask()">
+          Terminer définitivement le groupage
+        </button>
+      }
+    }
+    <button gButton variant="secondary" [disabled]="loading() || busy()" (click)="reload()">
+      Actualiser le diagnostic
+    </button>
+  </section>
+}
+<dialog
+  #confirmation
+  aria-labelledby="completion-confirm-title"
+  (cancel)="busy() ? $event.preventDefault() : null"
+>
+  <h2 id="completion-confirm-title">Terminer définitivement ce groupage ?</h2>
+  <p>
+    Cette action est définitive. Aucune réouverture ne sera possible. Les reversements de votre
+    boutique sont indépendants et pourront continuer ensuite.
+  </p>
+  <div class="actions">
+    <button gButton variant="secondary" [disabled]="busy()" (click)="cancel()">Annuler</button>
+    <button gButton [loading]="busy()" (click)="submit()">Confirmer la fin du groupage</button>
+  </div>
+</dialog>

@@ -1,3 +1,4 @@
+import { CompletionPanel } from './completion-panel';
 import { MerchantFundsPanel } from '../settlements/merchant-funds-panel';
 import { DistributionPanel } from './distribution-panel';
 import { LogisticsPanel } from './logistics-panel';
@@ -39,6 +40,7 @@ import {
     LogisticsPanel,
     DistributionPanel,
     MerchantFundsPanel,
+    CompletionPanel,
     Card,
     Badge,
     Button,
@@ -221,7 +223,13 @@ export class GroupageDetailPage {
   }
   purchaseCreated(campaign: CampaignLifecycleView) {
     const current = this.store.current();
-    if (current?.id === campaign.id && current?.organizationId === campaign.organizationId)
+    if (
+      current &&
+      current.id === campaign.id &&
+      current?.organizationId === campaign.organizationId &&
+      (campaign.version ?? -1) >= (current.version ?? 0) &&
+      current.status !== 'COMPLETED'
+    )
       this.store.current.set({ ...current, status: campaign.status, version: campaign.version });
   }
   async copy() {

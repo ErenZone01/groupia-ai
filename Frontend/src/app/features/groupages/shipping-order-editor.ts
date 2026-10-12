@@ -50,6 +50,7 @@ import { apiMessage, apiCode } from '../../core/http/api-error';
   styleUrl: './shipping-order-editor.scss',
 })
 export class ShippingOrderEditor {
+  readonly readOnly = input(false);
   readonly row = input.required<OrderShippingRow>();
   readonly organizationId = input.required<string>();
   readonly campaignId = input.required<string>();
@@ -115,6 +116,7 @@ export class ShippingOrderEditor {
         : 'À renseigner';
   }
   begin() {
+    if (this.readOnly()) return;
     this.editing.set(true);
     this.busyChange.emit(true);
     this.info = { ...this.current() };
@@ -180,6 +182,7 @@ export class ShippingOrderEditor {
     return true;
   }
   saveMeasure() {
+    if (this.readOnly()) return;
     if (this.busy() || this.stale() || !this.physicalReady() || !this.validDate()) return;
     this.invalidate();
     this.busy.set(true);
@@ -206,6 +209,7 @@ export class ShippingOrderEditor {
       });
   }
   showPreview() {
+    if (this.readOnly()) return;
     if (
       this.busy() ||
       this.stale() ||
@@ -256,6 +260,7 @@ export class ShippingOrderEditor {
       });
   }
   finalize() {
+    if (this.readOnly()) return;
     if (this.busy() || this.stale() || !this.previewBody) return;
     this.busy.set(true);
     this.error.set('');

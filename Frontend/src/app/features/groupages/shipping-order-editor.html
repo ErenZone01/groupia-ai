@@ -59,12 +59,16 @@
       Le transport est verrouillé après la mise à disposition. L’historique reste consultable.
     </p>
   }
-  @if (!editing() && (!row().fulfillmentStatus || row().fulfillmentStatus === 'NOT_READY')) {
+  @if (
+    !readOnly() &&
+    !editing() &&
+    (!row().fulfillmentStatus || row().fulfillmentStatus === 'NOT_READY')
+  ) {
     <button gButton variant="secondary" (click)="begin()">
       {{ final() ? 'Corriger le transport' : 'Renseigner le transport' }}
     </button>
   }
-  @if (editing()) {
+  @if (editing() && !readOnly()) {
     <form
       class="form-stack"
       (ngSubmit)="showPreview()"

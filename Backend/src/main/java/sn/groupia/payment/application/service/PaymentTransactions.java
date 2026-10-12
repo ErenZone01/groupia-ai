@@ -391,6 +391,17 @@ public class PaymentTransactions {
             }
             return old.get().getId();
         }
+        // New correlatable admissions share the obligation lock with Completion.
+        // Deduplication returns above; no existing receipt lock is acquired after this lock.
+        if (authentic && observation != null && observation.merchantReference() != null) {
+            store.byMerchant(observation.merchantReference())
+                    .filter(
+                            p ->
+                                    p.getProvider().equals(provider)
+                                            && Objects.equals(
+                                                    p.getProviderAccountReference(), account))
+                    .ifPresent(p -> store.lockRequest(p.getPaymentRequestId()));
+        }
         var event =
                 PaymentWebhookEvent.receive(
                         provider,
@@ -575,15 +586,8 @@ public class PaymentTransactions {
 
     private PaymentObligationView obligation(PaymentRequest r) {
         boolean blocking =
-                store.attempts(r.getId()).stream()
-                        .anyMatch(
-                                p ->
-                                        p.isReconciliationRequired()
-                                                || p.getStatus() == PaymentStatus.CREATED
-                                                || p.getStatus() == PaymentStatus.PENDING
-                                                || (p.getStatus() == PaymentStatus.SUCCEEDED
-                                                        && !p.getId()
-                                                                .equals(r.getSettledPaymentId())));
+                !PaymentRisk.reasons(r, store.attempts(r.getId()), reviews.forRequest(r.getId()))
+                        .isEmpty();
         return new PaymentObligationView(r.view(), blocking);
     }
 

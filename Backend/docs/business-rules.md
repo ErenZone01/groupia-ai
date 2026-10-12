@@ -238,3 +238,9 @@ PSP fee allocation policy not implemented.
 - Tant qu'une preuve de paiement provider fiable n'est pas disponible, l'intégration Bictorys d'abonnement reste désactivée. Aucun accès payant n'est activé par une confirmation navigateur.
 
 [Contrat Subscription V1](subscription-v1.md) et [ADR-0021](../adr/0021-subscription-entitlements.md).
+
+## Grouping Completion V1
+
+DISTRIBUTING → COMPLETED est une décision explicite OWNER/MANAGER fondée sur toutes les commandes et toutes leurs obligations, pas uniquement les commandes distribuables. Les retraits, soldes/crédits transport, remboursements, paiements incertains, reviews OPEN et receipts authentiques/corrélables en traitement doivent être résolus. Une review RESOLVED_REFUNDED neutralise seulement son duplicate exact ; une reversal ou autre anomalie reste bloquante. Une commande expirée/annulée non exécutée et sans obligation restante n'exige pas de retrait ni transport final.
+
+COMPLETED est terminal, daté et journalisé par le serveur. Aucun effet financier ni réparation automatique. Les reversements marchands et l'abonnement ne bloquent pas ; les événements financiers tardifs restent traités sans réouverture. Transport et distribution deviennent consultables sans mutations opérationnelles ordinaires. Voir [contrat et recette](grouping-completion-v1.md) et [ADR-0024](../adr/0024-grouping-completion.md).

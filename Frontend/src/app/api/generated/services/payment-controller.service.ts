@@ -10,12 +10,12 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
-import { Detail } from '../models/detail';
-import { get4 } from '../fn/payment-controller/get-4';
-import { Get4$Params } from '../fn/payment-controller/get-4';
-import { list3 } from '../fn/payment-controller/list-3';
-import { List3$Params } from '../fn/payment-controller/list-3';
-import { Page } from '../models/page';
+import { getPaymentRequest } from '../fn/payment-controller/get-payment-request';
+import { GetPaymentRequest$Params } from '../fn/payment-controller/get-payment-request';
+import { listPaymentRequests } from '../fn/payment-controller/list-payment-requests';
+import { ListPaymentRequests$Params } from '../fn/payment-controller/list-payment-requests';
+import { PaymentRequestDetailView } from '../models/payment-request-detail-view';
+import { PaymentRequestsPageView } from '../models/payment-requests-page-view';
 import { webhook } from '../fn/payment-controller/webhook';
 import { Webhook$Params } from '../fn/payment-controller/webhook';
 
@@ -52,57 +52,57 @@ export class PaymentControllerService extends BaseService {
     );
   }
 
-  /** Path part for operation `list3()` */
-  static readonly List3Path = '/api/organizations/{organizationId}/payment-requests';
+  /** Path part for operation `listPaymentRequests()` */
+  static readonly ListPaymentRequestsPath = '/api/organizations/{organizationId}/payment-requests';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `list3()` instead.
+   * To access only the response body, use `listPaymentRequests()` instead.
    *
    * This method doesn't expect any request body.
    */
-  list3$Response(params: List3$Params, context?: HttpContext): Observable<StrictHttpResponse<Page>> {
-    const obs = list3(this.http, this.rootUrl, params, context);
+  listPaymentRequests$Response(params: ListPaymentRequests$Params, context?: HttpContext): Observable<StrictHttpResponse<PaymentRequestsPageView>> {
+    const obs = listPaymentRequests(this.http, this.rootUrl, params, context);
     return obs;
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `list3$Response()` instead.
+   * To access the full response (for headers, for example), `listPaymentRequests$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  list3(params: List3$Params, context?: HttpContext): Observable<Page> {
-    const resp = this.list3$Response(params, context);
+  listPaymentRequests(params: ListPaymentRequests$Params, context?: HttpContext): Observable<PaymentRequestsPageView> {
+    const resp = this.listPaymentRequests$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Page>): Page => r.body)
+      map((r: StrictHttpResponse<PaymentRequestsPageView>): PaymentRequestsPageView => r.body)
     );
   }
 
-  /** Path part for operation `get4()` */
-  static readonly Get4Path = '/api/organizations/{organizationId}/payment-requests/{id}';
+  /** Path part for operation `getPaymentRequest()` */
+  static readonly GetPaymentRequestPath = '/api/organizations/{organizationId}/payment-requests/{id}';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `get4()` instead.
+   * To access only the response body, use `getPaymentRequest()` instead.
    *
    * This method doesn't expect any request body.
    */
-  get4$Response(params: Get4$Params, context?: HttpContext): Observable<StrictHttpResponse<Detail>> {
-    const obs = get4(this.http, this.rootUrl, params, context);
+  getPaymentRequest$Response(params: GetPaymentRequest$Params, context?: HttpContext): Observable<StrictHttpResponse<PaymentRequestDetailView>> {
+    const obs = getPaymentRequest(this.http, this.rootUrl, params, context);
     return obs;
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `get4$Response()` instead.
+   * To access the full response (for headers, for example), `getPaymentRequest$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  get4(params: Get4$Params, context?: HttpContext): Observable<Detail> {
-    const resp = this.get4$Response(params, context);
+  getPaymentRequest(params: GetPaymentRequest$Params, context?: HttpContext): Observable<PaymentRequestDetailView> {
+    const resp = this.getPaymentRequest$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Detail>): Detail => r.body)
+      map((r: StrictHttpResponse<PaymentRequestDetailView>): PaymentRequestDetailView => r.body)
     );
   }
 

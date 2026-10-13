@@ -1,0 +1,125 @@
+<header class="page-heading">
+  <a routerLink="/app/paiements">← Paiements</a>
+  <h1>Détail du paiement</h1>
+</header>
+@if (store.vm().loadingDetail) {
+  <p role="status">Chargement du paiement…</p>
+} @else if (store.vm().detailError) {
+  <p role="alert">{{ store.vm().detailError }}</p>
+  <button gButton (click)="store.reload()">Réessayer</button>
+} @else if (store.vm().detail; as detail) {
+  @if (detail.request; as request) {
+    <section class="panel" aria-label="Détail de l’obligation">
+      <div class="section-heading">
+        <h2>{{ label(request.purpose) }}</h2>
+        <g-badge [tone]="tone(request.operationalStatus)">{{
+          label(request.operationalStatus)
+        }}</g-badge>
+      </div>
+      <p class="amount">{{ money(request.expectedAmount, request.currency) }}</p>
+      <dl class="facts">
+        <div>
+          <dt>Produits</dt>
+          <dd>{{ money(request.goodsAmount, request.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Frais</dt>
+          <dd>{{ money(request.feeAmount, request.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Transport</dt>
+          <dd>{{ money(request.shippingAmount, request.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Acceptation</dt>
+          <dd>{{ label(request.acceptanceStatus) }}</dd>
+        </div>
+        <div>
+          <dt>Échéance</dt>
+          <dd>{{ request.expiresAt ? date(request.expiresAt) : 'Sans échéance' }}</dd>
+        </div>
+        <div>
+          <dt>Création</dt>
+          <dd>{{ date(request.createdAt) }}</dd>
+        </div>
+        <div>
+          <dt>Clôture</dt>
+          <dd>{{ date(request.closedAt) }}</dd>
+        </div>
+        <div>
+          <dt>Annulation</dt>
+          <dd>{{ date(request.cancelledAt) }}</dd>
+        </div>
+        <div>
+          <dt>Paiement principal</dt>
+          <dd>{{ request.settledPaymentId ?? 'Aucun règlement attribué' }}</dd>
+        </div>
+      </dl>
+      @if (request.terminalReason) {
+        <p>{{ label(request.terminalReason) }}</p>
+      }
+      @if (request.operationalReasons?.length) {
+        <ul>
+          @for (reason of request.operationalReasons; track reason) {
+            <li>{{ label(reason) }}</li>
+          }
+        </ul>
+      }
+      <a gButton variant="secondary" [routerLink]="['/app/orders', request.orderId]"
+        >Voir la commande</a
+      >
+    </section>
+  }
+  <section class="panel" aria-labelledby="attempts-title">
+    <h2 id="attempts-title">Tentatives de paiement</h2>
+    @for (attempt of detail.attempts; track attempt.id) {
+      <article class="attempt">
+        <div class="section-heading">
+          <h3>{{ attempt.provider }}</h3>
+          <g-badge>{{ label(attempt.status) }}</g-badge>
+        </div>
+        @if (attempt.id === detail.request?.settledPaymentId) {
+          <p>Paiement principal</p>
+        }
+        <dl class="facts">
+          <div>
+            <dt>Transaction</dt>
+            <dd>{{ attempt.providerTransactionId ?? 'Non attribuée' }}</dd>
+          </div>
+          <div>
+            <dt>Montant attendu</dt>
+            <dd>{{ money(attempt.expectedAmount, attempt.currency) }}</dd>
+          </div>
+          <div>
+            <dt>Montant confirmé</dt>
+            <dd>
+              {{
+                attempt.confirmedAmount != null
+                  ? money(attempt.confirmedAmount, attempt.confirmedCurrency)
+                  : 'Non confirmé'
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>Initiée le</dt>
+            <dd>{{ date(attempt.initiatedAt) }}</dd>
+          </div>
+          <div>
+            <dt>Confirmée le</dt>
+            <dd>{{ date(attempt.confirmedAt) }}</dd>
+          </div>
+          <div>
+            <dt>Dernière vérification</dt>
+            <dd>{{ date(attempt.lastCheckedAt) }}</dd>
+          </div>
+        </dl>
+        @if (attempt.reconciliationRequired) {
+          <p class="notice">Vérification nécessaire : {{ label(attempt.reconciliationReason) }}</p>
+        }
+      </article>
+    } @empty {
+      <p class="empty">Aucune tentative de paiement.</p>
+    }
+  </section>
+  <g-payment-reviews-panel />
+}

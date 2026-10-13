@@ -30,9 +30,10 @@ class PaymentReviewController {
     ResponseEntity<PaymentReviewPage> list(
             @PathVariable UUID organizationId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID paymentRequestId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return response(reviews.list(organizationId, status, page, size));
+        return response(reviews.list(organizationId, status, paymentRequestId, page, size));
     }
 
     @GetMapping("/{reviewId}")

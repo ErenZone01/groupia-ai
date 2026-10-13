@@ -78,9 +78,12 @@ class PaymentReviewPersistence implements PaymentReviewStore {
                 > 0;
     }
 
-    public Page list(UUID org, PaymentReviewStatus status, int page, int size) {
+    public Page list(
+            UUID org, PaymentReviewStatus status, UUID paymentRequestId, int page, int size) {
         String filter =
-                " where r.organizationId=:org" + (status == null ? "" : " and r.status=:status");
+                " where r.organizationId=:org"
+                        + (status == null ? "" : " and r.status=:status")
+                        + (paymentRequestId == null ? "" : " and r.paymentRequestId=:requestId");
         var query =
                 em.createQuery(
                                 "select r from PaymentReview r"
@@ -94,6 +97,10 @@ class PaymentReviewPersistence implements PaymentReviewStore {
         if (status != null) {
             query.setParameter("status", status);
             count.setParameter("status", status);
+        }
+        if (paymentRequestId != null) {
+            query.setParameter("requestId", paymentRequestId);
+            count.setParameter("requestId", paymentRequestId);
         }
         return new Page(
                 query.setFirstResult(page * size).setMaxResults(size).getResultList(),

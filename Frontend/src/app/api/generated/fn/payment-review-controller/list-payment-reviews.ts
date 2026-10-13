@@ -12,6 +12,7 @@ import { PaymentReviewPage } from '../../models/payment-review-page';
 export interface ListPaymentReviews$Params {
   organizationId: string;
   status?: string;
+  paymentRequestId?: string;
   page?: number;
   size?: number;
 }
@@ -21,6 +22,7 @@ export function listPaymentReviews(http: HttpClient, rootUrl: string, params: Li
   if (params) {
     rb.path('organizationId', params.organizationId, {});
     rb.query('status', params.status, {});
+    rb.query('paymentRequestId', params.paymentRequestId, {});
     rb.query('page', params.page, {});
     rb.query('size', params.size, {});
   }

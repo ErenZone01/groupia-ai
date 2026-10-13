@@ -7,20 +7,18 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Page } from '../../models/page';
+import { PaymentRequestDetailView } from '../../models/payment-request-detail-view';
 
-export interface List3$Params {
+export interface GetPaymentRequest$Params {
   organizationId: string;
-  page?: number;
-  size?: number;
+  id: string;
 }
 
-export function list3(http: HttpClient, rootUrl: string, params: List3$Params, context?: HttpContext): Observable<StrictHttpResponse<Page>> {
-  const rb = new RequestBuilder(rootUrl, list3.PATH, 'get');
+export function getPaymentRequest(http: HttpClient, rootUrl: string, params: GetPaymentRequest$Params, context?: HttpContext): Observable<StrictHttpResponse<PaymentRequestDetailView>> {
+  const rb = new RequestBuilder(rootUrl, getPaymentRequest.PATH, 'get');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
-    rb.query('page', params.page, {});
-    rb.query('size', params.size, {});
+    rb.path('id', params.id, {});
   }
 
   return http.request(
@@ -28,9 +26,9 @@ export function list3(http: HttpClient, rootUrl: string, params: List3$Params, c
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Page>;
+      return r as StrictHttpResponse<PaymentRequestDetailView>;
     })
   );
 }
 
-list3.PATH = '/api/organizations/{organizationId}/payment-requests';
+getPaymentRequest.PATH = '/api/organizations/{organizationId}/payment-requests/{id}';

@@ -166,6 +166,7 @@ public class PaymentReview {
                 resolvedBy,
                 externalRefundReference,
                 resolutionNote,
-                version == null ? 0 : version);
+                version == null ? 0 : version,
+                false);
     }
 }

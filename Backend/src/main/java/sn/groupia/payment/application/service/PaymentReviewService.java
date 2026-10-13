@@ -29,7 +29,8 @@ public class PaymentReviewService {
         this.clock = clock;
     }
 
-    public PaymentReviewPage list(UUID org, String status, int page, int size) {
+    public PaymentReviewPage list(
+            UUID org, String status, UUID paymentRequestId, int page, int size) {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
         if (page < 0 || page > 1000000 || size < 1 || size > 100)
             throw new ApiException(400, "INVALID_REQUEST", "Pagination invalide.");
@@ -41,9 +42,10 @@ public class PaymentReviewService {
                 throw new ApiException(400, "INVALID_REQUEST", "Statut invalide.");
             }
         }
-        var result = reviews.list(org, filter, page, size);
+        var result = reviews.list(org, filter, paymentRequestId, page, size);
+        boolean allowed = access.hasPermission(org, OrganizationPermission.MANAGE_REFUNDS);
         return new PaymentReviewPage(
-                result.items().stream().map(this::view).toList(),
+                result.items().stream().map(r -> view(r, allowed)).toList(),
                 page,
                 size,
                 result.total(),
@@ -52,7 +54,8 @@ public class PaymentReviewService {
 
     public PaymentReviewView get(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
-        return view(require(org, id));
+        return view(
+                require(org, id), access.hasPermission(org, OrganizationPermission.MANAGE_REFUNDS));
     }
 
     @Transactional
@@ -66,7 +69,7 @@ public class PaymentReviewService {
         reviews.flush();
         if (!reviews.hasOpen(payment.getId())) payment.clearDuplicateReview();
         payments.flush();
-        return view(review);
+        return view(review, true);
     }
 
     private PaymentReview require(UUID org, UUID id) {
@@ -77,8 +80,9 @@ public class PaymentReviewService {
                                         404, "PAYMENT_REVIEW_NOT_FOUND", "Anomalie introuvable."));
     }
 
-    private PaymentReviewView view(PaymentReview review) {
+    private PaymentReviewView view(PaymentReview review, boolean allowed) {
         return review.view(
-                payments.request(review.getPaymentRequestId()).orElseThrow().getOrderId());
+                        payments.request(review.getPaymentRequestId()).orElseThrow().getOrderId())
+                .withCanResolve(allowed && review.getStatus() == PaymentReviewStatus.OPEN);
     }
 }

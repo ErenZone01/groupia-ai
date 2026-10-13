@@ -24,4 +24,30 @@ public record PaymentReviewView(
         UUID resolvedBy,
         String externalRefundReference,
         String resolutionNote,
-        long version) {}
+        long version,
+        boolean canResolve) {
+    public PaymentReviewView withCanResolve(boolean allowed) {
+        return new PaymentReviewView(
+                id,
+                organizationId,
+                paymentRequestId,
+                orderId,
+                principalPaymentId,
+                anomalousPaymentId,
+                reason,
+                status,
+                anomalousProvider,
+                anomalousProviderAccountReference,
+                anomalousProviderTransactionId,
+                observedAmount,
+                observedCurrency,
+                providerOccurredAt,
+                detectedAt,
+                resolvedAt,
+                resolvedBy,
+                externalRefundReference,
+                resolutionNote,
+                version,
+                allowed);
+    }
+}

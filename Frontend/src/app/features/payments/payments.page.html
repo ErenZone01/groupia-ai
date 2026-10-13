@@ -1,0 +1,78 @@
+<header class="page-heading">
+  <p class="eyebrow">Ma boutique</p>
+  <h1>Paiements</h1>
+  <p class="muted">Suivez les règlements et les paiements qui demandent votre attention.</p>
+</header>
+<section class="panel" aria-labelledby="requests-title">
+  <div class="section-heading">
+    <h2 id="requests-title">Obligations de paiement</h2>
+    <button
+      gButton
+      variant="ghost"
+      (click)="store.loadRequests()"
+      [disabled]="store.vm().loadingRequests"
+    >
+      Actualiser
+    </button>
+  </div>
+  @if (store.vm().requests?.summary; as summary) {
+    <div class="stats" aria-label="Compteurs des obligations">
+      <div>
+        <span>En attente</span><strong>{{ summary.pending ?? 0 }}</strong>
+      </div>
+      <div>
+        <span>Réglés</span><strong>{{ summary.settled ?? 0 }}</strong>
+      </div>
+      <div>
+        <span>À vérifier</span><strong>{{ summary.reviewRequired ?? 0 }}</strong>
+      </div>
+      <div>
+        <span>Terminés sans règlement</span><strong>{{ summary.terminalUnpaid ?? 0 }}</strong>
+      </div>
+    </div>
+  }
+  <p class="muted">Compteurs pour le type sélectionné, toutes pages et tous états confondus.</p>
+  <div class="filters" role="group" aria-label="État des obligations">
+    @for (filter of filters; track filter.id) {
+      <button
+        gButton
+        [variant]="store.vm().status === filter.id ? 'primary' : 'secondary'"
+        [attr.aria-pressed]="store.vm().status === filter.id"
+        (click)="store.filter(filter.id, store.vm().purpose)"
+      >
+        {{ filter.label }}
+      </button>
+    }
+  </div>
+  <label class="field"
+    >Type de paiement<select
+      [ngModel]="store.vm().purpose"
+      (ngModelChange)="store.filter(store.vm().status, $event)"
+    >
+      <option value="">Tous les types</option>
+      <option value="INITIAL_ORDER">Commande</option>
+      <option value="SHIPPING_BALANCE">Transport</option>
+    </select></label
+  >
+  @if (store.vm().loadingRequests) {
+    <p role="status">Chargement des paiements…</p>
+  } @else if (store.vm().requestsError) {
+    <p role="alert">{{ store.vm().requestsError }}</p>
+    <button gButton variant="secondary" (click)="store.loadRequests()">
+      Réessayer les paiements
+    </button>
+  } @else if (store.vm().requests; as page) {
+    @if (page.items?.length) {
+      <g-payment-request-list [items]="page.items" />
+    } @else {
+      <p class="empty">Aucune obligation dans cette sélection.</p>
+    }
+    <g-payment-pagination
+      label="Pagination des obligations"
+      [page]="store.vm().page"
+      [pages]="page.totalPages ?? 0"
+      (changed)="store.requestPage($event)"
+    />
+  }
+</section>
+<g-payment-reviews-panel />

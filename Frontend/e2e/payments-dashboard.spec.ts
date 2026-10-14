@@ -156,7 +156,9 @@ for (const [width, theme] of [
       'solid',
     );
     await page.keyboard.press('Shift+Tab');
-    await expect(dialog.getByRole('button', {name:'Confirmer l’enregistrement',exact:true})).toBeFocused();
+    await expect(
+      dialog.getByRole('button', { name: 'Confirmer l’enregistrement', exact: true }),
+    ).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(dialog.getByLabel('Référence du remboursement externe')).toBeFocused();
     expect(await page.evaluate(() => !!document.activeElement?.closest('dialog'))).toBe(true);

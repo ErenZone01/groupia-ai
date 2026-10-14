@@ -27,6 +27,6 @@ export interface PaymentRequestSummaryView {
   reconciliationRequired?: boolean;
   settledPaymentId?: string;
   shippingAmount?: number;
-  terminalReason?: string;
+  terminalReason?: string | null;
   version?: number;
 }

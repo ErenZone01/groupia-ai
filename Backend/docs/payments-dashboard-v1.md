@@ -46,7 +46,7 @@ Aucune clé provider, signature, token, credential, checkoutUrl ou payload webho
 
 Listes paginées indépendantes, tableau desktop et cartes à 360 px, variables sémantiques light/dark, boutons accessibles et focus visible. Les libellés français traduisent les codes sans recalculer les catégories financières. Les montants réutilisent le formatteur sûr du projet : un nombre non représentable exactement en JavaScript n’est pas présenté comme exact.
 
-Le dialogue natif présente le prestataire, la transaction anormale de la review (jamais substituée par celle du principal), le montant/devise et la date de détection. Il indique : « Cette action n'effectue aucun remboursement. Elle enregistre dans Groupia qu'un remboursement externe a déjà été effectué. » Le body contient uniquement externalRefundReference (1–160 caractères) et resolutionNote facultative (maximum 1 000).
+Le dialogue natif conserve le focus clavier entre ses contrôles avec Tab/Shift+Tab, se ferme avec Échap et rétablit le focus après résolution. Il présente le prestataire, la transaction anormale de la review (jamais substituée par celle du principal), le montant/devise et la date de détection. Il indique : « Cette action n'effectue aucun remboursement. Elle enregistre dans Groupia qu'un remboursement externe a déjà été effectué. » Le body contient uniquement externalRefundReference (1–160 caractères) et resolutionNote facultative (maximum 1 000).
 
 Après une réponse perdue/timeout, la preuve soumise reste en mémoire, liée à boutique + review + session. Relecture serveur :
 
@@ -65,11 +65,21 @@ Tests backend : parité systématique, filtrage avant pagination, bornes exactes
 
 Aucune migration et aucune dépendance supplémentaire. Migrations 001–025 protégées et comparées au commit de départ. Les agrégats lisent les faits de la boutique filtrée ; leur coût devra être mesuré avec la volumétrie réelle avant d’envisager une projection matérialisée ou de nouveaux index. Aucun index ajouté sans mesure et validation. Le détail liste toutes les tentatives comme demandé pour V1 ; les obligations sont paginées. Les tests navigateur utilisent une API simulée ; les tests Spring utilisent PostgreSQL et le vrai contrat HTTP applicatif.
 
-Les résultats finaux et le commit sont consignés dans le compte rendu de livraison.
+Validation finale du 14 octobre 2026 :
+
+- Backend : `mvnw.cmd test` et `mvnw.cmd verify` terminés avec succès le 13 octobre, 921 tests chacun, aucun échec ni test ignoré. Aucun code backend modifié depuis ces exécutions.
+- `ApplicationModules.verify()` et les trois tests de modularité : PASS ; Spotless : PASS.
+- Frontend : lint PASS, 318 tests unitaires PASS, build production PASS, 165 tests Playwright PASS (dont 15 pour ce dashboard).
+- Les quatre variantes clavier du dialogue (360/1280 px, clair/sombre) passent ; captures desktop/mobile inspectées. Les seuls avertissements Angular restants sont les NG8107 préexistants de `shipping-order-editor`.
+- Protection des migrations : PASS ; quatre tests Python PASS ; les 25 blobs Git des migrations 001–025 sont identiques au commit de départ, sans nouvelle migration.
+- Scan de secrets : zéro résultat après démarrage de Docker ; `git diff --check` : PASS.
+- La régénération OpenAPI finale ajoute uniquement la nullabilité attendue de `terminalReason` au contrat ; les autres différences du snapshot et de `HttpHeaders` sont des réordonnancements sans changement sémantique.
+
+Le SHA de livraison est fourni dans le compte rendu final, après commit et push sur `payments-dashboard-v1` uniquement.
 
 ## Inventaire des fichiers
 
-59 chemins ajoutés, modifiés ou remplacés (y compris les anciens DTO/fonctions générés supprimés). Les fichiers generated sont issus du workflow OpenAPI.
+60 chemins ajoutés, modifiés ou remplacés (y compris les anciens DTO/fonctions générés supprimés). Les fichiers generated sont issus du workflow OpenAPI.
 
 ```text
 Backend/docs/payments-dashboard-v1.md
@@ -106,6 +116,7 @@ Frontend/src/app/api/generated/functions.ts
 Frontend/src/app/api/generated/models.ts
 Frontend/src/app/api/generated/models/attempt.ts
 Frontend/src/app/api/generated/models/detail.ts
+Frontend/src/app/api/generated/models/http-headers.ts
 Frontend/src/app/api/generated/models/page.ts
 Frontend/src/app/api/generated/models/payment-attempt-read-view.ts
 Frontend/src/app/api/generated/models/payment-dashboard-summary-view.ts

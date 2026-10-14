@@ -57,17 +57,29 @@ export class PaymentReviewPage {
     }
     this.dialog()?.nativeElement.close();
   }
-  cycleFocus(event: KeyboardEvent) {
+  cycleFocus(event: Event) {
+    if (!(event instanceof KeyboardEvent) || event.key !== 'Tab') return;
     const dialog = this.dialog()?.nativeElement;
     if (!dialog?.open) return;
-    const controls = [...dialog.querySelectorAll<HTMLElement>('input:not(:disabled), textarea:not(:disabled), button:not(:disabled)')];
-    const first = controls.at(0), last = controls.at(-1);
-    if (!first || !last) { event.preventDefault(); dialog.focus(); return; }
+    const controls = [
+      ...dialog.querySelectorAll<HTMLElement>(
+        'input:not(:disabled), textarea:not(:disabled), button:not(:disabled)',
+      ),
+    ];
+    const first = controls.at(0),
+      last = controls.at(-1);
+    if (!first || !last) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
     const active = dialog.ownerDocument.activeElement;
     if (event.shiftKey && (active === first || active === dialog)) {
-      event.preventDefault(); last.focus();
+      event.preventDefault();
+      last.focus();
     } else if (!event.shiftKey && (active === last || active === dialog)) {
-      event.preventDefault(); first.focus();
+      event.preventDefault();
+      first.focus();
     }
   }
   submit() {

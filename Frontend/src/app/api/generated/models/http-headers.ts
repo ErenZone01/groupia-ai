@@ -39,7 +39,6 @@ export interface HttpHeaders {
   etag?: string;
   expires?: number;
   host?: {
-'hostString'?: string;
 'address'?: {
 'hostAddress'?: string;
 'address'?: string;
@@ -59,6 +58,7 @@ export interface HttpHeaders {
 'port'?: number;
 'unresolved'?: boolean;
 'hostName'?: string;
+'hostString'?: string;
 };
   ifMatch?: Array<string>;
   ifModifiedSince?: number;

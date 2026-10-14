@@ -150,12 +150,24 @@ describe('Payments pages', () => {
     expect(fake.resolve).toHaveBeenCalledWith('EXT', 'note');
   });
   it('boucle Tab et Shift+Tab dans les contrôles du dialogue', () => {
-    const fixture=TestBed.createComponent(PaymentReviewPage); fixture.detectChanges(); fixture.componentInstance.open();
-    const dialog:HTMLDialogElement=fixture.nativeElement.querySelector('dialog');
-    const first=dialog.querySelector('input')!,last=dialog.querySelector('button[type=submit]') as HTMLButtonElement;
-    first.focus();const backwards=new KeyboardEvent('keydown',{key:'Tab',shiftKey:true,cancelable:true});fixture.componentInstance.cycleFocus(backwards);
-    expect(backwards.defaultPrevented).toBe(true);expect(document.activeElement).toBe(last);
-    const forwards=new KeyboardEvent('keydown',{key:'Tab',cancelable:true});fixture.componentInstance.cycleFocus(forwards);expect(document.activeElement).toBe(first);
+    const fixture = TestBed.createComponent(PaymentReviewPage);
+    fixture.detectChanges();
+    fixture.componentInstance.open();
+    const dialog: HTMLDialogElement = fixture.nativeElement.querySelector('dialog');
+    const first = dialog.querySelector('input')!,
+      last = dialog.querySelector('button[type=submit]') as HTMLButtonElement;
+    first.focus();
+    const backwards = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      cancelable: true,
+    });
+    fixture.componentInstance.cycleFocus(backwards);
+    expect(backwards.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(last);
+    const forwards = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true });
+    fixture.componentInstance.cycleFocus(forwards);
+    expect(document.activeElement).toBe(first);
   });
   it('ferme le dialogue et efface ses champs à l’invalidation de session', () => {
     const fixture = TestBed.createComponent(PaymentReviewPage);

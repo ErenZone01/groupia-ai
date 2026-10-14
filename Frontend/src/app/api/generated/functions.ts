@@ -113,10 +113,10 @@ export type { CustomerCsrf$Params as CustomerCsrf$Params } from './fn/customer-a
 export { customerCsrf as customerCsrf } from './fn/customer-access-controller/customer-csrf';
 export type { Webhook$Params as Webhook$Params } from './fn/payment-controller/webhook';
 export { webhook as webhook } from './fn/payment-controller/webhook';
-export type { List3$Params as List3$Params } from './fn/payment-controller/list-3';
-export { list3 as list3 } from './fn/payment-controller/list-3';
-export type { Get4$Params as Get4$Params } from './fn/payment-controller/get-4';
-export { get4 as get4 } from './fn/payment-controller/get-4';
+export type { ListPaymentRequests$Params as ListPaymentRequests$Params } from './fn/payment-controller/list-payment-requests';
+export { listPaymentRequests as listPaymentRequests } from './fn/payment-controller/list-payment-requests';
+export type { GetPaymentRequest$Params as GetPaymentRequest$Params } from './fn/payment-controller/get-payment-request';
+export { getPaymentRequest as getPaymentRequest } from './fn/payment-controller/get-payment-request';
 export type { List$Params as List$Params } from './fn/organization-controller/list';
 export { list as list } from './fn/organization-controller/list';
 export type { Create$Params as Create$Params } from './fn/organization-controller/create';

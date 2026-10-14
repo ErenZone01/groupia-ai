@@ -1,0 +1,166 @@
+<header class="page-heading">
+  <a routerLink="/app/paiements">← Paiements</a>
+  <h1 #pageHeading tabindex="-1">Paiement à examiner</h1>
+</header>
+@if (store.vm().loadingReview) {
+  <p role="status">Chargement de l’incident…</p>
+} @else if (store.vm().reviewError) {
+  <p role="alert">{{ store.vm().reviewError }}</p>
+  <button gButton (click)="store.reload()">Réessayer</button>
+} @else if (store.vm().review; as review) {
+  <section class="panel" aria-label="Incident de paiement">
+    <div class="section-heading">
+      <h2>{{ label(review.reason) }}</h2>
+      <g-badge [tone]="review.status === 'OPEN' ? 'warning' : 'positive'">{{
+        review.status === 'OPEN' ? 'À examiner' : label(review.status)
+      }}</g-badge>
+    </div>
+    <p class="amount">{{ money(review.observedAmount, review.observedCurrency) }}</p>
+    <dl class="facts">
+      <div>
+        <dt>Prestataire</dt>
+        <dd>{{ review.anomalousProvider }}</dd>
+      </div>
+      <div>
+        <dt>Transaction anormale</dt>
+        <dd>{{ review.anomalousProviderTransactionId }}</dd>
+      </div>
+      <div>
+        <dt>Détectée le</dt>
+        <dd>{{ date(review.detectedAt) }}</dd>
+      </div>
+      <div>
+        <dt>Signalée par le prestataire le</dt>
+        <dd>{{ date(review.providerOccurredAt) }}</dd>
+      </div>
+    </dl>
+    <div class="actions">
+      <a
+        gButton
+        variant="secondary"
+        [routerLink]="['/app/paiements/requests', review.paymentRequestId]"
+        >Voir l’obligation</a
+      ><a gButton variant="secondary" [routerLink]="['/app/orders', review.orderId]"
+        >Voir la commande</a
+      >
+    </div>
+    @if (review.status === 'RESOLVED_REFUNDED') {
+      <h3>Remboursement externe enregistré</h3>
+      <dl class="facts">
+        <div>
+          <dt>Référence externe</dt>
+          <dd>{{ review.externalRefundReference }}</dd>
+        </div>
+        <div>
+          <dt>Note</dt>
+          <dd>{{ review.resolutionNote || 'Aucune note' }}</dd>
+        </div>
+        <div>
+          <dt>Enregistré le</dt>
+          <dd>{{ date(review.resolvedAt) }}</dd>
+        </div>
+      </dl>
+    } @else if (review.canResolve === true && store.vm().resolutionState === 'idle') {
+      <button gButton (click)="open()" [disabled]="store.vm().busy">
+        Enregistrer un remboursement externe
+      </button>
+    } @else if (review.canResolve !== true) {
+      <p class="muted">
+        Consultation uniquement. Une personne autorisée peut enregistrer le remboursement externe
+        déjà effectué.
+      </p>
+    }
+    @if (store.vm().message) {
+      <p class="notice" role="status">{{ store.vm().message }}</p>
+    }
+    @if (store.vm().resolutionError) {
+      <p role="alert">{{ store.vm().resolutionError }}</p>
+    }
+    @if (store.vm().resolutionState === 'retry' && review.canResolve === true) {
+      <button gButton [loading]="store.vm().busy" (click)="store.retryResolution()">
+        Réessayer l’enregistrement
+      </button>
+    }
+    @if (store.vm().resolutionState === 'uncertain') {
+      <button gButton [loading]="store.vm().busy" (click)="store.checkResolution()">
+        Vérifier l’enregistrement
+      </button>
+    }
+  </section>
+  <dialog
+    tabindex="-1"
+    (keydown)="cycleFocus($event)"
+    #confirmation
+    aria-labelledby="confirmation-title"
+    aria-describedby="resolution-warning"
+    (cancel)="close($event)"
+  >
+    <form (ngSubmit)="submit()" novalidate>
+      <h2 id="confirmation-title">Confirmer l’enregistrement</h2>
+      <p id="resolution-warning" class="notice">
+        Cette action n'effectue aucun remboursement. Elle enregistre dans Groupia qu'un
+        remboursement externe a déjà été effectué.
+      </p>
+      <dl class="facts">
+        <div>
+          <dt>Prestataire</dt>
+          <dd>{{ review.anomalousProvider }}</dd>
+        </div>
+        <div>
+          <dt>Transaction anormale</dt>
+          <dd>{{ review.anomalousProviderTransactionId }}</dd>
+        </div>
+        <div>
+          <dt>Montant et devise</dt>
+          <dd>
+            {{ money(review.observedAmount, review.observedCurrency) }} ·
+            {{ review.observedCurrency }}
+          </dd>
+        </div>
+        <div>
+          <dt>Détectée le</dt>
+          <dd>{{ date(review.detectedAt) }}</dd>
+        </div>
+      </dl>
+      <label class="field"
+        >Référence du remboursement externe<input
+          name="reference"
+          [ngModel]="reference()"
+          (ngModelChange)="reference.set($event)"
+          required
+          maxlength="160"
+          autocomplete="off"
+          [disabled]="store.vm().busy"
+      /></label>
+      <label class="field"
+        >Note (facultative)<textarea
+          name="note"
+          [ngModel]="note()"
+          (ngModelChange)="note.set($event)"
+          maxlength="1000"
+          rows="3"
+          [disabled]="store.vm().busy"
+        ></textarea>
+      </label>
+      @if (validation()) {
+        <p role="alert">{{ validation() }}</p>
+      }
+      @if (store.vm().resolutionError) {
+        <p role="alert">{{ store.vm().resolutionError }}</p>
+      }
+      <div class="actions">
+        <button
+          type="button"
+          gButton
+          variant="secondary"
+          [disabled]="store.vm().busy"
+          (click)="close()"
+        >
+          Annuler</button
+        ><button type="submit" gButton [loading]="store.vm().busy">
+          Confirmer l’enregistrement
+        </button>
+      </div>
+    </form>
+  </dialog>
+}

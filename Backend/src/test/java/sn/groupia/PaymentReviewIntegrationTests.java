@@ -496,6 +496,142 @@ class PaymentReviewIntegrationTests {
         resolve(review(), "REF", null).andExpect(status().is(resolveStatus));
     }
 
+    @ParameterizedTest
+    @CsvSource({"OWNER,true", "MANAGER,true", "VIEWER,false"})
+    void reviewCapabilityIsServerScopedAndFalseAfterResolution(String role, boolean allowed)
+            throws Exception {
+        duplicate();
+        jdbc.update(
+                "update organization_members set role=? where organization_id=?",
+                role,
+                fixture.org());
+        mvc.perform(get(base()).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].canResolve").value(allowed));
+        mvc.perform(get(base() + "/" + review()).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canResolve").value(allowed));
+        jdbc.update(
+                "update organization_members set role='OWNER' where organization_id=?",
+                fixture.org());
+        resolve(review(), "REF-DASHBOARD", null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canResolve").value(false));
+        jdbc.update(
+                "update organization_members set role=? where organization_id=?",
+                role,
+                fixture.org());
+        mvc.perform(get(base()).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].canResolve").value(false));
+    }
+
+    @Test
+    void contextualReviewFilterNeverLeaksAnotherOrganization() throws Exception {
+        duplicate();
+        mvc.perform(
+                        get(base())
+                                .param("paymentRequestId", request.toString())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        var originalRequest = request;
+        fixture = MerchantSettlementFixtures.seed(jdbc);
+        token = token(fixture.actor());
+        mvc.perform(
+                        get(base())
+                                .param("paymentRequestId", originalRequest.toString())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void dashboardCountsIncidentsSeparatelyAndResolutionRefreshesClassification() throws Exception {
+        UUID payment = duplicate();
+        success(payment, "TX-C");
+        String url = "/api/organizations/" + fixture.org() + "/payment-requests";
+        var result =
+                mvc.perform(get(url).header("Authorization", "Bearer " + token))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.summary.openReviews").value(2))
+                        .andExpect(jsonPath("$.summary.reviewRequired").value(1))
+                        .andExpect(
+                                jsonPath("$.items[0].operationalStatus").value("REVIEW_REQUIRED"))
+                        .andReturn();
+        assertThat(read(result).path("evaluationAt").asText()).isNotBlank();
+        var detail =
+                mvc.perform(get(url + "/" + request).header("Authorization", "Bearer " + token))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.request.openReviewCount").value(2))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        for (String field :
+                List.of(
+                        "providerIdempotencyKey",
+                        "initiationKey",
+                        "checkoutUrl",
+                        "signature",
+                        "credential",
+                        "token")) assertThat(detail).doesNotContain("\"" + field + "\"");
+        var ids = jdbc.queryForList("select id from payment_reviews order by id", UUID.class);
+        resolve(ids.getFirst(), "REF-FIRST", null).andExpect(status().isOk());
+        mvc.perform(get(url).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.summary.reviewRequired").value(1));
+        resolve(ids.getLast(), "REF-LAST", null).andExpect(status().isOk());
+        mvc.perform(get(url).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.summary.settled").value(1))
+                .andExpect(jsonPath("$.summary.openReviews").value(0))
+                .andExpect(jsonPath("$.items[0].operationalStatus").value("SETTLED"));
+        onlyOneNominalEffect();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"OWNER,200", "MANAGER,200", "VIEWER,200", "OPERATOR,403"})
+    void dashboardPermissionsAreIndependentOfMembership(String role, int expected)
+            throws Exception {
+        jdbc.update(
+                "update organization_members set role=? where organization_id=?",
+                role,
+                fixture.org());
+        String url = "/api/organizations/" + fixture.org() + "/payment-requests";
+        mvc.perform(get(url).header("Authorization", "Bearer " + token))
+                .andExpect(status().is(expected));
+        mvc.perform(get(url + "/" + request).header("Authorization", "Bearer " + token))
+                .andExpect(status().is(expected));
+    }
+
+    @Test
+    void dashboardRejectsInvalidFiltersAndKeepsForeignReadsScoped() throws Exception {
+        String url = "/api/organizations/" + fixture.org() + "/payment-requests";
+        for (String query :
+                List.of(
+                        "operationalStatus=BOGUS",
+                        "purpose=OTHER",
+                        "size=101",
+                        "page=-1",
+                        "page=1000001",
+                        "orderId=not-a-uuid"))
+            mvc.perform(get(url + "?" + query).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isBadRequest());
+        var foreign = MerchantSettlementFixtures.seed(jdbc);
+        mvc.perform(
+                        get(url).param("orderId", foreign.order().toString())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        String foreignUrl = "/api/organizations/" + foreign.org() + "/payment-requests";
+        mvc.perform(get(foreignUrl).header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        get(foreignUrl + "/" + request)
+                                .header("Authorization", "Bearer " + token(foreign.actor())))
+                .andExpect(status().isNotFound());
+    }
+
     @Test
     void anonymousAndOtherOrganizationCannotReadOrResolve() throws Exception {
         duplicate();

@@ -6,6 +6,7 @@ export interface PaymentReviewView {
   anomalousProvider?: string;
   anomalousProviderAccountReference?: string;
   anomalousProviderTransactionId?: string;
+  canResolve?: boolean;
   detectedAt?: string;
   externalRefundReference?: string;
   id?: string;

@@ -71,9 +71,39 @@ class OpenApiIntegrationTests {
                 .isFalse();
         assertThat(
                         doc.at(
-                                        "/components/schemas/PaymentRequestView/properties/expiresAt/nullable")
+                                        "/components/schemas/PaymentRequestSummaryView/properties/expiresAt/nullable")
                                 .asBoolean())
                 .isTrue();
+    }
+
+    @Test
+    void dashboardContractUsesNamedSafeDtosAndStableOperationIds() throws Exception {
+        var doc = spec();
+        String base = "/api/organizations/{organizationId}/payment-requests";
+        assertThat(doc.path("paths").path(base).path("get").path("operationId").asText())
+                .isEqualTo("listPaymentRequests");
+        assertThat(doc.path("paths").path(base + "/{id}").path("get").path("operationId").asText())
+                .isEqualTo("getPaymentRequest");
+        for (String name :
+                List.of(
+                        "PaymentRequestSummaryView",
+                        "PaymentRequestsPageView",
+                        "PaymentRequestDetailView",
+                        "PaymentAttemptReadView",
+                        "PaymentDashboardSummaryView"))
+            assertThat(doc.path("components").path("schemas").has(name)).isTrue();
+        assertThat(
+                        doc.at("/components/schemas/PaymentReviewView/properties/canResolve/type")
+                                .asText())
+                .isEqualTo("boolean");
+        var properties = doc.at("/components/schemas/PaymentAttemptReadView/properties");
+        for (String field :
+                List.of(
+                        "providerIdempotencyKey",
+                        "initiationKey",
+                        "checkoutUrl",
+                        "token",
+                        "signature")) assertThat(properties.has(field)).isFalse();
     }
 
     @Test

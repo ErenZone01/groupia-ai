@@ -131,6 +131,18 @@ export const routes: Routes = [
           import('./features/subscription/subscription.page').then((m) => m.SubscriptionPage),
       },
       {
+        path: 'paiements/requests/:requestId',
+        title: 'Détail du paiement · Groupia',
+        loadComponent: () =>
+          import('./features/payments/payment-request.page').then((m) => m.PaymentRequestPage),
+      },
+      {
+        path: 'paiements/reviews/:reviewId',
+        title: 'Paiement à examiner · Groupia',
+        loadComponent: () =>
+          import('./features/payments/payment-review.page').then((m) => m.PaymentReviewPage),
+      },
+      {
         path: 'paiements',
         title: 'Paiements · Groupia',
         loadComponent: () =>

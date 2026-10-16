@@ -7,6 +7,7 @@ const labels: Record<string, string> = {
   TERMINAL_UNPAID: 'Terminé sans règlement',
   INITIAL_ORDER: 'Commande',
   SHIPPING_BALANCE: 'Transport',
+  SUBSCRIPTION_MONTHLY: 'Abonnement',
   OPEN: 'Ouverte',
   CLOSED: 'Fermée',
   CANCELLED: 'Annulée',

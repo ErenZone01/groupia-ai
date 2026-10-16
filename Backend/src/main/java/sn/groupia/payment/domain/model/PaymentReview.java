@@ -145,12 +145,14 @@ public class PaymentReview {
         return status;
     }
 
-    public PaymentReviewView view(UUID orderId) {
+    public PaymentReviewView view(sn.groupia.payment.api.PaymentTarget target) {
         return new PaymentReviewView(
                 id,
                 organizationId,
                 paymentRequestId,
-                orderId,
+                target.type() == sn.groupia.payment.api.PaymentTargetType.ORDER
+                        ? target.id()
+                        : null,
                 principalPaymentId,
                 anomalousPaymentId,
                 reason,
@@ -167,6 +169,7 @@ public class PaymentReview {
                 externalRefundReference,
                 resolutionNote,
                 version == null ? 0 : version,
-                false);
+                false,
+                target);
     }
 }

@@ -276,3 +276,46 @@ test('preuve contradictoire visible sans deuxième remboursement', async ({ page
   await expect(page.getByText('OTHER', { exact: true })).toBeVisible();
   expect(state.posts).toHaveLength(1);
 });
+
+test('obligation et review abonnement naviguent sans orderId', async ({ page }) => {
+  await setup(page);
+  await page.route('**/api/organizations/*/payment-requests/request-sub', (route) =>
+    route.fulfill({
+      json: {
+        ...paymentDetail,
+        request: {
+          ...paymentDetail.request,
+          id: 'request-sub',
+          orderId: null,
+          purpose: 'SUBSCRIPTION_MONTHLY',
+          target: { type: 'SUBSCRIPTION_INVOICE', id: 'invoice' },
+        },
+      },
+    }),
+  );
+  await page.goto('/app/paiements/requests/request-sub');
+  await expect(page.getByRole('link', { name: 'Voir l’abonnement', exact: true })).toHaveAttribute(
+    'href',
+    '/app/abonnement',
+  );
+  await expect(page.getByRole('link', { name: 'Voir la commande', exact: true })).toHaveCount(0);
+  await page.route('**/api/organizations/*/payment-reviews/review-sub', (route) =>
+    route.fulfill({
+      json: {
+        ...paymentReview,
+        id: 'review-sub',
+        orderId: null,
+        canResolve: false,
+        target: { type: 'SUBSCRIPTION_INVOICE', id: 'invoice' },
+      },
+    }),
+  );
+  await page.goto('/app/paiements/reviews/review-sub');
+  await expect(page.getByRole('link', { name: 'Voir l’abonnement', exact: true })).toHaveAttribute(
+    'href',
+    '/app/abonnement',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Enregistrer un remboursement externe', exact: true }),
+  ).toHaveCount(0);
+});

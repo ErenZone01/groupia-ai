@@ -79,11 +79,19 @@ class PaymentReviewPersistence implements PaymentReviewStore {
     }
 
     public Page list(
-            UUID org, PaymentReviewStatus status, UUID paymentRequestId, int page, int size) {
+            UUID org,
+            PaymentReviewStatus status,
+            UUID paymentRequestId,
+            int page,
+            int size,
+            boolean includeSubscriptions) {
         String filter =
                 " where r.organizationId=:org"
                         + (status == null ? "" : " and r.status=:status")
-                        + (paymentRequestId == null ? "" : " and r.paymentRequestId=:requestId");
+                        + (paymentRequestId == null ? "" : " and r.paymentRequestId=:requestId")
+                        + (includeSubscriptions
+                                ? ""
+                                : " and exists (select p.id from PaymentRequest p where p.id=r.paymentRequestId and p.targetType=sn.groupia.payment.api.PaymentTargetType.ORDER)");
         var query =
                 em.createQuery(
                                 "select r from PaymentReview r"

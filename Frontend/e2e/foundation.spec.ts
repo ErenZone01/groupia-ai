@@ -29,7 +29,9 @@ for (const width of [360, 768, 1024, 1440])
           (url) =>
             new URL(url).pathname === '/api/organizations' ||
             /\/api\/organizations\/[^/]+\/orders$/.test(new URL(url).pathname) ||
-            /\/api\/organizations\/[^/]+\/subscription(?:\/history)?$/.test(new URL(url).pathname),
+            /\/api\/organizations\/[^/]+\/subscription(?:\/(?:history|invoices|invoice-preview))?$/.test(
+              new URL(url).pathname,
+            ),
         ),
       ).toBe(true);
       if (width === 360 || width === 1440)

@@ -1,9 +1,11 @@
-import { effect, inject, Injectable, signal } from '@angular/core';
-import { firstValueFrom, timeout } from 'rxjs';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
+import { firstValueFrom, forkJoin, Subject, takeUntil, timeout } from 'rxjs';
 import type {
   BillingContactInput,
   SubscriptionDetails,
   SubscriptionPeriodView,
+  SubscriptionInvoiceView,
+  SubscriptionInvoicePreview,
 } from '../../api/generated/models';
 import { SubscriptionControllerService } from '../../api/generated/services';
 import { AuthService } from '../../core/auth/auth.service';
@@ -15,165 +17,255 @@ export class SubscriptionStore {
   private readonly auth = inject(AuthService);
   readonly details = signal<SubscriptionDetails | null>(null);
   readonly history = signal<SubscriptionPeriodView[]>([]);
+  readonly invoices = signal<SubscriptionInvoiceView[]>([]);
+  readonly preview = signal<SubscriptionInvoicePreview | null>(null);
   readonly loading = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
-  private organizationId = '';
+  readonly checkoutUrl = signal<string | null>(null);
+  readonly currentInvoice = computed(
+    () =>
+      this.invoices().find(
+        (i) =>
+          i.status === 'OPEN' &&
+          (Date.parse(i.periodEnd ?? '') > Date.now() || i.paymentStatus === 'SETTLED'),
+      ) ?? null,
+  );
+  readonly futurePaid = computed(
+    () =>
+      this.invoices().find(
+        (i) => i.status === 'PAID' && Date.parse(i.periodStart ?? '') > Date.now(),
+      ) ?? null,
+  );
+  private org = '';
+  private session = -1;
   private generation = 0;
-  private sessionGeneration = -1;
-  private actionGeneration = 0;
+  private loadSequence = 0;
+  private operation = 0;
+  private cancelLoad = new Subject<void>();
+  private cancelMutation = new Subject<void>();
   private pending?: Promise<void>;
-  private pendingOrganizationId = '';
-  private pendingSessionGeneration = -1;
-
+  private readonly commands = new Map<
+    string,
+    { creationKey: string; invoiceId?: string; paymentKey: string; knownAttempt?: boolean }
+  >();
   constructor() {
     effect(() => {
-      const sessionGeneration = this.auth.generation();
-      if (this.sessionGeneration >= 0 && sessionGeneration !== this.sessionGeneration) {
-        this.resetSession(sessionGeneration);
-      }
+      if (this.session >= 0 && this.session !== this.auth.generation()) this.clear();
     });
   }
-
-  async load(organizationId: string, force = false) {
-    if (!organizationId) return;
-    const sessionGeneration = this.auth.generation();
-    if (sessionGeneration !== this.sessionGeneration) this.resetSession(sessionGeneration);
-    if (
-      !force &&
-      organizationId === this.organizationId &&
-      sessionGeneration === this.sessionGeneration &&
-      this.details()
-    )
-      return;
-    if (
-      organizationId === this.pendingOrganizationId &&
-      sessionGeneration === this.pendingSessionGeneration &&
-      this.pending
-    )
-      return this.pending;
-
-    const generation = ++this.generation;
-    this.organizationId = organizationId;
+  clear() {
+    this.cancelLoad.next();
+    this.cancelMutation.next();
+    this.generation++;
+    this.loadSequence++;
+    this.operation++;
+    this.org = '';
+    this.pending = undefined;
+    this.session = this.auth.generation();
+    this.commands.clear();
+    this.resetView();
+  }
+  private resetView(resetBusy = true) {
+    this.details.set(null);
+    this.history.set([]);
+    this.invoices.set([]);
+    this.preview.set(null);
+    this.checkoutUrl.set(null);
+    this.error.set('');
+    if (resetBusy) this.busy.set(false);
+    this.loading.set(false);
+  }
+  load(org: string, force = false): Promise<void> {
+    if (!org) {
+      this.clear();
+      return Promise.resolve();
+    }
+    if (this.session !== this.auth.generation()) this.clear();
+    if (org !== this.org) {
+      this.cancelLoad.next();
+      this.cancelMutation.next();
+      this.generation++;
+      this.operation++;
+      this.org = org;
+      this.pending = undefined;
+      this.resetView();
+    }
+    if (!force && this.pending) return this.pending;
+    if (!force && this.details()) return Promise.resolve();
+    this.cancelLoad.next();
+    const generation = this.generation,
+      session = this.session,
+      seq = ++this.loadSequence;
     this.loading.set(true);
     this.error.set('');
-    if (this.details() && organizationId !== this.pendingOrganizationId) {
-      this.details.set(null);
-      this.history.set([]);
-    }
-
-    const request = this.fetch(organizationId, generation, sessionGeneration);
-    this.pendingOrganizationId = organizationId;
-    this.pendingSessionGeneration = sessionGeneration;
-    this.pending = request;
-    try {
-      await request;
-    } finally {
-      if (generation === this.generation && sessionGeneration === this.auth.generation()) {
-        this.pending = undefined;
-        this.pendingOrganizationId = '';
-        this.pendingSessionGeneration = -1;
-        this.loading.set(false);
-      }
-    }
+    const pending = firstValueFrom(
+      forkJoin({
+        details: this.api.details({ organizationId: org }),
+        history: this.api.history({ organizationId: org }),
+        invoices: this.api.listSubscriptionInvoices({ organizationId: org }),
+        preview: this.api.previewSubscriptionInvoice({ organizationId: org }),
+      }).pipe(timeout(15000), takeUntil(this.cancelLoad)),
+    )
+      .then((result) => {
+        if (!this.current(org, generation, session) || seq !== this.loadSequence) return;
+        this.details.set(result.details);
+        this.history.set(result.history);
+        this.invoices.set(result.invoices);
+        this.preview.set(result.preview);
+        if (
+          !result.invoices.some(
+            (i) => i.status === 'OPEN' && i.attemptInProgress && !i.reconciliationRequired,
+          )
+        )
+          this.checkoutUrl.set(null);
+      })
+      .catch((error) => {
+        if (!this.current(org, generation, session) || seq !== this.loadSequence) return;
+        this.resetView(false);
+        this.error.set(apiMessage(error));
+      })
+      .finally(() => {
+        if (this.current(org, generation, session) && seq === this.loadSequence) {
+          this.loading.set(false);
+          this.pending = undefined;
+        }
+      });
+    this.pending = pending;
+    return pending;
   }
-
   async saveBillingContact(body: BillingContactInput) {
-    const organizationId = this.organizationId;
     if (this.busy() || !this.details()?.canManageSubscription) return;
-    const sessionGeneration = this.sessionGeneration;
-    const actionGeneration = ++this.actionGeneration;
+    const org = this.org,
+      generation = this.generation,
+      session = this.session,
+      operation = ++this.operation;
     this.busy.set(true);
     this.error.set('');
+    let failure = '';
     try {
       await firstValueFrom(
-        this.api.updateBillingContact({ organizationId, body }).pipe(timeout(20000)),
+        this.api
+          .updateBillingContact({ organizationId: org, body })
+          .pipe(timeout(20000), takeUntil(this.cancelMutation)),
       );
     } catch (error) {
-      if (organizationId === this.organizationId && sessionGeneration === this.auth.generation())
-        this.error.set(apiMessage(error));
+      if (this.current(org, generation, session)) failure = apiMessage(error);
     } finally {
-      if (organizationId === this.organizationId && sessionGeneration === this.auth.generation())
-        await this.load(organizationId, true);
-      if (actionGeneration === this.actionGeneration) this.busy.set(false);
+      if (this.current(org, generation, session)) {
+        await this.load(org, true);
+        if (failure && this.current(org, generation, session)) this.error.set(failure);
+      }
+      if (operation === this.operation) this.busy.set(false);
     }
   }
-
-  async start() {
-    const organizationId = this.organizationId;
+  async pay() {
     const details = this.details();
     if (
       this.busy() ||
       !details?.canManageSubscription ||
       !details.billingProviderAvailable ||
-      !details.planConfigured
+      !details.planConfigured ||
+      !details.billingContact?.phoneE164 ||
+      this.futurePaid()
     )
       return;
-    const sessionGeneration = this.sessionGeneration;
-    const actionGeneration = ++this.actionGeneration;
+    const org = this.org,
+      generation = this.generation,
+      session = this.session,
+      operation = ++this.operation;
+    let command = this.commands.get(org);
+    const existing = this.currentInvoice();
+    // A new user action may renew an expired invoice, never a timeout or an uncertain attempt.
+    if (
+      !command ||
+      (command.invoiceId &&
+        this.invoices().some(
+          (i) =>
+            i.id === command!.invoiceId &&
+            (['EXPIRED', 'PAID'].includes(i.status ?? '') ||
+              (i.status === 'OPEN' &&
+                Date.parse(i.periodEnd ?? '') <= Date.now() &&
+                i.paymentStatus !== 'SETTLED')),
+        ))
+    ) {
+      command = { creationKey: crypto.randomUUID(), paymentKey: crypto.randomUUID() };
+      this.commands.set(org, command);
+    }
+    if (existing?.id) command.invoiceId = existing.id;
+    if (existing && !existing.canPay) return;
+    // A known attempt became terminal and the server explicitly permits another one.
+    if (existing?.canPay && command.knownAttempt) {
+      command.paymentKey = crypto.randomUUID();
+      command.knownAttempt = false;
+    }
     this.busy.set(true);
     this.error.set('');
+    let failure = '';
     try {
-      await firstValueFrom(this.api.start({ organizationId }).pipe(timeout(40000)));
-    } catch (error) {
-      if (organizationId === this.organizationId && sessionGeneration === this.auth.generation())
-        this.error.set(apiMessage(error));
-    } finally {
-      if (organizationId === this.organizationId && sessionGeneration === this.auth.generation())
-        await this.load(organizationId, true);
-      if (actionGeneration === this.actionGeneration) this.busy.set(false);
-    }
-  }
-
-  async cancel() {
-    const organizationId = this.organizationId;
-    if (this.busy() || !this.details()?.canManageSubscription) return;
-    const sessionGeneration = this.sessionGeneration;
-    const actionGeneration = ++this.actionGeneration;
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      await firstValueFrom(this.api.cancel({ organizationId }).pipe(timeout(40000)));
-    } catch (error) {
-      if (organizationId === this.organizationId && sessionGeneration === this.auth.generation())
-        this.error.set(apiMessage(error));
-    } finally {
-      if (organizationId === this.organizationId && sessionGeneration === this.auth.generation())
-        await this.load(organizationId, true);
-      if (actionGeneration === this.actionGeneration) this.busy.set(false);
-    }
-  }
-
-  private async fetch(organizationId: string, generation: number, sessionGeneration: number) {
-    try {
-      const [details, history] = await Promise.all([
-        firstValueFrom(this.api.details({ organizationId }).pipe(timeout(15000))),
-        firstValueFrom(this.api.history({ organizationId }).pipe(timeout(15000))),
-      ]);
-      if (generation !== this.generation || sessionGeneration !== this.auth.generation()) return;
-      this.details.set(details);
-      this.history.set(history);
-    } catch (error) {
-      if (generation === this.generation && sessionGeneration === this.auth.generation()) {
-        this.error.set(apiMessage(error));
-        this.details.set(null);
-        this.history.set([]);
+      if (!command.invoiceId) {
+        const invoice = await firstValueFrom(
+          this.api
+            .createSubscriptionInvoice({
+              organizationId: org,
+              'Idempotency-Key': command.creationKey,
+            })
+            .pipe(timeout(20000), takeUntil(this.cancelMutation)),
+        );
+        // Retain the command's identity even when its screen was left; never publish a stale response.
+        command.invoiceId = invoice.id;
       }
+      if (!this.current(org, generation, session) || !command.invoiceId) return;
+      const payment = await firstValueFrom(
+        this.api
+          .paySubscriptionInvoice({
+            organizationId: org,
+            invoiceId: command.invoiceId,
+            'Idempotency-Key': command.paymentKey,
+            body: { provider: 'BICTORYS' },
+          })
+          .pipe(timeout(40000), takeUntil(this.cancelMutation)),
+      );
+      if (!this.current(org, generation, session)) return;
+      command.knownAttempt = true;
+      this.checkoutUrl.set(
+        payment.reconciliationRequired ? null : this.safeUrl(payment.checkoutUrl),
+      );
+      if (
+        ['FAILED', 'CANCELLED', 'EXPIRED'].includes(payment.status ?? '') &&
+        !payment.reconciliationRequired
+      )
+        command.paymentKey = crypto.randomUUID();
+    } catch (error) {
+      if (this.current(org, generation, session)) failure = apiMessage(error);
+    } finally {
+      if (this.current(org, generation, session)) {
+        await this.load(org, true);
+        if (failure && this.current(org, generation, session))
+          this.error.set(failure + ' Vérifiez le paiement avant de réessayer.');
+      }
+      if (operation === this.operation) this.busy.set(false);
     }
   }
-
-  private resetSession(sessionGeneration: number) {
-    this.sessionGeneration = sessionGeneration;
-    this.generation++;
-    this.actionGeneration++;
-    this.pending = undefined;
-    this.pendingOrganizationId = '';
-    this.pendingSessionGeneration = -1;
-    this.organizationId = '';
-    this.details.set(null);
-    this.history.set([]);
-    this.loading.set(false);
-    this.busy.set(false);
-    this.error.set('');
+  refresh() {
+    return this.org ? this.load(this.org, true) : Promise.resolve();
+  }
+  private current(org: string, generation: number, session: number) {
+    return org === this.org && generation === this.generation && session === this.auth.generation();
+  }
+  private safeUrl(value?: string) {
+    try {
+      const url = new URL(value ?? '');
+      return url.protocol === 'https:' &&
+        ['pay.bictorys.com', 'pay.test.bictorys.com'].includes(url.hostname) &&
+        !url.username &&
+        !url.password &&
+        !url.hash &&
+        (!url.port || url.port === '443')
+        ? url.href
+        : null;
+    } catch {
+      return null;
+    }
   }
 }

@@ -139,7 +139,7 @@ class SubscriptionMigrationTests {
                     .isZero();
             var subscriptionsBefore022 =
                     jdbc.queryForList(
-                            "select * from organization_subscriptions order by organization_id");
+                            "select to_jsonb(s)-'billing_timezone' as historical from organization_subscriptions s order by organization_id");
             var contactsBefore022 =
                     jdbc.queryForList(
                             "select * from subscription_billing_contacts order by organization_id");
@@ -148,7 +148,7 @@ class SubscriptionMigrationTests {
             migrate(db, new DirectoryResourceAccessor(historical.resolve("legacy")));
             assertThat(
                             jdbc.queryForList(
-                                    "select * from organization_subscriptions order by organization_id"))
+                                    "select to_jsonb(s)-'billing_timezone' as historical from organization_subscriptions s order by organization_id"))
                     .isEqualTo(subscriptionsBefore022);
             assertThat(
                             jdbc.queryForList(
@@ -206,14 +206,14 @@ class SubscriptionMigrationTests {
 
             var subscriptionsBeforeReplay =
                     jdbc.queryForList(
-                            "select * from organization_subscriptions order by organization_id");
+                            "select to_jsonb(s)-'billing_timezone' as historical from organization_subscriptions s order by organization_id");
             var contactsBeforeReplay =
                     jdbc.queryForList(
                             "select * from subscription_billing_contacts order by organization_id");
             replayBackfill(jdbc, source.resolve("022-subscription-compatibility.sql"));
             assertThat(
                             jdbc.queryForList(
-                                    "select * from organization_subscriptions order by organization_id"))
+                                    "select to_jsonb(s)-'billing_timezone' as historical from organization_subscriptions s order by organization_id"))
                     .isEqualTo(subscriptionsBeforeReplay);
             assertThat(
                             jdbc.queryForList(
@@ -222,7 +222,7 @@ class SubscriptionMigrationTests {
             assertThat(
                             jdbc.queryForList(
                                     """
-                    select id,md5sum from databasechangelog where id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%'
+                    select id,md5sum from databasechangelog where id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%'
                     order by orderexecuted
                     """))
                     .isEqualTo(previousChecksums);

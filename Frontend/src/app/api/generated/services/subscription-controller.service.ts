@@ -14,14 +14,27 @@ import { billingContact } from '../fn/subscription-controller/billing-contact';
 import { BillingContact$Params } from '../fn/subscription-controller/billing-contact';
 import { cancel } from '../fn/subscription-controller/cancel';
 import { Cancel$Params } from '../fn/subscription-controller/cancel';
+import { createSubscriptionInvoice } from '../fn/subscription-controller/create-subscription-invoice';
+import { CreateSubscriptionInvoice$Params } from '../fn/subscription-controller/create-subscription-invoice';
 import { details } from '../fn/subscription-controller/details';
 import { Details$Params } from '../fn/subscription-controller/details';
+import { getSubscriptionInvoice } from '../fn/subscription-controller/get-subscription-invoice';
+import { GetSubscriptionInvoice$Params } from '../fn/subscription-controller/get-subscription-invoice';
 import { history } from '../fn/subscription-controller/history';
 import { History$Params } from '../fn/subscription-controller/history';
+import { listSubscriptionInvoices } from '../fn/subscription-controller/list-subscription-invoices';
+import { ListSubscriptionInvoices$Params } from '../fn/subscription-controller/list-subscription-invoices';
+import { PaymentAttemptView } from '../models/payment-attempt-view';
+import { paySubscriptionInvoice } from '../fn/subscription-controller/pay-subscription-invoice';
+import { PaySubscriptionInvoice$Params } from '../fn/subscription-controller/pay-subscription-invoice';
+import { previewSubscriptionInvoice } from '../fn/subscription-controller/preview-subscription-invoice';
+import { PreviewSubscriptionInvoice$Params } from '../fn/subscription-controller/preview-subscription-invoice';
 import { start } from '../fn/subscription-controller/start';
 import { Start$Params } from '../fn/subscription-controller/start';
 import { SubscriptionBillingContactView } from '../models/subscription-billing-contact-view';
 import { SubscriptionDetails } from '../models/subscription-details';
+import { SubscriptionInvoicePreview } from '../models/subscription-invoice-preview';
+import { SubscriptionInvoiceView } from '../models/subscription-invoice-view';
 import { SubscriptionPeriodView } from '../models/subscription-period-view';
 import { updateBillingContact } from '../fn/subscription-controller/update-billing-contact';
 import { UpdateBillingContact$Params } from '../fn/subscription-controller/update-billing-contact';
@@ -113,6 +126,87 @@ export class SubscriptionControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `listSubscriptionInvoices()` */
+  static readonly ListSubscriptionInvoicesPath = '/api/organizations/{organizationId}/subscription/invoices';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `listSubscriptionInvoices()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  listSubscriptionInvoices$Response(params: ListSubscriptionInvoices$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<SubscriptionInvoiceView>>> {
+    const obs = listSubscriptionInvoices(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `listSubscriptionInvoices$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  listSubscriptionInvoices(params: ListSubscriptionInvoices$Params, context?: HttpContext): Observable<Array<SubscriptionInvoiceView>> {
+    const resp = this.listSubscriptionInvoices$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<SubscriptionInvoiceView>>): Array<SubscriptionInvoiceView> => r.body)
+    );
+  }
+
+  /** Path part for operation `createSubscriptionInvoice()` */
+  static readonly CreateSubscriptionInvoicePath = '/api/organizations/{organizationId}/subscription/invoices';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `createSubscriptionInvoice()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  createSubscriptionInvoice$Response(params: CreateSubscriptionInvoice$Params, context?: HttpContext): Observable<StrictHttpResponse<SubscriptionInvoiceView>> {
+    const obs = createSubscriptionInvoice(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `createSubscriptionInvoice$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  createSubscriptionInvoice(params: CreateSubscriptionInvoice$Params, context?: HttpContext): Observable<SubscriptionInvoiceView> {
+    const resp = this.createSubscriptionInvoice$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<SubscriptionInvoiceView>): SubscriptionInvoiceView => r.body)
+    );
+  }
+
+  /** Path part for operation `paySubscriptionInvoice()` */
+  static readonly PaySubscriptionInvoicePath = '/api/organizations/{organizationId}/subscription/invoices/{invoiceId}/payment';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `paySubscriptionInvoice()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  paySubscriptionInvoice$Response(params: PaySubscriptionInvoice$Params, context?: HttpContext): Observable<StrictHttpResponse<PaymentAttemptView>> {
+    const obs = paySubscriptionInvoice(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `paySubscriptionInvoice$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  paySubscriptionInvoice(params: PaySubscriptionInvoice$Params, context?: HttpContext): Observable<PaymentAttemptView> {
+    const resp = this.paySubscriptionInvoice$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<PaymentAttemptView>): PaymentAttemptView => r.body)
+    );
+  }
+
   /** Path part for operation `cancel()` */
   static readonly CancelPath = '/api/organizations/{organizationId}/subscription/cancel';
 
@@ -164,6 +258,60 @@ export class SubscriptionControllerService extends BaseService {
     const resp = this.details$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<SubscriptionDetails>): SubscriptionDetails => r.body)
+    );
+  }
+
+  /** Path part for operation `getSubscriptionInvoice()` */
+  static readonly GetSubscriptionInvoicePath = '/api/organizations/{organizationId}/subscription/invoices/{invoiceId}';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `getSubscriptionInvoice()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  getSubscriptionInvoice$Response(params: GetSubscriptionInvoice$Params, context?: HttpContext): Observable<StrictHttpResponse<SubscriptionInvoiceView>> {
+    const obs = getSubscriptionInvoice(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `getSubscriptionInvoice$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  getSubscriptionInvoice(params: GetSubscriptionInvoice$Params, context?: HttpContext): Observable<SubscriptionInvoiceView> {
+    const resp = this.getSubscriptionInvoice$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<SubscriptionInvoiceView>): SubscriptionInvoiceView => r.body)
+    );
+  }
+
+  /** Path part for operation `previewSubscriptionInvoice()` */
+  static readonly PreviewSubscriptionInvoicePath = '/api/organizations/{organizationId}/subscription/invoice-preview';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `previewSubscriptionInvoice()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  previewSubscriptionInvoice$Response(params: PreviewSubscriptionInvoice$Params, context?: HttpContext): Observable<StrictHttpResponse<SubscriptionInvoicePreview>> {
+    const obs = previewSubscriptionInvoice(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `previewSubscriptionInvoice$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  previewSubscriptionInvoice(params: PreviewSubscriptionInvoice$Params, context?: HttpContext): Observable<SubscriptionInvoicePreview> {
+    const resp = this.previewSubscriptionInvoice$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<SubscriptionInvoicePreview>): SubscriptionInvoicePreview => r.body)
     );
   }
 

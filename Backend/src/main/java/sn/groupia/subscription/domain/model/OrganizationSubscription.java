@@ -24,7 +24,8 @@ public record OrganizationSubscription(
         Instant providerSetupRequestedAt,
         boolean cancelAtPeriodEnd,
         Instant canceledAt,
-        long version) {
+        long version,
+        String billingTimezone) {
     public boolean providerSetupPending() {
         return providerSetupKey != null && providerSubscriptionId == null;
     }

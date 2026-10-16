@@ -33,7 +33,7 @@ public final class PaymentRisk {
             if (p.getId().equals(r.getSettledPaymentId())) continue;
             boolean refunded =
                     reviews.stream()
-                            .map(v -> v.view(r.getOrderId()))
+                            .map(v -> v.view(r.getTarget()))
                             .anyMatch(
                                     v ->
                                             v.status().equals("RESOLVED_REFUNDED")

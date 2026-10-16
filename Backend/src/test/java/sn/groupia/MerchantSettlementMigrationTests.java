@@ -39,9 +39,9 @@ class MerchantSettlementMigrationTests {
                                     db.getJdbcUrl(), db.getUsername(), db.getPassword()));
             var platform = MerchantSettlementFixtures.seed(j);
             var manual = MerchantSettlementFixtures.seed(j);
-            MerchantSettlementFixtures.settled(j, platform, "INITIAL_ORDER");
-            MerchantSettlementFixtures.settled(j, platform, "SHIPPING_BALANCE");
-            MerchantSettlementFixtures.settled(j, manual, "INITIAL_ORDER");
+            MerchantSettlementFixtures.settledBefore026(j, platform, "INITIAL_ORDER");
+            MerchantSettlementFixtures.settledBefore026(j, platform, "SHIPPING_BALANCE");
+            MerchantSettlementFixtures.settledBefore026(j, manual, "INITIAL_ORDER");
             UUID auto = MerchantSettlementFixtures.refund(j, platform, "BICTORYS_PAYOUT"),
                     own = MerchantSettlementFixtures.refund(j, manual, "MANUAL_EXTERNAL");
             var checksums =
@@ -90,12 +90,19 @@ class MerchantSettlementMigrationTests {
                                     "select count(*) from merchant_ledger_entries l join payment_refunds r on r.id=l.source_id where l.recorded_at<>r.completed_at",
                                     Integer.class))
                     .isZero();
-            for (var table : originals.keySet())
-                assertThat(j.queryForList("select * from " + table + " order by id"))
-                        .isEqualTo(originals.get(table));
+            for (var table : originals.keySet()) {
+                var rows = j.queryForList("select * from " + table + " order by id");
+                if (table.equals("payment_requests")) {
+                    for (var row : rows) {
+                        assertThat(row.remove("target_type")).isEqualTo("ORDER");
+                        assertThat(row.remove("target_id")).isEqualTo(row.get("order_id"));
+                    }
+                }
+                assertThat(rows).isEqualTo(originals.get(table));
+            }
             assertThat(
                             j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThatThrownBy(() -> j.update("delete from merchant_ledger_entries"))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);

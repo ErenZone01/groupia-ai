@@ -25,10 +25,12 @@ class PaymentDashboardPersistence implements PaymentDashboardStore {
             UUID orderId,
             int page,
             int size,
-            Instant at) {
+            Instant at,
+            boolean includeSubscriptions) {
         String scope =
                 (purpose == null ? "" : " and r.purpose=:purpose")
-                        + (orderId == null ? "" : " and r.order_id=:orderId");
+                        + (orderId == null ? "" : " and r.order_id=:orderId")
+                        + (includeSubscriptions ? "" : " and r.target_type='ORDER'");
         String cte = PaymentDashboardSql.CLASSIFIED.formatted(scope);
         String filter = status == null ? "" : " where operational_status=:status";
         var query =
@@ -56,13 +58,14 @@ class PaymentDashboardPersistence implements PaymentDashboardStore {
                 count(*) filter(where operational_status='SETTLED'),
                 count(*) filter(where operational_status='REVIEW_REQUIRED'),
                 count(*) filter(where operational_status='TERMINAL_UNPAID'),
-                (select count(*) from payment_reviews where organization_id=:org and status='OPEN')
+                (select count(*) from payment_reviews v join payment_requests pr on pr.id=v.payment_request_id where v.organization_id=:org and v.status='OPEN' and (:includeSubscriptions or pr.target_type='ORDER'))
             from classified
             """),
                         org,
                         purpose,
                         orderId,
                         at);
+        count.setParameter("includeSubscriptions", includeSubscriptions);
         Object[] counts = (Object[]) count.getSingleResult();
         long pending = n(counts[0]),
                 settled = n(counts[1]),

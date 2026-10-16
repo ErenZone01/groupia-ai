@@ -37,10 +37,12 @@ class GroupingCompletionMigrationTests {
                             new DriverManagerDataSource(
                                     db.getJdbcUrl(), db.getUsername(), db.getPassword()));
             var f = MerchantSettlementFixtures.seed(jdbc);
-            MerchantSettlementFixtures.settled(jdbc, f, "INITIAL_ORDER");
+            MerchantSettlementFixtures.settledBefore026(jdbc, f, "INITIAL_ORDER");
             jdbc.update(
                     "update grouping_campaigns set status='COMPLETED' where id=?", f.campaign());
-            var history = jdbc.queryForList("select * from payment_requests");
+            var history =
+                    jdbc.queryForList(
+                            "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id");
             var checksums =
                     jdbc.queryForList(
                             "select id,md5sum from databasechangelog order by orderexecuted");
@@ -49,9 +51,12 @@ class GroupingCompletionMigrationTests {
             }
             assertThat(
                             jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '025-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '025-%' and id not like '026-%' order by orderexecuted"))
                     .isEqualTo(checksums);
-            assertThat(jdbc.queryForList("select * from payment_requests")).isEqualTo(history);
+            assertThat(
+                            jdbc.queryForList(
+                                    "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id"))
+                    .isEqualTo(history);
             assertThat(
                             jdbc.queryForObject(
                                     "select completed_at from grouping_campaigns where id=?",

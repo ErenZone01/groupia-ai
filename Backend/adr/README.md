@@ -66,3 +66,5 @@ timeline privée append-only et migration historique sans perte de données.
 - [0023 — Payment Review / Duplicate Provider Success](0023-payment-review-duplicate-payin.md)
 
 - [0024 — Fin définitive des groupages](0024-grouping-completion.md)
+
+- [ADR-0025 — Groupia-managed subscription billing](0025-groupia-managed-subscription-billing.md) : factures et calendrier Groupia, charges Payment génériques, preuves et permissions.

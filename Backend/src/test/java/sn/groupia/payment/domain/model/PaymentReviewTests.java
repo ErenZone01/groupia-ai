@@ -52,7 +52,7 @@ class PaymentReviewTests {
 
     @Test
     void incidentSnapshotsSupportSameAttemptAndUnknownProviderTime() {
-        var view = review().view(UUID.randomUUID());
+        var view = review().view(PaymentTarget.order(UUID.randomUUID()));
         assertThat(view.principalPaymentId()).isEqualTo(view.anomalousPaymentId());
         assertThat(view.providerOccurredAt()).isNull();
         assertThat(view.observedAmount()).isEqualByComparingTo("1000");
@@ -65,9 +65,9 @@ class PaymentReviewTests {
         var review = review();
         UUID order = UUID.randomUUID();
         review.resolveRefunded(" REF ", " ", actor, now.plusSeconds(1));
-        var first = review.view(order);
+        var first = review.view(PaymentTarget.order(order));
         review.resolveRefunded("REF", null, UUID.randomUUID(), now.plusSeconds(20));
-        assertThat(review.view(order)).isEqualTo(first);
+        assertThat(review.view(PaymentTarget.order(order))).isEqualTo(first);
         assertThat(first.resolutionNote()).isNull();
         assertThat(first.resolvedBy()).isEqualTo(actor);
         assertThat(first.resolvedAt()).isEqualTo(now.plusSeconds(1));
@@ -81,7 +81,8 @@ class PaymentReviewTests {
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> review.resolveRefunded("REF", "other", actor, now))
                 .isInstanceOf(ApiException.class);
-        assertThat(review.view(UUID.randomUUID()).externalRefundReference()).isEqualTo("REF");
+        assertThat(review.view(PaymentTarget.order(UUID.randomUUID())).externalRefundReference())
+                .isEqualTo("REF");
     }
 
     @Test

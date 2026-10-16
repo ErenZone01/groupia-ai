@@ -39,7 +39,11 @@ import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "groupia.ordering.expiration.batch-size=1")
+@SpringBootTest(
+        properties = {
+            "groupia.ordering.expiration.batch-size=1",
+            "groupia.subscription.monthly-xof=10000"
+        })
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,
@@ -923,6 +927,150 @@ class BictorysIntegrationTests {
         assertThat(paymentStatus(id)).isEqualTo("PENDING");
         assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");
         assertThat(settlementCount()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "valid",
+                "secret",
+                "amount",
+                "currency",
+                "reference",
+                "merchant",
+                "transaction",
+                "account",
+                "reversal"
+            })
+    void subscriptionUsesStandardChargeAndCannotAffectOrderFlows(String variant) throws Exception {
+        String base = "/api/organizations/" + org + "/subscription";
+        auth(
+                        put(base + "/billing-contact"),
+                        Map.of(
+                                "name",
+                                "Billing Owner",
+                                "phoneE164",
+                                "+221771234567",
+                                "email",
+                                "billing@example.test"))
+                .andExpect(status().isOk());
+        var invoice =
+                read(
+                        auth(post(base + "/invoices").header("Idempotency-Key", key()), null)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        var before =
+                jdbc.queryForList("select to_jsonb(o)::text as value from orders o order by id");
+        var shippingBefore =
+                jdbc.queryForList(
+                        "select to_jsonb(s)::text as value from shipping_assessments s order by id");
+        var fulfillmentBefore =
+                jdbc.queryForList(
+                        "select to_jsonb(f)::text as value from order_fulfillment_events f order by id");
+        queueCharge();
+        var attempt =
+                read(
+                        auth(
+                                        post(base
+                                                        + "/invoices/"
+                                                        + invoice.path("id").asText()
+                                                        + "/payment")
+                                                .header("Idempotency-Key", key()),
+                                        Map.of("provider", "BICTORYS"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        UUID payment = UUID.fromString(attempt.path("id").asText());
+        var charge = json.readTree(http.requests.getFirst().body());
+        assertThat(charge.path("amount").decimalValue())
+                .isEqualByComparingTo(invoice.path("amount").decimalValue());
+        assertThat(charge.path("currency").asText()).isEqualTo("XOF");
+        assertThat(charge.path("paymentReference").asText())
+                .isEqualTo(invoice.path("reference").asText());
+        assertThat(charge.path("customerObject").path("name").asText()).isEqualTo("Billing Owner");
+        assertThat(charge.path("customerObject").path("phone").asText()).isEqualTo("+221771234567");
+        assertThat(count("subscription_periods")).isZero();
+        assertThat(
+                        operations
+                                .request(
+                                        org,
+                                        UUID.fromString(invoice.path("paymentRequestId").asText()))
+                                .orderId())
+                .isNull();
+        var body = json.createObjectNode();
+        body.put("id", UUID.randomUUID().toString());
+        body.put("merchantReference", merchant(payment));
+        body.put("paymentReference", invoice.path("reference").asText());
+        body.put("amount", invoice.path("amount").decimalValue());
+        body.put("currency", "XOF");
+        body.put("status", "succeeded");
+        body.put("timestamp", clock.instant().toString());
+        switch (variant) {
+            case "amount" -> body.put("amount", 1);
+            case "currency" -> body.put("currency", "EUR");
+            case "reference" -> body.put("paymentReference", "SUB-wrong");
+            case "merchant" -> body.put("merchantReference", "GP-wrong");
+            case "transaction" -> body.remove("id");
+            case "account" ->
+                    jdbc.update(
+                            "update payments set provider_account_reference='wrong-account' where id=?",
+                            payment);
+            default -> {}
+        }
+        String payload = json.writeValueAsString(body);
+        if (variant.equals("secret")) {
+            mvc.perform(
+                            post("/api/payment/webhooks/bictorys")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(payload)
+                                    .header("X-Secret-Key", "wrong"))
+                    .andExpect(status().isUnauthorized());
+        } else deliver(payload).andExpect(status().isAccepted());
+        if (variant.equals("valid") || variant.equals("reversal")) {
+            await(() -> count("subscription_periods") == 1);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select status from subscription_invoices", String.class))
+                    .isEqualTo("PAID");
+            deliver(payload).andExpect(status().isAccepted());
+            if (variant.equals("reversal")) {
+                body.put("status", "reversed");
+                deliver(json.writeValueAsString(body)).andExpect(status().isAccepted());
+            }
+            assertThat(count("subscription_periods")).isEqualTo(1);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select settled_payment_id from subscription_invoices",
+                                    UUID.class))
+                    .isEqualTo(payment);
+            assertThat(paymentStatus(payment)).isEqualTo("SUCCEEDED");
+        } else {
+            assertThat(count("subscription_periods")).isZero();
+            assertThat(paymentStatus(payment)).isEqualTo("PENDING");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select status from subscription_invoices", String.class))
+                    .isEqualTo("OPEN");
+        }
+        assertThat(http.requests)
+                .hasSize(1); // No /status, /transactions details or provider billing calls.
+        assertThat(jdbc.queryForList("select to_jsonb(o)::text as value from orders o order by id"))
+                .isEqualTo(before);
+        assertThat(
+                        jdbc.queryForList(
+                                "select to_jsonb(s)::text as value from shipping_assessments s order by id"))
+                .isEqualTo(shippingBefore);
+        assertThat(
+                        jdbc.queryForList(
+                                "select to_jsonb(f)::text as value from order_fulfillment_events f order by id"))
+                .isEqualTo(fulfillmentBefore);
+        assertThat(count("merchant_ledger_entries")).isZero();
+        assertThat(settlementCount()).isZero();
+        assertThat(
+                        applicationEvents.stream(
+                                        sn.groupia.ordering.api.event.OrderCommerciallyAccepted
+                                                .class)
+                                .count())
+                .isZero();
     }
 
     private UUID startWithKnownTransaction() throws Exception {

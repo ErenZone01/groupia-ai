@@ -47,7 +47,16 @@ public class FinancialQueries {
         if (page < 0 || page > 1000000 || size < 1 || size > 100)
             throw new ApiException(400, "INVALID_REQUEST", "Pagination invalide.");
         Instant at = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-        var result = dashboard.list(org, status, purpose, orderId, page, size, at);
+        var result =
+                dashboard.list(
+                        org,
+                        status,
+                        purpose,
+                        orderId,
+                        page,
+                        size,
+                        at,
+                        access.hasPermission(org, OrganizationPermission.VIEW_SUBSCRIPTION));
         var facts =
                 dashboard.facts(result.rows().stream().map(PaymentDashboardStore.Row::id).toList());
         var requests =
@@ -91,6 +100,12 @@ public class FinancialQueries {
         var request =
                 store.request(id)
                         .filter(r -> r.getOrganizationId().equals(org))
+                        .filter(
+                                r ->
+                                        r.getTarget().type() == PaymentTargetType.ORDER
+                                                || access.hasPermission(
+                                                        org,
+                                                        OrganizationPermission.VIEW_SUBSCRIPTION))
                         .orElseThrow(
                                 () ->
                                         new ApiException(
@@ -148,6 +163,7 @@ public class FinancialQueries {
                 classification.terminalReason(),
                 reviews.stream().filter(v -> v.getStatus() == PaymentReviewStatus.OPEN).count(),
                 risks.contains("PAYMENT_IN_PROGRESS"),
-                risks.contains("PAYMENT_RECONCILIATION_REQUIRED"));
+                risks.contains("PAYMENT_RECONCILIATION_REQUIRED"),
+                r.getTarget());
     }
 }

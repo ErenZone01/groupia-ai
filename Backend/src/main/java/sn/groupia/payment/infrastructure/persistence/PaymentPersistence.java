@@ -25,7 +25,7 @@ class PaymentPersistence implements FinancialStore {
 
     public List<PaymentRequest> allRequests(UUID org, UUID order) {
         return em.createQuery(
-                        "select r from PaymentRequest r where r.organizationId=:org and r.orderId=:order order by r.createdAt,r.id",
+                        "select r from PaymentRequest r where r.organizationId=:org and r.orderId=:order and r.targetType=sn.groupia.payment.api.PaymentTargetType.ORDER and r.purpose in (sn.groupia.payment.api.PaymentPurpose.INITIAL_ORDER,sn.groupia.payment.api.PaymentPurpose.SHIPPING_BALANCE) order by r.createdAt,r.id",
                         PaymentRequest.class)
                 .setParameter("org", org)
                 .setParameter("order", order)

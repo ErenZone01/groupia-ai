@@ -54,3 +54,11 @@ La demande expose obligation/ventilation/échéance/acceptation/settledPaymentId
 Voir [ADR-0010](../adr/0010-financial-core-and-settlement.md) et [exploitation/reprise](payment-operations.md). Shipping balance réel, remboursements et notifications restent hors périmètre. Le premier adaptateur est décrit dans le [guide Bictorys sandbox](bictorys-sandbox.md) et ADR-0012.
 
 Résultats exécutés et couverture : [validation financière](payment-validation.md).
+
+## Obligations d'abonnement (026)
+
+PaymentTarget expose ORDER ou SUBSCRIPTION_INVOICE et son UUID. SUBSCRIPTION_MONTHLY a orderId null, expectedAmount positif, les trois ventilations à zéro et expiresAt = invoice.periodEnd. Les DTO request/review exposent target ; l'UI affiche Abonnement et dirige vers /app/abonnement sans construire de lien commande nul.
+
+VIEW_PAYMENTS ne suffit pas : sans VIEW_SUBSCRIPTION, les obligations et reviews d'abonnement sont exclues AVANT pagination, agrégations et compteurs. Les détails directs sont 404. OWNER/MANAGER lisent ; OWNER seul résout une review d'abonnement avec les deux permissions MANAGE_REFUNDS et MANAGE_SUBSCRIPTION. Les classifications PENDING/SETTLED/REVIEW_REQUIRED/TERMINAL_UNPAID restent identiques.
+
+PaymentObligationSettled est publié au premier règlement de toute cible. PaymentRequestSettled historique reste inchangé et réservé à ORDER. PaymentSettlementEvidence n'expose ni PII, ni checkoutUrl, ni secret et fournit les preuves du principal. Aucun effet Order/Shipping/Distribution/Completion/MerchantLedger ne traite SUBSCRIPTION_MONTHLY.

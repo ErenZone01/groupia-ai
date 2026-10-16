@@ -65,8 +65,17 @@
           }
         </ul>
       }
-      <a gButton variant="secondary" [routerLink]="['/app/orders', request.orderId]"
-        >Voir la commande</a
+      <a
+        gButton
+        variant="secondary"
+        [routerLink]="
+          request.target?.type === 'SUBSCRIPTION_INVOICE'
+            ? ['/app/abonnement']
+            : ['/app/orders', request.orderId]
+        "
+        >{{
+          request.target?.type === 'SUBSCRIPTION_INVOICE' ? 'Voir l’abonnement' : 'Voir la commande'
+        }}</a
       >
     </section>
   }

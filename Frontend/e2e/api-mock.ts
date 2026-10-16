@@ -143,6 +143,14 @@ export async function mockApi(
         return reply(created, 201);
       }
     }
+    if (path.endsWith('/subscription/invoices')) return reply([]);
+    if (path.endsWith('/subscription/invoice-preview'))
+      return reply({
+        amount: 10000,
+        currency: 'XOF',
+        periodStart: '2099-10-01T00:00:00Z',
+        periodEnd: '2099-11-01T00:00:00Z',
+      });
     if (path.endsWith('/subscription/history')) return reply([]);
     if (path.endsWith('/subscription/billing-contact')) {
       const contact = { name: 'Boutique du Soleil', phoneE164: '+221771234567' };

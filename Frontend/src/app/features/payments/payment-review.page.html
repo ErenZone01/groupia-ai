@@ -40,8 +40,17 @@
         variant="secondary"
         [routerLink]="['/app/paiements/requests', review.paymentRequestId]"
         >Voir l’obligation</a
-      ><a gButton variant="secondary" [routerLink]="['/app/orders', review.orderId]"
-        >Voir la commande</a
+      ><a
+        gButton
+        variant="secondary"
+        [routerLink]="
+          review.target?.type === 'SUBSCRIPTION_INVOICE'
+            ? ['/app/abonnement']
+            : ['/app/orders', review.orderId]
+        "
+        >{{
+          review.target?.type === 'SUBSCRIPTION_INVOICE' ? 'Voir l’abonnement' : 'Voir la commande'
+        }}</a
       >
     </div>
     @if (review.status === 'RESOLVED_REFUNDED') {

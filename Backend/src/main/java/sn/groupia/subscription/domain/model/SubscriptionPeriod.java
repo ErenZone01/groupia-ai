@@ -19,4 +19,46 @@ public record SubscriptionPeriod(
         String providerReference,
         String status,
         Instant paidAt,
-        Instant createdAt) {}
+        Instant createdAt,
+        UUID subscriptionInvoiceId,
+        UUID paymentRequestId,
+        UUID paymentId,
+        String providerAccountReference) {
+    public SubscriptionPeriod(
+            UUID id,
+            UUID org,
+            UUID subscription,
+            String plan,
+            BigDecimal amount,
+            String currency,
+            String interval,
+            Instant start,
+            Instant end,
+            String provider,
+            String transaction,
+            String reference,
+            String status,
+            Instant paidAt,
+            Instant createdAt) {
+        this(
+                id,
+                org,
+                subscription,
+                plan,
+                amount,
+                currency,
+                interval,
+                start,
+                end,
+                provider,
+                transaction,
+                reference,
+                status,
+                paidAt,
+                createdAt,
+                null,
+                null,
+                null,
+                null);
+    }
+}

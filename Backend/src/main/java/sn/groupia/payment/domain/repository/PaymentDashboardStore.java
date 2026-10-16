@@ -14,7 +14,19 @@ public interface PaymentDashboardStore {
             UUID orderId,
             int page,
             int size,
-            Instant evaluationAt);
+            Instant evaluationAt,
+            boolean includeSubscriptions);
+
+    default Page list(
+            UUID org,
+            PaymentOperationalStatus status,
+            PaymentPurpose purpose,
+            UUID order,
+            int page,
+            int size,
+            Instant at) {
+        return list(org, status, purpose, order, page, size, at, true);
+    }
 
     Facts facts(List<UUID> requestIds);
 

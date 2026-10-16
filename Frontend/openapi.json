@@ -2710,6 +2710,315 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/subscription/invoices" : {
+      "get" : {
+        "tags" : [ "subscription-controller" ],
+        "operationId" : "listSubscriptionInvoices",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SubscriptionInvoiceView"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "subscription-controller" ],
+        "operationId" : "createSubscriptionInvoice",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 16,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SubscriptionInvoiceView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/subscription/invoices/{invoiceId}/payment" : {
+      "post" : {
+        "tags" : [ "subscription-controller" ],
+        "operationId" : "paySubscriptionInvoice",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "invoiceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 16,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubscriptionPaymentInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentAttemptView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/subscription/cancel" : {
       "post" : {
         "tags" : [ "subscription-controller" ],
@@ -7236,6 +7545,194 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/subscription/invoices/{invoiceId}" : {
+      "get" : {
+        "tags" : [ "subscription-controller" ],
+        "operationId" : "getSubscriptionInvoice",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "invoiceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SubscriptionInvoiceView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/subscription/invoice-preview" : {
+      "get" : {
+        "tags" : [ "subscription-controller" ],
+        "operationId" : "previewSubscriptionInvoice",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SubscriptionInvoicePreview"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/subscription/history" : {
       "get" : {
         "tags" : [ "subscription-controller" ],
@@ -7672,7 +8169,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "INITIAL_ORDER", "SHIPPING_BALANCE" ]
+            "enum" : [ "INITIAL_ORDER", "SHIPPING_BALANCE", "SUBSCRIPTION_MONTHLY" ]
           }
         }, {
           "name" : "orderId",
@@ -9820,10 +10317,10 @@
           "inline" : {
             "type" : "boolean"
           },
-          "attachment" : {
+          "formData" : {
             "type" : "boolean"
           },
-          "formData" : {
+          "attachment" : {
             "type" : "boolean"
           }
         }
@@ -9831,6 +10328,23 @@
       "HttpHeaders" : {
         "type" : "object",
         "properties" : {
+          "connection" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "ifModifiedSince" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "contentType" : {
+            "$ref" : "#/components/schemas/MediaType"
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "empty" : {
             "type" : "boolean"
           },
@@ -9841,6 +10355,9 @@
           "host" : {
             "type" : "object",
             "properties" : {
+              "hostString" : {
+                "type" : "string"
+              },
               "address" : {
                 "type" : "object",
                 "properties" : {
@@ -9898,9 +10415,6 @@
               },
               "hostName" : {
                 "type" : "string"
-              },
-              "hostString" : {
-                "type" : "string"
               }
             }
           },
@@ -9919,12 +10433,25 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "contentLength" : {
+          "contentDisposition" : {
+            "$ref" : "#/components/schemas/ContentDisposition"
+          },
+          "accessControlMaxAge" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ifUnmodifiedSince" : {
             "type" : "integer",
             "format" : "int64"
           },
           "cacheControl" : {
             "type" : "string"
+          },
+          "acceptLanguageAsLocales" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "accept" : {
             "type" : "array",
@@ -9944,14 +10471,8 @@
               "type" : "string"
             }
           },
-          "acceptLanguageAsLocales" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "contentDisposition" : {
-            "$ref" : "#/components/schemas/ContentDisposition"
+          "origin" : {
+            "type" : "string"
           },
           "range" : {
             "type" : "array",
@@ -9959,45 +10480,47 @@
               "$ref" : "#/components/schemas/HttpRange"
             }
           },
-          "origin" : {
-            "type" : "string"
+          "accessControlAllowCredentials" : {
+            "type" : "boolean"
           },
-          "connection" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "allow" : {
-            "uniqueItems" : true,
+          "accessControlAllowMethods" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/HttpMethod"
             }
           },
-          "etag" : {
-            "type" : "string"
-          },
-          "expires" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "ifMatch" : {
+          "accessControlAllowHeaders" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
           },
-          "pragma" : {
+          "accessControlAllowOrigin" : {
             "type" : "string"
           },
-          "upgrade" : {
-            "type" : "string"
-          },
-          "vary" : {
+          "accessControlExposeHeaders" : {
             "type" : "array",
             "items" : {
               "type" : "string"
+            }
+          },
+          "accessControlRequestHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlRequestMethod" : {
+            "$ref" : "#/components/schemas/HttpMethod"
+          },
+          "basicAuth" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "acceptPatch" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MediaType"
             }
           },
           "acceptLanguage" : {
@@ -10015,70 +10538,44 @@
               }
             }
           },
-          "acceptPatch" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/MediaType"
-            }
-          },
-          "basicAuth" : {
+          "bearerAuth" : {
             "type" : "string",
             "writeOnly" : true
           },
           "contentLanguage" : {
             "type" : "string"
           },
-          "bearerAuth" : {
-            "type" : "string",
-            "writeOnly" : true
+          "pragma" : {
+            "type" : "string"
           },
-          "ifUnmodifiedSince" : {
-            "type" : "integer",
-            "format" : "int64"
+          "etag" : {
+            "type" : "string"
           },
-          "accessControlMaxAge" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "accessControlAllowHeaders" : {
+          "vary" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
           },
-          "accessControlAllowMethods" : {
+          "allow" : {
+            "uniqueItems" : true,
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/HttpMethod"
             }
           },
-          "accessControlAllowOrigin" : {
+          "ifMatch" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "upgrade" : {
             "type" : "string"
           },
-          "accessControlRequestHeaders" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "accessControlRequestMethod" : {
-            "$ref" : "#/components/schemas/HttpMethod"
-          },
-          "accessControlAllowCredentials" : {
-            "type" : "boolean"
-          },
-          "accessControlExposeHeaders" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "ifModifiedSince" : {
+          "expires" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "contentType" : {
-            "$ref" : "#/components/schemas/MediaType"
           }
         }
       },
@@ -10110,13 +10607,13 @@
           "charset" : {
             "type" : "string"
           },
+          "concrete" : {
+            "type" : "boolean"
+          },
           "subtypeSuffix" : {
             "type" : "string"
           },
           "wildcardType" : {
-            "type" : "boolean"
-          },
-          "concrete" : {
             "type" : "boolean"
           },
           "wildcardSubtype" : {
@@ -10244,6 +10741,81 @@
           }
         }
       },
+      "SubscriptionInvoiceView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "billingPeriodKey" : {
+            "type" : "string"
+          },
+          "periodStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "periodEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "billingTimezone" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "paymentRequestId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "settledPaymentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "paidAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "paymentStatus" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "SETTLED", "REVIEW_REQUIRED", "TERMINAL_UNPAID" ]
+          },
+          "attemptInProgress" : {
+            "type" : "boolean"
+          },
+          "reconciliationRequired" : {
+            "type" : "boolean"
+          },
+          "canPay" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SubscriptionPaymentInput" : {
+        "required" : [ "provider" ],
+        "type" : "object",
+        "properties" : {
+          "provider" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
       "RefundView" : {
         "type" : "object",
         "properties" : {
@@ -10345,7 +10917,9 @@
           },
           "orderId" : {
             "type" : "string",
-            "format" : "uuid"
+            "description" : "Présent uniquement pour une cible ORDER.",
+            "format" : "uuid",
+            "nullable" : true
           },
           "principalPaymentId" : {
             "type" : "string",
@@ -10404,6 +10978,22 @@
           },
           "canResolve" : {
             "type" : "boolean"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/PaymentTarget"
+          }
+        }
+      },
+      "PaymentTarget" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "ORDER", "SUBSCRIPTION_INVOICE" ]
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -11811,6 +12401,28 @@
           }
         }
       },
+      "SubscriptionInvoicePreview" : {
+        "type" : "object",
+        "properties" : {
+          "periodStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "periodEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "billingTimezone" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          }
+        }
+      },
       "SubscriptionPeriodView" : {
         "type" : "object",
         "properties" : {
@@ -11981,11 +12593,13 @@
           },
           "orderId" : {
             "type" : "string",
-            "format" : "uuid"
+            "description" : "Présent uniquement pour une cible ORDER.",
+            "format" : "uuid",
+            "nullable" : true
           },
           "purpose" : {
             "type" : "string",
-            "enum" : [ "INITIAL_ORDER", "SHIPPING_BALANCE" ]
+            "enum" : [ "INITIAL_ORDER", "SHIPPING_BALANCE", "SUBSCRIPTION_MONTHLY" ]
           },
           "businessReference" : {
             "type" : "string"
@@ -12059,6 +12673,9 @@
           },
           "reconciliationRequired" : {
             "type" : "boolean"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/PaymentTarget"
           }
         }
       },

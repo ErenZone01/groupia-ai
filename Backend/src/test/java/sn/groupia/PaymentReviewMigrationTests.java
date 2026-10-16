@@ -38,7 +38,8 @@ class PaymentReviewMigrationTests {
                             new DriverManagerDataSource(
                                     db.getJdbcUrl(), db.getUsername(), db.getPassword()));
             var fixture = MerchantSettlementFixtures.seed(jdbc);
-            UUID request = MerchantSettlementFixtures.settled(jdbc, fixture, "INITIAL_ORDER");
+            UUID request =
+                    MerchantSettlementFixtures.settledBefore026(jdbc, fixture, "INITIAL_ORDER");
             jdbc.update(
                     """
                 insert into payment_webhook_events(id,provider,provider_account_reference,deduplication_key,
@@ -58,11 +59,24 @@ class PaymentReviewMigrationTests {
                 migrations.migrate(db, resources);
             }
             for (var entry : before.entrySet())
-                assertThat(jdbc.queryForList("select * from " + entry.getKey() + " order by id"))
+                assertThat(
+                                jdbc
+                                        .queryForList(
+                                                "select * from " + entry.getKey() + " order by id")
+                                        .stream()
+                                        .map(
+                                                row -> {
+                                                    if (entry.getKey().equals("payment_requests")) {
+                                                        row.remove("target_type");
+                                                        row.remove("target_id");
+                                                    }
+                                                    return row;
+                                                })
+                                        .toList())
                         .isEqualTo(entry.getValue());
             assertThat(
                             jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '024-%' and id not like '025-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '024-%' and id not like '025-%' and id not like '026-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThat(jdbc.queryForObject("select count(*) from payment_reviews", Long.class))
                     .isZero();

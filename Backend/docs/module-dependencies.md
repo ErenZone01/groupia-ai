@@ -23,12 +23,12 @@ Seuls api, api.dto et api.event, réunis dans l'interface nommée api, sont publ
 | ordering | organization::api, grouping::api, shipping::api, shared::api, payment::api |
 | notification | organization::api, grouping::api, ordering::api, shipping::api, payment::api |
 | audit | identity::api, organization::api, media::api, catalog::api, grouping::api, shipping::api, payment::api, ordering::api, notification::api |
-| subscription | organization::api, shared::api |
+| subscription | organization::api, payment::api, shared::api |
 
 Une autorisation n'impose pas d'ajouter la dépendance : chaque usage doit répondre au slice en cours. identity, organization, catalog, grouping, ordering et shipping utilisent shared::api pour les erreurs HTTP stables. shared fournit aussi une horloge injectable sans dépendance métier. Cette nécessité concrète est consignée dans ADR-0006 ; catalog réutilise ce contrat technique conformément à ADR-0007 ; aucune dépendance vers media n'est ajoutée dans cette tranche.
 
 L'ordre suivant démontre l'absence de cycle ; chaque dépendance pointe vers un module antérieur :
-shared, identity, organization, media, catalog, shipping, subscription, grouping, payment, ordering, notification, audit.
+shared, identity, organization, media, catalog, shipping, payment, subscription, grouping, ordering, notification, audit.
 
 organization centralise les permissions. identity ne dépend pas d'organization pour l'onboarding ; organization peut consommer un fait d'identité ou être appelé depuis un point d'entrée qu'il possède. media et catalog ne dépendent pas des modules commerciaux qui les utilisent.
 
@@ -188,7 +188,7 @@ facts historiques lors de la migration, sans couplage repository à l'exécution
 
 `subscription` est un module fermé vérifié par `ApplicationModules.verify()`.
 Dépendances autorisées : organization::api (faits minimaux de la boutique et
-permissions) et shared::api (erreurs API). `grouping` dépend uniquement de
+permissions), payment::api (obligations, preuve et événement de règlement) et shared::api (erreurs API). `grouping` dépend uniquement de
 subscription::api pour vérifier l'entitlement lors de la création et de
 l'ouverture d'un groupage. Aucun accès direct au repository subscription.
 
@@ -200,3 +200,5 @@ ou clôture des groupages déjà ouverts.
 
 [ADR-0021](../adr/0021-subscription-entitlements.md),
 [contrat](subscription-v1.md).
+
+La facturation suit ADR-0025 : aucune dépendance Payment → Subscription, ni import ni FK. Subscription porte la FK invoice → request. PaymentRequestSettled reste réservé à ORDER ; PaymentObligationSettled est générique.

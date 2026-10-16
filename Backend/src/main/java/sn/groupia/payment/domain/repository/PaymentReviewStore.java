@@ -23,7 +23,12 @@ public interface PaymentReviewStore {
             PaymentReviewStatus status,
             UUID paymentRequestId,
             int page,
-            int size);
+            int size,
+            boolean includeSubscriptions);
+
+    default Page list(UUID org, PaymentReviewStatus status, UUID request, int page, int size) {
+        return list(org, status, request, page, size, true);
+    }
 
     record Page(List<PaymentReview> items, long total) {}
 }

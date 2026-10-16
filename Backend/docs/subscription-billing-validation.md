@@ -22,7 +22,26 @@ La page propose un paiement volontaire par facture, affiche attente/vérificatio
 
 ## Tests et contrôles
 
-Résultats finaux à compléter après la fin des commandes en cours.
+Validation finale du 16 octobre 2026 :
+
+| Contrôle | Résultat |
+| --- | --- |
+| `Backend/mvnw.cmd test` | PASS — 963 tests, 0 échec, 0 erreur, 0 ignoré |
+| `Backend/mvnw.cmd verify` | PASS — 963 tests, 0 échec, 0 erreur, 0 ignoré ; JAR produit |
+| `ApplicationModules.verify()` | PASS dans les deux suites ; 3 tests Modulith |
+| Spotless | PASS dans `verify` |
+| `Frontend/npm run lint` | PASS |
+| `Frontend/npm test` | PASS — 335 tests, 34 fichiers |
+| `Frontend/npm run build` | PASS — build production |
+| `Frontend/npm run test:e2e` | PASS — 175 scénarios |
+| Playwright abonnement/dashboard après les dernières corrections | PASS — 26 scénarios |
+| `python tools/check_migrations.py` | PASS — 22 migrations couvertes par le guard historique |
+| `python -m unittest discover -s tools -p "test_*.py"` | PASS — 4 tests |
+| Comparaison Git des migrations 001–025 | PASS — 25 blobs identiques à la base |
+| `python tools/scan_secrets.py` | PASS — 0 finding |
+| `git diff --check` | PASS |
+
+Les deux défauts de tests révélés lors de la relance intermédiaire sont corrigés : comparaison des anciennes colonnes séparée de la vérification des nouvelles cibles, et assertions du modèle non persisté sans demander une version JPA. La dernière exécution complète de `test` puis `verify` est verte sans exclusion. Les journaux locaux sont `Backend/target/subscription-validated-test.log`, `Backend/target/subscription-validated-verify.log`, `Frontend/unit-final.log`, `Frontend/build-final.log`, `Frontend/e2e-final.log` et `Frontend/e2e-subscription-final.log` ; ils ne sont pas versionnés.
 
 Les tests couvrent notamment calendrier/DST, concurrence des factures, replay des événements, succès/doublons/tardifs/reversal Bictorys, preuves incompatibles, permissions, snapshots, migration depuis 025, conservation des historiques, parité du dashboard, absence d'effets métier Order, navigation concurrente et timeout, parcours mobile et clavier.
 
@@ -49,6 +68,8 @@ Les chemins Java ci-dessus sont relatifs à `Backend/src/main/java/sn/groupia/` 
 
 ## Dépendances et limites
 
-Aucune nouvelle dépendance Maven/npm. Client Angular régénéré depuis l'OpenAPI Spring, sans DTO dupliqué à la main. Historique V1 non paginé ; à mesurer avant gros volume. Clés frontend en mémoire dans la session ; après reload, reprise depuis la facture serveur et les protections Payment. Aucun appel réel facturant le sandbox n'est exécuté par les tests automatisés : ils utilisent l'adapter réel avec un serveur HTTP de test. Credentials production et validation de déploiement restent une étape distincte.
+Aucune nouvelle dépendance Maven/npm. Client Angular régénéré depuis l'OpenAPI Spring, sans DTO dupliqué à la main. Historique V1 non paginé ; à mesurer avant gros volume. Clés frontend en mémoire dans la session ; après reload, reprise depuis la facture serveur et les protections Payment. Aucun appel réel facturant le sandbox n'est exécuté par les tests automatisés : ils utilisent l'adapter réel avec un serveur HTTP de test. Credentials production et validation de déploiement restent une étape distincte. Le build Angular conserve quatre avertissements NG8107 préexistants dans `shipping-order-editor.html`.
 
 Les contrôles Git portent sur les blobs 001–025 identiques à la base ; les fins de ligne du checkout Windows préexistantes ne sont pas réécrites. main doit rester à la base ci-dessus ; commit/push uniquement de subscription-billing-v1.
+
+L'implémentation est enregistrée dans `fc90a211e22ef6a1a87a8660b3a5386904eb3ea2` : 128 fichiers modifiés ou créés, sans changement de manifeste de dépendances. Le présent rapport est finalisé dans un commit documentaire supplémentaire sur la même branche. Aucun merge de cette tranche dans main.

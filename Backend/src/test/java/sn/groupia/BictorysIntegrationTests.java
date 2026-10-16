@@ -39,7 +39,11 @@ import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "groupia.ordering.expiration.batch-size=1")
+@SpringBootTest(
+        properties = {
+            "groupia.ordering.expiration.batch-size=1",
+            "groupia.subscription.monthly-xof=10000"
+        })
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,

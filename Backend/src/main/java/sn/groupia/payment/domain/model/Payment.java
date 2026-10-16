@@ -100,7 +100,7 @@ public class Payment {
 
     public void checkoutContext(PaymentCheckoutContext context) {
         if (context != null) {
-            paymentReference = context.orderNumber();
+            paymentReference = context.businessReference();
         }
     }
 
@@ -209,7 +209,8 @@ public class Payment {
                 currency,
                 paymentReference == null
                         ? null
-                        : new PaymentCheckoutContext(paymentReference, null, null, null));
+                        : new PaymentCheckoutContext(paymentReference, null, null, null),
+                r.getTarget());
     }
 
     public PaymentAttemptView view() {

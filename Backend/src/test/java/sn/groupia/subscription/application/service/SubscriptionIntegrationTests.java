@@ -9,15 +9,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,8 +40,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import sn.groupia.organization.api.event.OrganizationCreated;
+import sn.groupia.payment.api.*;
+import sn.groupia.payment.api.dto.*;
+import sn.groupia.payment.api.event.*;
+import sn.groupia.payment.application.service.PaymentWebhooks;
+import sn.groupia.payment.domain.service.*;
 import sn.groupia.subscription.api.SubscriptionAccessReason;
 import sn.groupia.subscription.api.SubscriptionStatus;
+import sn.groupia.subscription.api.dto.SubscriptionInvoiceView;
 import sn.groupia.subscription.domain.repository.SubscriptionStore;
 import tools.jackson.databind.ObjectMapper;
 
@@ -63,13 +70,15 @@ class SubscriptionIntegrationTests {
     @Autowired JwtEncoder encoder;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @Autowired Clock clock;
+    @Autowired BillingClock clock;
+    @Autowired PaymentWebhooks webhooks;
+    @Autowired PaymentOperations operations;
     @Autowired SubscriptionProvisioning provisioning;
     @Autowired SubscriptionEntitlementService entitlements;
     @Autowired SubscriptionPaymentRecorder payments;
     @Autowired SubscriptionStore subscriptions;
     @Autowired SubscriptionCreatedListener listener;
-    @Autowired FakeBillingProvider provider;
+    @Autowired ChargeProvider provider;
 
     private UUID organizationId;
     private UUID ownerId;
@@ -77,6 +86,7 @@ class SubscriptionIntegrationTests {
 
     @BeforeEach
     void setup() {
+        clock.reset();
         Instant now = clock.instant();
         organizationId = UUID.randomUUID();
         ownerId = account(now);
@@ -182,285 +192,554 @@ class SubscriptionIntegrationTests {
     }
 
     @Test
-    void enabledProviderCanOnlyConfigureSubscriptionAndNeverCreatesPaidAccess() throws Exception {
-        completeBillingContact();
-        mvc.perform(
-                        post(subscriptionPath() + "/start")
-                                .header("Authorization", "Bearer " + ownerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.access.status").value("TRIALING"))
-                .andExpect(jsonPath("$.access.canStartNewBusiness").value(true))
-                .andExpect(jsonPath("$.access.currentPeriodEndsAt").doesNotExist())
-                .andExpect(jsonPath("$.billingProviderSetupPending").value(false));
-        assertThat(provider.createCalls()).isEqualTo(1);
-        assertThat(
-                        jdbc.queryForObject(
-                                "select count(*) from subscription_periods where organization_id=?",
-                                Integer.class,
-                                organizationId))
-                .isZero();
-
-        mvc.perform(
-                        post(subscriptionPath() + "/start")
-                                .header("Authorization", "Bearer " + ownerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.access.status").value("TRIALING"));
-        assertThat(provider.createCalls()).isEqualTo(1);
+    void retiredProviderRoutesNeverCreatePaidAccess() throws Exception {
+        for (String route : List.of("/start", "/cancel"))
+            mvc.perform(
+                            post(subscriptionPath() + route)
+                                    .header("Authorization", "Bearer " + ownerToken))
+                    .andExpect(status().isGone())
+                    .andExpect(jsonPath("$.code").value("SUBSCRIPTION_PROVIDER_BILLING_RETIRED"));
+        assertThat(provider.calls.get()).isZero();
+        assertThat(subscriptions.history(organizationId)).isEmpty();
     }
 
     @Test
-    void concurrentProviderSetupRequestsUseOneClaimAndOneProviderCall() throws Exception {
+    void concurrentInvoiceCreationUsesOneObligationAndStableKey() throws Exception {
         completeBillingContact();
-        var start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var first =
-                    executor.submit(
+        String key = UUID.randomUUID().toString();
+        var latch = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var a =
+                    pool.submit(
                             () -> {
-                                start.await();
-                                return mvc.perform(
-                                                post(subscriptionPath() + "/start")
-                                                        .header(
-                                                                "Authorization",
-                                                                "Bearer " + ownerToken))
-                                        .andReturn()
-                                        .getResponse()
-                                        .getStatus();
+                                latch.await();
+                                return create(key);
                             });
-            var second =
-                    executor.submit(
+            var b =
+                    pool.submit(
                             () -> {
-                                start.await();
-                                return mvc.perform(
-                                                post(subscriptionPath() + "/start")
-                                                        .header(
-                                                                "Authorization",
-                                                                "Bearer " + ownerToken))
-                                        .andReturn()
-                                        .getResponse()
-                                        .getStatus();
+                                latch.await();
+                                return create(key);
                             });
-            start.countDown();
-            assertThat(List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS)))
-                    .containsOnly(200);
+            latch.countDown();
+            assertThat(a.get(20, TimeUnit.SECONDS).id())
+                    .isEqualTo(b.get(20, TimeUnit.SECONDS).id());
         }
-        assertThat(provider.createCalls()).isEqualTo(1);
-        assertThat(entitlements.access(organizationId).status())
-                .isEqualTo(SubscriptionStatus.TRIALING);
-    }
-
-    @Test
-    void verifiedPaidPeriodActivatesAccessAndDuplicateEvidenceDoesNotExtendTwice() {
-        Instant old = clock.instant().minusSeconds(60L * 60 * 24 * 40);
-        organizationId = createOrganization(old);
-        provisioning.ensure(organizationId);
-        jdbc.update(
-                """
-                update organization_subscriptions
-                   set trial_started_at=current_timestamp - interval '2 months',
-                       trial_ends_at=current_timestamp - interval '1 month'
-                 where organization_id=?
-                """,
-                organizationId);
-        var evidence =
-                new VerifiedSubscriptionPayment(
-                        "TEST",
-                        "transaction-1",
-                        "invoice-1",
-                        new BigDecimal("1234"),
-                        "XOF",
-                        clock.instant());
-
-        payments.recordVerifiedPayment(organizationId, evidence);
-        var firstEnd = entitlements.access(organizationId).currentPeriodEndsAt();
-        assertThat(entitlements.access(organizationId).status())
-                .isEqualTo(SubscriptionStatus.ACTIVE);
-
-        payments.recordVerifiedPayment(organizationId, evidence);
+        var first = create(key);
+        clock.advance(Duration.ofDays(100));
+        assertThat(create(key).id()).isEqualTo(first.id());
         assertThat(
                         jdbc.queryForObject(
-                                "select count(*) from subscription_periods where organization_id=?",
+                                "select count(*) from subscription_invoices where organization_id=?",
                                 Integer.class,
                                 organizationId))
                 .isEqualTo(1);
-        assertThat(entitlements.access(organizationId).currentPeriodEndsAt()).isEqualTo(firstEnd);
+        assertThat(provider.calls.get()).isZero();
     }
 
     @Test
-    void standardMonthlyPaymentUsesOneCalendarMonthEvenWithTwoMonthTrialAtMonthEnd() {
-        var zone = ZoneId.of("Africa/Dakar");
-        Instant organizationCreated = clock.instant().minusSeconds(60L * 60 * 24 * 40);
-        organizationId = createOrganization(organizationCreated);
-        var subscription = provisioning.ensure(organizationId);
-        var migrationCutover = subscriptions.migrationAppliedAt().orElseThrow();
-        assertThat(subscription.trialEndsAt())
-                .isEqualTo(migrationCutover.atZone(zone).plusMonths(2).toInstant());
-        jdbc.update(
-                """
-                update organization_subscriptions
-                   set trial_started_at=current_timestamp - interval '2 months',
-                       trial_ends_at=current_timestamp - interval '1 month'
-                 where organization_id=?
-                """,
-                organizationId);
-
-        Instant paidAt = Instant.parse("2027-01-31T12:00:00Z");
-        var evidence =
-                new VerifiedSubscriptionPayment(
-                        "TEST",
-                        "month-end-transaction",
-                        "month-end-invoice",
-                        new BigDecimal("1234"),
-                        "XOF",
-                        paidAt);
-        payments.recordVerifiedPayment(organizationId, evidence);
-
+    void verifiedPaidPeriodActivatesAccessAndDuplicateEvidenceDoesNotExtendTwice()
+            throws Exception {
+        expireTrial();
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        var attempt = pay(invoice);
+        var observation = provider.success(attempt.id(), "TX-" + UUID.randomUUID());
+        receive(observation);
+        receive(observation);
+        awaitPaid(invoice);
+        assertThat(subscriptions.history(organizationId)).hasSize(1);
+        assertThat(entitlements.access(organizationId).status())
+                .isEqualTo(SubscriptionStatus.ACTIVE);
+        var proof = operations.settlementEvidence(organizationId, invoice.paymentRequestId());
+        var event =
+                new PaymentObligationSettled(
+                        UUID.randomUUID(),
+                        proof.confirmedAt(),
+                        organizationId,
+                        proof.target(),
+                        proof.paymentRequestId(),
+                        proof.paymentId(),
+                        proof.purpose(),
+                        proof.amount(),
+                        proof.currency());
+        for (int n = 0; n < 20; n++) payments.record(event);
+        assertThat(subscriptions.history(organizationId)).hasSize(1);
+        assertThatThrownBy(
+                        () ->
+                                payments.record(
+                                        new PaymentObligationSettled(
+                                                UUID.randomUUID(),
+                                                proof.confirmedAt(),
+                                                organizationId,
+                                                proof.target(),
+                                                proof.paymentRequestId(),
+                                                proof.paymentId(),
+                                                proof.purpose(),
+                                                BigDecimal.ONE,
+                                                proof.currency())))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(
                         jdbc.queryForObject(
-                                        """
-                select period_start from subscription_periods where organization_id=?
-                """,
-                                        java.sql.Timestamp.class,
-                                        organizationId)
-                                .toInstant())
-                .isEqualTo(paidAt);
+                                "select count(*) from merchant_ledger_entries where organization_id=?",
+                                Integer.class,
+                                organizationId))
+                .isZero();
         assertThat(
                         jdbc.queryForObject(
-                                        """
-                select period_end from subscription_periods where organization_id=?
-                """,
-                                        java.sql.Timestamp.class,
-                                        organizationId)
-                                .toInstant())
-                .isEqualTo(paidAt.atZone(zone).plusMonths(1).toInstant())
-                .isEqualTo(Instant.parse("2027-02-28T12:00:00Z"));
+                                "select count(*) from orders where organization_id=?",
+                                Integer.class,
+                                organizationId))
+                .isZero();
+    }
+
+    @Test
+    void standardMonthlyPaymentUsesOneCalendarMonthEvenWithTwoMonthTrialAtMonthEnd()
+            throws Exception {
+        expireTrial();
+        completeBillingContact();
+        clock.at(Instant.parse("2027-01-31T12:00:00Z"));
+        var invoice = create(UUID.randomUUID().toString());
+        assertThat(invoice.periodStart()).isEqualTo(clock.instant());
+        assertThat(invoice.periodEnd()).isEqualTo(Instant.parse("2027-02-28T12:00:00Z"));
+        var attempt = pay(invoice);
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        awaitPaid(invoice);
+        assertThat(subscriptions.history(organizationId).getFirst().periodEnd())
+                .isEqualTo(invoice.periodEnd());
     }
 
     @Test
     void concurrentDuplicatePaymentCallbacksAppendOnlyOnePaidPeriod() throws Exception {
-        Instant old = clock.instant().minusSeconds(60L * 60 * 24 * 40);
-        organizationId = createOrganization(old);
-        provisioning.ensure(organizationId);
-        var evidence =
-                new VerifiedSubscriptionPayment(
-                        "TEST",
-                        "transaction-race",
-                        "invoice-race",
-                        new BigDecimal("1234"),
-                        "XOF",
-                        clock.instant());
-        var start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var first =
-                    executor.submit(
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        var attempt = pay(invoice);
+        var proof = provider.success(attempt.id(), "TX-" + UUID.randomUUID());
+        var latch = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var a =
+                    pool.submit(
                             () -> {
-                                start.await();
-                                payments.recordVerifiedPayment(organizationId, evidence);
-                                return true;
+                                latch.await();
+                                return receive(proof);
                             });
-            var second =
-                    executor.submit(
+            var b =
+                    pool.submit(
                             () -> {
-                                start.await();
-                                payments.recordVerifiedPayment(organizationId, evidence);
-                                return true;
+                                latch.await();
+                                return receive(proof);
                             });
-            start.countDown();
-            first.get(20, TimeUnit.SECONDS);
-            second.get(20, TimeUnit.SECONDS);
+            latch.countDown();
+            assertThat(a.get(20, TimeUnit.SECONDS)).isEqualTo(b.get(20, TimeUnit.SECONDS));
         }
-        assertThat(
-                        jdbc.queryForObject(
-                                "select count(*) from subscription_periods where organization_id=?",
-                                Integer.class,
-                                organizationId))
-                .isEqualTo(1);
+        awaitPaid(invoice);
+        assertThat(subscriptions.history(organizationId)).hasSize(1);
     }
 
     @Test
-    void cancellationReplayPreservesTrialAccessAndManagerCannotManageBilling() throws Exception {
+    void managerReadsButCannotCreateOrPayAndViewerCannotReadFinancialDetails() throws Exception {
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        jdbc.update(
+                "update organization_members set role='MANAGER' where organization_id=?",
+                organizationId);
         mvc.perform(
-                        post(subscriptionPath() + "/cancel")
+                        get(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices/" + invoice.id() + "/payment")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"provider\":\"TEST_BILLING\"}"))
+                .andExpect(status().isForbidden());
+        jdbc.update(
+                "update organization_members set role='VIEWER' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        get("/api/organizations/"
+                                        + organizationId
+                                        + "/payment-requests/"
+                                        + invoice.paymentRequestId())
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNotFound());
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-requests")
                                 .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.access.status").value("TRIALING"))
-                .andExpect(jsonPath("$.access.canStartNewBusiness").value(true));
-        var canceledAt =
-                jdbc.queryForObject(
-                                "select canceled_at from organization_subscriptions where organization_id=?",
-                                java.sql.Timestamp.class,
-                                organizationId)
-                        .toInstant();
-        mvc.perform(
-                        post(subscriptionPath() + "/cancel")
-                                .header("Authorization", "Bearer " + ownerToken))
-                .andExpect(status().isOk());
-        assertThat(
-                        jdbc.queryForObject(
-                                        "select canceled_at from organization_subscriptions where organization_id=?",
-                                        java.sql.Timestamp.class,
-                                        organizationId)
-                                .toInstant())
-                .isEqualTo(canceledAt);
-
-        UUID manager = account(clock.instant());
-        jdbc.update(
-                """
-                insert into organization_members(id,organization_id,user_account_id,role,status,joined_at)
-                values (?,?,?,'MANAGER','ACTIVE',?)
-                """,
-                UUID.randomUUID(),
-                organizationId,
-                manager,
-                java.sql.Timestamp.from(clock.instant()));
-        String managerToken = token(manager);
-        mvc.perform(get(subscriptionPath()).header("Authorization", "Bearer " + managerToken))
-                .andExpect(status().isOk());
-        mvc.perform(
-                        post(subscriptionPath() + "/cancel")
-                                .header("Authorization", "Bearer " + managerToken))
-                .andExpect(status().isForbidden());
-        mvc.perform(
-                        put(subscriptionPath() + "/billing-contact")
-                                .header("Authorization", "Bearer " + managerToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(contactInput())))
-                .andExpect(status().isForbidden());
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     @Test
     void unavailableProviderLeavesTrialAndEntitlementUsable() throws Exception {
-        provider.setAvailable(false);
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
         mvc.perform(
-                        post(subscriptionPath() + "/start")
-                                .header("Authorization", "Bearer " + ownerToken))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("SUBSCRIPTION_BILLING_UNAVAILABLE"));
+                        post(subscriptionPath() + "/invoices/" + invoice.id() + "/payment")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"provider\":\"MISSING\"}"))
+                .andExpect(status().isServiceUnavailable());
         assertThat(entitlements.access(organizationId).status())
                 .isEqualTo(SubscriptionStatus.TRIALING);
-        assertThat(entitlements.access(organizationId).canStartNewBusiness()).isTrue();
-        assertThat(provider.createCalls()).isZero();
+        assertThat(subscriptions.history(organizationId)).isEmpty();
     }
 
     @Test
-    void frontendCannotForgeBillingAuthorityAndPaidPeriodHistoryCannotBeChanged() {
+    void futurePeriodAndCheckoutNeverGrantEarlyAccessAndSuspensionSurvivesPayment()
+            throws Exception {
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        assertThat(invoice.periodStart())
+                .isEqualTo(provisioning.ensure(organizationId).trialEndsAt());
+        var attempt = pay(invoice);
+        assertThat(subscriptions.history(organizationId)).isEmpty();
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        awaitPaid(invoice);
+        assertThat(entitlements.access(organizationId).status())
+                .isEqualTo(SubscriptionStatus.TRIALING);
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict());
+        clock.at(invoice.periodStart().plusSeconds(1));
+        assertThat(entitlements.access(organizationId).status())
+                .isEqualTo(SubscriptionStatus.ACTIVE);
+        var next = create(UUID.randomUUID().toString());
+        assertThat(next.periodStart()).isEqualTo(invoice.periodEnd());
+        jdbc.update(
+                "update organization_subscriptions set status='SUSPENDED' where organization_id=?",
+                organizationId);
+        var second = pay(next);
+        receive(provider.success(second.id(), "TX-" + UUID.randomUUID()));
+        awaitPaid(next);
+        assertThat(entitlements.access(organizationId).status())
+                .isEqualTo(SubscriptionStatus.SUSPENDED);
+        assertThat(subscriptions.history(organizationId)).hasSize(2);
+    }
+
+    @Test
+    void frontendCannotForgeBillingAuthorityAndPaidPeriodHistoryCannotBeChanged() throws Exception {
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        var attempt = pay(invoice);
+        var good = provider.success(attempt.id(), "TX-" + UUID.randomUUID());
+        for (String field : List.of("amount", "currency", "reference", "account", "transaction")) {
+            var bad =
+                    new ProviderObservation(
+                            good.provider(),
+                            field.equals("account") ? "wrong" : good.providerAccountReference(),
+                            good.merchantReference(),
+                            field.equals("transaction") ? null : good.providerTransactionId(),
+                            null,
+                            null,
+                            null,
+                            field.equals("amount") ? BigDecimal.ONE : good.amount(),
+                            field.equals("currency") ? "EUR" : "XOF",
+                            PaymentStatus.SUCCEEDED,
+                            clock.instant(),
+                            new ProviderMetadata(
+                                    field.equals("reference") ? "wrong" : invoice.reference(),
+                                    null,
+                                    null,
+                                    null));
+            receive(bad);
+            assertThat(subscriptions.history(organizationId)).isEmpty();
+        }
+        receive(good);
+        awaitPaid(invoice);
         assertThatThrownBy(
                         () ->
-                                payments.recordVerifiedPayment(
-                                        organizationId,
-                                        new VerifiedSubscriptionPayment(
-                                                "TEST",
-                                                "bad-amount",
-                                                "bad-invoice",
-                                                new BigDecimal("1"),
-                                                "XOF",
-                                                clock.instant())))
-                .isInstanceOf(IllegalArgumentException.class);
+                                jdbc.update(
+                                        "update subscription_periods set amount=1 where organization_id=?",
+                                        organizationId))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "update subscription_invoices set amount=1 where id=?",
+                                        invoice.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void duplicateDebitCreatesReviewNotAnotherMonthAndManagerCannotResolveIt() throws Exception {
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        var attempt = pay(invoice);
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        awaitPaid(invoice);
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        assertThat(subscriptions.history(organizationId)).hasSize(1);
+        UUID review =
+                jdbc.queryForObject(
+                        "select id from payment_reviews where organization_id=?",
+                        UUID.class,
+                        organizationId);
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-reviews/" + review)
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canResolve").value(true));
+        jdbc.update(
+                "update organization_members set role='MANAGER' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-reviews/" + review)
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canResolve").value(false));
+        jdbc.update(
+                "update organization_members set role='VIEWER' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-reviews/" + review)
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void expiredInvoiceCannotGrantHistoryAndLongLapseRestartsNow() throws Exception {
+        expireTrial();
+        completeBillingContact();
+        var old = create(UUID.randomUUID().toString());
+        var attempt = pay(old);
+        clock.at(old.periodEnd().plus(Duration.ofDays(40)));
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        assertThat(subscriptions.history(organizationId)).isEmpty();
+        assertThat(operations.request(organizationId, old.paymentRequestId()).settledPaymentId())
+                .isNull();
+        var current = create(UUID.randomUUID().toString());
+        assertThat(current.periodStart()).isEqualTo(clock.instant());
+        assertThat(current.periodEnd())
+                .isEqualTo(
+                        clock.instant()
+                                .atZone(ZoneId.of("Africa/Dakar"))
+                                .plusMonths(1)
+                                .toInstant());
         assertThat(
                         jdbc.queryForObject(
-                                "select count(*) from subscription_periods where organization_id=?",
-                                Integer.class,
-                                organizationId))
-                .isZero();
+                                "select status from subscription_invoices where id=?",
+                                String.class,
+                                old.id()))
+                .isEqualTo("EXPIRED");
+    }
+
+    @Test
+    void invoiceRetainsPriceAndContactWhenConfigurationChanges() throws Exception {
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        var old = settings.getMonthlyXof();
+        settings.setMonthlyXof("9999");
+        try {
+            mvc.perform(
+                            put(subscriptionPath() + "/billing-contact")
+                                    .header("Authorization", "Bearer " + ownerToken)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            "{\"name\":\"Changed\",\"phoneE164\":\"+221771111111\"}"))
+                    .andExpect(status().isOk());
+            var attempt = pay(invoice);
+            var instruction = provider.instructions.get(attempt.id());
+            assertThat(instruction.amount()).isEqualByComparingTo("1234");
+            assertThat(instruction.checkout().phone()).isEqualTo("+221771234567");
+            receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+            awaitPaid(invoice);
+            assertThat(subscriptions.history(organizationId).getFirst().amount())
+                    .isEqualByComparingTo("1234");
+        } finally {
+            settings.setMonthlyXof(old);
+        }
+    }
+
+    @Test
+    void invalidCommandsCannotCreateFinancialAuthorityOrCrossOrganizationAccess() throws Exception {
+        completeBillingContact();
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", "short"))
+                .andExpect(status().isBadRequest());
+        var invoice = create(UUID.randomUUID().toString());
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices/" + invoice.id() + "/payment")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"provider\":\"TEST_BILLING\",\"amount\":1}"))
+                .andExpect(status().isBadRequest());
+        UUID other = createOrganization(clock.instant());
+        mvc.perform(
+                        get("/api/organizations/"
+                                        + other
+                                        + "/subscription/invoices/"
+                                        + invoice.id())
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNotFound());
+        assertThat(provider.calls.get()).isZero();
+        assertThat(subscriptions.history(organizationId)).isEmpty();
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-requests")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        jdbc.update(
+                "update organization_members set role='MANAGER' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-requests")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        jdbc.update(
+                "update organization_members set role='OPERATOR' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-requests")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void managerCannotResolveSubscriptionReviewAndViewerListHidesIt() throws Exception {
+        completeBillingContact();
+        var invoice = create(UUID.randomUUID().toString());
+        var attempt = pay(invoice);
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        awaitPaid(invoice);
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        UUID review =
+                jdbc.queryForObject(
+                        "select id from payment_reviews where organization_id=?",
+                        UUID.class,
+                        organizationId);
+        jdbc.update(
+                "update organization_members set role='MANAGER' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        post("/api/organizations/"
+                                        + organizationId
+                                        + "/payment-reviews/"
+                                        + review
+                                        + "/resolve-refunded")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"externalRefundReference\":\"EXT-TEST\",\"resolutionNote\":\"Verified receipt\"}"))
+                .andExpect(status().isForbidden());
+        jdbc.update(
+                "update organization_members set role='VIEWER' where organization_id=?",
+                organizationId);
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-reviews")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(
+                        get("/api/organizations/" + organizationId + "/payment-requests")
+                                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.openReviews").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from payment_reviews where id=?",
+                                String.class,
+                                review))
+                .isEqualTo("OPEN");
+    }
+
+    @Test
+    void historicalOrderEventAndPersistedProviderEvidenceRemainReadable() {
+        UUID id = UUID.randomUUID();
+        String legacy =
+                """
+            {"eventId":"%s","occurredAt":"2026-10-01T00:00:00Z","organizationId":"%s","orderId":"%s","paymentRequestId":"%s","paymentId":"%s","purpose":"INITIAL_ORDER","amount":1000,"currency":"XOF"}
+            """
+                        .formatted(id, id, id, id, id);
+        var event = json.readValue(legacy, PaymentRequestSettled.class);
+        assertThat(event.orderId()).isEqualTo(id);
+        assertThat(event.purpose()).isEqualTo(PaymentPurpose.INITIAL_ORDER);
+        assertThat(json.readTree(json.writeValueAsString(event)).size()).isEqualTo(9);
+        var observation =
+                json.readValue(
+                        """
+            {"provider":"LEGACY","merchantReference":"GP-old","providerTransactionId":"TX-old","paymentRequestId":"%s","orderId":"%s","purpose":"INITIAL_ORDER","amount":1000,"currency":"XOF","status":"SUCCEEDED","occurredAt":"2026-10-01T00:00:00Z"}
+            """
+                                .formatted(id, id),
+                        ProviderObservation.class);
+        assertThat(observation.target()).isEqualTo(PaymentTarget.order(id));
+        assertThat(observation.orderId()).isEqualTo(id);
+    }
+
+    @Autowired SubscriptionSettings settings;
+
+    private SubscriptionInvoiceView create(String key) throws Exception {
+        return json.readValue(
+                mvc.perform(
+                                post(subscriptionPath() + "/invoices")
+                                        .header("Authorization", "Bearer " + ownerToken)
+                                        .header("Idempotency-Key", key))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(),
+                SubscriptionInvoiceView.class);
+    }
+
+    private PaymentAttemptView pay(SubscriptionInvoiceView invoice) throws Exception {
+        return json.readValue(
+                mvc.perform(
+                                post(subscriptionPath() + "/invoices/" + invoice.id() + "/payment")
+                                        .header("Authorization", "Bearer " + ownerToken)
+                                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"provider\":\"TEST_BILLING\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(),
+                PaymentAttemptView.class);
+    }
+
+    private UUID receive(ProviderObservation o) {
+        return webhooks.receive(
+                provider.name(),
+                json.writeValueAsBytes(o),
+                Map.of("X-Test-Secret", provider.secret));
+    }
+
+    private void awaitPaid(SubscriptionInvoiceView invoice) {
+        await().atMost(Duration.ofSeconds(15))
+                .untilAsserted(
+                        () ->
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "select status from subscription_invoices where id=?",
+                                                        String.class,
+                                                        invoice.id()))
+                                        .isEqualTo("PAID"));
+    }
+
+    private void expireTrial() {
+        provisioning.ensure(organizationId);
+        jdbc.update(
+                "update organization_subscriptions set trial_started_at=?,trial_ends_at=? where organization_id=?",
+                java.sql.Timestamp.from(clock.instant().minus(Duration.ofDays(90))),
+                java.sql.Timestamp.from(clock.instant().minus(Duration.ofDays(60))),
+                organizationId);
     }
 
     private void completeBillingContact() throws Exception {
@@ -566,49 +845,132 @@ class SubscriptionIntegrationTests {
     static class ProviderConfiguration {
         @Bean
         @Primary
-        FakeBillingProvider fakeSubscriptionBillingProvider() {
-            return new FakeBillingProvider();
+        BillingClock billingClock() {
+            return new BillingClock();
+        }
+
+        @Bean
+        ChargeProvider chargeProvider(ObjectMapper json, BillingClock clock) {
+            return new ChargeProvider(json, clock);
         }
     }
 
-    static class FakeBillingProvider implements SubscriptionBillingProvider {
-        private final AtomicBoolean available = new AtomicBoolean(true);
-        private final AtomicInteger createCalls = new AtomicInteger();
+    static class BillingClock extends Clock {
+        private volatile Instant at =
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
 
-        @Override
-        public boolean available() {
-            return available.get();
+        void reset() {
+            at = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        }
+
+        void at(Instant value) {
+            at = value;
+        }
+
+        void advance(Duration duration) {
+            at = at.plus(duration);
         }
 
         @Override
-        public ProviderSetup createCustomerAndSubscription(ProviderSetupRequest request) {
-            createCalls.incrementAndGet();
-            try {
-                Thread.sleep(150);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(ex);
-            }
-            return new ProviderSetup(
-                    "TEST",
-                    "customer-" + request.idempotencyKey(),
-                    "subscription-" + request.idempotencyKey());
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
         }
 
         @Override
-        public void cancelSubscription(String customerId, String subscriptionId) {}
-
-        int createCalls() {
-            return createCalls.get();
+        public Clock withZone(ZoneId zone) {
+            return this;
         }
 
-        void setAvailable(boolean value) {
-            available.set(value);
+        @Override
+        public Instant instant() {
+            return at;
+        }
+    }
+
+    static class ChargeProvider implements PaymentProvider {
+        final ObjectMapper json;
+        final BillingClock clock;
+        final String secret = UUID.randomUUID().toString();
+        final AtomicInteger calls = new AtomicInteger();
+        final Map<UUID, ProviderInstruction> instructions =
+                new java.util.concurrent.ConcurrentHashMap<>();
+
+        ChargeProvider(ObjectMapper json, BillingClock clock) {
+            this.json = json;
+            this.clock = clock;
         }
 
         void reset() {
-            available.set(true);
-            createCalls.set(0);
+            instructions.clear();
+            calls.set(0);
+        }
+
+        public String name() {
+            return "TEST_BILLING";
+        }
+
+        public String accountReference() {
+            return "sandbox";
+        }
+
+        public WebhookSuccessEvidence webhookSuccessEvidence() {
+            return WebhookSuccessEvidence.AUTHENTICATED_WEBHOOK;
+        }
+
+        public ProviderObservation initiate(ProviderInstruction i) {
+            assertThat(
+                            org.springframework.transaction.support
+                                    .TransactionSynchronizationManager.isActualTransactionActive())
+                    .isFalse();
+            calls.incrementAndGet();
+            instructions.put(i.paymentId(), i);
+            return new ProviderObservation(
+                    name(),
+                    accountReference(),
+                    i.merchantReference(),
+                    null,
+                    i.paymentRequestId(),
+                    i.orderId(),
+                    i.purpose(),
+                    i.amount(),
+                    i.currency(),
+                    PaymentStatus.PENDING,
+                    clock.instant(),
+                    new ProviderMetadata(
+                            i.checkout().businessReference(),
+                            "https://pay.test.bictorys.com/test",
+                            "CH-" + i.paymentId(),
+                            null),
+                    i.target());
+        }
+
+        public ProviderObservation verify(ProviderInstruction i) {
+            throw new IllegalStateException("Authenticated webhook needs no status call");
+        }
+
+        public boolean verifyAuthenticity(byte[] bytes, Map<String, String> headers) {
+            return secret.equals(headers.get("X-Test-Secret"));
+        }
+
+        public NormalizedWebhook parse(byte[] bytes) {
+            return new NormalizedWebhook(null, json.readValue(bytes, ProviderObservation.class));
+        }
+
+        ProviderObservation success(UUID payment, String transaction) {
+            var i = instructions.get(payment);
+            return new ProviderObservation(
+                    name(),
+                    accountReference(),
+                    i.merchantReference(),
+                    transaction,
+                    null,
+                    null,
+                    null,
+                    i.amount(),
+                    i.currency(),
+                    PaymentStatus.SUCCEEDED,
+                    clock.instant(),
+                    new ProviderMetadata(i.checkout().businessReference(), null, null, null));
         }
     }
 }

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
-import sn.groupia.payment.api.event.PaymentRequestSettled;
+import sn.groupia.payment.api.event.*;
 import sn.groupia.payment.domain.model.*;
 import sn.groupia.payment.domain.repository.FinancialStore;
 import sn.groupia.payment.domain.service.*;
@@ -234,7 +234,8 @@ public class PaymentTransactions {
             return "PROVIDER_MISMATCH";
         }
         if (!r.getId().equals(o.paymentRequestId())
-                || !r.getOrderId().equals(o.orderId())
+                || !Objects.equals(r.getOrderId(), o.orderId())
+                || !r.getTarget().equals(o.target())
                 || r.getPurpose() != o.purpose()) {
             return "TARGET_MISMATCH";
         }
@@ -359,16 +360,28 @@ public class PaymentTransactions {
             }
             if (oldSettlement == null) {
                 events.publishEvent(
-                        new PaymentRequestSettled(
+                        new PaymentObligationSettled(
                                 UUID.randomUUID(),
                                 p.getConfirmedAt(),
                                 r.getOrganizationId(),
-                                r.getOrderId(),
+                                r.getTarget(),
                                 r.getId(),
                                 p.getId(),
                                 r.getPurpose(),
                                 r.getExpectedAmount(),
                                 r.getCurrency()));
+                if (r.getTarget().type() == PaymentTargetType.ORDER)
+                    events.publishEvent(
+                            new PaymentRequestSettled(
+                                    UUID.randomUUID(),
+                                    p.getConfirmedAt(),
+                                    r.getOrganizationId(),
+                                    r.getOrderId(),
+                                    r.getId(),
+                                    p.getId(),
+                                    r.getPurpose(),
+                                    r.getExpectedAmount(),
+                                    r.getCurrency()));
             }
         }
         return p.isReconciliationRequired() ? p.getReconciliationReason() : null;
@@ -550,6 +563,59 @@ public class PaymentTransactions {
     @Transactional(readOnly = true)
     public List<UUID> uncertainPayments(int limit) {
         return store.uncertainPayments(limit);
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentRequestState state(UUID org, UUID id) {
+        return state(scopedRequest(org, id));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public PaymentRequestState lockState(UUID org, UUID id) {
+        scopedRequest(org, id);
+        return state(store.lockRequest(id));
+    }
+
+    private PaymentRequestState state(PaymentRequest r) {
+        var reasons =
+                PaymentRisk.reasons(r, store.attempts(r.getId()), reviews.forRequest(r.getId()));
+        return new PaymentRequestState(
+                r.view(),
+                PaymentDashboardPolicy.classify(r, reasons, clock.instant()).status(),
+                reasons.contains("PAYMENT_IN_PROGRESS"),
+                reasons.contains("PAYMENT_RECONCILIATION_REQUIRED"));
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentSettlementEvidence evidence(UUID org, UUID requestId) {
+        var r = scopedRequest(org, requestId);
+        if (r.getAcceptanceStatus() != AcceptanceStatus.CLOSED || r.getSettledPaymentId() == null)
+            throw new ApiException(409, "PAYMENT_NOT_SETTLED", "Obligation non réglée.");
+        var p = store.payment(r.getSettledPaymentId()).orElseThrow();
+        if (p.getStatus() != PaymentStatus.SUCCEEDED
+                || !p.getPaymentRequestId().equals(r.getId())
+                || !p.getOrganizationId().equals(org)
+                || p.getConfirmedAmount() == null
+                || p.getConfirmedAmount().compareTo(r.getExpectedAmount()) != 0
+                || !r.getCurrency().equals(p.getConfirmedCurrency()))
+            throw new IllegalStateException("Inconsistent principal evidence");
+        return new PaymentSettlementEvidence(
+                org,
+                r.getId(),
+                p.getId(),
+                r.getTarget(),
+                r.getPurpose(),
+                p.getConfirmedAmount(),
+                p.getConfirmedCurrency(),
+                r.getAcceptanceStatus(),
+                p.getStatus(),
+                p.getProvider(),
+                p.getProviderAccountReference(),
+                p.getProviderTransactionId(),
+                p.getPaymentReference(),
+                p.getConfirmedAt(),
+                r.getExpiresAt(),
+                "PROVIDER_REVERSAL".equals(p.getReconciliationReason()));
     }
 
     @Transactional(readOnly = true)

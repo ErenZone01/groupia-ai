@@ -545,8 +545,8 @@ class GroupingCompletionIntegrationTests {
                 f.actor());
         jdbc.update(
                 """
-            insert into organization_subscriptions(id,organization_id,status,trial_started_at,trial_ends_at,trial_provenance,created_at,updated_at)
-            values (?,?,'SUSPENDED',now()-interval '60 days',now()-interval '30 days','ORGANIZATION_CREATED',now()-interval '60 days',now())
+            insert into organization_subscriptions(id,organization_id,status,trial_started_at,trial_ends_at,trial_provenance,created_at,updated_at,billing_timezone)
+            values (?,?,'SUSPENDED',now()-interval '60 days',now()-interval '30 days','ORGANIZATION_CREATED',now()-interval '60 days',now(),'Africa/Dakar')
             """,
                 UUID.randomUUID(),
                 f.org());

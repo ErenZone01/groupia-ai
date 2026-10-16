@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { mockApi, session } from './api-mock';
+import { test, expect, Page } from '@playwright/test';
+import { mockApi, session, noOverflow, shopId, shop } from './api-mock';
 
 test('essai, banner et paiement désactivé restent explicites', async ({ page }) => {
   const starts: string[] = [];
@@ -34,6 +34,186 @@ test('essai, banner et paiement désactivé restent explicites', async ({ page }
     ),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: "Voir l'abonnement" })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Configurer le paiement' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Payer maintenant' })).toBeDisabled();
   expect(starts).toEqual([]);
+});
+
+async function billing(page: Page, status = 'TRIALING', manage = true) {
+  await session(page);
+  await mockApi(page);
+  const state = {
+    invoice: null as null | Record<string, unknown>,
+    status,
+    manage,
+    posts: [] as { path: string; body: unknown; key: string }[],
+    lose: false,
+  };
+  const preview = {
+    amount: 10000,
+    currency: 'XOF',
+    periodStart: status === 'PAST_DUE' ? new Date().toISOString() : '2099-11-01T00:00:00Z',
+    periodEnd:
+      status === 'PAST_DUE'
+        ? new Date(Date.now() + 30 * 86400000).toISOString()
+        : '2099-12-01T00:00:00Z',
+  };
+  await page.route('**/api/organizations/*/subscription**', async (route) => {
+    const r = route.request(),
+      path = new URL(r.url()).pathname;
+    if (r.method() === 'POST')
+      state.posts.push({ path, body: r.postDataJSON(), key: r.headers()['idempotency-key'] });
+    if (path.endsWith('/invoice-preview')) return route.fulfill({ json: preview });
+    if (path.endsWith('/history'))
+      return route.fulfill({
+        json:
+          state.invoice?.['status'] === 'PAID'
+            ? [{ ...preview, status: 'PAID', planCode: 'STANDARD_MONTHLY' }]
+            : [],
+      });
+    if (path.endsWith('/invoices')) {
+      if (r.method() === 'POST')
+        state.invoice ??= {
+          id: 'invoice',
+          ...preview,
+          status: 'OPEN',
+          canPay: true,
+          paymentStatus: 'PENDING',
+        };
+      return route.fulfill({
+        json: r.method() === 'POST' ? state.invoice : state.invoice ? [state.invoice] : [],
+      });
+    }
+    if (path.endsWith('/payment')) {
+      state.invoice = { ...state.invoice, canPay: false, attemptInProgress: true };
+      if (state.lose) return route.abort('failed');
+      return route.fulfill({
+        json: {
+          id: 'attempt',
+          status: 'PENDING',
+          checkoutUrl: 'https://pay.test.bictorys.com/fixture',
+        },
+      });
+    }
+    return route.fulfill({
+      json: {
+        access: {
+          status: state.status,
+          trialEndsAt: '2099-11-01T00:00:00Z',
+          currentPeriodEndsAt: '2099-11-01T00:00:00Z',
+          canStartNewBusiness: state.status !== 'PAST_DUE',
+        },
+        canManageSubscription: state.manage,
+        billingProviderAvailable: true,
+        planConfigured: true,
+        billingContact: { name: 'Titulaire', phoneE164: '+221771234567' },
+      },
+    });
+  });
+  return state;
+}
+test('OWNER trial crée puis paie une facture, confirmation serveur seule active la période', async ({
+  page,
+}) => {
+  const state = await billing(page);
+  await page.goto('/app/abonnement');
+  await page.getByRole('button', { name: 'Payer maintenant' }).click();
+  await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+  expect(state.posts).toHaveLength(2);
+  expect(state.posts[0].body).toBeNull();
+  expect(state.posts[1].body).toEqual({ provider: 'BICTORYS' });
+  expect(state.posts.every((p) => /^[A-Za-z0-9._:-]{16,128}$/.test(p.key))).toBe(true);
+  await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toBeVisible();
+  await expect(page.getByText('Aucune période payée enregistrée.')).toBeVisible();
+  state.invoice = { ...state.invoice, status: 'PAID', paymentStatus: 'SETTLED' };
+  await page.getByRole('button', { name: 'Vérifier le paiement' }).click();
+  await expect(page.getByText('Prochaine période déjà réglée', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Payer maintenant' })).toHaveCount(0);
+  expect(state.posts).toHaveLength(2);
+});
+test('reprise après expiration affiche un nouveau mois courant', async ({ page }) => {
+  const state = await billing(page, 'PAST_DUE');
+  await page.goto('/app/abonnement');
+  await expect(page.getByText('Votre abonnement a expiré', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Payer avec Bictorys' }).click();
+  await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+  expect(Math.abs(Date.parse(String(state.invoice?.['periodStart'])) - Date.now())).toBeLessThan(
+    60000,
+  );
+});
+test('une réponse initiation perdue ne crée pas une deuxième facture', async ({ page }) => {
+  const state = await billing(page);
+  state.lose = true;
+  await page.goto('/app/abonnement');
+  await page.getByRole('button', { name: 'Payer maintenant' }).click();
+  await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+  await page.getByRole('button', { name: 'Vérifier le paiement' }).click();
+  expect(state.posts).toHaveLength(2);
+});
+test('une anomalie de paiement affiche la review et interdit une nouvelle initiation', async ({
+  page,
+}) => {
+  const state = await billing(page);
+  state.invoice = {
+    id: 'invoice',
+    status: 'OPEN',
+    periodEnd: '2099-12-01T00:00:00Z',
+    paymentStatus: 'REVIEW_REQUIRED',
+    canPay: false,
+  };
+  await page.goto('/app/abonnement');
+  await expect(page.getByText('Paiement à vérifier.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Payer avec Bictorys' })).toHaveCount(0);
+  expect(state.posts).toEqual([]);
+});
+test('MANAGER consulte sans action financière', async ({ page }) => {
+  await billing(page, 'ACTIVE', false);
+  await page.goto('/app/abonnement');
+  await expect(page.getByText('Votre période payée se termine', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Payer|Enregistrer les coordonnées/ })).toHaveCount(
+    0,
+  );
+});
+for (const theme of ['light', 'dark'])
+  test('abonnement mobile 360 clavier ' + theme, async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await billing(page);
+    await page.addInitScript((theme) => localStorage.setItem('groupia.theme', theme), theme);
+    await page.goto('/app/abonnement');
+    const pay = page.getByRole('button', { name: 'Payer maintenant' });
+    await expect(pay).toBeVisible();
+    await noOverflow(page);
+    await pay.focus();
+    await expect(pay).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+    await noOverflow(page);
+  });
+test('VIEWER ne reçoit aucune donnée abonnement', async ({ page }) => {
+  await session(page);
+  await mockApi(page);
+  await page.route('**/api/organizations/*/subscription**', (route) =>
+    route.fulfill({ status: 403, json: { code: 'FORBIDDEN' } }),
+  );
+  await page.goto('/app/abonnement');
+  await expect(page.getByRole('heading', { name: 'Abonnement', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Payer/ })).toHaveCount(0);
+  await expect(page.getByText('Coordonnées de facturation')).toHaveCount(0);
+});
+test('changement de boutique efface les coordonnées précédentes', async ({ page }) => {
+  await billing(page);
+  const other = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  await page.route(/\/api\/organizations(?:\?.*)?$/, (route) =>
+    route.fulfill({ json: [shop, { ...shop, id: other, name: 'Seconde boutique' }] }),
+  );
+  await page.goto('/app/abonnement');
+  await expect(page.getByRole('textbox', { name: 'Nom du titulaire' })).toHaveValue('Titulaire');
+  await page.route('**/api/organizations/' + other + '/subscription**', (route) =>
+    route.fulfill({ status: 403, json: { code: 'FORBIDDEN' } }),
+  );
+  await page.getByRole('main').getByRole('link', { name: 'Ma boutique', exact: true }).click();
+  await page.getByLabel('Changer de boutique').selectOption(other);
+  await expect(page).toHaveURL(/app\/accueil/);
+  await page.goto('/app/abonnement');
+  await expect(page.getByRole('textbox', { name: 'Nom du titulaire' })).toHaveCount(0);
+  expect(shopId).not.toBe(other);
 });

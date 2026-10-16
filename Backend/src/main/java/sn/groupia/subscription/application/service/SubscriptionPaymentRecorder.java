@@ -1,73 +1,115 @@
 package sn.groupia.subscription.application.service;
 
-import java.time.Clock;
-import java.time.ZoneId;
-import java.util.UUID;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sn.groupia.organization.api.OrganizationSubscriptionContext;
+import sn.groupia.payment.api.*;
+import sn.groupia.payment.api.event.PaymentObligationSettled;
 import sn.groupia.subscription.domain.model.SubscriptionPeriod;
-import sn.groupia.subscription.domain.repository.SubscriptionStore;
+import sn.groupia.subscription.domain.repository.*;
 
 @Service
 class SubscriptionPaymentRecorder {
-    private static final int STANDARD_MONTHS = 1;
-
-    private final SubscriptionProvisioning provisioning;
     private final SubscriptionStore subscriptions;
-    private final SubscriptionSettings settings;
-    private final OrganizationSubscriptionContext organizations;
+    private final SubscriptionInvoices invoices;
+    private final PaymentOperations payments;
+    private final SubscriptionEntitlementService entitlements;
     private final Clock clock;
 
-    SubscriptionPaymentRecorder(SubscriptionProvisioning provisioning, SubscriptionStore subscriptions,
-            SubscriptionSettings settings, OrganizationSubscriptionContext organizations, Clock clock) {
-        this.provisioning = provisioning;
+    SubscriptionPaymentRecorder(
+            SubscriptionStore subscriptions,
+            SubscriptionInvoices invoices,
+            PaymentOperations payments,
+            SubscriptionEntitlementService entitlements,
+            Clock clock) {
         this.subscriptions = subscriptions;
-        this.settings = settings;
-        this.organizations = organizations;
+        this.invoices = invoices;
+        this.payments = payments;
+        this.entitlements = entitlements;
         this.clock = clock;
     }
 
     @Transactional
-    void recordVerifiedPayment(UUID organizationId, VerifiedSubscriptionPayment evidence) {
-        var subscription = provisioning.ensure(organizationId);
-        var locked = subscriptions.lock(organizationId)
-                .orElseThrow(() -> new IllegalStateException("Subscription disappeared while recording payment."));
-        var amount = configuredAmount();
-        if (!"XOF".equals(evidence.currency()) || amount.compareTo(evidence.amount()) != 0
-                || evidence.providerTransactionId() == null || evidence.providerTransactionId().isBlank()
-                || evidence.providerReference() == null || evidence.providerReference().isBlank()
-                || evidence.provider() == null || evidence.provider().isBlank() || evidence.paidAt() == null) {
-            throw new IllegalArgumentException("Verified subscription payment does not match the configured plan.");
+    void record(PaymentObligationSettled e) {
+        subscriptions.lock(e.organizationId()).orElseThrow();
+        var i = invoices.lock(e.organizationId(), e.target().id()).orElseThrow();
+        var proof = payments.settlementEvidence(e.organizationId(), e.paymentRequestId());
+        if (!i.paymentRequestId().equals(e.paymentRequestId())
+                || !proof.organizationId().equals(i.organizationId())
+                || !proof.target().equals(e.target())
+                || !proof.paymentId().equals(e.paymentId())
+                || proof.purpose() != e.purpose()
+                || proof.purpose() != PaymentPurpose.SUBSCRIPTION_MONTHLY
+                || proof.acceptanceStatus() != AcceptanceStatus.CLOSED
+                || proof.status() != PaymentStatus.SUCCEEDED
+                || proof.amount().compareTo(i.amount()) != 0
+                || e.amount().compareTo(i.amount()) != 0
+                || !i.currency().equals(proof.currency())
+                || !i.currency().equals(e.currency())
+                || !i.reference().equals(proof.paymentReference())
+                || proof.providerTransactionId() == null
+                || !proof.confirmedAt().equals(e.occurredAt())
+                || !i.periodEnd().equals(proof.expiresAt())
+                || !proof.confirmedAt().isBefore(i.periodEnd()))
+            throw new IllegalStateException("Subscription settlement evidence mismatch");
+        var existing =
+                subscriptions.history(i.organizationId()).stream()
+                        .filter(p -> i.id().equals(p.subscriptionInvoiceId()))
+                        .findFirst();
+        if (existing.isPresent()) {
+            var p = existing.get();
+            if (!i.status().equals("PAID")
+                    || !e.paymentId().equals(i.settledPaymentId())
+                    || !e.paymentId().equals(p.paymentId())
+                    || !e.paymentRequestId().equals(p.paymentRequestId())
+                    || !p.periodStart().equals(i.periodStart())
+                    || !p.periodEnd().equals(i.periodEnd())
+                    || p.amount().compareTo(i.amount()) != 0
+                    || !p.currency().equals(i.currency())
+                    || !p.provider().equals(proof.provider())
+                    || !Objects.equals(
+                            p.providerAccountReference(), proof.providerAccountReference())
+                    || !p.providerTransactionId().equals(proof.providerTransactionId())
+                    || !p.providerReference().equals(proof.paymentReference())
+                    || !p.paidAt().equals(proof.confirmedAt()))
+                throw new IllegalStateException("Contradictory subscription settlement replay");
+            return;
         }
-        var facts = subscriptions.latestPaidPeriod(organizationId);
-        var start = evidence.paidAt();
-        if (facts.isPresent() && facts.get().periodEnd().isAfter(start)) {
-            start = facts.get().periodEnd();
-        } else if (facts.isEmpty() && locked.trialEndsAt().isAfter(start)) {
-            start = locked.trialEndsAt();
-        }
-        var timezone = organizations.subscriptionFacts(organizationId).timezone();
-        var end = start.atZone(ZoneId.of(timezone))
-                .plusMonths(STANDARD_MONTHS).toInstant();
-        var period = new SubscriptionPeriod(UUID.randomUUID(), organizationId, subscription.id(),
-                "STANDARD_MONTHLY", amount, "XOF", "MONTHLY", start, end, evidence.provider(),
-                evidence.providerTransactionId(), evidence.providerReference(), "PAID", evidence.paidAt(),
+        if (!i.status().equals("OPEN") || proof.reversal())
+            throw new IllegalStateException("Subscription invoice cannot receive entitlement");
+        var period =
+                new SubscriptionPeriod(
+                        UUID.randomUUID(),
+                        i.organizationId(),
+                        i.subscriptionId(),
+                        i.planCode(),
+                        i.amount(),
+                        i.currency(),
+                        i.billingInterval(),
+                        i.periodStart(),
+                        i.periodEnd(),
+                        proof.provider(),
+                        proof.providerTransactionId(),
+                        proof.paymentReference(),
+                        "PAID",
+                        proof.confirmedAt(),
+                        clock.instant().truncatedTo(ChronoUnit.MICROS),
+                        i.id(),
+                        i.paymentRequestId(),
+                        proof.paymentId(),
+                        proof.providerAccountReference());
+        subscriptions.insertPaidPeriod(period);
+        invoices.markPaid(i.id(), proof.paymentId(), proof.confirmedAt());
+        subscriptions.updatePaidSubscription(
+                i.organizationId(),
+                i.planCode(),
+                i.amount(),
+                i.periodStart(),
+                i.periodEnd(),
+                proof.provider(),
                 clock.instant());
-        if (!subscriptions.insertPaidPeriod(period)) return;
-        subscriptions.updatePaidSubscription(organizationId, period.planCode(), period.amount(),
-                period.periodStart(), period.periodEnd(), period.provider(), clock.instant());
-    }
-
-    private java.math.BigDecimal configuredAmount() {
-        try {
-            var value = new java.math.BigDecimal(settings.getMonthlyXof());
-            if (value.signum() <= 0 || value.stripTrailingZeros().scale() > 0) {
-                throw new NumberFormatException();
-            }
-            return value;
-        } catch (NumberFormatException | NullPointerException ex) {
-            throw new IllegalStateException("The subscription monthly price is not configured as a positive XOF amount.", ex);
-        }
+        entitlements.access(i.organizationId());
     }
 }

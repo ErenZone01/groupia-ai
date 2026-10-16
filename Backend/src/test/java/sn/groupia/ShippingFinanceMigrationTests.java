@@ -44,7 +44,9 @@ class ShippingFinanceMigrationTests {
             jdbc.update(
                     "insert into payment_requests(id,organization_id,order_id,purpose,business_reference,expected_amount,goods_amount,fee_amount,shipping_amount,currency,acceptance_status,expires_at,created_at) select gen_random_uuid(),organization_id,id,'INITIAL_ORDER','INITIAL_ORDER:'||id::text,initial_amount_due,goods_subtotal,platform_fee_amount,initial_shipping_charge_amount,currency,'OPEN',payment_deadline,placed_at from orders where id=?",
                     order);
-            var before = jdbc.queryForList("select * from payment_requests");
+            var before =
+                    jdbc.queryForList(
+                            "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id");
             var orders = jdbc.queryForList("select * from orders");
             var checksums =
                     jdbc.queryForList(
@@ -52,13 +54,16 @@ class ShippingFinanceMigrationTests {
             try (var resources = new ClassLoaderResourceAccessor()) {
                 migrate(db, resources);
             }
-            assertThat(jdbc.queryForList("select * from payment_requests")).isEqualTo(before);
+            assertThat(
+                            jdbc.queryForList(
+                                    "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id"))
+                    .isEqualTo(before);
             var upgraded = jdbc.queryForList("select * from orders");
             upgraded.forEach(r -> assertThat(r.remove("ready_for_pickup_at")).isNull());
             assertThat(upgraded).isEqualTo(orders);
             assertThat(
                             jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThatThrownBy(
                             () ->
@@ -66,7 +71,7 @@ class ShippingFinanceMigrationTests {
                                             "update payment_requests set expires_at=null where purpose='INITIAL_ORDER'"))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             String insert =
-                    "insert into payment_requests(id,organization_id,order_id,purpose,business_reference,expected_amount,goods_amount,fee_amount,shipping_amount,currency,acceptance_status,expires_at,created_at) select gen_random_uuid(),organization_id,id,'SHIPPING_BALANCE',?, ?,0,0,?,'XOF','OPEN',null,now() from orders where id=?";
+                    "insert into payment_requests(id,organization_id,order_id,purpose,business_reference,expected_amount,goods_amount,fee_amount,shipping_amount,currency,acceptance_status,expires_at,created_at,target_type,target_id) select gen_random_uuid(),organization_id,id,'SHIPPING_BALANCE',?, ?,0,0,?,'XOF','OPEN',null,now(),'ORDER',id from orders where id=?";
             for (int amount : List.of(0, -1))
                 assertThatThrownBy(
                                 () ->

@@ -8,7 +8,10 @@ public record PaymentReviewView(
         UUID id,
         UUID organizationId,
         UUID paymentRequestId,
-        UUID orderId,
+        @io.swagger.v3.oas.annotations.media.Schema(
+                        nullable = true,
+                        description = "Présent uniquement pour une cible ORDER.")
+                UUID orderId,
         UUID principalPaymentId,
         UUID anomalousPaymentId,
         String reason,
@@ -25,7 +28,8 @@ public record PaymentReviewView(
         String externalRefundReference,
         String resolutionNote,
         long version,
-        boolean canResolve) {
+        boolean canResolve,
+        sn.groupia.payment.api.PaymentTarget target) {
     public PaymentReviewView withCanResolve(boolean allowed) {
         return new PaymentReviewView(
                 id,
@@ -48,6 +52,7 @@ public record PaymentReviewView(
                 externalRefundReference,
                 resolutionNote,
                 version,
-                allowed);
+                allowed,
+                target);
     }
 }

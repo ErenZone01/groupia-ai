@@ -234,8 +234,8 @@ PSP fee allocation policy not implemented.
 - Une boutique déjà présente au déploiement reçoit un essai explicitement attribué à la date de cutover de la migration, pas antidaté à sa création.
 - Un entitlement actif est requis uniquement pour créer un nouveau groupage ou ouvrir un brouillon. La consultation publique, les commandes déjà engagées, la clôture et les workflows financiers/transport/remise restent accessibles.
 - L'entitlement est calculé côté serveur à partir de l'essai et des périodes réellement payées. Une configuration ou une demande de démarrage chez un provider ne constitue jamais une preuve de paiement.
-- OWNER et MANAGER peuvent consulter l'abonnement ; OWNER seul modifie les coordonnées de facturation, démarre ou annule un abonnement.
-- Tant qu'une preuve de paiement provider fiable n'est pas disponible, l'intégration Bictorys d'abonnement reste désactivée. Aucun accès payant n'est activé par une confirmation navigateur.
+- OWNER et MANAGER peuvent consulter l'abonnement ; OWNER seul modifie les coordonnées de facturation, crée et paie une facture d’abonnement.
+- Le webhook Bictorys standard authentifié et corrélé règle une facture ; seul le consumer durable attribue la période. Aucun accès payant n'est activé par une confirmation navigateur.
 
 [Contrat Subscription V1](subscription-v1.md) et [ADR-0021](../adr/0021-subscription-entitlements.md).
 
@@ -244,3 +244,7 @@ PSP fee allocation policy not implemented.
 DISTRIBUTING → COMPLETED est une décision explicite OWNER/MANAGER fondée sur toutes les commandes et toutes leurs obligations, pas uniquement les commandes distribuables. Les retraits, soldes/crédits transport, remboursements, paiements incertains, reviews OPEN et receipts authentiques/corrélables en traitement doivent être résolus. Une review RESOLVED_REFUNDED neutralise seulement son duplicate exact ; une reversal ou autre anomalie reste bloquante. Une commande expirée/annulée non exécutée et sans obligation restante n'exige pas de retrait ni transport final.
 
 COMPLETED est terminal, daté et journalisé par le serveur. Aucun effet financier ni réparation automatique. Les reversements marchands et l'abonnement ne bloquent pas ; les événements financiers tardifs restent traités sans réouverture. Transport et distribution deviennent consultables sans mutations opérationnelles ordinaires. Voir [contrat et recette](grouping-completion-v1.md) et [ADR-0024](../adr/0024-grouping-completion.md).
+
+## Facturation abonnement gérée par Groupia
+
+Le mois est snapshoté avant paiement dans le fuseau immuable. Après longue expiration il repart de maintenant ; une seule période future peut être prépayée. Prix/contact restent historiques. Double succès = review sans mois supplémentaire. Succès après periodEnd = LATE_SUCCESS sans droit automatique. SUSPENDED est conservé. Voir [contrat](subscription-v1.md).

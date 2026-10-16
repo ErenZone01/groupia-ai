@@ -42,7 +42,14 @@ public class PaymentReviewService {
                 throw new ApiException(400, "INVALID_REQUEST", "Statut invalide.");
             }
         }
-        var result = reviews.list(org, filter, paymentRequestId, page, size);
+        var result =
+                reviews.list(
+                        org,
+                        filter,
+                        paymentRequestId,
+                        page,
+                        size,
+                        access.hasPermission(org, OrganizationPermission.VIEW_SUBSCRIPTION));
         boolean allowed = access.hasPermission(org, OrganizationPermission.MANAGE_REFUNDS);
         return new PaymentReviewPage(
                 result.items().stream().map(r -> view(r, allowed)).toList(),
@@ -62,6 +69,9 @@ public class PaymentReviewService {
     public PaymentReviewView resolve(UUID org, UUID id, String reference, String note) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.MANAGE_REFUNDS);
         var initial = require(org, id);
+        var target = payments.request(initial.getPaymentRequestId()).orElseThrow().getTarget();
+        if (target.type() == sn.groupia.payment.api.PaymentTargetType.SUBSCRIPTION_INVOICE)
+            access.requirePermission(org, OrganizationPermission.MANAGE_SUBSCRIPTION);
         payments.lockRequest(initial.getPaymentRequestId());
         var payment = payments.lockPayment(initial.getAnomalousPaymentId());
         var review = reviews.lock(org, id);
@@ -74,6 +84,15 @@ public class PaymentReviewService {
 
     private PaymentReview require(UUID org, UUID id) {
         return reviews.find(org, id)
+                .filter(
+                        r ->
+                                payments.request(r.getPaymentRequestId())
+                                                        .orElseThrow()
+                                                        .getTarget()
+                                                        .type()
+                                                == sn.groupia.payment.api.PaymentTargetType.ORDER
+                                        || access.hasPermission(
+                                                org, OrganizationPermission.VIEW_SUBSCRIPTION))
                 .orElseThrow(
                         () ->
                                 new ApiException(
@@ -81,8 +100,14 @@ public class PaymentReviewService {
     }
 
     private PaymentReviewView view(PaymentReview review, boolean allowed) {
-        return review.view(
-                        payments.request(review.getPaymentRequestId()).orElseThrow().getOrderId())
-                .withCanResolve(allowed && review.getStatus() == PaymentReviewStatus.OPEN);
+        var target = payments.request(review.getPaymentRequestId()).orElseThrow().getTarget();
+        return review.view(target)
+                .withCanResolve(
+                        allowed
+                                && review.getStatus() == PaymentReviewStatus.OPEN
+                                && (target.type() == sn.groupia.payment.api.PaymentTargetType.ORDER
+                                        || access.hasPermission(
+                                                review.getOrganizationId(),
+                                                OrganizationPermission.MANAGE_SUBSCRIPTION)));
     }
 }

@@ -77,7 +77,7 @@ public class ShippingFinance {
         }
         if (position.status() == Status.BALANCE_DUE) {
             payments.createRequest(
-                    new CreatePaymentRequest(
+                    CreatePaymentRequest.forOrder(
                             order.getOrganizationId(),
                             order.getId(),
                             PaymentPurpose.SHIPPING_BALANCE,
@@ -166,7 +166,7 @@ public class ShippingFinance {
         for (var state : states) {
             var r = state.request();
             if (!r.organizationId().equals(order.getOrganizationId())
-                    || !r.orderId().equals(order.getId())
+                    || !java.util.Objects.equals(r.orderId(), order.getId())
                     || r.purpose() != PaymentPurpose.SHIPPING_BALANCE
                     || !r.currency().equals(order.getCurrency())
                     || r.goodsAmount().signum() != 0

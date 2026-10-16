@@ -39,11 +39,14 @@ public final class GroupingCompletionPolicy {
         if (initials.size() != 1) codes.add("INITIAL_PAYMENT_INCONSISTENT");
         for (var fact : facts.obligations()) {
             var p = fact.request();
+            if (p.target().type() != PaymentTargetType.ORDER
+                    || (p.purpose() != PaymentPurpose.INITIAL_ORDER
+                            && p.purpose() != PaymentPurpose.SHIPPING_BALANCE)) continue;
             codes.addAll(fact.risks());
             if (fact.pendingReceipt()) codes.add("PAYMENT_RECEIPT_PENDING");
             if (p.acceptanceStatus() == AcceptanceStatus.OPEN) codes.add("PAYMENT_OBLIGATION_OPEN");
             if (!p.organizationId().equals(o.getOrganizationId())
-                    || !p.orderId().equals(o.getId())
+                    || !Objects.equals(p.orderId(), o.getId())
                     || !p.currency().equals(o.getCurrency()))
                 codes.add("PAYMENT_OBLIGATION_INCONSISTENT");
             if (p.purpose() == PaymentPurpose.INITIAL_ORDER

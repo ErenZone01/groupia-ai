@@ -47,27 +47,56 @@ const statusLabels: Record<string, string> = {
               <p>Votre période payée se termine le {{ date(access.currentPeriodEndsAt) }}.</p>
             } @else {
               <p>
-                Un abonnement actif est nécessaire pour créer ou ouvrir un nouveau groupage. Les
-                groupages déjà ouverts et les opérations en cours restent accessibles.
+                Votre abonnement a expiré ou nécessite une vérification. Renouvelez pour un nouveau
+                mois d’accès. Les groupages déjà ouverts et les opérations en cours restent
+                accessibles.
               </p>
-            }
-            @if (access.cancelAtPeriodEnd) {
-              <p class="notice">L'abonnement ne sera pas renouvelé à la fin de la période.</p>
             }
             @if (!details.billingProviderAvailable) {
               <p class="notice">
-                Le paiement d'abonnement n'est pas disponible pour le moment. Aucun nouveau
-                paiement ne sera envoyé.
+                Le paiement d'abonnement n'est pas disponible pour le moment. Aucun nouveau paiement
+                ne sera envoyé.
               </p>
             } @else if (!details.planConfigured) {
-              <p class="notice">Le tarif et le plan ne sont pas encore configurés.</p>
-            } @else if (!details.billingContact?.phoneE164) {
-              <p class="notice">
-                Renseignez un téléphone de facturation avant de configurer le paiement.
-              </p>
+              <p class="notice">Le tarif n'est pas encore configuré.</p>
             }
-            @if (details.canManageSubscription) {
-              <div class="actions">
+            @if (store.futurePaid(); as paid) {
+              <p class="notice">
+                Prochaine période déjà réglée : {{ date(paid.periodStart) }} →
+                {{ date(paid.periodEnd) }}.
+              </p>
+            } @else if (store.currentInvoice(); as invoice) {
+              <p>
+                {{ date(invoice.periodStart) }} → {{ date(invoice.periodEnd) }} ·
+                {{ money(invoice.amount, invoice.currency) }}
+              </p>
+              @if (invoice.paymentStatus === 'REVIEW_REQUIRED') {
+                <p class="notice" role="status">Paiement à vérifier.</p>
+              } @else if (invoice.paymentStatus === 'SETTLED') {
+                <p class="notice" role="status">
+                  Paiement reçu. Activation en cours de traitement.
+                </p>
+              } @else if (invoice.attemptInProgress) {
+                <p class="notice" role="status">Paiement en attente de confirmation.</p>
+              }
+              @if (details.canManageSubscription && invoice.canPay) {
+                <button
+                  gButton
+                  [disabled]="store.busy() || !details.billingProviderAvailable"
+                  (click)="store.pay()"
+                >
+                  Payer avec Bictorys
+                </button>
+              }
+            } @else {
+              @if (store.preview(); as preview) {
+                <p>
+                  Prochaine période : {{ date(preview.periodStart) }} →
+                  {{ date(preview.periodEnd) }}
+                </p>
+                <p>{{ money(preview.amount, preview.currency) }}</p>
+              }
+              @if (details.canManageSubscription) {
                 <button
                   gButton
                   [disabled]="
@@ -76,30 +105,30 @@ const statusLabels: Record<string, string> = {
                     !details.planConfigured ||
                     !details.billingContact?.phoneE164
                   "
-                  (click)="store.start()"
+                  (click)="store.pay()"
                 >
-                  Configurer le paiement
+                  {{ access.status === 'TRIALING' ? 'Payer maintenant' : 'Payer avec Bictorys' }}
                 </button>
-                @if (!access.cancelAtPeriodEnd) {
-                  <button
-                    gButton
-                    variant="secondary"
-                    [disabled]="
-                      store.busy() ||
-                      details.billingProviderSetupPending ||
-                      (access.status === 'ACTIVE' && !details.billingProviderAvailable)
-                    "
-                    (click)="store.cancel()"
-                  >
-                    Annuler le renouvellement
-                  </button>
-                }
-              </div>
-              <p class="help">
-                Le montant est déterminé par Groupia. La configuration d'un moyen de paiement ne
-                confirme pas le règlement.
-              </p>
+              }
             }
+            @if (details.canManageSubscription && store.checkoutUrl(); as url) {
+              <a gButton [href]="url" target="_blank" rel="noopener noreferrer"
+                >Ouvrir le paiement sécurisé</a
+              >
+            }
+            <button
+              gButton
+              variant="secondary"
+              [disabled]="store.loading() || store.busy()"
+              (click)="store.refresh()"
+            >
+              Vérifier le paiement
+            </button>
+            <p class="help">
+              Chaque période est payée à votre initiative. Wave et Orange Money sont proposés selon
+              les moyens disponibles sur Bictorys. Seule la confirmation serveur valide le
+              règlement.
+            </p>
           </g-card>
 
           <g-card>
@@ -155,7 +184,7 @@ const statusLabels: Record<string, string> = {
 
           <g-card>
             <h2>Historique des paiements</h2>
-            @for (period of store.history(); track period.paidAt) {
+            @for (period of store.history(); track period.periodStart) {
               <article>
                 <h3>{{ money(period.amount, period.currency) }} · {{ period.planCode }}</h3>
                 <p>
@@ -233,14 +262,17 @@ export class SubscriptionPage {
   constructor() {
     effect(() => {
       const organizationId = this.context.selectedId();
-      if (!organizationId) return;
-      void this.store.load(organizationId).then(() => {
-        if (this.context.selectedId() !== organizationId) return;
-        const contact = this.store.details()?.billingContact;
-        this.name = contact?.name ?? this.context.selected()?.name ?? '';
-        this.phone = contact?.phoneE164 ?? '';
-        this.email = contact?.email ?? '';
-      });
+      if (!organizationId) {
+        this.store.clear();
+        return;
+      }
+      void this.store.load(organizationId);
+    });
+    effect(() => {
+      const contact = this.store.details()?.billingContact;
+      this.name = contact?.name ?? '';
+      this.phone = contact?.phoneE164 ?? '';
+      this.email = contact?.email ?? '';
     });
   }
 

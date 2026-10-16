@@ -57,8 +57,8 @@ class PaymentDashboardParityTests {
         jdbc.update(
                 """
             insert into payment_requests(id,organization_id,order_id,purpose,business_reference,expected_amount,
-                goods_amount,fee_amount,shipping_amount,currency,acceptance_status,expires_at,created_at,version)
-            values (?,?,?,?,?,?,?,0,0,'XOF',?,?,?,0)
+                goods_amount,fee_amount,shipping_amount,currency,acceptance_status,expires_at,created_at,version,target_type,target_id)
+            values (?,?,?,?,?,?,?,0,0,'XOF',?,?,?,0,'ORDER',?)
             """,
                 id,
                 organization,
@@ -69,7 +69,8 @@ class PaymentDashboardParityTests {
                 amount,
                 status,
                 expiry == null ? null : Timestamp.from(expiry),
-                Timestamp.from(at.minusSeconds(100)));
+                Timestamp.from(at.minusSeconds(100)),
+                orderId);
         return id;
     }
 
@@ -144,6 +145,32 @@ class PaymentDashboardParityTests {
             assertThat(filtered.rows()).hasSize(category == java.status() ? 1 : 0);
         }
         return java;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "SETTLED", "REVIEW_REQUIRED", "TERMINAL_UNPAID"})
+    void subscriptionUsesSameClassificationAndPermissionScope(String expected) {
+        jdbc.update(
+                "update payment_requests set target_type='SUBSCRIPTION_INVOICE',target_id=?,order_id=null,purpose='SUBSCRIPTION_MONTHLY',goods_amount=0 where id=?",
+                UUID.randomUUID(),
+                request);
+        order = null;
+        if (expected.equals("SETTLED")) settled();
+        if (expected.equals("REVIEW_REQUIRED")) {
+            var id = attempt("PENDING");
+            jdbc.update(
+                    "update payments set reconciliation_required=true,reconciliation_reason='PROVIDER_STATE_UNCERTAIN' where id=?",
+                    id);
+        }
+        if (expected.equals("TERMINAL_UNPAID"))
+            jdbc.update(
+                    "update payment_requests set expires_at=? where id=?",
+                    Timestamp.from(at),
+                    request);
+        parity(expected);
+        assertThat(dashboard.list(org, null, null, null, 0, 100, at, false).total()).isZero();
+        assertThat(dashboard.list(org, null, null, null, 0, 100, at, false).summary().openReviews())
+                .isZero();
     }
 
     @ParameterizedTest

@@ -73,6 +73,7 @@ export class SubscriptionNotice {
     effect(() => {
       const organizationId = this.context.selectedId();
       if (organizationId) void this.store.load(organizationId);
+      else this.store.clear();
     });
   }
 }

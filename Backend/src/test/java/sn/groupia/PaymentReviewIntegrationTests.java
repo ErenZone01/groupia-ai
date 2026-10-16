@@ -62,6 +62,7 @@ class PaymentReviewIntegrationTests {
     @BeforeEach
     void setup() {
         drained();
+        TestEventDrain.awaitIdle(jdbc);
         jdbc.execute(
                 "TRUNCATE organizations,user_accounts,event_publication,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,payment_refunds,refund_webhook_receipts CASCADE");
         clock.reset();

@@ -8,7 +8,10 @@ import sn.groupia.payment.api.*;
 public record PaymentRequestSummaryView(
         UUID id,
         UUID organizationId,
-        UUID orderId,
+        @io.swagger.v3.oas.annotations.media.Schema(
+                        nullable = true,
+                        description = "Présent uniquement pour une cible ORDER.")
+                UUID orderId,
         PaymentPurpose purpose,
         String businessReference,
         BigDecimal expectedAmount,
@@ -32,4 +35,5 @@ public record PaymentRequestSummaryView(
         @io.swagger.v3.oas.annotations.media.Schema(nullable = true) String terminalReason,
         long openReviewCount,
         boolean attemptInProgress,
-        boolean reconciliationRequired) {}
+        boolean reconciliationRequired,
+        PaymentTarget target) {}

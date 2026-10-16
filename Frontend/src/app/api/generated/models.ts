@@ -77,6 +77,7 @@ export type { PaymentRequestsPageView } from './models/payment-requests-page-vie
 export type { PaymentRequestSummaryView } from './models/payment-request-summary-view';
 export type { PaymentReviewPage } from './models/payment-review-page';
 export type { PaymentReviewView } from './models/payment-review-view';
+export type { PaymentTarget } from './models/payment-target';
 export type { PayoutDestinationView } from './models/payout-destination-view';
 export type { PayoutRequest } from './models/payout-request';
 export type { PhoneInput } from './models/phone-input';
@@ -108,6 +109,9 @@ export type { ShippingTerms } from './models/shipping-terms';
 export type { SubscriptionAccessView } from './models/subscription-access-view';
 export type { SubscriptionBillingContactView } from './models/subscription-billing-contact-view';
 export type { SubscriptionDetails } from './models/subscription-details';
+export type { SubscriptionInvoicePreview } from './models/subscription-invoice-preview';
+export type { SubscriptionInvoiceView } from './models/subscription-invoice-view';
+export type { SubscriptionPaymentInput } from './models/subscription-payment-input';
 export type { SubscriptionPeriodView } from './models/subscription-period-view';
 export type { SupplierOrderResponse } from './models/supplier-order-response';
 export type { SupplierOrderView } from './models/supplier-order-view';

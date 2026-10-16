@@ -1,83 +1,60 @@
-# Subscription V1
+# Groupia-managed Subscription Billing V1
 
-## Périmètre
+Groupia owns subscription periods and entitlement. Bictorys processes standard payment charges only. No provider-managed recurring billing is used in V1. Mobile Money payment is voluntarily initiated for each invoice. Duplicate provider successes never create additional entitlement.
 
-Le module `subscription` donne à chaque boutique un essai gratuit d'un mois
-calendaire, puis expose son entitlement, ses coordonnées de facturation et
-l'historique des périodes payées. Le trial est calculé dans le fuseau
-`organizations.timezone` ; il n'est pas assimilé à 30 jours.
+## Calendrier et facture
 
-Les boutiques déjà présentes lors du déploiement reçoivent un essai attribué au
-cutover enregistré par Liquibase (`LEGACY_MIGRATION_TRIAL`). Cette date est
-distincte de leur création d'origine. Le provisioning déclenché par
-`OrganizationCreated` et son chemin de secours sont idempotents.
+Une boutique conserve un abonnement unique. Le trial historique reste intact. `billing_timezone`, initialisé depuis la boutique en 026, devient immuable. Le prix, le contact de facturation, les références, le fuseau et les dates sont snapshotés avant tout paiement dans `subscription_invoices`.
 
-## Entitlement et continuité
+Le début est la fin du trial actif ou de la couverture payée actuelle ; après une interruption, il est l'instant courant, tronqué à la microseconde. La fin est `start.atZone(billingTimezone).plusMonths(1).toInstant()` : jamais 30 jours fixes. Une seule période future peut être prépayée. Un changement de tarif ne modifie aucune facture ouverte.
 
-Le serveur calcule l'accès depuis les dates de trial et les seules périodes
-`PAID` qui ont été enregistrées après validation d'une preuve serveur. Le
-navigateur ne transmet ni montant ni statut faisant autorité.
+La facture est OPEN, PAID ou EXPIRED. Une OPEN entièrement passée n'est plus payable. Une nouvelle demande expire cette ancienne facture puis repart de maintenant. Une facture dont le règlement attend déjà son consumer durable reste protégée contre cette expiration. Un succès après `periodEnd` suit LATE_SUCCESS et ne crée aucun droit automatique.
 
-Quand l'entitlement ne permet plus de démarrer une nouvelle activité :
+## Contrat HTTP
 
-- la création d'un groupage et l'ouverture d'un brouillon sont refusées avec
-  `403 SUBSCRIPTION_REQUIRED` lorsque l'application de la règle est activée ;
-- les brouillons restent consultables et modifiables ;
-- un groupage déjà ouvert reste consultable par le public et peut recevoir des
-  commandes ;
-- les workflows commandes, paiements, transport, préparation/remise, refunds,
-  settlement et clôture restent accessibles.
+Base : `/api/organizations/{organizationId}/subscription`.
 
-L'expiration ne révoque pas les commandes ni les obligations existantes.
-L'indicateur d'application globale est `GROUPIA_SUBSCRIPTION_ENFORCEMENT_ENABLED`
-(désactivé par défaut dans la configuration fournie).
+| Méthode et chemin | Contrat |
+| --- | --- |
+| GET | Accès, disponibilité du provider, configuration du tarif, contact |
+| GET /billing-contact, PUT /billing-contact | Contact courant ; modification OWNER |
+| GET /history | Périodes payées |
+| GET /invoice-preview | Dates et prix estimés de la prochaine facture, aucune création |
+| GET /invoices, GET /invoices/{id} | Factures et état financier synthétique |
+| POST /invoices | Pas de body financier ; Idempotency-Key obligatoire |
+| POST /invoices/{id}/payment | Body `{ "provider": "BICTORYS" }` seulement ; Idempotency-Key obligatoire |
+| POST /start, POST /cancel | 410 SUBSCRIPTION_PROVIDER_BILLING_RETIRED |
 
-## API et permissions
+OWNER gère ; MANAGER consulte. VIEWER et OPERATOR n'ont pas VIEW_SUBSCRIPTION. Les données privées sont no-store. Les clés de création satisfont `[A-Za-z0-9._:-]{16,128}`. Une même clé retourne toujours la même facture, même après changement de date. Une autre clé alors qu'une facture OPEN existe retourne 409 SUBSCRIPTION_INVOICE_EXISTS et son invoiceId ; aucune table d'alias ni seconde obligation n'est créée.
 
-Les routes sont sous `/api/organizations/{organizationId}/subscription` :
+Création : verrou abonnement, recherche clé, calendrier et snapshots, création PaymentRequest et facture dans une transaction locale atomique. Aucun appel réseau dans cette transaction. Initiation : contexte de facture relu côté serveur puis moteur Payment standard hors transaction réseau.
 
-- `GET` : entitlement, état de configuration du plan/provider et contact ;
-- `GET /billing-contact`, `PUT /billing-contact` : lecture/modification des
-  coordonnées ;
-- `POST /start`, `POST /cancel` : démarrage ou annulation côté propriétaire ;
-- `GET /history` : périodes payées.
+## Preuve et droits
 
-OWNER et MANAGER peuvent consulter. OWNER seul peut modifier le contact,
-démarrer ou annuler. Le prix et le code plan proviennent de la configuration
-serveur ; les coordonnées requises sont validées côté serveur.
+`subscription → payment::api` uniquement. PaymentRequest cible `SUBSCRIPTION_INVOICE/id`, avec purpose SUBSCRIPTION_MONTHLY, orderId null, ventilation goods/fee/shipping nulle, expectedAmount positif et expiresAt = periodEnd. La FK est portée par invoice vers request, jamais l'inverse.
 
-## Paiement et disponibilité
+Le webhook Bictorys existant vérifie secret, compte provider, références, transaction unique, montant, devise et éligibilité. Le premier règlement publie PaymentObligationSettled. Son consumer durable verrouille abonnement puis facture, relit PaymentSettlementEvidence et compare les preuves avant de créer une période et marquer la facture PAID. Un replay exact est idempotent ; une contradiction échoue et reste récupérable dans event_publication. Ne jamais supprimer une publication échouée pour masquer une contradiction.
 
-La configuration du customer/subscription chez un provider ne crée aucune
-période payée et ne donne aucun accès payant. La seule façon d'ajouter une
-période `PAID` est le traitement interne d'une preuve validée ; aucune preuve
-webhook Bictorys pour les abonnements n'est encore reconnue.
+Une période future payée pendant trial ne force pas ACTIVE. SUSPENDED reste SUSPENDED. Invoice OPEN, Payment CREATED/PENDING, checkoutUrl et redirect navigateur ne donnent aucun droit. Un double débit ouvre une PaymentReview et ne donne pas un deuxième mois. Une reversal après attribution conserve les périodes et la réconciliation ; aucune suppression, suspension ou restitution automatique n'est inventée.
 
-Le provider est indisponible par défaut (`GROUPIA_BICTORYS_SUBSCRIPTIONS_ENABLED=false`).
-Un démarrage demandé dans cet état retourne explicitement
-`503 SUBSCRIPTION_BILLING_UNAVAILABLE`. L'application, les entitlements et les
-workflows existants restent utilisables. Ne pas activer le provider Bictorys
-avant validation du contrat de paiement récurrent et de sa preuve de règlement.
+Les opérations commandes, transport, distribution, retrait, clôture et ledger marchand ignorent les obligations d'abonnement. PaymentRequestSettled historique conserve exactement son schéma et n'est publié que pour ORDER.
 
-Le montant mensuel XOF et le plan provider ne sont pas préremplis avec une
-valeur de production. Ils doivent être fournis par configuration serveur avant
-de rendre le démarrage possible.
+## Configuration et legacy
 
-## Schéma et migrations
+Conserver GROUPIA_SUBSCRIPTIONS_ENABLED, GROUPIA_SUBSCRIPTION_ENFORCEMENT_ENABLED (false par défaut), GROUPIA_SUBSCRIPTION_TRIAL_MONTHS et GROUPIA_SUBSCRIPTION_MONTHLY_XOF. La disponibilité des charges dépend du ProviderRegistry et de la configuration Bictorys existante, avec son garde-fou sandbox inchangé.
 
-La migration `021-subscriptions.sql` crée l'abonnement unique par boutique, le
-contact de facturation et les périodes, puis attribue un trial aux boutiques
-existantes. `022-subscription-compatibility.sql` ajoute les métadonnées de
-cutover, retire la contrainte historique qui empêchait un paiement vérifié
-antérieur à son enregistrement et rejoue le backfill de façon idempotente.
-021 restaure exactement le SQL déjà appliqué (checksum Liquibase
-`9:1c621751968700b8e7bb2930af6c2eba`); les changements de schéma sont portés
-par 022. 022 récupère l'instant de cutover original depuis les trials legacy
-créés uniformément par 021. Les migrations 001–021 sont immuables.
+GROUPIA_BICTORYS_SUBSCRIPTIONS_ENABLED et GROUPIA_BICTORYS_SUBSCRIPTION_PLAN_ID sont dépréciés et ignorés par ce flux. Les classes de setup provider sont hors wiring. Les colonnes provider_customer_id, provider_subscription_id, provider_setup_key, provider_setup_requested_at, cancel_at_period_end et canceled_at restent historiques sans réutilisation. Aucune API Bictorys Billing/Customer Management n'est appelée.
 
-Un paiement prouvé de plan `STANDARD_MONTHLY` ouvre une période d'un mois
-calendaire dans le fuseau de la boutique. La durée configurable du trial ne
-change pas la durée d'une période payée.
+## Frontend et reprise
 
-Voir aussi [règles métier](business-rules.md), [modèle métier](domain-model.md),
-[dépendances Modulith](module-dependencies.md) et [ADR-0021](../adr/0021-subscription-entitlements.md).
+La page propose un paiement volontaire, l'état pending/review, une période future déjà payée, et un rafraîchissement explicite. Une génération de contexte, la session et les séquences d'opérations protègent A→B→A. Les GET et mutations quittés sont annulés côté navigateur sans présumer l'annulation serveur.
+
+Après timeout, conserver facture et clés en mémoire dans la session courante, puis relire le serveur. Ne pas créer automatiquement une autre facture. Après rechargement complet, la liste serveur retrouve la facture ouverte ; une initiation inconnue reste protégée par les verrous/états Payment. Une nouvelle tentative n'est possible que selon l'éligibilité serveur. Les clés ne constituent pas une preuve de paiement.
+
+## Migration et exploitation
+
+026 est la seule nouvelle migration ; 001–025 sont immuables. Elle backfill uniquement les cibles ORDER et le fuseau, sans facture ni période historique inventée. Elle protège snapshots, liens financiers, unicité et preuves de périodes. Les nouveaux liens des périodes historiques restent null.
+
+Avant production : configurer et valider séparément les credentials/provider production, surveiller les publications Modulith échouées, traiter les reviews et reversals, mesurer le volume de factures (historique V1 non paginé). Aucun prélèvement récurrent ni refund automatique.
+
+Voir [ADR-0025](../adr/0025-groupia-managed-subscription-billing.md), [API financière](payment-api.md) et [dépendances](module-dependencies.md).

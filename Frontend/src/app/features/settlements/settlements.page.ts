@@ -1,4 +1,5 @@
 import { Component, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { AuthService } from '../../core/auth/auth.service';
 import { RouterLink } from '@angular/router';
 import type { CampaignSettlement } from '../../api/generated/models';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
@@ -68,29 +69,33 @@ export function payoutLabel(status?: string): string {
 })
 export class SettlementsPage {
   readonly store = inject(MerchantSettlementStore);
+  private readonly auth = inject(AuthService);
   private readonly context = inject(BoutiqueContextService);
   readonly selected = signal<CampaignSettlement | null>(null);
   readonly editing = signal(false);
-  readonly modal = viewChild.required<ElementRef<HTMLDialogElement>>('modal');
+  readonly modal = viewChild<ElementRef<HTMLDialogElement>>('modal');
   readonly money = money;
   readonly date = dateLabel;
   readonly method = refundMethod;
   readonly status = payoutLabel;
   constructor() {
     effect(() => {
+      this.auth.generation();
       const org = this.context.selectedId();
       this.selected.set(null);
       this.editing.set(false);
-      if (org) void this.store.load(org);
+      if (!org) this.store.clear();
+      else void this.store.load(org);
+      this.modal()?.nativeElement.close();
     });
   }
   ask(row: CampaignSettlement) {
     this.selected.set(row);
-    this.modal().nativeElement.showModal();
+    this.modal()?.nativeElement.showModal();
   }
   close() {
     if (!this.store.busy()) {
-      this.modal().nativeElement.close();
+      this.modal()?.nativeElement.close();
       this.selected.set(null);
     }
   }

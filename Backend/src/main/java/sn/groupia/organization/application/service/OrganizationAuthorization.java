@@ -13,17 +13,43 @@ import sn.groupia.shared.api.ApiException;
 
 @Service
 public class OrganizationAuthorization implements OrganizationAccess {
-    private static final Map<OrganizationRole, Set<OrganizationPermission>> PERMISSIONS = Map.of(
-            OrganizationRole.OWNER, Set.of(OrganizationPermission.values()),
-            OrganizationRole.MANAGER, Set.of(OrganizationPermission.VIEW_SUBSCRIPTION, OrganizationPermission.MANAGE_SETTLEMENTS, OrganizationPermission.MANAGE_REFUNDS, OrganizationPermission.MANAGE_FULFILLMENT, OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.MANAGE_CATALOG, OrganizationPermission.VIEW_GROUPINGS, OrganizationPermission.MANAGE_GROUPINGS),
-            OrganizationRole.OPERATOR, Set.of(OrganizationPermission.MANAGE_FULFILLMENT, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS),
-            OrganizationRole.VIEWER, Set.of(OrganizationPermission.VIEW_PAYMENTS, OrganizationPermission.VIEW_ORDERS, OrganizationPermission.VIEW_ORGANIZATION, OrganizationPermission.VIEW_CATALOG, OrganizationPermission.VIEW_GROUPINGS));
+    private static final Map<OrganizationRole, Set<OrganizationPermission>> PERMISSIONS =
+            Map.of(
+                    OrganizationRole.OWNER, Set.of(OrganizationPermission.values()),
+                    OrganizationRole.MANAGER,
+                            Set.of(
+                                    OrganizationPermission.VIEW_SUBSCRIPTION,
+                                    OrganizationPermission.MANAGE_SETTLEMENTS,
+                                    OrganizationPermission.MANAGE_REFUNDS,
+                                    OrganizationPermission.MANAGE_FULFILLMENT,
+                                    OrganizationPermission.VIEW_PAYMENTS,
+                                    OrganizationPermission.VIEW_ORDERS,
+                                    OrganizationPermission.VIEW_ORGANIZATION,
+                                    OrganizationPermission.VIEW_CATALOG,
+                                    OrganizationPermission.MANAGE_CATALOG,
+                                    OrganizationPermission.VIEW_GROUPINGS,
+                                    OrganizationPermission.MANAGE_GROUPINGS),
+                    OrganizationRole.OPERATOR,
+                            Set.of(
+                                    OrganizationPermission.MANAGE_FULFILLMENT,
+                                    OrganizationPermission.VIEW_ORDERS,
+                                    OrganizationPermission.VIEW_ORGANIZATION,
+                                    OrganizationPermission.VIEW_CATALOG,
+                                    OrganizationPermission.VIEW_GROUPINGS),
+                    OrganizationRole.VIEWER,
+                            Set.of(
+                                    OrganizationPermission.VIEW_PAYMENTS,
+                                    OrganizationPermission.VIEW_ORDERS,
+                                    OrganizationPermission.VIEW_ORGANIZATION,
+                                    OrganizationPermission.VIEW_CATALOG,
+                                    OrganizationPermission.VIEW_GROUPINGS));
 
     private final CurrentUser currentUser;
     private final OrganizationMembers members;
     private final Organizations organizations;
 
-    public OrganizationAuthorization(CurrentUser currentUser, OrganizationMembers members, Organizations organizations) {
+    public OrganizationAuthorization(
+            CurrentUser currentUser, OrganizationMembers members, Organizations organizations) {
         this.currentUser = currentUser;
         this.members = members;
         this.organizations = organizations;
@@ -36,7 +62,8 @@ public class OrganizationAuthorization implements OrganizationAccess {
         requireActiveBusinessOrganization(organizationId, permission);
         return members.findByOrganizationAndUser(organizationId, userId)
                 .filter(m -> m.getStatus() == MembershipStatus.ACTIVE)
-                .filter(m -> rolesGranting(permission).contains(m.getRole())).isPresent();
+                .filter(m -> rolesGranting(permission).contains(m.getRole()))
+                .isPresent();
     }
 
     @Override
@@ -50,19 +77,35 @@ public class OrganizationAuthorization implements OrganizationAccess {
     public UUID requireActorPermission(UUID organizationId, OrganizationPermission permission) {
         UUID userId = currentUser.requireActiveUserId();
         var member = members.findByOrganizationAndUser(organizationId, userId);
-        if (member.isEmpty() || member.get().getStatus() != MembershipStatus.ACTIVE
+        if (member.isEmpty()
+                || member.get().getStatus() != MembershipStatus.ACTIVE
                 || !rolesGranting(permission).contains(member.get().getRole())) {
-            throw new ApiException(403, "ORGANIZATION_ACCESS_DENIED", "L'accès à cette organisation est interdit.");
+            throw new ApiException(
+                    403,
+                    "ORGANIZATION_ACCESS_DENIED",
+                    "L'accès à cette organisation est interdit.");
         }
         requireActiveBusinessOrganization(organizationId, permission);
         return userId;
     }
 
-    // Existing organization reads retain their historical policy; catalogue and grouping operations require an active organization.
-    private void requireActiveBusinessOrganization(UUID organizationId, OrganizationPermission permission) {
-        if ((permission == OrganizationPermission.MANAGE_SETTLEMENTS || permission == OrganizationPermission.MANAGE_PAYOUT_DESTINATION || permission == OrganizationPermission.MANAGE_REFUNDS || permission == OrganizationPermission.MANAGE_FULFILLMENT || permission == OrganizationPermission.VIEW_CATALOG || permission == OrganizationPermission.MANAGE_CATALOG
-                || permission == OrganizationPermission.VIEW_PAYMENTS || permission == OrganizationPermission.VIEW_ORDERS || permission == OrganizationPermission.VIEW_GROUPINGS || permission == OrganizationPermission.MANAGE_GROUPINGS
-                || permission == OrganizationPermission.VIEW_SUBSCRIPTION || permission == OrganizationPermission.MANAGE_SUBSCRIPTION)
+    // Existing organization reads retain their historical policy; catalogue and grouping operations
+    // require an active organization.
+    private void requireActiveBusinessOrganization(
+            UUID organizationId, OrganizationPermission permission) {
+        if ((permission == OrganizationPermission.EXECUTE_PAYOUTS
+                        || permission == OrganizationPermission.MANAGE_SETTLEMENTS
+                        || permission == OrganizationPermission.MANAGE_PAYOUT_DESTINATION
+                        || permission == OrganizationPermission.MANAGE_REFUNDS
+                        || permission == OrganizationPermission.MANAGE_FULFILLMENT
+                        || permission == OrganizationPermission.VIEW_CATALOG
+                        || permission == OrganizationPermission.MANAGE_CATALOG
+                        || permission == OrganizationPermission.VIEW_PAYMENTS
+                        || permission == OrganizationPermission.VIEW_ORDERS
+                        || permission == OrganizationPermission.VIEW_GROUPINGS
+                        || permission == OrganizationPermission.MANAGE_GROUPINGS
+                        || permission == OrganizationPermission.VIEW_SUBSCRIPTION
+                        || permission == OrganizationPermission.MANAGE_SUBSCRIPTION)
                 && organizations.findActiveById(organizationId).isEmpty()) {
             throw new ApiException(404, "ORGANIZATION_NOT_FOUND", "Organisation indisponible.");
         }
@@ -70,7 +113,9 @@ public class OrganizationAuthorization implements OrganizationAccess {
 
     public Set<OrganizationRole> rolesGranting(OrganizationPermission permission) {
         Objects.requireNonNull(permission);
-        return PERMISSIONS.entrySet().stream().filter(entry -> entry.getValue().contains(permission))
-                .map(Map.Entry::getKey).collect(Collectors.toUnmodifiableSet());
+        return PERMISSIONS.entrySet().stream()
+                .filter(entry -> entry.getValue().contains(permission))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toUnmodifiableSet());
     }
 }

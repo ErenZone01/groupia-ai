@@ -23,7 +23,17 @@ class PaymentController {
             @PathVariable String provider,
             @RequestBody byte[] payload,
             @RequestHeader HttpHeaders headers) {
-        webhooks.receive(provider, payload, headers.toSingleValueMap());
+        var authenticationHeaders = new HashMap<>(headers.toSingleValueMap());
+        for (String name : List.of("X-Secret-Key", "X-Webhook-Signature", "X-Webhook-Timestamp")) {
+            var values = headers.get(name);
+            // Empty sentinel is deliberately invalid and preserves receipt persistence on
+            // rejection.
+            if (values != null && values.size() != 1) {
+                authenticationHeaders.put("X-Webhook-Signature", "");
+                authenticationHeaders.put("X-Webhook-Timestamp", "");
+            }
+        }
+        webhooks.receive(provider, payload, authenticationHeaders);
         return ResponseEntity.accepted().build();
     }
 

@@ -248,3 +248,15 @@ COMPLETED est terminal, daté et journalisé par le serveur. Aucun effet financi
 ## Facturation abonnement gérée par Groupia
 
 Le mois est snapshoté avant paiement dans le fuseau immuable. Après longue expiration il repart de maintenant ; une seule période future peut être prépayée. Prix/contact restent historiques. Double succès = review sans mois supplémentaire. Succès après periodEnd = LATE_SUCCESS sans droit automatique. SUSPENDED est conservé. Voir [contrat](subscription-v1.md).
+
+## Merchant Payout Bictorys V1 — superseding execution policy
+
+- OWNER alone may execute or reconcile merchant payouts (EXECUTE_PAYOUTS).
+- MANAGER retains financial reads, not authority to initiate a merchant transfer.
+- The recipient receives the reserved principal; Groupia bears provider fees.
+- Initiation is never financial proof. Uncertainty preserves the reservation.
+- Only authenticated, correlated outgoing evidence can atomically settle and debit.
+- No automatic retry, new key after uncertain outcome, automatic payout or reversal accounting.
+- Incompatible provider amount semantics stay in review with zero ledger debit.
+
+[Architecture and operational limits](../adr/0027-bictorys-merchant-payout.md).

@@ -54,7 +54,7 @@ remboursé. **MANUAL_EXTERNAL** a déjà été financé personnellement par la b
 aucun débit marchand, y compris lors du backfill et d'un replay. Le déduire une
 seconde fois serait incorrect. Un refund non réussi ne produit aucun débit.
 
-PSP fee allocation policy not implemented.
+Les frais provider du payout marchand sont supportés par Groupia en V1.
 
 Aucune déduction implicite des frais Bictorys, Wave, Orange Money ou payout.
 
@@ -89,8 +89,9 @@ précédente et en crée une nouvelle. `previousDestinationId` détecte les conf
 Chaque payout conserve méthode, numéro et titulaire immuables. L'API de lecture
 masque le numéro ; aucun secret provider ni clé d'idempotence provider n'est exposé.
 
-OWNER/MANAGER possèdent MANAGE_SETTLEMENTS. VIEW_PAYMENTS autorise les lectures
-selon la politique existante. OPERATOR et VIEWER ne peuvent déclencher ni certifier
+OWNER seul possède EXECUTE_PAYOUTS. MANAGE_SETTLEMENTS ne permet plus de transférer
+des fonds. VIEW_PAYMENTS autorise les lectures selon la politique existante.
+MANAGER, OPERATOR et VIEWER ne peuvent déclencher ni certifier
 de sortie de fonds. L'API n'accepte ni montant, ni acteur, ni statut financier,
 ni transaction provider dans les commandes navigateur ; champs inconnus rejetés.
 
@@ -115,20 +116,19 @@ Il n'existe aucun bouton ni endpoint « J'ai reçu l'argent ». La demande de
 réconciliation ne permet pas de fournir soi-même une preuve ou un statut.
 SUPPLIER_ORDERED n'est pas conditionné au succès d'un reversement en V1.
 
-## Provider indisponible
+## Provider sandbox et désactivation
 
 `GROUPIA_BICTORYS_PAYOUTS_ENABLED=false` reste supporté pour les refunds existants.
 Le merchant settlement a son propre opt-in
-`GROUPIA_MERCHANT_PAYOUTS_ENABLED=false`. L'adaptateur de production fourni est
-`UnavailableMerchantPayoutProvider` : **aucun appel réel et aucun faux succès**.
-Même activer le nouveau flag ne suffit pas sans adaptateur disponible. Le ledger,
-les soldes, la destination et l'UI fonctionnent sans credentials. Seuls les tests
-chargent un fake provider capable de confirmer un reversement.
+`GROUPIA_MERCHANT_PAYOUTS_ENABLED=false`. L'adaptateur
+`PaymentOutgoingMerchantPayoutProvider` délègue à `payment::api`. Il exige les deux
+flags payouts, le provider Bictorys activé, son URL sandbox exacte et ses credentials
+de test valides. Le ledger, les soldes, la destination et l'UI restent consultables
+avec les flags désactivés. Les credentials de production restent refusés.
 
-Le futur adaptateur Bictorys utilisera un contrat validé pour `transactionType=settlement`.
-L'implémentation d'un endpoint Bictorys supposé fonctionnel est volontairement
-reportée, puisque ce compte sandbox n'a pas cette capacité. Aucun webhook marchand
-réel n'est branché par cette tranche.
+Le payout marchand utilise `POST /pay/v1/payouts` avec `transactionType=payment`.
+Le webhook unique Payment traite ensuite la preuve corrélée. Les refunds conservent
+leur contrat `transactionType=refund` et le même transport HTTP.
 
 ## API et interface
 
@@ -140,9 +140,9 @@ Préfixe privé `/api/organizations/{organizationId}` ; réponses `Cache-Control
 | GET /grouping-campaigns/{campaignId}/merchant-settlement | VIEW_PAYMENTS, position incluant cette campagne |
 | GET /payout-destination | VIEW_PAYMENTS, destination masquée ou corps vide |
 | PUT /payout-destination | MANAGE_PAYOUT_DESTINATION, previousDestinationId/method/phoneE164/holderName/confirmed |
-| POST /grouping-campaigns/{campaignId}/merchant-payouts | MANAGE_SETTLEMENTS, Idempotency-Key + destinationId/confirmed |
+| POST /grouping-campaigns/{campaignId}/merchant-payouts | EXECUTE_PAYOUTS, Idempotency-Key + destinationId/confirmed |
 | GET /merchant-payouts | VIEW_PAYMENTS, historique masqué |
-| POST /merchant-payouts/{payoutId}/reconcile | MANAGE_SETTLEMENTS, interrogation serveur sans renvoi d'argent |
+| POST /merchant-payouts/{payoutId}/reconcile | EXECUTE_PAYOUTS, interrogation serveur sans renvoi d'argent |
 
 Angular : feature lazy `/app/versements`, store à signals, client OpenAPI régénéré,
 résumé du solde, frais séparés, destination, confirmation, historique et erreurs
@@ -153,7 +153,7 @@ pas l'argent et conserve la clé de demande après erreur réseau.
 ## Exploitation et recette locale
 
 1. Démarrer PostgreSQL et l'application avec les flags payouts désactivés. Laisser
-   Liquibase appliquer 020 normalement ; ne jamais corriger des checksums à la main.
+   Liquibase appliquer les migrations jusqu'à 027 normalement ; ne jamais corriger des checksums à la main.
 2. Se connecter en OWNER, ouvrir Mes versements, enregistrer Wave/Orange Money avec
    confirmation explicite. Vérifier le numéro masqué et la bannière d'indisponibilité.
 3. Sur une commande réellement réglée, comparer goods + shipping à la collecte ;
@@ -175,18 +175,35 @@ répétés et la latence d'attribution avant d'ouvrir les versements réels.
 
 ## Avant production
 
-- Valider et implémenter le vrai contrat Bictorys settlement, les credentials et
-  permissions du compte, les preuves serveur/webhooks, les signatures et replays.
-- Garantir l'unicité des transactions externes entre familles de flux si Bictorys
-  partage l'espace d'identifiants refund/merchant payout. Cette V1 impose l'unicité
-  provider/account/transaction dans les merchant payouts, avec corrélation métier.
+- Valider sur une transaction sandbox réelle le POST, le webhook et le GET détail,
+  puis capturer des fixtures anonymisées. Les tests automatisés utilisent le contrat
+  documenté ; aucune transaction externe réelle n'a été exécutée par ces tests.
+- Conserver l'unicité commune refund/merchant payout garantie par le registre 027.
 - Définir une récupération provider par référence/idempotency key après timeout
   sans transaction connue et une supervision des opérations en revue. Ne jamais
   relancer aveuglément une sortie d'argent.
-- Définir la politique de frais PSP et les éventuelles exigences renforcées de
-  confirmation de destination ; aucun rôle PLATFORM_ADMIN n'est inventé ici.
+- Ajouter une authentification récente ou renforcée avant les payouts de production,
+  notamment avec de futures sessions prolongées ; aucun rôle PLATFORM_ADMIN n'est inventé ici.
 - Paginer l'historique et remplacer les lectures de faits par lots/projections si
   les volumes le nécessitent. Le calcul V1 parcourt l'historique de la boutique.
 
-Les limites ci-dessus ne sont pas masquées par le fake de tests. Le ledger et la
-disponibilité sont utilisables ; un reversement externe réel ne l'est pas encore.
+Le flow sandbox est implémenté ; l'activation production reste hors périmètre.
+
+## Bictorys Merchant Payout V1 — sandbox
+
+This tranche supersedes the unavailable provider and OWNER/MANAGER execution policy.
+Only OWNER with EXECUTE_PAYOUTS can request or reconcile; financial reads remain available
+under VIEW_PAYMENTS. Destination changes remain OWNER-only.
+
+Payment owns the generic outgoing provider API and transaction registry. Settlement
+owns the reserved funds and atomic SUCCEEDED + principal-only ledger debit. The shared
+outgoing receipt journal and durable Modulith events recover consumer failures.
+POST acknowledgement is never proof. Uncertain payouts keep funds reserved; no automatic
+POST retry or new idempotency key is allowed. Reconcile never initiates a transfer.
+Without a transaction ID operator review is required. Contradictions/reversals after
+success remain incidents without changing historical money.
+
+Merchant transactionType is payment in the current sandbox contract (not the earlier
+future-settlement assumption). Provider fees are borne by Groupia. Incompatible amount
+semantics produce PAYOUT_AMOUNT_SEMANTICS_UNCONFIRMED, never a guessed fee formula.
+See [ADR 0027](../adr/0027-bictorys-merchant-payout.md).

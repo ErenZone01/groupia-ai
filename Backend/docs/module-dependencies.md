@@ -202,3 +202,12 @@ ou clôture des groupages déjà ouverts.
 [contrat](subscription-v1.md).
 
 La facturation suit ADR-0025 : aucune dépendance Payment → Subscription, ni import ni FK. Subscription porte la FK invoice → request. PaymentRequestSettled reste réservé à ORDER ; PaymentObligationSettled est générique.
+
+## Outgoing payouts
+
+Settlement consumes payment::api OutgoingPayoutOperations and the public
+OutgoingPayoutEvidenceReceived event. No Payment implementation is imported by
+Settlement; no Payment-to-Settlement dependency exists. The provider transport,
+authentication, operation ownership and receipt journal belong to Payment. Financial
+merchant policy and ledger writes belong to Settlement. Public events carry identifiers
+only; normalized evidence is read through the public API by the durable consumer.

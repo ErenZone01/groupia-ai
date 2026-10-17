@@ -76,7 +76,7 @@ class CreditResolutionIntegrationTests {
                                         .isZero());
         TestEventDrain.awaitIdle(jdbc);
         jdbc.execute(
-                "TRUNCATE TABLE refund_webhook_receipts, payment_refunds, order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication CASCADE");
+                "TRUNCATE TABLE outgoing_provider_operations,refund_webhook_receipts, payment_refunds, order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication CASCADE");
         remote = "192.0.2." + addresses.incrementAndGet();
         payout.available = true;
         http.reset();
@@ -392,11 +392,21 @@ class CreditResolutionIntegrationTests {
     }
 
     private ResultActions webhook(Map<String, Object> body, String secret) throws Exception {
-        return mvc.perform(
-                post("/api/payment/webhooks/bictorys")
-                        .header("X-Secret-Key", secret)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(body)));
+        var result =
+                mvc.perform(
+                        post("/api/payment/webhooks/bictorys")
+                                .header("X-Secret-Key", secret)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(body)));
+        await().atMost(java.time.Duration.ofSeconds(15))
+                .untilAsserted(
+                        () ->
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "select count(*) from refund_webhook_receipts where processing_status='PENDING'",
+                                                        Integer.class))
+                                        .isZero());
+        return result;
     }
 
     private void startPayout() throws Exception {
@@ -586,17 +596,17 @@ class CreditResolutionIntegrationTests {
         assertThat(jdbc.queryForMap("select * from payment_refunds where id=?", refundId()))
                 .isEqualTo(facts);
         assertThat(balance().path("status").asText()).isEqualTo("SETTLED");
-        assertThat(
-                        events.stream(
-                                        sn.groupia.payment.api.event.ShippingCreditRefundSettled
-                                                .class)
-                                .count())
-                .isEqualTo(1);
+        var serialized =
+                jdbc.queryForList(
+                        "select distinct serialized_event from event_publication where event_type=?",
+                        String.class,
+                        "sn.groupia.payment.api.event.ShippingCreditRefundSettled");
+        assertThat(serialized).hasSize(1);
         assertThat(jdbc.queryForList("select * from payments order by id")).isEqualTo(original);
         refundListener.on(
-                events.stream(sn.groupia.payment.api.event.ShippingCreditRefundSettled.class)
-                        .findFirst()
-                        .orElseThrow());
+                json.readValue(
+                        serialized.getFirst(),
+                        sn.groupia.payment.api.event.ShippingCreditRefundSettled.class));
     }
 
     @ParameterizedTest
@@ -639,9 +649,11 @@ class CreditResolutionIntegrationTests {
         startPayout();
         var e = evidence("succeeded");
         webhook(e, "wrong-secret").andExpect(status().isUnauthorized());
+        assertThat(refundState()).isEqualTo("PENDING");
         e.remove("id");
         webhook(e, "fixture-webhook-secret").andExpect(status().isAccepted());
-        assertThat(refundState()).isEqualTo("PENDING");
+        assertThat(refundState()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(balance().path("creditAmount").asInt()).isEqualTo(500);
         assertThat(
                         jdbc.queryForObject(
                                 "select last_error_code from refund_webhook_receipts where not authentic",

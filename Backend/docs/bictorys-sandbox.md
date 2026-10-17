@@ -227,3 +227,23 @@ isolation Surefire dans pom.xml et TestcontainersConfiguration. Aucune dépendan
 ajoutée ou version modifiée ; les bibliothèques Spring HTTP/Jackson existantes
 suffisent. Documents architecture, dépendances, API, exploitation et validation mis
 à jour. Aucun secret ou fichier .env modifié.
+
+## Outgoing merchant payouts
+
+The existing payout private key, merchant secret and webhook secret are shared with
+Refund through Payment infrastructure. No secrets are exposed by the public Java API.
+Keep GROUPIA_BICTORYS_PAYOUTS_ENABLED and GROUPIA_MERCHANT_PAYOUTS_ENABLED false until
+sandbox configuration and operator procedures are ready. No production URL/key accepted.
+
+Authenticated webhook is the normal completion path. Reconciliation uses GET details;
+POST 200/201, including status 0, only acknowledges initiation. A timeout, reset, HTML,
+unknown refusal or invalid JSON keeps REVIEW_REQUIRED and never triggers a second POST.
+Missing transaction ID needs operator investigation, not a new transfer.
+
+HMAC headers use Unix milliseconds and timestamp + '.' + raw body, HmacSHA256, hex,
++/- five minutes. Partial/invalid HMAC never falls back to X-Secret-Key. Static secret
+comparison remains for deliveries without HMAC; ambiguous duplicate auth headers fail.
+
+Capture only anonymized fixtures for real-contract refinements. Never log raw replies,
+phone, holder name or secrets. Fees are diagnostic and paid by Groupia; no fee arithmetic
+may make a mismatched principal pass. See [ADR 0027](../adr/0027-bictorys-merchant-payout.md).

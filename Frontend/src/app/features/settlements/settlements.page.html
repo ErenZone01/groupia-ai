@@ -30,7 +30,7 @@
       </p>
       @if (!b.providerAvailable) {
         <p class="notice">
-          Les versements automatiques sont actuellement indisponibles. Votre solde reste suivi.
+          Les versements sont actuellement indisponibles. Votre solde reste suivi.
         </p>
       }
     </g-card>
@@ -93,8 +93,17 @@
             {{ method(p.method) }} · {{ p.maskedPhone }} ·
             {{ date(p.succeededAt || p.requestedAt) }}
           </p>
+          @if (p.status === 'PENDING') {
+            <p>Versement en cours de traitement. Ne lancez pas un nouveau versement.</p>
+          }
           @if (p.reconciliationRequired) {
             <p>Résultat à vérifier. Les fonds restent réservés.</p>
+          }
+          @if (p.reconciliationReason === 'PAYOUT_REFERENCE_UNAVAILABLE') {
+            <p>
+              Une vérification par l’équipe Groupia est nécessaire. Aucun nouveau versement ne sera
+              envoyé.
+            </p>
           }
           @if (p.status !== 'SUCCEEDED' && b.canManageSettlements && b.providerAvailable) {
             <button

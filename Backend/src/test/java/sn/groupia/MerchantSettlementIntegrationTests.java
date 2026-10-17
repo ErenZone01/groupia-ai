@@ -68,7 +68,7 @@ class MerchantSettlementIntegrationTests {
                                                         Integer.class))
                                         .isZero());
         j.execute(
-                "TRUNCATE payment_reviews,subscription_invoices,subscription_periods,subscription_billing_contacts,organization_subscriptions,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,refund_webhook_receipts,payment_refunds,order_fulfillment_events,shipping_calculations,shipping_measurements,shipping_assessments,customer_access_sessions,otp_challenges,order_access_links,customer_access_limits,shipment_facts,shipments,supplier_order_anomalies,supplier_orders,payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
+                "TRUNCATE outgoing_provider_operations,payment_reviews,subscription_invoices,subscription_periods,subscription_billing_contacts,organization_subscriptions,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,refund_webhook_receipts,payment_refunds,order_fulfillment_events,shipping_calculations,shipping_measurements,shipping_assessments,customer_access_sessions,otp_challenges,order_access_links,customer_access_limits,shipment_facts,shipments,supplier_order_anomalies,supplier_orders,payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
         provider.reset();
         paymentProvider.reset();
         clock.reset();
@@ -359,7 +359,13 @@ class MerchantSettlementIntegrationTests {
                 .isEqualByComparingTo("25000");
         provider.timeout = false;
         UUID id = j.queryForObject("select id from merchant_payouts", UUID.class);
-        reconcile(id).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUCCEEDED"));
+        reconcile(id)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REVIEW_REQUIRED"))
+                .andExpect(
+                        jsonPath("$.reconciliationReason").value("PAYOUT_REFERENCE_UNAVAILABLE"));
+        payouts.verified(f.org(), id, provider.verify(payouts.get(f.org(), id)));
+        assertThat(payouts.get(f.org(), id).status()).isEqualTo("SUCCEEDED");
     }
 
     @ParameterizedTest
@@ -425,8 +431,8 @@ class MerchantSettlementIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"OWNER", "MANAGER"})
-    void ownerAndManagerCanRequestPayouts(String role) throws Exception {
+    @ValueSource(strings = {"OWNER"})
+    void onlyOwnerCanRequestPayouts(String role) throws Exception {
         paid();
         closed();
         UUID d = destination();
@@ -436,7 +442,7 @@ class MerchantSettlementIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"OPERATOR", "VIEWER"})
+    @ValueSource(strings = {"MANAGER", "OPERATOR", "VIEWER"})
     void otherRolesCannotRequestOrReconcilePayouts(String role) throws Exception {
         paid();
         closed();

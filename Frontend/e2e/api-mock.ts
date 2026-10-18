@@ -51,12 +51,19 @@ export const group: CampaignView = {
   ],
 };
 export async function session(page: Page) {
-  await page.addInitScript(() =>
-    sessionStorage.setItem(
-      'groupia.session',
-      JSON.stringify({ accessToken: 'e2e-only-token', expiresAt: Date.now() + 900000 }),
-    ),
-  );
+  await page
+    .context()
+    .addCookies([
+      {
+        name: 'groupia_refresh',
+        value: 'synthetic-e2e-cookie',
+        domain: '127.0.0.1',
+        path: '/api/auth',
+        httpOnly: true,
+        secure: false,
+        sameSite: 'Lax',
+      },
+    ]);
 }
 export async function mockApi(
   page: Page,
@@ -104,11 +111,33 @@ export async function mockApi(
         blockers: [],
       });
     if (path.endsWith('/shipping-assessments') && method === 'GET') return reply([]);
+    if (path === '/api/auth/refresh') {
+      expect(req.headers()['authorization']).toBeUndefined();
+      const cookies = await page.context().cookies();
+      return cookies.some((c) => c.name === 'groupia_refresh')
+        ? reply({
+            accessToken: 'e2e-only-token',
+            tokenType: 'Bearer',
+            expiresIn: 900,
+            sessionId: shopId,
+          })
+        : reply({ code: 'AUTH_REFRESH_INVALID' }, 401);
+    }
+    if (path === '/api/auth/logout') {
+      await page.context().clearCookies({ name: 'groupia_refresh' });
+      return route.fulfill({ status: 204, body: '' });
+    }
     if (path === '/api/auth/login') {
       expect(req.headers()['authorization']).toBeUndefined();
       if (state.loginFailure)
         return reply({ code: 'INVALID_CREDENTIALS', detail: 'private internal data' }, 401);
-      return reply({ accessToken: 'e2e-only-token', tokenType: 'Bearer', expiresIn: 900 });
+      await session(page);
+      return reply({
+        accessToken: 'e2e-only-token',
+        tokenType: 'Bearer',
+        expiresIn: 900,
+        sessionId: shopId,
+      });
     }
     if (path === '/api/auth/register') {
       expect(req.headers()['authorization']).toBeUndefined();

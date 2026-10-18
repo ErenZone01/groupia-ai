@@ -173,6 +173,10 @@ export type { GroupingCompletion$Params as GroupingCompletion$Params } from './f
 export { groupingCompletion as groupingCompletion } from './fn/grouping-completion-controller/grouping-completion';
 export type { Register$Params as Register$Params } from './fn/auth-controller/register';
 export { register as register } from './fn/auth-controller/register';
+export type { Refresh$Params as Refresh$Params } from './fn/auth-controller/refresh';
+export { refresh as refresh } from './fn/auth-controller/refresh';
+export type { Logout$Params as Logout$Params } from './fn/auth-controller/logout';
+export { logout as logout } from './fn/auth-controller/logout';
 export type { Login$Params as Login$Params } from './fn/auth-controller/login';
 export { login as login } from './fn/auth-controller/login';
 export type { Get2$Params as Get2$Params } from './fn/public-grouping-controller/get-2';

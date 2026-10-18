@@ -2,6 +2,8 @@
 
 État : implémentation limitée à inscription, connexion, création et consultation des organisations. Les autres modules métier restent au stade documentaire.
 
+> Session / Refresh Token V1 complète désormais ce contrat : voir [configuration des sessions](session-refresh-token.md). Les quatre endpoints auth exigent Origin exacte, X-Groupia-Auth et application/json. Login retourne aussi sessionId et un cookie HttpOnly ; refresh/logout sont disponibles.
+
 ## Configuration et lancement
 
 Java 21, Docker et le wrapper Maven du projet sont nécessaires. Définir GROUPIA_JWT_SECRET_BASE64 avec une clé aléatoire d'au moins 32 octets encodée en Base64, fournie par l'environnement/gestionnaire de secrets. Aucune valeur de repli n'existe : le démarrage échoue si la configuration manque ou est invalide.
@@ -62,7 +64,7 @@ Réponse de connexion :
 }
 ```
 
-Les réponses auth portent Cache-Control: no-store. Transmettre le token dans Authorization: Bearer <JWT>, jamais comme identifiant d'organisation. JWT HS256 : signature, issuer, audience, expiration et subject UUID sont validés. Aucun refresh token ; se reconnecter après expiration.
+Les réponses auth portent Cache-Control: no-store. Transmettre le token dans Authorization: Bearer <JWT>, jamais comme identifiant d'organisation. JWT HS256 : signature, issuer, audience, expiration et subject UUID sont validés. Le JWT porte aussi `sid` (UUID validé) et `auth_time`. Un refresh opaque HttpOnly permet le renouvellement sans modifier l’identité de session ; voir [le contrat Session V1](session-refresh-token.md).
 
 ## Organisations
 

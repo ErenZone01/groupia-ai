@@ -1,12 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
-import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { apiTestProviders } from '../../testing/api-test';
 describe('Authentification réelle via le client généré', () => {
   let auth: AuthService, http: HttpTestingController;
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.clear();
     TestBed.configureTestingModule({ providers: apiTestProviders() });
     auth = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);
@@ -24,7 +24,12 @@ describe('Authentification réelle via le client généré', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.responseType).toBe('json');
     expect(req.request.headers.has('Authorization')).toBe(false);
-    req.flush({ accessToken: 'test-only', tokenType: 'Bearer', expiresIn: 900 });
+    req.flush({
+      accessToken: 'test-only',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      sessionId: '11111111-1111-4111-8111-111111111111',
+    });
     await pending;
     expect(auth.signedIn()).toBe(true);
   });
@@ -48,24 +53,13 @@ describe('Authentification réelle via le client généré', () => {
     await pending;
     expect(auth.signedIn()).toBe(false);
   });
-  it('déconnecte et redirige', () => {
-    const router = TestBed.inject(Router);
-    const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+  it('déconnecte côté serveur et vide la mémoire', async () => {
     auth.acceptSession('test', 900);
-    auth.logout();
+    const pending = auth.logout();
     expect(auth.token()).toBeNull();
-    expect(navigate).toHaveBeenCalledWith('/connexion');
-  });
-  it('expire automatiquement une session ouverte', async () => {
-    vi.useFakeTimers();
-    const router = TestBed.inject(Router);
-    vi.spyOn(router, 'url', 'get').mockReturnValue('/app/products');
-    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
-    auth.acceptSession('test', 1);
-    await vi.advanceTimersByTimeAsync(1001);
-    expect(auth.signedIn()).toBe(false);
-    expect(navigate).toHaveBeenCalledWith(['/connexion'], {
-      queryParams: { expired: '1', returnUrl: '/app/products' },
-    });
+    const req = http.expectOne('/api/auth/logout');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await pending;
   });
 });

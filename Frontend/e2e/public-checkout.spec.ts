@@ -27,6 +27,7 @@ async function publicApi(
     expect(req.url()).not.toContain('private-tracking-test');
     const reply = (json: unknown, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
+    if (path === '/api/auth/refresh') return reply({ code: 'AUTH_REFRESH_INVALID' }, 401);
     if (path === `/api/public/groupings/${publicId}`) {
       return reply({
         publicIdentifier: publicId,

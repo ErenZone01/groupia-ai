@@ -2,7 +2,7 @@
 
 ## 1. Architecture de sécurité
 
-Java 21, Boot 4.1.1, Modulith 2.1.1, PostgreSQL 18.6 et Angular 22 sont conservés. Modules fermés, accès inter-module via `::api`, aucun repository interne importé. Aucun composant réseau supplémentaire. JWT organisatrices sans cookies ; accès cliente HttpOnly et CSRF inchangé. Le profil `prod` doit être explicitement activé. Ne jamais activer `customer-access-local` en production.
+Java 21, Boot 4.1.1, Modulith 2.1.1, PostgreSQL 18.6 et Angular 22 sont conservés. Modules fermés, accès inter-module via `::api`, aucun repository interne importé. Aucun composant réseau supplémentaire. JWT organisatrices en mémoire pour les APIs métier ; refresh HttpOnly limité aux endpoints auth avec Origin/CSRF dédiés (voir [Session V1](session-refresh-token.md)). L’accès cliente HttpOnly et son CSRF restent inchangés. Le profil `prod` doit être explicitement activé. Ne jamais activer `customer-access-local` en production.
 
 L'inscription HTTP retourne désormais **202 sans corps**, que le numéro soit nouveau ou déjà inscrit, après validation des entrées. Aucune session n'est créée et aucun mot de passe existant n'est remplacé. Login conserve la vérification BCrypt (y compris le hash factice pour les comptes absents), les erreurs génériques et le JWT court. Les clients doivent ensuite demander la connexion, sans annoncer que la création est certaine. Le contrat OpenAPI et la collection Postman suivent ce changement volontaire anti-énumération.
 

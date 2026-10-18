@@ -4,5 +4,6 @@
 export interface AccessToken {
   accessToken?: string;
   expiresIn?: number;
+  sessionId?: string;
   tokenType?: string;
 }

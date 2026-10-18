@@ -20,14 +20,38 @@ class JwtAccessTokens implements AccessTokens {
         this.clock = clock;
     }
 
-    @Override public AccessToken issue(UUID userAccountId) {
+    @Override
+    public AccessToken issue(
+            UUID userAccountId,
+            UUID sessionId,
+            java.time.Instant authenticatedAt,
+            java.time.Instant absoluteExpiresAt) {
         var now = clock.instant();
-        var claims = JwtClaimsSet.builder().issuer(settings.issuer())
-                .subject(userAccountId.toString()).audience(List.of(settings.audience()))
-                .issuedAt(now).expiresAt(now.plus(settings.accessTokenTtl()))
-                .id(UUID.randomUUID().toString()).build();
-        String token = encoder.encode(JwtEncoderParameters.from(
-                JwsHeader.with(MacAlgorithm.HS256).type("JWT").build(), claims)).getTokenValue();
-        return new AccessToken(token, "Bearer", settings.accessTokenTtl().toSeconds());
+        var expiresAt =
+                now.plus(settings.accessTokenTtl()).isBefore(absoluteExpiresAt)
+                        ? now.plus(settings.accessTokenTtl())
+                        : absoluteExpiresAt;
+        var claims =
+                JwtClaimsSet.builder()
+                        .issuer(settings.issuer())
+                        .subject(userAccountId.toString())
+                        .audience(List.of(settings.audience()))
+                        .issuedAt(now)
+                        .expiresAt(expiresAt)
+                        .claim("sid", sessionId.toString())
+                        .claim("auth_time", authenticatedAt.getEpochSecond())
+                        .id(UUID.randomUUID().toString())
+                        .build();
+        String token =
+                encoder.encode(
+                                JwtEncoderParameters.from(
+                                        JwsHeader.with(MacAlgorithm.HS256).type("JWT").build(),
+                                        claims))
+                        .getTokenValue();
+        return new AccessToken(
+                token,
+                "Bearer",
+                Math.max(0, java.time.Duration.between(now, expiresAt).toSeconds()),
+                sessionId);
     }
 }

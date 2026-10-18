@@ -76,7 +76,7 @@ class PaymentReviewMigrationTests {
                         .isEqualTo(entry.getValue());
             assertThat(
                             jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThat(jdbc.queryForObject("select count(*) from payment_reviews", Long.class))
                     .isZero();

@@ -59,7 +59,9 @@ describe('Contexte Boutique', () => {
     const pending = context.ensure();
     const req = list();
     vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    auth.logout();
+    const logout = auth.logout();
+    http.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    await logout;
     req.flush([{ id: 'a' }]);
     await pending;
     expect(context.selected()).toBeNull();

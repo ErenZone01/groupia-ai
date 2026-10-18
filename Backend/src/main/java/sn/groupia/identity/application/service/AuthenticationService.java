@@ -18,18 +18,24 @@ public class AuthenticationService {
     private final PhoneNumberNormalizer phones;
     private final PasswordPolicy passwords;
     private final PasswordEncoder encoder;
-    private final AccessTokens tokens;
+    private final RefreshSessions sessions;
     private final ApplicationEventPublisher events;
     private final Clock clock;
     private final String dummyHash;
 
-    public AuthenticationService(UserAccounts accounts, PhoneNumberNormalizer phones, PasswordPolicy passwords,
-            PasswordEncoder encoder, AccessTokens tokens, ApplicationEventPublisher events, Clock clock) {
+    public AuthenticationService(
+            UserAccounts accounts,
+            PhoneNumberNormalizer phones,
+            PasswordPolicy passwords,
+            PasswordEncoder encoder,
+            RefreshSessions sessions,
+            ApplicationEventPublisher events,
+            Clock clock) {
         this.accounts = accounts;
         this.phones = phones;
         this.passwords = passwords;
         this.encoder = encoder;
-        this.tokens = tokens;
+        this.sessions = sessions;
         this.events = events;
         this.clock = clock;
         this.dummyHash = encoder.encode(UUID.randomUUID().toString());
@@ -39,25 +45,40 @@ public class AuthenticationService {
     public UserAccountView register(String phoneNumber, String password, String email) {
         String phone = phones.normalize(phoneNumber);
         passwords.validateRegistration(password);
-        var account = accounts.add(UserAccount.register(phone, email == null ? null : email.strip(),
-                encoder.encode(password), clock.instant()));
-        events.publishEvent(new UserAccountCreated(UUID.randomUUID(), clock.instant(), account.getId()));
-        return new UserAccountView(account.getId(), account.getPhoneNumber(), account.getEmail(),
-                account.getStatus().name(), account.getCreatedAt());
+        var account =
+                accounts.add(
+                        UserAccount.register(
+                                phone,
+                                email == null ? null : email.strip(),
+                                encoder.encode(password),
+                                clock.instant()));
+        events.publishEvent(
+                new UserAccountCreated(UUID.randomUUID(), clock.instant(), account.getId()));
+        return new UserAccountView(
+                account.getId(),
+                account.getPhoneNumber(),
+                account.getEmail(),
+                account.getStatus().name(),
+                account.getCreatedAt());
     }
 
-    @Transactional(readOnly = true)
-    public AccessTokens.AccessToken login(String phoneNumber, String password) {
+    @Transactional
+    public RefreshSessions.Issued login(
+            String phoneNumber, String password, String previousRefresh) {
         passwords.validateInput(password);
         String phone;
-        try { phone = phones.normalize(phoneNumber); }
-        catch (ApiException ex) { throw invalidCredentials(); }
+        try {
+            phone = phones.normalize(phoneNumber);
+        } catch (ApiException ex) {
+            throw invalidCredentials();
+        }
         var account = accounts.findByPhoneNumber(phone).orElse(null);
-        boolean matches = encoder.matches(password, account == null ? dummyHash : account.getPasswordHash());
+        boolean matches =
+                encoder.matches(password, account == null ? dummyHash : account.getPasswordHash());
         if (account == null || !matches || account.getStatus() != UserAccountStatus.ACTIVE) {
             throw invalidCredentials();
         }
-        return tokens.issue(account.getId());
+        return sessions.create(account.getId(), previousRefresh);
     }
 
     private ApiException invalidCredentials() {

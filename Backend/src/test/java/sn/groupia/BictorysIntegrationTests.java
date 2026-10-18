@@ -1299,6 +1299,7 @@ class BictorysIntegrationTests {
     private String jwt(UUID id) {
         var claims =
                 JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
                         .issuer("https://groupia.test")
                         .audience(List.of("groupia-api-test"))
                         .subject(id.toString())

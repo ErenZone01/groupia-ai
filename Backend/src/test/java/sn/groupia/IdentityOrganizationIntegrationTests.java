@@ -398,6 +398,8 @@ class IdentityOrganizationIntegrationTests {
     void malformedJsonUuidAndPaginationReturnStableErrors() throws Exception {
         mvc.perform(
                         post("/api/auth/register")
+                                .header("Origin", "https://groupia.test")
+                                .header("X-Groupia-Auth", "1")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{broken"))
                 .andExpect(status().isBadRequest())
@@ -419,6 +421,7 @@ class IdentityOrganizationIntegrationTests {
         UUID user = registeredId(PHONE);
         var claims =
                 JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
                         .issuer(
                                 mutation.equals("issuer")
                                         ? "https://untrusted.test"
@@ -458,6 +461,7 @@ class IdentityOrganizationIntegrationTests {
                 .andExpect(status().isUnauthorized());
         var claims =
                 JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
                         .issuer("https://groupia.test")
                         .audience(List.of("groupia-api-test"))
                         .subject(UUID.randomUUID().toString())
@@ -482,6 +486,8 @@ class IdentityOrganizationIntegrationTests {
         }
         return mvc.perform(
                 post("/api/auth/register")
+                        .header("Origin", "https://groupia.test")
+                        .header("X-Groupia-Auth", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(request)));
     }
@@ -489,6 +495,8 @@ class IdentityOrganizationIntegrationTests {
     private ResultActions login(String phone, String password) throws Exception {
         return mvc.perform(
                 post("/api/auth/login")
+                        .header("Origin", "https://groupia.test")
+                        .header("X-Groupia-Auth", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
                                 json.writeValueAsString(

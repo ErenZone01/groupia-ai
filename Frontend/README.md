@@ -145,7 +145,7 @@ Les identifiants de boutique viennent du contexte autorisé, jamais d’une sais
 
 ## Décisions et limites explicites
 
-- Authentification : mémoire + sessionStorage ; pas de refresh-token, pas de token affiché ou journalisé. Un 401 privé invalide uniquement la session qui a émis la requête. Les requêtes publiques ne reçoivent pas le JWT. Le backend reste l’autorité pour les droits.
+- Authentification : JWT en mémoire uniquement ; suppression de l’ancienne clé `groupia.session` au bootstrap. Refresh opaque en cookie HttpOnly, rotation PostgreSQL et coordination Web Locks/BroadcastChannel. Seul un rejet Bearer identifié peut déclencher un refresh puis un rejeu unique ; aucune commande financière n’est rejouée après timeout/réseau/5xx. Les requêtes publiques ne reçoivent pas le JWT. Le backend reste l’autorité pour les droits. Voir [la configuration des sessions](../Backend/docs/session-refresh-token.md) et [l’ADR 0028](../Backend/adr/0028-session-refresh-token.md).
 - Aucun prénom n’est inventé : les APIs de ce sprint ne fournissent pas de profil/prénom. Le layout affiche le nom réel de la boutique.
 - Livraison : AIR / SEA / ROAD / OTHER, PER_KG / PER_CBM / PER_ITEM / FIXED, ESTIMATED_AT_CHECKOUT / **AFTER_FINAL_ASSESSMENT**, XOF et HALF_UP, conformément au backend. Le tarif est requis ; zéro n’est permis que pour le forfait.
 - Le backend exige des estimations de poids/volume pour l’encaissement estimé au kg/m³. Le formulaire des variantes propose ces champs ; l’erreur métier explique leur absence.

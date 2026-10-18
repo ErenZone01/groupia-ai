@@ -366,4 +366,26 @@ class OpenApiIntegrationTests {
         assertThat(responses.path("202").has("content")).isFalse();
         assertThat(responses.has("429")).isTrue();
     }
+
+    @Test
+    void refreshSessionContractNeverExposesRefreshInJson() throws Exception {
+        var doc = spec();
+        var properties = doc.at("/components/schemas/AccessToken/properties");
+        assertThat(properties.has("sessionId")).isTrue();
+        assertThat(properties.has("refreshToken")).isFalse();
+        assertThat(
+                        doc.path("paths")
+                                .path("/api/auth/logout")
+                                .path("post")
+                                .path("responses")
+                                .has("204"))
+                .isTrue();
+        assertThat(
+                        doc.path("paths")
+                                .path("/api/auth/refresh")
+                                .path("post")
+                                .path("requestBody")
+                                .isMissingNode())
+                .isTrue();
+    }
 }

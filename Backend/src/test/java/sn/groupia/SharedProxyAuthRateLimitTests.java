@@ -45,6 +45,7 @@ class SharedProxyAuthRateLimitTests {
 
     @BeforeEach
     void reset() {
+        jdbc.update("delete from auth_sessions");
         jdbc.update("delete from auth_rate_limits");
         for (int i = 0; i < 8; i++) {
             jdbc.update("delete from user_accounts where phone_number=?", phone(i));
@@ -62,6 +63,8 @@ class SharedProxyAuthRateLimitTests {
     private ResultActions auth(String operation, String phone, int forwarded) throws Exception {
         return mvc.perform(
                 post("/api/auth/" + operation)
+                        .header("Origin", "https://groupia.test")
+                        .header("X-Groupia-Auth", "1")
                         .with(
                                 request -> {
                                     request.setRemoteAddr("192.0.2.10");

@@ -18,7 +18,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             body.setProperty("details", ex.details());
         }
         var headers = new HttpHeaders();
-        if (ex.code().equals("AUTH_RATE_LIMITED"))
+        if ((ex.code().equals("AUTH_RATE_LIMITED")
+                || ex.code().equals("AUTH_REFRESH_RATE_LIMITED")))
             headers.set("Retry-After", ex.details().get("retryAfterSeconds").toString());
         return handleExceptionInternal(
                 ex, body, headers, HttpStatusCode.valueOf(ex.status()), request);

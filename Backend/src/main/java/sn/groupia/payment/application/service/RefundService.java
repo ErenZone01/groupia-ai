@@ -8,7 +8,6 @@ import sn.groupia.organization.api.*;
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
 import sn.groupia.payment.domain.service.*;
-import sn.groupia.shared.api.ApiException;
 
 @Service
 public class RefundService implements RefundOperations {
@@ -86,10 +85,17 @@ public class RefundService implements RefundOperations {
             }
         } else error = "PAYMENT_AUTHENTICITY_FAILED";
         UUID receipt = transactions.receive(hash(payload), authentic, observation, error);
-        if (!authentic)
-            throw new ApiException(
-                    401, "PAYMENT_AUTHENTICITY_FAILED", "Authenticité du webhook invalide.");
-        if (observation != null) transactions.apply(receipt, null, observation);
+        if (observation != null) {
+            try {
+                transactions.apply(receipt, null, observation);
+            } catch (RuntimeException failure) {
+                // The legacy receipt is already committed and remains available for reconciliation.
+                org.slf4j.LoggerFactory.getLogger(getClass())
+                        .warn(
+                                "Refund webhook {} processing deferred; durable receipt retained",
+                                receipt);
+            }
+        }
         return receipt;
     }
 

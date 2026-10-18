@@ -269,7 +269,7 @@ class CreditResolutionIntegrationTests {
                                                         state,
                                                         "timestamp",
                                                         clock.instant().toString()))))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
     }
 
     private long orderVersion() {
@@ -588,11 +588,11 @@ class CreditResolutionIntegrationTests {
         startPayout();
         var original = jdbc.queryForList("select * from payments order by id");
         var e = evidence("succeeded");
-        webhook(e, "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(e, "fixture-webhook-secret").andExpect(status().isOk());
         completed();
         var facts = jdbc.queryForMap("select * from payment_refunds where id=?", refundId());
-        webhook(e, "fixture-webhook-secret").andExpect(status().isAccepted());
-        webhook(evidence("pending"), "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(e, "fixture-webhook-secret").andExpect(status().isOk());
+        webhook(evidence("pending"), "fixture-webhook-secret").andExpect(status().isOk());
         assertThat(jdbc.queryForMap("select * from payment_refunds where id=?", refundId()))
                 .isEqualTo(facts);
         assertThat(balance().path("status").asText()).isEqualTo("SETTLED");
@@ -633,7 +633,7 @@ class CreditResolutionIntegrationTests {
                     case "transactionType" -> "payment";
                     default -> "GPR-unknown";
                 });
-        webhook(e, "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(e, "fixture-webhook-secret").andExpect(status().isOk());
         assertThat(refundState()).isNotEqualTo("SUCCEEDED");
         assertThat(balance().path("status").asText()).isEqualTo("CREDIT_DUE");
         assertThat(
@@ -648,10 +648,10 @@ class CreditResolutionIntegrationTests {
         stable();
         startPayout();
         var e = evidence("succeeded");
-        webhook(e, "wrong-secret").andExpect(status().isUnauthorized());
+        webhook(e, "wrong-secret").andExpect(status().isOk());
         assertThat(refundState()).isEqualTo("PENDING");
         e.remove("id");
-        webhook(e, "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(e, "fixture-webhook-secret").andExpect(status().isOk());
         assertThat(refundState()).isEqualTo("REVIEW_REQUIRED");
         assertThat(balance().path("creditAmount").asInt()).isEqualTo(500);
         assertThat(
@@ -682,7 +682,7 @@ class CreditResolutionIntegrationTests {
         assertThat(refundState()).isEqualTo("REVIEW_REQUIRED");
         auth(post(creditPath()), automated()).andExpect(status().isOk());
         assertThat(http.requests).hasSize(1);
-        webhook(evidence("succeeded"), "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(evidence("succeeded"), "fixture-webhook-secret").andExpect(status().isOk());
         completed();
     }
 
@@ -755,7 +755,7 @@ class CreditResolutionIntegrationTests {
                                 jdbc.update(
                                         "update payment_refunds set recipient_phone_snapshot='+221770000009'"))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        webhook(evidence("succeeded"), "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(evidence("succeeded"), "fixture-webhook-secret").andExpect(status().isOk());
         completed();
         assertThatThrownBy(
                         () ->
@@ -771,11 +771,10 @@ class CreditResolutionIntegrationTests {
     void finalFailureKeepsCreditAndLateSuccessIsNotLost(String state) throws Exception {
         stable();
         startPayout();
-        webhook(evidence(state.toLowerCase()), "fixture-webhook-secret")
-                .andExpect(status().isAccepted());
+        webhook(evidence(state.toLowerCase()), "fixture-webhook-secret").andExpect(status().isOk());
         assertThat(refundState()).isEqualTo(state);
         assertThat(balance().path("creditAmount").asInt()).isEqualTo(500);
-        webhook(evidence("succeeded"), "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(evidence("succeeded"), "fixture-webhook-secret").andExpect(status().isOk());
         completed();
     }
 
@@ -791,7 +790,7 @@ class CreditResolutionIntegrationTests {
         assertThat(refundState()).isEqualTo("REVIEW_REQUIRED");
         var e = evidence("succeeded");
         e.put("id", existing);
-        webhook(e, "fixture-webhook-secret").andExpect(status().isAccepted());
+        webhook(e, "fixture-webhook-secret").andExpect(status().isOk());
         assertThat(
                         jdbc.queryForObject(
                                 "select last_error_code from refund_webhook_receipts",

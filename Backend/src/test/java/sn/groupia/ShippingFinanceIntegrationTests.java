@@ -238,7 +238,7 @@ class ShippingFinanceIntegrationTests {
                                                         state,
                                                         "timestamp",
                                                         clock.instant().toString()))))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
     }
 
     @Test

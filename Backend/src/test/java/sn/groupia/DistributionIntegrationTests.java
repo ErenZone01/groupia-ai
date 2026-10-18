@@ -252,7 +252,7 @@ class DistributionIntegrationTests {
                                                         state,
                                                         "timestamp",
                                                         clock.instant().toString()))))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
     }
 
     private long orderVersion() {

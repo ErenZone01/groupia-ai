@@ -183,7 +183,7 @@ class MerchantBictorysIntegrationTests {
                                 .header("X-Secret-Key", "fixture-webhook-secret")
                                 .contentType("application/json")
                                 .content(json.writeValueAsString(body)))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
     }
 
     private void waitState(String expected) {
@@ -342,6 +342,80 @@ class MerchantBictorysIntegrationTests {
     }
 
     @Test
+    void outgoingReceiptPersistenceFailureReturns500AndRetryDebitsOnce() throws Exception {
+        start();
+        String body = json.writeValueAsString(evidence());
+        jdbc.execute(
+                "alter table refund_webhook_receipts add constraint test_receipt_failure check (false) not valid");
+        try {
+            mvc.perform(
+                            post("/api/payment/webhooks/bictorys")
+                                    .header("X-Secret-Key", "fixture-webhook-secret")
+                                    .contentType("application/json")
+                                    .content(body))
+                    .andExpect(status().isInternalServerError());
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from refund_webhook_receipts where operation_id=?",
+                                    Long.class,
+                                    id()))
+                    .isZero();
+            assertThat(state()).isEqualTo("PENDING");
+            assertThat(debits()).isZero();
+        } finally {
+            jdbc.execute(
+                    "alter table refund_webhook_receipts drop constraint test_receipt_failure");
+        }
+        webhook(evidence());
+        waitState("SUCCEEDED");
+        webhook(evidence());
+        assertThat(debits()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "invalid",
+                "signature-only",
+                "timestamp-only",
+                "invalid-with-static",
+                "duplicate-signature",
+                "duplicate-timestamp"
+            })
+    void rejectedHmacIsAcknowledgedOnlyAfterSecurityReceiptWithoutFinancialEffect(String mode)
+            throws Exception {
+        start();
+        var request =
+                post("/api/payment/webhooks/bictorys")
+                        .contentType("application/json")
+                        .content(json.writeValueAsString(evidence()));
+        if (!mode.equals("timestamp-only")) request.header("X-Webhook-Signature", "0".repeat(64));
+        if (!mode.equals("signature-only"))
+            request.header("X-Webhook-Timestamp", Long.toString(System.currentTimeMillis()));
+        if (mode.equals("invalid-with-static"))
+            request.header("X-Secret-Key", "fixture-webhook-secret");
+        if (mode.equals("duplicate-signature"))
+            request.header("X-Webhook-Signature", "0".repeat(64));
+        if (mode.equals("duplicate-timestamp"))
+            request.header("X-Webhook-Timestamp", Long.toString(System.currentTimeMillis()));
+        mvc.perform(request).andExpect(status().isOk());
+        var receipt =
+                jdbc.queryForMap(
+                        "select authentic, processing_status, last_error_code from refund_webhook_receipts where operation_id=?",
+                        id());
+        assertThat(receipt.get("authentic")).isEqualTo(false);
+        assertThat(receipt.get("processing_status")).isEqualTo("REVIEW_REQUIRED");
+        assertThat(receipt.get("last_error_code")).isEqualTo("PAYMENT_AUTHENTICITY_FAILED");
+        assertThat(state()).isEqualTo("PENDING");
+        assertThat(debits()).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from event_publication where event_type like '%OutgoingPayoutEvidenceReceived' and serialized_event like ?",
+                                Long.class, "%" + id() + "%"))
+                .isZero();
+    }
+
+    @Test
     void conflictingAuthenticationHeadersNeverMutateMoney() throws Exception {
         start();
         for (var headers :
@@ -351,14 +425,14 @@ class MerchantBictorysIntegrationTests {
                                     .header("X-Secret-Key", (Object[]) headers)
                                     .contentType("application/json")
                                     .content(json.writeValueAsString(evidence())))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isOk());
         mvc.perform(
                         post("/api/payment/webhooks/bictorys")
                                 .header("X-Secret-Key", "fixture-webhook-secret")
                                 .header("X-Webhook-Signature", "0".repeat(64))
                                 .contentType("application/json")
                                 .content(json.writeValueAsString(evidence())))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
         assertThat(state()).isEqualTo("PENDING");
         assertThat(debits()).isZero();
     }
@@ -616,7 +690,7 @@ class MerchantBictorysIntegrationTests {
                                         HexFormat.of().formatHex(mac.doFinal(body)))
                                 .contentType("application/json")
                                 .content(body))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
         waitState("SUCCEEDED");
         assertThat(debits()).isEqualTo(1);
     }

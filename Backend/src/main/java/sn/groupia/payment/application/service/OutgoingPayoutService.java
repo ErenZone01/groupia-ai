@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.*;
 import sn.groupia.payment.api.OutgoingPayoutOperations;
 import sn.groupia.payment.domain.service.OutgoingPayoutGateway;
 import sn.groupia.payment.infrastructure.persistence.OutgoingPayoutStore;
-import sn.groupia.shared.api.ApiException;
 
 @Service
 public class OutgoingPayoutService implements OutgoingPayoutOperations {
@@ -134,9 +133,8 @@ public class OutgoingPayoutService implements OutgoingPayoutOperations {
                                 error);
             }
         UUID receipt = store.receipt(hash(payload), authentic, owner.orElse(null), e, error);
-        if (!authentic)
-            throw new ApiException(
-                    401, "PAYMENT_AUTHENTICITY_FAILED", "Authenticité du webhook invalide.");
+        // The receipt and any event publication are committed before acknowledging Bictorys.
+        // Unauthenticated receipts never publish financial evidence.
         return receipt;
     }
 

@@ -34,7 +34,9 @@ class PaymentController {
             }
         }
         webhooks.receive(provider, payload, authenticationHeaders);
-        return ResponseEntity.accepted().build();
+        return "BICTORYS".equalsIgnoreCase(provider)
+                ? ResponseEntity.ok().build()
+                : ResponseEntity.accepted().build();
     }
 
     @GetMapping("/api/organizations/{organizationId}/payment-requests")

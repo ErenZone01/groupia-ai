@@ -50,6 +50,15 @@ No HMAC downgrade is permitted. Static X-Secret-Key is supported only with no HM
 headers. Both comparisons use constant-time digest comparison. The same authentication
 applies to incoming charges and outgoing payouts.
 
+Bictorys receives HTTP 200 only after the local receipt transaction commits, including
+unauthenticated or review-required receipts. An unauthenticated receipt never triggers
+financial processing. Receipt persistence/commit failures propagate as HTTP 5xx so the
+provider can retry; bodies above 64 KiB still receive 413 before processing. After a
+durable receipt, business failures do not change the acknowledgement: incoming charges
+use the existing receipt retry queue, outgoing payouts use durable Modulith publications,
+and legacy refund receipts remain available for operator reconciliation. Authentication
+and financial correlation rules are unchanged. Other providers retain their HTTP policy.
+
 OWNER alone receives EXECUTE_PAYOUTS. OWNER alone changes the destination. MANAGER
 and VIEWER retain their permitted financial reads; MANAGE_SETTLEMENTS no longer
 authorizes a money transfer. Frontend confirmation never supplies an authoritative

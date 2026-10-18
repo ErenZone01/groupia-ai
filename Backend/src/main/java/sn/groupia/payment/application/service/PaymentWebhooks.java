@@ -98,13 +98,21 @@ public class PaymentWebhooks {
             }
         }
         if (!authentic) {
+            if ("BICTORYS".equals(adapter.name())) return id;
             throw new ApiException(
                     401, "PAYMENT_AUTHENTICITY_FAILED", "Authenticité du webhook invalide.");
         }
         if (parsingError != null) {
             return id;
         }
-        retry(id);
+        try {
+            retry(id);
+        } catch (RuntimeException failure) {
+            if (!"BICTORYS".equals(adapter.name())) throw failure;
+            // receive() committed before this block. The durable receipt is retried internally.
+            LoggerFactory.getLogger(getClass())
+                    .warn("Webhook {} processing deferred; durable receipt retained", id);
+        }
         return id;
     }
 

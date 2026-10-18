@@ -1,8 +1,6 @@
 package sn.groupia.payment.infrastructure.provider.bictorys;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import sn.groupia.payment.api.PaymentStatus;
 import sn.groupia.payment.domain.service.*;
@@ -154,17 +152,7 @@ public final class BictorysPaymentProvider implements PaymentProvider {
 
     @Override
     public boolean verifyAuthenticity(byte[] payload, Map<String, String> headers) {
-        var values =
-                headers.entrySet().stream()
-                        .filter(e -> e.getKey().equalsIgnoreCase("X-Secret-Key"))
-                        .map(Map.Entry::getValue)
-                        .toList();
-        if (values.size() != 1 || values.getFirst() == null) {
-            return false;
-        }
-        return MessageDigest.isEqual(
-                properties.webhookSecret().getBytes(StandardCharsets.UTF_8),
-                values.getFirst().getBytes(StandardCharsets.UTF_8));
+        return BictorysWebhookAuthentication.verify(payload, headers, properties.webhookSecret());
     }
 
     @Override

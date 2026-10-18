@@ -6,6 +6,7 @@ import { MerchantBalanceSummary } from './merchant-balance-summary';
 import { PayoutDestinationEditor } from './payout-destination-editor';
 import type { MerchantBalance } from '../../api/generated/models';
 import { payoutLabel } from './settlements.page';
+import { AuthService } from '../../core/auth/auth.service';
 const base = '/api/organizations/shop';
 const balance: MerchantBalance = {
   grossMerchantCollections: 25000,
@@ -82,12 +83,10 @@ describe('Merchant settlement : requêtes financières', () => {
     await vi.waitFor(() => flush());
     await p;
     http.expectNone(base + '/grouping-campaigns/campaign/merchant-payouts');
-    const retry = store.request('campaign');
-    const second = http.expectOne(base + '/grouping-campaigns/campaign/merchant-payouts');
-    expect(second.request.headers.get('Idempotency-Key')).toBe(key);
-    second.flush({});
-    await vi.waitFor(() => flush());
-    await retry;
+    await store.request('campaign');
+    http.expectNone(base + '/grouping-campaigns/campaign/merchant-payouts');
+    expect(store.error()).toContain('Ne relancez pas');
+    expect(key).toBeTruthy();
   });
   it('ne permet pas au manager de modifier une destination', async () => {
     await load({ ...balance, canManageDestination: false });
@@ -114,6 +113,56 @@ describe('Merchant settlement : requêtes financières', () => {
     flush(balance);
     await a;
     expect(store.balance()?.grossMerchantCollections).toBe(100);
+  });
+  it('ignore une mutation ancienne après A vers B vers A', async () => {
+    await load();
+    const mutation = store.request('campaign');
+    const old = http.expectOne(base + '/grouping-campaigns/campaign/merchant-payouts');
+    const other = store.load('other');
+    flush({ ...balance, availableForPayout: 100 }, 'other');
+    await other;
+    await load({ ...balance, availableForPayout: 700 });
+    old.flush({ status: 'PENDING' });
+    await mutation;
+    expect(store.balance()?.availableForPayout).toBe(700);
+    expect(store.busy()).toBe(false);
+    http.expectNone(base + '/merchant-balance');
+  });
+  it('efface les données lorsque la boutique disparaît et ignore la lecture en vol', async () => {
+    const pending = store.load('shop');
+    await store.load('');
+    flush();
+    await pending;
+    expect(store.balance()).toBeNull();
+    expect(store.destination()).toBeNull();
+    expect(store.history()).toEqual([]);
+    expect(store.loading()).toBe(false);
+    await store.request('campaign');
+    http.expectNone(base + '/grouping-campaigns/campaign/merchant-payouts');
+  });
+  it('ignore une mutation après expiration de session et interdit une nouvelle demande', async () => {
+    await load();
+    const pending = store.request('campaign');
+    const old = http.expectOne(base + '/grouping-campaigns/campaign/merchant-payouts');
+    TestBed.inject(AuthService).clear();
+    TestBed.tick();
+    old.flush({ status: 'PENDING' });
+    await pending;
+    expect(store.balance()).toBeNull();
+    expect(store.history()).toEqual([]);
+    expect(store.busy()).toBe(false);
+    await store.request('campaign');
+    http.expectNone(base + '/grouping-campaigns/campaign/merchant-payouts');
+    http.expectNone(base + '/merchant-balance');
+  });
+  it('observe la session même si le store est créé avant la sélection de boutique', async () => {
+    TestBed.tick();
+    await load();
+    TestBed.inject(AuthService).clear();
+    TestBed.tick();
+    expect(store.balance()).toBeNull();
+    expect(store.destination()).toBeNull();
+    expect(store.history()).toEqual([]);
   });
 });
 describe('Présentation et confirmation', () => {

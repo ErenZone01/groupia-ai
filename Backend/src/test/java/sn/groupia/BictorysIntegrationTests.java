@@ -89,7 +89,7 @@ class BictorysIntegrationTests {
                                         Long.class)
                                 == 0);
         jdbc.execute(
-                "TRUNCATE TABLE order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication CASCADE");
+                "TRUNCATE TABLE merchant_ledger_entries,outgoing_provider_operations,order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication CASCADE");
         provider.reset();
         clock.reset();
         http.reset();
@@ -249,10 +249,69 @@ class BictorysIntegrationTests {
         if (!secret.isEmpty()) {
             request.header("X-Secret-Key", secret);
         }
-        mvc.perform(request).andExpect(status().isUnauthorized());
+        mvc.perform(request).andExpect(status().isOk());
         assertThat(paymentStatus(id)).isEqualTo("PENDING");
         assertThat(settlementCount()).isZero();
         assertThat(http.requests).hasSize(1);
+    }
+
+    @Test
+    void receiptPersistenceFailureReturns500AndProviderCanRetry() throws Exception {
+        var id = start();
+        String payload = event(id, "succeeded");
+        jdbc.execute(
+                "alter table payment_webhook_events add constraint test_receipt_failure check (false) not valid");
+        try {
+            deliver(payload).andExpect(status().isInternalServerError());
+            assertThat(count("payment_webhook_events")).isZero();
+            assertThat(paymentStatus(id)).isEqualTo("PENDING");
+            assertThat(settlementCount()).isZero();
+        } finally {
+            jdbc.execute("alter table payment_webhook_events drop constraint test_receipt_failure");
+        }
+        deliver(payload).andExpect(status().isOk());
+        awaitConfirmed();
+        deliver(payload).andExpect(status().isOk());
+        assertThat(count("payment_webhook_events")).isEqualTo(1);
+        assertThat(settlementCount()).isEqualTo(1);
+    }
+
+    @Test
+    void processingFailureAfterDurableReceiptReturns200AndInternalRetrySettlesOnce()
+            throws Exception {
+        var id = start();
+        String payload = event(id, "succeeded");
+        jdbc.execute(
+                "alter table payments add constraint test_processing_failure check (status <> 'SUCCEEDED') not valid");
+        try {
+            deliver(payload).andExpect(status().isOk());
+            assertThat(count("payment_webhook_events")).isEqualTo(1);
+            assertThat(paymentStatus(id)).isEqualTo("PENDING");
+            assertThat(settlementCount()).isZero();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select last_error_code from payment_webhook_events",
+                                    String.class))
+                    .isEqualTo("PROCESSING_FAILURE");
+        } finally {
+            jdbc.execute("alter table payments drop constraint test_processing_failure");
+        }
+        UUID receipt = jdbc.queryForObject("select id from payment_webhook_events", UUID.class);
+        clock.advance(Duration.ofMinutes(2));
+        webhooks.retryPending();
+        awaitConfirmed();
+        webhooks.retry(receipt);
+        deliver(payload).andExpect(status().isOk());
+        assertThat(settlementCount()).isEqualTo(1);
+    }
+
+    @Test
+    void oversizedWebhookReturns413WithoutReceiptOrFinancialEffect() throws Exception {
+        var id = start();
+        deliver(" ".repeat(65537)).andExpect(status().isPayloadTooLarge());
+        assertThat(count("payment_webhook_events")).isZero();
+        assertThat(paymentStatus(id)).isEqualTo("PENDING");
+        assertThat(settlementCount()).isZero();
     }
 
     @Test
@@ -260,9 +319,9 @@ class BictorysIntegrationTests {
             throws Exception {
         var id = start();
         String body = event(id, "succeeded");
-        deliver(body).andExpect(status().isAccepted());
+        deliver(body).andExpect(status().isOk());
         awaitConfirmed();
-        deliver(body).andExpect(status().isAccepted());
+        deliver(body).andExpect(status().isOk());
         assertThat(settlementCount()).isEqualTo(1);
         assertThat(count("payment_webhook_events")).isEqualTo(1);
         assertThat(
@@ -287,7 +346,7 @@ class BictorysIntegrationTests {
         } else {
             node.put(field, field.equals("currency") ? "EUR" : "another-order");
         }
-        deliver(json.writeValueAsString(node)).andExpect(status().isAccepted());
+        deliver(json.writeValueAsString(node)).andExpect(status().isOk());
         assertThat(reason(id)).isEqualTo(reason);
         assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT");
         assertThat(settlementCount()).isZero();
@@ -297,10 +356,10 @@ class BictorysIntegrationTests {
     void unknownReferenceAndIncompleteHistoricalEnvelopeRequireReview() throws Exception {
         var id = start();
         deliver(event(id, "succeeded").replace(merchant(id), "GP-unknown"))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
         deliver(
                         "{\"event\":\"charge.successful\",\"data\":{\"id\":932,\"amount\":2300,\"currency\":\"XOF\",\"status\":\"réussi\",\"reference\":\"display-only\"}}")
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
         assertThat(
                         jdbc.queryForObject(
                                 "select count(*) from payment_webhook_events where processing_status='REVIEW_REQUIRED'",
@@ -313,15 +372,15 @@ class BictorysIntegrationTests {
     @Test
     void reversedPreservesSuccessAndCannotBeErasedByDelayedFailureOrSuccess() throws Exception {
         var id = start();
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         awaitConfirmed();
         clock.advance(Duration.ofSeconds(1));
-        deliver(event(id, "reversed")).andExpect(status().isAccepted());
+        deliver(event(id, "reversed")).andExpect(status().isOk());
         assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
-        deliver(event(id, "failed")).andExpect(status().isAccepted());
+        deliver(event(id, "failed")).andExpect(status().isOk());
         clock.advance(Duration.ofSeconds(1));
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
         assertThat(settlementCount()).isEqualTo(1);
@@ -331,10 +390,10 @@ class BictorysIntegrationTests {
     @Test
     void authorizedDoesNotInventACapturedMobileMoneyPayment() throws Exception {
         var id = start();
-        deliver(event(id, "authorized")).andExpect(status().isAccepted());
+        deliver(event(id, "authorized")).andExpect(status().isOk());
         assertThat(reason(id)).isEqualTo("AUTHORIZATION_NOT_CAPTURED");
         assertThat(settlementCount()).isZero();
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         awaitConfirmed();
     }
 
@@ -343,7 +402,7 @@ class BictorysIntegrationTests {
         var id = start();
         clock.advance(Duration.ofMinutes(31));
         expiration.expireDue();
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         assertThat(paymentStatus(id)).isEqualTo("PENDING");
         assertThat(reason(id)).isEqualTo("LATE_SUCCESS");
         assertThat(
@@ -358,11 +417,11 @@ class BictorysIntegrationTests {
     @Test
     void secondRealSuccessIsPreservedAsDuplicate() throws Exception {
         var first = start();
-        deliver(event(first, "failed")).andExpect(status().isAccepted());
+        deliver(event(first, "failed")).andExpect(status().isOk());
         var second = start();
-        deliver(event(second, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(second, "succeeded")).andExpect(status().isOk());
         awaitConfirmed();
-        deliver(event(first, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(first, "succeeded")).andExpect(status().isOk());
         assertThat(paymentStatus(first)).isEqualTo("SUCCEEDED");
         assertThat(reason(first)).isEqualTo("DUPLICATE_PROVIDER_SUCCESS");
         assertThat(count("payment_reviews")).isEqualTo(1);
@@ -377,14 +436,14 @@ class BictorysIntegrationTests {
         providerIds.put(id, UUID.randomUUID().toString());
         assertThat(paymentStatus(id)).isEqualTo("CREATED");
         assertThat(reason(id)).isEqualTo("PROVIDER_STATE_UNCERTAIN");
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         awaitConfirmed();
     }
 
     @Test
     void unknownRemoteStatusNeverConfirms() throws Exception {
         var id = start();
-        deliver(event(id, "mysterious")).andExpect(status().isAccepted());
+        deliver(event(id, "mysterious")).andExpect(status().isOk());
         assertThat(reason(id)).isEqualTo("PROVIDER_STATUS_UNKNOWN");
         assertThat(settlementCount()).isZero();
     }
@@ -392,7 +451,7 @@ class BictorysIntegrationTests {
     @Test
     void pendingWebhookBeforeChargeAcknowledgementRetainsTransaction() throws Exception {
         var id = start();
-        deliver(event(id, "pending")).andExpect(status().isAccepted());
+        deliver(event(id, "pending")).andExpect(status().isOk());
         var instruction = paymentTransactions.reconciliationInstruction(id);
         var acknowledgement =
                 new ProviderObservation(
@@ -416,18 +475,18 @@ class BictorysIntegrationTests {
         paymentTransactions.initiationResult(id, acknowledgement);
         assertThat(paymentTransactions.reconciliationInstruction(id).providerTransactionId())
                 .isEqualTo(instruction.providerTransactionId());
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         awaitConfirmed();
     }
 
     @Test
     void reversalBeforeSuccessRemainsVisibleAfterUncertainReconciliation() throws Exception {
         var id = start();
-        deliver(event(id, "reversed")).andExpect(status().isAccepted());
+        deliver(event(id, "reversed")).andExpect(status().isOk());
         http.reply(500, "unavailable");
         payments.reconcile(id);
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         assertThat(reason(id)).isEqualTo("PROVIDER_REVERSAL");
         assertThat(settlementCount()).isZero();
     }
@@ -487,7 +546,7 @@ class BictorysIntegrationTests {
             default -> throw new AssertionError(code);
         }
         try (var logs = new ParsingLogs()) {
-            deliver(payload).andExpect(status().isAccepted());
+            deliver(payload).andExpect(status().isOk());
             var receipt = jdbc.queryForMap("select * from payment_webhook_events");
             assertThat(receipt.get("authenticity_verification_result")).isEqualTo("VALID");
             assertThat(receipt.get("processing_status")).isEqualTo("REVIEW_REQUIRED");
@@ -510,7 +569,7 @@ class BictorysIntegrationTests {
                             merchant(id),
                             checkout.get("orderNumber").asText(),
                             providerIds.get(id));
-            deliver(payload).andExpect(status().isAccepted());
+            deliver(payload).andExpect(status().isOk());
             webhooks.retryPending();
             assertThat(count("payment_webhook_events")).isEqualTo(1);
             assertThat(
@@ -545,8 +604,7 @@ class BictorysIntegrationTests {
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content("{private@example.test")
                                     .header("X-Secret-Key", "wrong-secret"))
-                    .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.code").value("PAYMENT_AUTHENTICITY_FAILED"));
+                    .andExpect(status().isOk());
             assertThat(
                             jdbc.queryForObject(
                                     "select last_error_code from payment_webhook_events",
@@ -554,7 +612,7 @@ class BictorysIntegrationTests {
                     .isEqualTo("PAYMENT_AUTHENTICITY_FAILED");
             assertThat(paymentStatus(id)).isEqualTo("PENDING");
             assertThat(logs.events()).isEmpty();
-            deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+            deliver(event(id, "succeeded")).andExpect(status().isOk());
             awaitConfirmed();
             assertThat(logs.events()).isEmpty();
         }
@@ -564,12 +622,12 @@ class BictorysIntegrationTests {
     void redeliveryClarifiesLegacyNullObservationWithoutResolvingPayment() throws Exception {
         var id = start();
         String payload = event(id, "succeeded").replace("\"amount\":2300", "\"amount\":\"2300\"");
-        deliver(payload).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isOk());
         UUID receipt = jdbc.queryForObject("select id from payment_webhook_events", UUID.class);
         jdbc.update(
                 "update payment_webhook_events set last_error_code='UNKNOWN_REFERENCE' where id=?",
                 receipt);
-        deliver(payload).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isOk());
         assertThat(jdbc.queryForObject("select id from payment_webhook_events", UUID.class))
                 .isEqualTo(receipt);
         assertThat(
@@ -646,7 +704,7 @@ class BictorysIntegrationTests {
         var id = start();
         String payload = successWithInvalidTimestamp(id);
         http.reply(200, "{\"id\":null,\"status\":\"pending\"}");
-        deliver(payload).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isOk());
         awaitConfirmed();
         assertThat(paymentStatus(id)).isEqualTo("SUCCEEDED");
         assertThat(reason(id)).isNull();
@@ -670,7 +728,7 @@ class BictorysIntegrationTests {
                 .isEqualTo("PROCESSED");
         assertThat(settlementCount()).isEqualTo(1);
         assertThat(applicationEvents.stream(PaymentRequestSettled.class)).hasSize(1);
-        deliver(payload).andExpect(status().isAccepted());
+        deliver(payload).andExpect(status().isOk());
         webhooks.retryPending();
         assertThat(count("payment_webhook_events")).isEqualTo(1);
         assertThat(settlementCount()).isEqualTo(1);
@@ -679,7 +737,7 @@ class BictorysIntegrationTests {
         var beforeOrder =
                 jdbc.queryForObject("select row_to_json(o)::text from orders o", String.class);
         clock.advance(Duration.ofSeconds(1));
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         assertThat(settlementCount()).isEqualTo(1);
         assertThat(applicationEvents.stream(PaymentRequestSettled.class)).hasSize(1);
         assertThat(jdbc.queryForObject("select row_to_json(o)::text from orders o", String.class))
@@ -696,8 +754,7 @@ class BictorysIntegrationTests {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(successWithInvalidTimestamp(id))
                                 .header("X-Secret-Key", "wrong-secret"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("PAYMENT_AUTHENTICITY_FAILED"));
+                .andExpect(status().isOk());
         assertThat(
                         jdbc.queryForObject(
                                 "select last_error_code from payment_webhook_events", String.class))
@@ -716,7 +773,7 @@ class BictorysIntegrationTests {
     void ignoredTimestampCannotResolveUnknownMerchantReference() throws Exception {
         var id = start();
         deliver(successWithInvalidTimestamp(id).replace(merchant(id), "GP-unknown"))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
         assertThat(
                         jdbc.queryForObject(
                                 "select last_error_code from payment_webhook_events", String.class))
@@ -754,7 +811,7 @@ class BictorysIntegrationTests {
         if (field.equals("paymentReference")) {
             node.put("reference", checkout.get("orderNumber").asText());
         }
-        deliver(json.writeValueAsString(node)).andExpect(status().isAccepted());
+        deliver(json.writeValueAsString(node)).andExpect(status().isOk());
         assertThat(
                         jdbc.queryForObject(
                                 "select processing_status from payment_webhook_events",
@@ -773,10 +830,10 @@ class BictorysIntegrationTests {
     @Test
     void transactionAlreadyOwnedByAnotherAttemptRequiresReview() throws Exception {
         var first = start();
-        deliver(event(first, "failed")).andExpect(status().isAccepted());
+        deliver(event(first, "failed")).andExpect(status().isOk());
         var second = start();
         providerIds.put(second, providerIds.get(first));
-        deliver(event(second, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(second, "succeeded")).andExpect(status().isOk());
         assertThat(paymentStatus(first)).isEqualTo("FAILED");
         assertThat(paymentStatus(second)).isEqualTo("PENDING");
         assertThat(reason(second)).isEqualTo("TRANSACTION_MISMATCH");
@@ -793,7 +850,7 @@ class BictorysIntegrationTests {
         var id = start();
         String payload = event(id, "succeeded");
         var results = race(() -> deliver(payload).andReturn(), () -> deliver(payload).andReturn());
-        assertThat(results).allSatisfy(r -> assertThat(r.getResponse().getStatus()).isEqualTo(202));
+        assertThat(results).allSatisfy(r -> assertThat(r.getResponse().getStatus()).isEqualTo(200));
         awaitConfirmed();
         assertThat(settlementCount()).isEqualTo(1);
         assertThat(count("payment_webhook_events")).isEqualTo(1);
@@ -812,7 +869,7 @@ class BictorysIntegrationTests {
                 race(
                         () -> deliver(firstPayload).andReturn(),
                         () -> deliver(secondPayload).andReturn());
-        assertThat(results).allSatisfy(r -> assertThat(r.getResponse().getStatus()).isEqualTo(202));
+        assertThat(results).allSatisfy(r -> assertThat(r.getResponse().getStatus()).isEqualTo(200));
         await(
                 () ->
                         jdbc.queryForObject(
@@ -843,7 +900,7 @@ class BictorysIntegrationTests {
         var id = start();
         new TransactionTemplate(transactions)
                 .executeWithoutResult(s -> operations.cancelInitialAcceptance(org, orderId()));
-        deliver(event(id, "succeeded")).andExpect(status().isAccepted());
+        deliver(event(id, "succeeded")).andExpect(status().isOk());
         assertThat(paymentStatus(id)).isEqualTo("PENDING");
         assertThat(reason(id)).isEqualTo("LATE_SUCCESS");
         assertThat(
@@ -1023,18 +1080,18 @@ class BictorysIntegrationTests {
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(payload)
                                     .header("X-Secret-Key", "wrong"))
-                    .andExpect(status().isUnauthorized());
-        } else deliver(payload).andExpect(status().isAccepted());
+                    .andExpect(status().isOk());
+        } else deliver(payload).andExpect(status().isOk());
         if (variant.equals("valid") || variant.equals("reversal")) {
             await(() -> count("subscription_periods") == 1);
             assertThat(
                             jdbc.queryForObject(
                                     "select status from subscription_invoices", String.class))
                     .isEqualTo("PAID");
-            deliver(payload).andExpect(status().isAccepted());
+            deliver(payload).andExpect(status().isOk());
             if (variant.equals("reversal")) {
                 body.put("status", "reversed");
-                deliver(json.writeValueAsString(body)).andExpect(status().isAccepted());
+                deliver(json.writeValueAsString(body)).andExpect(status().isOk());
             }
             assertThat(count("subscription_periods")).isEqualTo(1);
             assertThat(

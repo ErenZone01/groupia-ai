@@ -24,7 +24,7 @@ async function setup(
   const state = {
     balance: {
       ...campaign,
-      canManageSettlements: options.role !== 'VIEWER',
+      canManageSettlements: !options.role || options.role === 'OWNER',
       canManageDestination: !options.role || options.role === 'OWNER',
       providerAvailable: options.enabled ?? false,
       campaigns: [campaign],
@@ -119,9 +119,7 @@ for (const width of [360, 1280])
       await expect(
         page.getByRole('heading', { name: 'Solde boutique', exact: true }),
       ).toBeVisible();
-      await expect(
-        page.getByText(/versements automatiques sont actuellement indisponibles/),
-      ).toBeVisible();
+      await expect(page.getByText(/versements sont actuellement indisponibles/)).toBeVisible();
       await expect(page.getByRole('button', { name: /Recevoir/ })).toBeDisabled();
       await expect(page.getByText(/hors montant marchand/).first()).toBeVisible();
       await page.getByRole('button', { name: 'Configurer la destination' }).click();
@@ -151,7 +149,7 @@ test('manager consulte la destination sans pouvoir la modifier', async ({ page }
   await page.goto('/app/versements');
   await expect(page.getByText(/Seule la propriétaire/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Configurer la destination' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Recevoir/ })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Recevoir/ })).toHaveCount(0);
 });
 test('viewer ne peut pas demander de versement', async ({ page }) => {
   await setup(page, { role: 'VIEWER', enabled: true });
@@ -167,7 +165,12 @@ test('fonds OPEN visibles mais indisponibles', async ({ page }) => {
 });
 test('solde négatif bloque une nouvelle demande', async ({ page }) => {
   await setup(page, { deficit: true, enabled: true });
+  const balanceLoaded = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith('/merchant-balance') && response.status() === 200,
+  );
   await page.goto('/app/versements');
+  await balanceLoaded;
   await expect(page.getByText(/Solde à compenser/).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Recevoir/ })).toBeDisabled();
 });

@@ -235,7 +235,7 @@ class JdbcRefundStore implements RefundStore {
 
     public void receiptResult(UUID id, UUID refund, String status, String reason) {
         jdbc.update(
-                "update refund_webhook_receipts set refund_id=?,processing_status=?,last_error_code=? where id=?",
+                "update refund_webhook_receipts set refund_id=?,processing_status=?,last_error_code=?,processed_at=current_timestamp where id=?",
                 refund,
                 status,
                 reason,

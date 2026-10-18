@@ -102,7 +102,7 @@ class MerchantSettlementMigrationTests {
             }
             assertThat(
                             j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThatThrownBy(() -> j.update("delete from merchant_ledger_entries"))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);

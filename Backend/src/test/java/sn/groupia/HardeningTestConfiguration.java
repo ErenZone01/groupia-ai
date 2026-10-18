@@ -23,6 +23,9 @@ class HardeningTestConfiguration {
         byte[] secret = new byte[32];
         new SecureRandom().nextBytes(secret);
         String encoded = Base64.getEncoder().encodeToString(secret);
+        byte[] refreshKey = new byte[32];
+        new SecureRandom().nextBytes(refreshKey);
+        String refreshEncoded = Base64.getEncoder().encodeToString(refreshKey);
         byte[] magicKey = new byte[32], otpKey = new byte[32];
         new SecureRandom().nextBytes(magicKey);
         new SecureRandom().nextBytes(otpKey);
@@ -38,6 +41,8 @@ class HardeningTestConfiguration {
             registry.add("groupia.ordering.payment-window-minutes", () -> "30");
             registry.add("groupia.ordering.tracking-lifetime-days", () -> "180");
             registry.add("groupia.security.jwt.secret-base64", () -> encoded);
+            registry.add("groupia.security.session.refresh-pepper-base64", () -> refreshEncoded);
+            registry.add("groupia.security.session.allowed-origins", () -> "https://groupia.test");
             registry.add("GROUPIA_AUTH_RATE_LIMIT_KEY_BASE64", () -> encoded);
             registry.add("groupia.monitoring.token", () -> encoded);
             registry.add("groupia.customer-access.magic-key-base64", () -> magicEncoded);

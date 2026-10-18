@@ -13,6 +13,10 @@ import { StrictHttpResponse } from '../strict-http-response';
 import { AccessToken } from '../models/access-token';
 import { login } from '../fn/auth-controller/login';
 import { Login$Params } from '../fn/auth-controller/login';
+import { logout } from '../fn/auth-controller/logout';
+import { Logout$Params } from '../fn/auth-controller/logout';
+import { refresh } from '../fn/auth-controller/refresh';
+import { Refresh$Params } from '../fn/auth-controller/refresh';
 import { register } from '../fn/auth-controller/register';
 import { Register$Params } from '../fn/auth-controller/register';
 
@@ -44,6 +48,68 @@ export class AuthControllerService extends BaseService {
    */
   register(params: Register$Params, context?: HttpContext): Observable<void> {
     const resp = this.register$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<void>): void => r.body)
+    );
+  }
+
+  /** Path part for operation `refresh()` */
+  static readonly RefreshPath = '/api/auth/refresh';
+
+  /**
+   * Cookie HttpOnly uniquement. Corps vide, Origin exacte autorisée, X-Groupia-Auth: 1 et application/json requis. Rotation commitée avant réponse ; 409 concurrence, 401 invalide/replay, 429 quota avec Retry-After.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `refresh()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  refresh$Response(params?: Refresh$Params, context?: HttpContext): Observable<StrictHttpResponse<AccessToken>> {
+    const obs = refresh(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Cookie HttpOnly uniquement. Corps vide, Origin exacte autorisée, X-Groupia-Auth: 1 et application/json requis. Rotation commitée avant réponse ; 409 concurrence, 401 invalide/replay, 429 quota avec Retry-After.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `refresh$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  refresh(params?: Refresh$Params, context?: HttpContext): Observable<AccessToken> {
+    const resp = this.refresh$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<AccessToken>): AccessToken => r.body)
+    );
+  }
+
+  /** Path part for operation `logout()` */
+  static readonly LogoutPath = '/api/auth/logout';
+
+  /**
+   * Révoque la famille du cookie courant ou historique. Corps vide, Origin exacte autorisée, X-Groupia-Auth: 1 et application/json requis. Idempotent, sans Bearer.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `logout()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  logout$Response(params?: Logout$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+    const obs = logout(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Révoque la famille du cookie courant ou historique. Corps vide, Origin exacte autorisée, X-Groupia-Auth: 1 et application/json requis. Idempotent, sans Bearer.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `logout$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  logout(params?: Logout$Params, context?: HttpContext): Observable<void> {
+    const resp = this.logout$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<void>): void => r.body)
     );

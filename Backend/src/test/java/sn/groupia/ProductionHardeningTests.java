@@ -45,6 +45,11 @@ class ProductionHardeningTests {
         registry.add("groupia.security.auth-rate-limit.key-base64", () -> encoded);
         registry.add("groupia.security.jwt.secret-base64", () -> encoded);
         registry.add("groupia.monitoring.token", () -> encoded);
+        byte[] refresh = new byte[32];
+        new java.security.SecureRandom().nextBytes(refresh);
+        String refreshEncoded = Base64.getEncoder().encodeToString(refresh);
+        registry.add("groupia.security.session.refresh-pepper-base64", () -> refreshEncoded);
+        registry.add("groupia.security.session.allowed-origins", () -> "https://groupia.test");
     }
 
     @Autowired org.springframework.core.env.ConfigurableEnvironment environment;
@@ -60,6 +65,7 @@ class ProductionHardeningTests {
 
     @BeforeEach
     void reset() {
+        jdbc.update("delete from auth_sessions");
         jdbc.update("delete from auth_rate_limits");
         jdbc.update("delete from user_accounts where phone_number=?", PHONE);
     }
@@ -67,6 +73,8 @@ class ProductionHardeningTests {
     ResultActions auth(String operation, String phone, String password) throws Exception {
         return mvc.perform(
                 post("/api/auth/" + operation)
+                        .header("Origin", "https://groupia.test")
+                        .header("X-Groupia-Auth", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
                                 "{\"phoneNumber\":\""
@@ -116,6 +124,8 @@ class ProductionHardeningTests {
         for (int i = 0; i < 8; i++)
             mvc.perform(
                             post("/api/auth/login")
+                                    .header("Origin", "https://groupia.test")
+                                    .header("X-Groupia-Auth", "1")
                                     .header("X-Forwarded-For", "198.51.100." + i)
                                     .header("Forwarded", "for=198.51.100." + i)
                                     .contentType(MediaType.APPLICATION_JSON)

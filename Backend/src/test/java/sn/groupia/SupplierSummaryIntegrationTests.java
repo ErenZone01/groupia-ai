@@ -514,6 +514,7 @@ class SupplierSummaryIntegrationTests {
                         JwtEncoderParameters.from(
                                 JwsHeader.with(MacAlgorithm.HS256).build(),
                                 JwtClaimsSet.builder()
+                                        .claim("sid", UUID.randomUUID().toString())
                                         .issuer("https://groupia.test")
                                         .audience(List.of("groupia-api-test"))
                                         .subject(id.toString())

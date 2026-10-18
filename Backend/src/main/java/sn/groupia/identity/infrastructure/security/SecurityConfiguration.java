@@ -73,7 +73,8 @@ class SecurityConfiguration {
                                         audiences != null
                                                 && audiences.contains(settings.audience())),
                         new JwtClaimValidator<Instant>("exp", Objects::nonNull),
-                        new JwtClaimValidator<String>("sub", SecurityConfiguration::isUuid)));
+                        new JwtClaimValidator<String>("sub", SecurityConfiguration::isUuid),
+                        new JwtClaimValidator<String>("sid", SecurityConfiguration::isUuid)));
         return decoder;
     }
 
@@ -117,8 +118,8 @@ class SecurityConfiguration {
                                                 403,
                                                 "ACCESS_DENIED",
                                                 "Cette opération est interdite."));
-        return http.csrf(csrf -> csrf.disable()) // Stateless bearer headers only; no cookie
-                // authentication.
+        return http.csrf(csrf -> csrf.disable()) // AuthOriginFilter protects cookie auth;
+                // business APIs remain Bearer-only.
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
@@ -147,7 +148,9 @@ class SecurityConfiguration {
                             auth.requestMatchers(
                                             HttpMethod.POST,
                                             "/api/auth/register",
-                                            "/api/auth/login")
+                                            "/api/auth/login",
+                                            "/api/auth/refresh",
+                                            "/api/auth/logout")
                                     .permitAll()
                                     .requestMatchers(
                                             HttpMethod.GET,

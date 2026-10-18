@@ -27,6 +27,7 @@ for (const width of [360, 768, 1024, 1440])
       expect(
         calls.every(
           (url) =>
+            new URL(url).pathname === '/api/auth/refresh' ||
             new URL(url).pathname === '/api/organizations' ||
             /\/api\/organizations\/[^/]+\/orders$/.test(new URL(url).pathname) ||
             /\/api\/organizations\/[^/]+\/subscription(?:\/(?:history|invoices|invoice-preview))?$/.test(
@@ -81,6 +82,9 @@ test('onglets et toggle accessibles au clavier', async ({ page }) => {
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 });
 test('production: guard actif, routes publiques anonymes', async ({ page }) => {
+  await page.route('**/api/auth/refresh', (route) =>
+    route.fulfill({ status: 401, json: { code: 'AUTH_REFRESH_INVALID' } }),
+  );
   await page.goto('http://127.0.0.1:4300/accueil');
   await expect(page).toHaveURL(/connexion/);
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeDisabled();

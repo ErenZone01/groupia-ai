@@ -6599,6 +6599,139 @@
         "security" : [ ]
       }
     },
+    "/api/auth/refresh" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "description" : "Cookie HttpOnly uniquement. Corps vide, Origin exacte autorisée, X-Groupia-Auth: 1 et application/json requis. Rotation commitée avant réponse ; 409 concurrence, 401 invalide/replay, 429 quota avec Retry-After.",
+        "operationId" : "refresh",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccessToken"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Authentication attempt quota exceeded; Retry-After header indicates when to retry",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "description" : "Révoque la famille du cookie courant ou historique. Corps vide, Origin exacte autorisée, X-Groupia-Auth: 1 et application/json requis. Idempotent, sans Bearer.",
+        "operationId" : "logout",
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Authentication attempt quota exceeded; Retry-After header indicates when to retry",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
     "/api/auth/login" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -10317,10 +10450,10 @@
           "inline" : {
             "type" : "boolean"
           },
-          "formData" : {
+          "attachment" : {
             "type" : "boolean"
           },
-          "attachment" : {
+          "formData" : {
             "type" : "boolean"
           }
         }
@@ -10433,31 +10566,8 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "contentDisposition" : {
-            "$ref" : "#/components/schemas/ContentDisposition"
-          },
-          "accessControlMaxAge" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "ifUnmodifiedSince" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "cacheControl" : {
             "type" : "string"
-          },
-          "acceptLanguageAsLocales" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "accept" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/MediaType"
-            }
           },
           "acceptCharset" : {
             "type" : "array",
@@ -10471,6 +10581,25 @@
               "type" : "string"
             }
           },
+          "accept" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MediaType"
+            }
+          },
+          "accessControlMaxAge" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "acceptLanguageAsLocales" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "contentDisposition" : {
+            "$ref" : "#/components/schemas/ContentDisposition"
+          },
           "origin" : {
             "type" : "string"
           },
@@ -10480,14 +10609,23 @@
               "$ref" : "#/components/schemas/HttpRange"
             }
           },
-          "accessControlAllowCredentials" : {
-            "type" : "boolean"
+          "accessControlRequestHeaders" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessControlRequestMethod" : {
+            "$ref" : "#/components/schemas/HttpMethod"
           },
           "accessControlAllowMethods" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/HttpMethod"
             }
+          },
+          "accessControlAllowCredentials" : {
+            "type" : "boolean"
           },
           "accessControlAllowHeaders" : {
             "type" : "array",
@@ -10503,19 +10641,6 @@
             "items" : {
               "type" : "string"
             }
-          },
-          "accessControlRequestHeaders" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "accessControlRequestMethod" : {
-            "$ref" : "#/components/schemas/HttpMethod"
-          },
-          "basicAuth" : {
-            "type" : "string",
-            "writeOnly" : true
           },
           "acceptPatch" : {
             "type" : "array",
@@ -10538,15 +10663,40 @@
               }
             }
           },
-          "bearerAuth" : {
+          "basicAuth" : {
             "type" : "string",
             "writeOnly" : true
           },
           "contentLanguage" : {
             "type" : "string"
           },
-          "pragma" : {
+          "bearerAuth" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "ifUnmodifiedSince" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "allow" : {
+            "uniqueItems" : true,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpMethod"
+            }
+          },
+          "upgrade" : {
             "type" : "string"
+          },
+          "ifMatch" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "expires" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "etag" : {
             "type" : "string"
@@ -10557,25 +10707,8 @@
               "type" : "string"
             }
           },
-          "allow" : {
-            "uniqueItems" : true,
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HttpMethod"
-            }
-          },
-          "ifMatch" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "upgrade" : {
+          "pragma" : {
             "type" : "string"
-          },
-          "expires" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
@@ -10610,13 +10743,13 @@
           "concrete" : {
             "type" : "boolean"
           },
+          "wildcardSubtype" : {
+            "type" : "boolean"
+          },
           "subtypeSuffix" : {
             "type" : "string"
           },
           "wildcardType" : {
-            "type" : "boolean"
-          },
-          "wildcardSubtype" : {
             "type" : "boolean"
           }
         }
@@ -12093,6 +12226,25 @@
           }
         }
       },
+      "AccessToken" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "LoginRequest" : {
         "required" : [ "password", "phoneNumber" ],
         "type" : "object",
@@ -12106,21 +12258,6 @@
             "maxLength" : 72,
             "minLength" : 0,
             "type" : "string"
-          }
-        }
-      },
-      "AccessToken" : {
-        "type" : "object",
-        "properties" : {
-          "accessToken" : {
-            "type" : "string"
-          },
-          "tokenType" : {
-            "type" : "string"
-          },
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },

@@ -84,7 +84,7 @@ test('déconnexion et guard', async ({ page }) => {
   await expect(page).toHaveURL(/connexion/);
   expect(await page.evaluate(() => sessionStorage.getItem('groupia.session'))).toBeNull();
 });
-test('expiration automatique pendant la navigation', async ({ page }) => {
+test('ancien JWT persistant ignoré sans cookie de session', async ({ page }) => {
   await page.addInitScript(() =>
     sessionStorage.setItem(
       'groupia.session',
@@ -93,8 +93,8 @@ test('expiration automatique pendant la navigation', async ({ page }) => {
   );
   await mockApi(page);
   await page.goto('/app/products');
-  await expect(page).toHaveURL(/connexion.*expired/, { timeout: 10000 });
-  await expect(page.getByText('Votre session a expiré. Connectez-vous à nouveau.')).toBeVisible();
+  await expect(page).toHaveURL(/connexion/, { timeout: 10000 });
+  expect(await page.evaluate(() => sessionStorage.getItem('groupia.session'))).toBeNull();
 });
 test('changement de boutique et validation de la sélection', async ({ page }) => {
   await session(page);

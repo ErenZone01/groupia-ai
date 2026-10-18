@@ -2,6 +2,11 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 export const routes: Routes = [
   {
+    path: 'session-indisponible',
+    loadComponent: () =>
+      import('./features/auth/session-unavailable.page').then((m) => m.SessionUnavailablePage),
+  },
+  {
     path: 's/:token',
     loadComponent: () =>
       import('./features/customer-access/magic-link.page').then((m) => m.MagicLinkPage),

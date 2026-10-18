@@ -1,3 +1,4 @@
+import { SessionNotice } from '../auth/session-notice';
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Sidebar } from './sidebar';
@@ -7,10 +8,18 @@ import { BoutiqueGate } from './boutique-gate';
 import { SubscriptionNotice } from '../../features/subscription/subscription-notice';
 @Component({
   selector: 'g-manager-layout',
-  imports: [RouterOutlet, Sidebar, Topbar, MobileBottomNav, BoutiqueGate, SubscriptionNotice],
+  imports: [
+    RouterOutlet,
+    Sidebar,
+    Topbar,
+    MobileBottomNav,
+    BoutiqueGate,
+    SubscriptionNotice,
+    SessionNotice,
+  ],
   template: `<a class="skip" href="#main-content">Aller au contenu</a><g-sidebar />
     <div class="workspace">
-      <g-topbar />
+      <g-topbar /><g-session-notice />
       <g-subscription-notice />
       <main id="main-content" tabindex="-1">
         <g-boutique-gate><router-outlet /></g-boutique-gate>

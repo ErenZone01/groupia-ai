@@ -28,7 +28,12 @@ class TestcontainersConfiguration {
         new SecureRandom().nextBytes(otpKey);
         String magicEncoded = Base64.getEncoder().encodeToString(magicKey);
         String otpEncoded = Base64.getEncoder().encodeToString(otpKey);
+        byte[] refreshKey = new byte[32];
+        new SecureRandom().nextBytes(refreshKey);
+        String refreshEncoded = Base64.getEncoder().encodeToString(refreshKey);
         return registry -> {
+            registry.add("groupia.security.session.refresh-pepper-base64", () -> refreshEncoded);
+            registry.add("groupia.security.session.allowed-origins", () -> "https://groupia.test");
             registry.add("groupia.security.auth-rate-limit.enabled", () -> "false");
             registry.add("groupia.payment.bictorys.enabled", () -> "false");
             registry.add("groupia.ordering.expiration.enabled", () -> "false");

@@ -801,6 +801,7 @@ class SubscriptionIntegrationTests {
         var now = Instant.now();
         var claims =
                 JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
                         .issuer("https://groupia.test")
                         .audience(List.of("groupia-api-test"))
                         .subject(userId.toString())
@@ -830,8 +831,15 @@ class SubscriptionIntegrationTests {
             byte[] secret = new byte[32];
             new SecureRandom().nextBytes(secret);
             String encoded = Base64.getEncoder().encodeToString(secret);
+            byte[] refreshKey = new byte[32];
+            new SecureRandom().nextBytes(refreshKey);
+            String refreshEncoded = Base64.getEncoder().encodeToString(refreshKey);
             return registry -> {
                 registry.add("groupia.security.jwt.secret-base64", () -> encoded);
+                registry.add(
+                        "groupia.security.session.refresh-pepper-base64", () -> refreshEncoded);
+                registry.add(
+                        "groupia.security.session.allowed-origins", () -> "https://groupia.test");
                 registry.add("groupia.security.jwt.issuer", () -> "https://groupia.test");
                 registry.add("groupia.security.jwt.audience", () -> "groupia-api-test");
                 registry.add("groupia.security.jwt.access-token-ttl", () -> "15m");

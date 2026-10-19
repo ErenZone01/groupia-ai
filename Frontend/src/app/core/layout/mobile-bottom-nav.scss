@@ -1,0 +1,124 @@
+:host {
+  display: none;
+}
+.bar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: var(--bottom-nav-height);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.bar a,
+.more {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s1);
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--s1);
+  border: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.bar .active {
+  color: var(--primary);
+  font-weight: 600;
+}
+.bar .active g-icon {
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 6px var(--primary-soft);
+}
+.bar a:hover,
+.more:hover,
+.close:hover,
+.logout:hover {
+  background: var(--surface-alt);
+}
+.bar :focus-visible {
+  outline-offset: -4px;
+}
+dialog {
+  width: 100%;
+  max-width: none;
+  max-height: calc(100dvh - var(--s6));
+  margin: auto 0 0;
+  padding: var(--s5) var(--s5) calc(var(--s5) + env(safe-area-inset-bottom));
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  background: color-mix(in srgb, var(--text) 40%, transparent);
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+.close,
+.logout {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 44px;
+  padding: var(--s3);
+  color: var(--text);
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+.close {
+  justify-content: center;
+  min-width: 44px;
+}
+.destinations {
+  display: grid;
+  gap: var(--s2);
+}
+.destinations a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 52px;
+  padding: var(--s3);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+}
+.destinations a:hover {
+  background: var(--surface-alt);
+}
+.destinations a.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.session-action {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+}
+.logout {
+  width: 100%;
+}
+@media (max-width: 1023px) {
+  :host {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--surface);
+  }
+}

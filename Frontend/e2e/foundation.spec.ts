@@ -52,7 +52,11 @@ test('navigation mobile et focus clavier', async ({ page }) => {
     'aria-current',
     'page',
   );
-  await nav.getByRole('link', { name: 'Boutique', exact: true }).click();
+  await nav.getByRole('button', { name: 'Plus', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Plus de pages' })
+    .getByRole('link', { name: 'Ma boutique', exact: true })
+    .click();
   await expect(page.getByRole('heading', { name: 'Ma boutique', exact: true })).toBeVisible();
   await page.keyboard.press('Shift+Tab');
   await expect(nav.getByRole('link', { name: 'Commandes', exact: true })).toBeFocused();

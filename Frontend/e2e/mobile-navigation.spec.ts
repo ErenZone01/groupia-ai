@@ -87,13 +87,13 @@ for (const [width, height, theme] of [
       await expect(sheet).not.toBeVisible();
       await expect(more).toHaveClass(/active/);
       await expect(nav.locator('a.active')).toHaveCount(0);
-      expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
+      await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe('');
     }
     await more.click();
     await sheet.getByRole('button', { name: 'Se déconnecter', exact: true }).click();
     await expect(page).toHaveURL(/\/connexion/);
     await expect(nav).not.toBeVisible();
-    expect(state.calls.filter((call) => call.path === '/api/auth/logout')).toHaveLength(1);
+    await expect.poll(() => state.calls.filter((call) => call.path === '/api/auth/logout')).toHaveLength(1);
     expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
   });
 }
@@ -168,7 +168,7 @@ test('un drawer ouvert se ferme quand la tablette passe en desktop', async ({ pa
   await expect(sheet).toBeVisible();
   await page.setViewportSize({ width: 1024, height: 768 });
   await expect(sheet).not.toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe('');
   await expect(
     page.getByRole('navigation', { name: 'Navigation principale', exact: true }),
   ).toBeVisible();

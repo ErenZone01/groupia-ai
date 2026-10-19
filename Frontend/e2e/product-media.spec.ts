@@ -106,8 +106,11 @@ for (const width of [360, 390, 430, 768, 1280]) {
     await makePrimary.focus();
     await page.keyboard.press('Enter');
     await expect.poll(() => state.items[0].id).toBe(second);
+    await expect(page.locator('g-product-gallery .gallery > li').first()).toContainText('Image principale');
+    await expect(page.getByRole('button', { name: 'Descendre l’image 1', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Descendre l’image 1', exact: true }).click();
     await expect.poll(() => state.items[1].id).toBe(second);
+    await expect(page.getByRole('button', { name: 'Monter l’image 2', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Monter l’image 2', exact: true }).click();
     await expect.poll(() => state.items[0].id).toBe(second);
     await page.getByRole('button', { name: 'Supprimer l’image 1', exact: true }).click();

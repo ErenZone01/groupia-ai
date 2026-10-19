@@ -1,0 +1,64 @@
+<nav class="bar" aria-label="Navigation mobile">
+  @for (item of primary; track item.path) {
+    <a
+      [routerLink]="item.path"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="matchOptions"
+      ariaCurrentWhenActive="page"
+    >
+      <g-icon [name]="item.icon" /><span>{{ item.shortLabel }}</span>
+    </a>
+  }
+  <button
+    #more
+    type="button"
+    class="more"
+    [class.active]="secondaryActive()"
+    aria-haspopup="dialog"
+    aria-controls="mobile-more-pages"
+    [attr.aria-expanded]="opened()"
+    (click)="open()"
+  >
+    <g-icon name="menu" /><span>Plus</span>
+    @if (secondaryActive()) {
+      <span class="sr-only">, section actuelle</span>
+    }
+  </button>
+</nav>
+
+<dialog
+  #sheet
+  tabindex="-1"
+  id="mobile-more-pages"
+  aria-labelledby="mobile-more-title"
+  (cancel)="cancel($event)"
+  (click)="backdrop($event)"
+  (keydown)="keepFocus($event)"
+  (close)="close()"
+>
+  <header>
+    <h2 id="mobile-more-title">Plus de pages</h2>
+    <button type="button" class="close" aria-label="Fermer le menu Plus" (click)="close()">
+      <g-icon name="close" />
+    </button>
+  </header>
+  <nav class="destinations" aria-label="Autres pages">
+    @for (item of secondary; track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="matchOptions"
+        ariaCurrentWhenActive="page"
+        (click)="close()"
+      >
+        <g-icon [name]="item.icon" /><span>{{ item.shortLabel }}</span
+        ><g-icon name="chevron" />
+      </a>
+    }
+  </nav>
+  <div class="session-action">
+    <button type="button" class="logout" (click)="logout()">
+      <g-icon name="logout" /><span>Se déconnecter</span>
+    </button>
+  </div>
+</dialog>

@@ -153,7 +153,7 @@ class OpenApiConfiguration {
                                                                         .equals(p.getName())) {
                                                                     p.setRequired(true);
                                                                     p.setDescription(
-                                                                            "Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.");
+                                                                            "Unique logical-operation key; reuse unchanged on retry. Changed request content with the same key returns 409.");
                                                                     p.setSchema(
                                                                             new StringSchema()
                                                                                     .minLength(16)

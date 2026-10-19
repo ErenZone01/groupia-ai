@@ -122,7 +122,7 @@ class SubscriptionBillingMigrationTests {
             assertThat(j.queryForList("select * from payment_reviews")).isEqualTo(reviewsBefore);
             assertThat(
                             j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '026-%' and id not like '027-%' and id not like '028-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
                     .isEqualTo(sums);
             assertThat(
                             j.queryForObject(

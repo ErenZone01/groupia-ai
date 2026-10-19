@@ -1,5 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
 const messages: Record<string, string> = {
+  MEDIA_DISABLED: 'Les images ne sont pas encore disponibles pour cette boutique.',
+  MEDIA_LIMIT_REACHED: 'Un produit peut contenir cinq images maximum.',
+  MEDIA_GALLERY_VERSION_CONFLICT: 'La galerie a changé. Son ordre a été rechargé ; réessayez.',
+  MEDIA_IDEMPOTENCY_CONFLICT:
+    'Cet envoi correspond à une autre image. Sélectionnez à nouveau le fichier.',
+  MEDIA_PROCESSING_BUSY: 'Un traitement est en cours. Réessayez dans quelques instants.',
+  MEDIA_TOO_LARGE: 'Cette image dépasse la limite de 8 Mo.',
+  MEDIA_DIMENSIONS_EXCEEDED:
+    'Cette image est trop grande : 6 000 pixels par côté et 24 mégapixels maximum.',
+  MEDIA_UNSUPPORTED_FORMAT: 'Choisissez une image JPEG, PNG ou WebP statique.',
+  MEDIA_CONTENT_TYPE_MISMATCH: 'Le format réel du fichier ne correspond pas au format annoncé.',
+  MEDIA_INVALID_IMAGE: 'Cette image est illisible ou corrompue. Choisissez un autre fichier.',
+  MEDIA_ANIMATION_UNSUPPORTED: 'Les images animées ne sont pas prises en charge.',
   SUBSCRIPTION_REQUIRED:
     "L'essai gratuit est terminé. Un abonnement actif est requis pour créer ou ouvrir un nouveau groupage.",
   SUBSCRIPTION_BILLING_UNAVAILABLE:

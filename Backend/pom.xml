@@ -31,6 +31,12 @@
 		<spring-modulith.version>2.1.1</spring-modulith.version>
 	</properties>
 	<dependencies>
+		<dependency><groupId>software.amazon.awssdk</groupId><artifactId>s3</artifactId><exclusions><exclusion><groupId>software.amazon.awssdk</groupId><artifactId>apache-client</artifactId></exclusion><exclusion><groupId>software.amazon.awssdk</groupId><artifactId>netty-nio-client</artifactId></exclusion></exclusions></dependency>
+		<dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
+		<dependency><groupId>com.twelvemonkeys.imageio</groupId><artifactId>imageio-webp</artifactId><version>3.15.3</version></dependency>
+		<dependency><groupId>com.twelvemonkeys.imageio</groupId><artifactId>imageio-jpeg</artifactId><version>3.15.3</version></dependency>
+		<dependency><groupId>com.twelvemonkeys.common</groupId><artifactId>common-image</artifactId><version>3.15.3</version></dependency>
+		<dependency><groupId>com.drewnoakes</groupId><artifactId>metadata-extractor</artifactId><version>2.21.0</version></dependency>
 		<dependency>
 			<groupId>com.googlecode.libphonenumber</groupId>
 			<artifactId>libphonenumber</artifactId>
@@ -167,6 +173,7 @@
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
+			<dependency><groupId>software.amazon.awssdk</groupId><artifactId>bom</artifactId><version>2.56.0</version><type>pom</type><scope>import</scope></dependency>
 			<dependency>
 				<groupId>org.springframework.modulith</groupId>
 				<artifactId>spring-modulith-bom</artifactId>

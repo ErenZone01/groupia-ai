@@ -3,6 +3,7 @@
 
 export { SubscriptionControllerService } from './services/subscription-controller.service';
 export { CatalogControllerService } from './services/catalog-controller.service';
+export { ProductMediaControllerService } from './services/product-media-controller.service';
 export { MerchantSettlementControllerService } from './services/merchant-settlement-controller.service';
 export { GroupingControllerService } from './services/grouping-controller.service';
 export { CampaignLogisticsControllerService } from './services/campaign-logistics-controller.service';
@@ -18,5 +19,6 @@ export { OrderShippingControllerService } from './services/order-shipping-contro
 export { OrderFulfillmentControllerService } from './services/order-fulfillment-controller.service';
 export { GroupingCompletionControllerService } from './services/grouping-completion-controller.service';
 export { AuthControllerService } from './services/auth-controller.service';
+export { LocalMediaControllerService } from './services/local-media-controller.service';
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';

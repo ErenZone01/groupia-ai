@@ -55,6 +55,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                     switch (status.value()) {
                         case 404 -> "RESOURCE_NOT_FOUND";
                         case 405 -> "METHOD_NOT_ALLOWED";
+                        case 413 -> "MEDIA_TOO_LARGE";
                         case 415 -> "UNSUPPORTED_MEDIA_TYPE";
                         default -> "INVALID_REQUEST";
                     };

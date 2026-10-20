@@ -53,7 +53,7 @@ class RefreshSessionMigrationTests {
             assertThat(j.queryForList("select * from user_accounts")).isEqualTo(accounts);
             assertThat(
                             j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '028-%' order by orderexecuted"))
+                                    "select id,md5sum from databasechangelog where id not like '028-%' and id not like '029-%' order by orderexecuted"))
                     .isEqualTo(checksums);
             assertThat(j.queryForObject("select count(*) from auth_sessions", Integer.class))
                     .isZero();

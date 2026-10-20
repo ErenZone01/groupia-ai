@@ -51,19 +51,17 @@ export const group: CampaignView = {
   ],
 };
 export async function session(page: Page) {
-  await page
-    .context()
-    .addCookies([
-      {
-        name: 'groupia_refresh',
-        value: 'synthetic-e2e-cookie',
-        domain: '127.0.0.1',
-        path: '/api/auth',
-        httpOnly: true,
-        secure: false,
-        sameSite: 'Lax',
-      },
-    ]);
+  await page.context().addCookies([
+    {
+      name: 'groupia_refresh',
+      value: 'synthetic-e2e-cookie',
+      domain: '127.0.0.1',
+      path: '/api/auth',
+      httpOnly: true,
+      secure: false,
+      sameSite: 'Lax',
+    },
+  ]);
 }
 export async function mockApi(
   page: Page,
@@ -111,6 +109,16 @@ export async function mockApi(
         blockers: [],
       });
     if (path.endsWith('/shipping-assessments') && method === 'GET') return reply([]);
+    if (path.endsWith('/product-media') && method === 'GET') return reply([]);
+    if (/\/products\/[^/]+\/media$/.test(path) && method === 'GET')
+      return reply({
+        productId,
+        version: 0,
+        enabled: false,
+        canManage: false,
+        items: [],
+        reservedCount: 0,
+      });
     if (path === '/api/auth/refresh') {
       expect(req.headers()['authorization']).toBeUndefined();
       const cookies = await page.context().cookies();

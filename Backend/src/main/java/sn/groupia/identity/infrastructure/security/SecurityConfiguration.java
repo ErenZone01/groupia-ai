@@ -155,6 +155,7 @@ class SecurityConfiguration {
                                     .requestMatchers(
                                             HttpMethod.GET,
                                             "/api/public/groupings/*",
+                                            "/api/public/media/*/*",
                                             "/api/public/orders/track")
                                     .permitAll()
                                     .requestMatchers(

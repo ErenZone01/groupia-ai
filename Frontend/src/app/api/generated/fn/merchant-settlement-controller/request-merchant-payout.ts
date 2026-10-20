@@ -15,7 +15,7 @@ export interface RequestMerchantPayout$Params {
   campaignId: string;
 
 /**
- * Unique logical-operation key; reuse unchanged on retry. Changed checkout content with the same key returns 409.
+ * Unique logical-operation key; reuse unchanged on retry. Changed request content with the same key returns 409.
  */
   'Idempotency-Key': string;
       body: PayoutRequest

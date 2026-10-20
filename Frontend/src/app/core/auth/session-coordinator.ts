@@ -25,7 +25,18 @@ export class SessionCoordinator {
   }
   run<T>(operation: () => Promise<T>): Promise<T> {
     const locks = this.window?.navigator.locks;
-    return locks ? locks.request('groupia.auth', operation) : operation();
+    if (!locks) return operation();
+    return locks.request('groupia.auth', async () => {
+      try {
+        return await operation();
+      } finally {
+        // BroadcastChannel delivery is asynchronous. Keep the Web Lock for one short
+        // handoff window so a waiting tab can adopt a session broadcast by the current
+        // holder before it is allowed to rotate the same refresh token again.
+        if (this.channel)
+          await new Promise<void>((resolve) => this.window!.setTimeout(resolve, 25));
+      }
+    });
   }
   send(message: SessionMessage) {
     this.channel?.postMessage(message);

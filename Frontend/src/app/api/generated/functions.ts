@@ -39,6 +39,18 @@ export type { DeactivateVariant$Params as DeactivateVariant$Params } from './fn/
 export { deactivateVariant as deactivateVariant } from './fn/catalog-controller/deactivate-variant';
 export type { Archive$Params as Archive$Params } from './fn/catalog-controller/archive';
 export { archive as archive } from './fn/catalog-controller/archive';
+export type { ReorderProductMedia$Params as ReorderProductMedia$Params } from './fn/product-media-controller/reorder-product-media';
+export { reorderProductMedia as reorderProductMedia } from './fn/product-media-controller/reorder-product-media';
+export type { MediaGallery$Params as MediaGallery$Params } from './fn/product-media-controller/media-gallery';
+export { mediaGallery as mediaGallery } from './fn/product-media-controller/media-gallery';
+export type { UploadProductMedia$Params as UploadProductMedia$Params } from './fn/product-media-controller/upload-product-media';
+export { uploadProductMedia as uploadProductMedia } from './fn/product-media-controller/upload-product-media';
+export type { MediaOperation$Params as MediaOperation$Params } from './fn/product-media-controller/media-operation';
+export { mediaOperation as mediaOperation } from './fn/product-media-controller/media-operation';
+export type { DeleteProductMedia$Params as DeleteProductMedia$Params } from './fn/product-media-controller/delete-product-media';
+export { deleteProductMedia as deleteProductMedia } from './fn/product-media-controller/delete-product-media';
+export type { ProductMediaBatch$Params as ProductMediaBatch$Params } from './fn/product-media-controller/product-media-batch';
+export { productMediaBatch as productMediaBatch } from './fn/product-media-controller/product-media-batch';
 export type { MerchantPayoutDestination$Params as MerchantPayoutDestination$Params } from './fn/merchant-settlement-controller/merchant-payout-destination';
 export { merchantPayoutDestination as merchantPayoutDestination } from './fn/merchant-settlement-controller/merchant-payout-destination';
 export type { ChangeMerchantPayoutDestination$Params as ChangeMerchantPayoutDestination$Params } from './fn/merchant-settlement-controller/change-merchant-payout-destination';
@@ -179,6 +191,8 @@ export type { Logout$Params as Logout$Params } from './fn/auth-controller/logout
 export { logout as logout } from './fn/auth-controller/logout';
 export type { Login$Params as Login$Params } from './fn/auth-controller/login';
 export { login as login } from './fn/auth-controller/login';
+export type { LocalProductImage$Params as LocalProductImage$Params } from './fn/local-media-controller/local-product-image';
+export { localProductImage as localProductImage } from './fn/local-media-controller/local-product-image';
 export type { Get2$Params as Get2$Params } from './fn/public-grouping-controller/get-2';
 export { get2 as get2 } from './fn/public-grouping-controller/get-2';
 export type { SupplierSummary$Params as SupplierSummary$Params } from './fn/supplier-summary-controller/supplier-summary';

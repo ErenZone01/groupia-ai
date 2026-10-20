@@ -6,6 +6,8 @@ export const variantId = '33333333-3333-4333-8333-333333333333';
 export const groupId = '44444444-4444-4444-8444-444444444444';
 export const publicId = '55555555-5555-4555-8555-555555555555';
 export const offerId = '66666666-6666-4666-8666-666666666666';
+export const publicProductImage =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
 export const shop: OrganizationView = {
   id: shopId,
   name: 'Boutique du Soleil',
@@ -168,6 +170,22 @@ export async function mockApi(
             attributes: state.products[0]?.variants?.[0]?.attributes ?? {},
             usable: true,
           },
+          images: [
+            {
+              position: 0,
+              thumbnailUrl: publicProductImage + '#primary',
+              displayUrl: publicProductImage + '#primary',
+              width: 480,
+              height: 360,
+            },
+            {
+              position: 1,
+              thumbnailUrl: publicProductImage + '#secondary',
+              displayUrl: publicProductImage + '#secondary',
+              width: 480,
+              height: 360,
+            },
+          ],
         })),
       });
     }

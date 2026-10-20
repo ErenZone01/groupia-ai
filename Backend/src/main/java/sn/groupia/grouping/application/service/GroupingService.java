@@ -13,6 +13,7 @@ import sn.groupia.grouping.api.GroupingQueries;
 import sn.groupia.grouping.api.dto.*;
 import sn.groupia.grouping.domain.model.*;
 import sn.groupia.grouping.domain.repository.*;
+import sn.groupia.media.api.PublicProductMediaQueries;
 import sn.groupia.organization.api.*;
 import sn.groupia.shared.api.ApiException;
 import sn.groupia.shipping.api.dto.ShippingTerms;
@@ -25,6 +26,7 @@ public class GroupingService implements GroupingQueries {
     private final Offers offers;
     private final GroupingChanges changes;
     private final CatalogVariants catalog;
+    private final PublicProductMediaQueries media;
     private final OrganizationAccess access;
     private final OrganizationAvailability organizations;
     private final SubscriptionEntitlements subscriptionEntitlements;
@@ -35,6 +37,7 @@ public class GroupingService implements GroupingQueries {
             Offers offers,
             GroupingChanges changes,
             CatalogVariants catalog,
+            PublicProductMediaQueries media,
             OrganizationAccess access,
             OrganizationAvailability organizations,
             SubscriptionEntitlements subscriptionEntitlements,
@@ -43,6 +46,7 @@ public class GroupingService implements GroupingQueries {
         this.offers = offers;
         this.changes = changes;
         this.catalog = catalog;
+        this.media = media;
         this.access = access;
         this.organizations = organizations;
         this.subscriptionEntitlements = subscriptionEntitlements;
@@ -305,17 +309,24 @@ public class GroupingService implements GroupingQueries {
             throw notFound();
         }
         var active = offers.active(campaign.getOrganizationId(), campaign.getId());
-        var variants =
-                catalog.findByIds(
+        var snapshots =
+                catalog.commercialSnapshots(
                         campaign.getOrganizationId(),
                         active.stream()
                                 .map(GroupingOffer::getProductVariantId)
+                                .collect(Collectors.toSet()));
+        var images =
+                media.readyImages(
+                        campaign.getOrganizationId(),
+                        snapshots.values().stream()
+                                .map(snapshot -> snapshot.productId())
                                 .collect(Collectors.toSet()));
         var visible =
                 active.stream()
                         .filter(
                                 offer -> {
-                                    var variant = variants.get(offer.getProductVariantId());
+                                    var snapshot = snapshots.get(offer.getProductVariantId());
+                                    var variant = snapshot == null ? null : snapshot.variant();
                                     return variant != null
                                             && variant.usable()
                                             && campaign.getShippingTerms()
@@ -324,17 +335,33 @@ public class GroupingService implements GroupingQueries {
                                                             variant.estimatedUnitVolumeM3());
                                 })
                         .map(
-                                offer ->
-                                        new PublicOfferView(
-                                                offer.getId(),
-                                                offer.getProductVariantId(),
-                                                offer.getCommercialLabel(),
-                                                offer.getUnitPrice(),
-                                                offer.getCurrency(),
-                                                true,
-                                                offer.getVersion(),
-                                                offer.getPriceRevision(),
-                                                variants.get(offer.getProductVariantId())))
+                                offer -> {
+                                    var snapshot = snapshots.get(offer.getProductVariantId());
+                                    var publicImages =
+                                            images
+                                                    .getOrDefault(snapshot.productId(), List.of())
+                                                    .stream()
+                                                    .map(
+                                                            image ->
+                                                                    new PublicProductImageView(
+                                                                            image.position(),
+                                                                            image.thumbnailUrl(),
+                                                                            image.displayUrl(),
+                                                                            image.width(),
+                                                                            image.height()))
+                                                    .toList();
+                                    return new PublicOfferView(
+                                            offer.getId(),
+                                            offer.getProductVariantId(),
+                                            offer.getCommercialLabel(),
+                                            offer.getUnitPrice(),
+                                            offer.getCurrency(),
+                                            true,
+                                            offer.getVersion(),
+                                            offer.getPriceRevision(),
+                                            snapshot.variant(),
+                                            publicImages);
+                                })
                         .toList();
         return new PublicGroupingView(
                 campaign.getPublicIdentifier(),

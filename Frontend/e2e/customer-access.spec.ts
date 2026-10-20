@@ -232,8 +232,11 @@ test('recovery form is keyboard accessible at 360px', async ({ page }) => {
   await mockAccess(page);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/suivi');
-  await page.getByLabel('Numéro WhatsApp').focus();
-  await page.keyboard.type('+221771234567');
+  const phone = page.getByLabel('Numéro WhatsApp');
+  await expect(phone).toBeVisible();
+  await phone.fill('+221771234567');
+  await phone.focus();
+  await expect(phone).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Recevoir mon code' })).toBeFocused();
   await page.keyboard.press('Enter');

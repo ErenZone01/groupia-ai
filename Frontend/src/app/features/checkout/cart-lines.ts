@@ -7,9 +7,24 @@ import { money, variantLabel } from '../../shared/utils/display';
   imports: [Button],
   template: ` @for (item of cart.items(); track item.offer.offerId) {
     <article>
-      <h2>{{ item.offer.commercialLabel || item.offer.catalog?.productName || 'Produit' }}</h2>
-      <p class="muted">{{ variantLabel(item.offer.catalog?.attributes) }}</p>
-      <p>{{ money(item.offer.unitPrice, item.offer.currency) }} / unité</p>
+      <div class="line-head">
+        @if (item.offer.images?.[0]; as image) {
+          <img
+            class="cart-image"
+            [src]="image.thumbnailUrl || image.displayUrl"
+            [alt]="item.offer.commercialLabel || item.offer.catalog?.productName || 'Produit'"
+            loading="lazy"
+            decoding="async"
+          />
+        } @else {
+          <div class="cart-image cart-image--placeholder" aria-hidden="true">Photo à venir</div>
+        }
+        <div class="line-copy">
+          <h2>{{ item.offer.commercialLabel || item.offer.catalog?.productName || 'Produit' }}</h2>
+          <p class="muted">{{ variantLabel(item.offer.catalog?.attributes) }}</p>
+          <p>{{ money(item.offer.unitPrice, item.offer.currency) }} / unité</p>
+        </div>
+      </div>
       <div class="quantity">
         <button
           gButton
@@ -72,8 +87,35 @@ import { money, variantLabel } from '../../shared/utils/display';
       border-radius: var(--radius-lg);
       background: var(--surface);
     }
+    .line-head {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: var(--s4);
+      align-items: center;
+    }
+    .cart-image {
+      width: 88px;
+      height: 88px;
+      display: block;
+      object-fit: contain;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-subtle, var(--surface));
+    }
+    .cart-image--placeholder {
+      display: grid;
+      place-items: center;
+      padding: var(--s2);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: var(--text-xs);
+    }
+    .line-copy {
+      min-width: 0;
+    }
     h2 {
       font-size: var(--text-lg);
+      overflow-wrap: anywhere;
     }
     p {
       margin: var(--s3) 0;

@@ -45,7 +45,8 @@ public class PublicProductMediaService implements PublicProductMediaQueries {
                                         media.display().width(),
                                         media.display().height()));
             } catch (MediaStorageException ignored) {
-                // Product pages must remain available if media delivery is temporarily disabled/unavailable.
+                // Product pages must remain available if media delivery is temporarily
+                // disabled/unavailable.
             }
         }
 

@@ -51,6 +51,63 @@ import { money, dateLabel, variantLabel } from '../../shared/utils/display';
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
       gap: var(--s5);
     }
+    .product-media {
+      display: grid;
+      gap: var(--s3);
+      margin: calc(var(--s2) * -1) 0 var(--s4);
+    }
+    .product-media-main,
+    .product-media-placeholder {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--surface-subtle, var(--surface));
+      border: 1px solid var(--border);
+    }
+    .product-media-main img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+    .product-media-placeholder {
+      display: grid;
+      place-items: center;
+      color: var(--text-muted);
+      min-height: 180px;
+    }
+    .product-thumbnails {
+      display: flex;
+      gap: var(--s2);
+      overflow-x: auto;
+      padding: 2px 2px var(--s1);
+      scrollbar-width: thin;
+    }
+    .product-thumb {
+      flex: 0 0 56px;
+      width: 56px;
+      height: 56px;
+      padding: 2px;
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      cursor: pointer;
+    }
+    .product-thumb[aria-pressed='true'] {
+      border-color: var(--primary);
+    }
+    .product-thumb:focus-visible {
+      outline: 3px solid var(--focus, var(--primary));
+      outline-offset: 2px;
+    }
+    .product-thumb img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: calc(var(--radius-md) - 3px);
+      object-fit: contain;
+    }
     g-card h2 {
       margin: var(--s3) 0;
     }

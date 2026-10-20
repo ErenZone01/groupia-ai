@@ -34,8 +34,56 @@
     }
     <div class="products">
       @for (offer of group.offers; track offer.offerId) {
-        <g-card
-          ><g-badge
+        <g-card>
+          <div class="product-media">
+            @if (activeImageFor(offer); as activeImage) {
+              <div class="product-media-main">
+                <img
+                  [src]="activeImage.thumbnailUrl || activeImage.displayUrl"
+                  [alt]="productLabel(offer)"
+                  loading="lazy"
+                  decoding="async"
+                  [attr.width]="activeImage.width || null"
+                  [attr.height]="activeImage.height || null"
+                />
+              </div>
+              @if ((offer.images?.length ?? 0) > 1) {
+                <div
+                  class="product-thumbnails"
+                  role="group"
+                  [attr.aria-label]="'Photos de ' + productLabel(offer)"
+                >
+                  @for (image of offer.images; track image.displayUrl; let i = $index) {
+                    <button
+                      type="button"
+                      class="product-thumb"
+                      [attr.aria-label]="
+                        'Afficher la photo ' + (i + 1) + ' de ' + productLabel(offer)
+                      "
+                      [attr.aria-pressed]="activeImageFor(offer) === image"
+                      (click)="selectImage(offer, i)"
+                    >
+                      <img
+                        [src]="image.thumbnailUrl || image.displayUrl"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </button>
+                  }
+                </div>
+              }
+            } @else {
+              <div
+                class="product-media-placeholder"
+                role="img"
+                [attr.aria-label]="'Aucune photo disponible pour ' + productLabel(offer)"
+              >
+                <span>Photo à venir</span>
+              </div>
+            }
+          </div>
+          <g-badge
             [tone]="
               offer.active && offer.catalog?.usable && group.orderable ? 'positive' : 'neutral'
             "
@@ -55,8 +103,8 @@
             (click)="selection.add(group, offer)"
           >
             Ajouter à ma sélection
-          </button></g-card
-        >
+          </button>
+        </g-card>
       } @empty {
         <g-empty-state
           title="Aucun produit disponible"

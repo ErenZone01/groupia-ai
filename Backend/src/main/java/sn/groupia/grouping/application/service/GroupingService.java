@@ -338,7 +338,8 @@ public class GroupingService implements GroupingQueries {
                                 offer -> {
                                     var snapshot = snapshots.get(offer.getProductVariantId());
                                     var publicImages =
-                                            images.getOrDefault(snapshot.productId(), List.of()).stream()
+                                            images.getOrDefault(snapshot.productId(), List.of())
+                                                    .stream()
                                                     .map(
                                                             image ->
                                                                     new PublicProductImageView(

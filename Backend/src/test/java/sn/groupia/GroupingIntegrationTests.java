@@ -789,7 +789,8 @@ class GroupingIntegrationTests {
         var campaign = open(addOffer(draft(), variantId, "1000"));
         mvc.perform(get(publicPath(campaign) + "?organizationId=" + UUID.randomUUID()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.offers", hasSize(1)));
+                .andExpect(jsonPath("$.offers", hasSize(1)))
+                .andExpect(jsonPath("$.offers[0].images").isArray());
         mvc.perform(get("/api/public/groupings/" + UUID.randomUUID()))
                 .andExpect(status().isNotFound());
         mvc.perform(get("/api/public/groupings/not-an-id")).andExpect(status().isNotFound());

@@ -151,6 +151,7 @@ test('erreur puis retry idempotent et limite cinq', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('traitement');
   await page.getByRole('button', { name: 'Envoyer / réessayer' }).click();
   await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(1);
+  await expect(page.locator('g-product-gallery section[aria-label="Images du produit"]')).toHaveAttribute('aria-busy', 'false');
   expect(state.keys[1]).toBe(state.keys[0]);
   await page
     .getByLabel('Ajouter des images')

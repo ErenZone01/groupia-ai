@@ -92,6 +92,7 @@ export type { ProductView } from './models/product-view';
 export type { PublicCampaignProgress } from './models/public-campaign-progress';
 export type { PublicGroupingView } from './models/public-grouping-view';
 export type { PublicOfferView } from './models/public-offer-view';
+export type { PublicProductImageView } from './models/public-product-image-view';
 export type { RecordShippingMeasurement } from './models/record-shipping-measurement';
 export type { RefundReviewView } from './models/refund-review-view';
 export type { RefundSummary } from './models/refund-summary';

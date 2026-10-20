@@ -13254,6 +13254,35 @@
           },
           "catalog" : {
             "$ref" : "#/components/schemas/CatalogVariantView"
+          },
+          "images" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicProductImageView"
+            }
+          }
+        }
+      },
+      "PublicProductImageView" : {
+        "type" : "object",
+        "properties" : {
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "thumbnailUrl" : {
+            "type" : "string"
+          },
+          "displayUrl" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "height" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

@@ -1,7 +1,7 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { PublicGroupingView } from '../../api/generated/models';
+import { PublicGroupingView, PublicOfferView, PublicProductImageView } from '../../api/generated/models';
 import { GroupiaApi } from '../../api/groupia-api';
 import { apiMessage } from '../../core/http/api-error';
 import { ThemeService } from '../../core/theme/theme.service';
@@ -124,6 +124,7 @@ export class PublicGroupagePage {
   readonly data = signal<PublicGroupingView | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly activeImages = signal<Record<string, number>>({});
   readonly money = money;
   readonly dateLabel = dateLabel;
   readonly variantLabel = variantLabel;
@@ -170,6 +171,22 @@ export class PublicGroupagePage {
     } finally {
       if (seq === this.request) this.loading.set(false);
     }
+  }
+  activeImageFor(offer: PublicOfferView): PublicProductImageView | null {
+    const images = offer.images ?? [];
+    if (!images.length) return null;
+    const key = offer.offerId ?? offer.productVariantId ?? '';
+    const index = Math.min(this.activeImages()[key] ?? 0, images.length - 1);
+    return images[index] ?? images[0] ?? null;
+  }
+  selectImage(offer: PublicOfferView, index: number) {
+    const images = offer.images ?? [];
+    if (index < 0 || index >= images.length) return;
+    const key = offer.offerId ?? offer.productVariantId ?? '';
+    this.activeImages.update((current) => ({ ...current, [key]: index }));
+  }
+  productLabel(offer: PublicOfferView) {
+    return offer.commercialLabel || offer.catalog?.productName || 'Produit';
   }
   reason() {
     const data = this.data();

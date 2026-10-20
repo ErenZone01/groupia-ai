@@ -53,12 +53,13 @@ async function mediaApi(page: Page) {
       }
       if (state.items.length >= 5)
         return route.fulfill({ status: 409, json: { code: 'MEDIA_LIMIT_REACHED' } });
+      const id = crypto.randomUUID();
       const item = {
-        id: crypto.randomUUID(),
+        id,
         state: 'READY',
         position: state.items.length,
-        thumbnailUrl: url,
-        displayUrl: url,
+        thumbnailUrl: url + '#' + id,
+        displayUrl: url + '#' + id,
       };
       state.items.push(item);
       state.version++;
@@ -108,15 +109,27 @@ for (const width of [360, 390, 430, 768, 1280]) {
     await page.keyboard.press('Enter');
     await expect.poll(() => state.items[0].id).toBe(second);
     await expect(gallerySection).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('g-product-gallery .gallery > li').first().locator('img')).toHaveAttribute(
+      'src',
+      new RegExp(second),
+    );
     await expect(page.locator('g-product-gallery .gallery > li').first()).toContainText('Image principale');
     await expect(page.getByRole('button', { name: 'Descendre l’image 1', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Descendre l’image 1', exact: true }).click();
     await expect.poll(() => state.items[1].id).toBe(second);
     await expect(gallerySection).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('g-product-gallery .gallery > li').nth(1).locator('img')).toHaveAttribute(
+      'src',
+      new RegExp(second),
+    );
     await expect(page.getByRole('button', { name: 'Monter l’image 2', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Monter l’image 2', exact: true }).click();
     await expect.poll(() => state.items[0].id).toBe(second);
     await expect(gallerySection).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('g-product-gallery .gallery > li').first().locator('img')).toHaveAttribute(
+      'src',
+      new RegExp(second),
+    );
     await page.getByRole('button', { name: 'Supprimer l’image 1', exact: true }).click();
     await page.getByRole('button', { name: 'Confirmer la suppression' }).click();
     await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(1);

@@ -15,7 +15,8 @@ import sn.groupia.media.domain.service.MediaStorageException;
 class PublicProductMediaServiceTests {
     private final MediaRecords records = mock(MediaRecords.class);
     private final MediaObjectStorage storage = mock(MediaObjectStorage.class);
-    private final PublicProductMediaService service = new PublicProductMediaService(records, storage);
+    private final PublicProductMediaService service =
+            new PublicProductMediaService(records, storage);
 
     @Test
     void exposesOnlyReadyImagesInGalleryOrderWithoutStorageKeys() {
@@ -28,9 +29,11 @@ class PublicProductMediaServiceTests {
         when(records.list(organizationId, Set.of(productId)))
                 .thenReturn(List.of(readySecond, uploading, readyFirst));
         when(storage.resolveUrl("first-thumb")).thenReturn("https://images.example/first-thumb");
-        when(storage.resolveUrl("first-display")).thenReturn("https://images.example/first-display");
+        when(storage.resolveUrl("first-display"))
+                .thenReturn("https://images.example/first-display");
         when(storage.resolveUrl("second-thumb")).thenReturn("https://images.example/second-thumb");
-        when(storage.resolveUrl("second-display")).thenReturn("https://images.example/second-display");
+        when(storage.resolveUrl("second-display"))
+                .thenReturn("https://images.example/second-display");
 
         var result = service.readyImages(organizationId, Set.of(productId));
 

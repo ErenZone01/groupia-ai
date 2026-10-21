@@ -42,19 +42,14 @@ class DistributionMigrationTests {
                                     db.getJdbcUrl(), db.getUsername(), db.getPassword()));
             UUID order = seedOrder(jdbc);
             var before = jdbc.queryForMap("select * from orders where id=?", order);
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             try (var resources = new ClassLoaderResourceAccessor()) {
                 migrate(db, resources);
             }
             var upgraded = jdbc.queryForMap("select * from orders where id=?", order);
             assertThat(upgraded.remove("ready_for_pickup_at")).isNull();
             assertThat(upgraded).isEqualTo(before);
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThat(
                             jdbc.queryForObject(
                                     "select count(*) from order_fulfillment_events", Integer.class))

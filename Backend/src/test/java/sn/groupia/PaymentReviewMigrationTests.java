@@ -52,9 +52,7 @@ class PaymentReviewMigrationTests {
             for (String table :
                     List.of("orders", "payment_requests", "payments", "payment_webhook_events"))
                 before.put(table, jdbc.queryForList("select * from " + table + " order by id"));
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             try (var resources = new ClassLoaderResourceAccessor()) {
                 migrations.migrate(db, resources);
             }
@@ -74,10 +72,7 @@ class PaymentReviewMigrationTests {
                                                 })
                                         .toList())
                         .isEqualTo(entry.getValue());
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThat(jdbc.queryForObject("select count(*) from payment_reviews", Long.class))
                     .isZero();
             assertThatThrownBy(

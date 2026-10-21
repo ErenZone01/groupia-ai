@@ -65,9 +65,7 @@ class LogisticsMigrationUpgradeTests {
             var before =
                     jdbc.queryForList(
                             "select id,departed_at,arrived_at,created_at,updated_at,tracking_reference,note,expected_arrival_at from shipments order by id");
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             try (var resources = new ClassLoaderResourceAccessor()) {
                 migrate(db, resources);
             }
@@ -75,10 +73,7 @@ class LogisticsMigrationUpgradeTests {
                             jdbc.queryForList(
                                     "select id,departed_at,arrived_at,created_at,updated_at,tracking_reference,note,expected_arrival_at from shipments order by id"))
                     .isEqualTo(before);
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '013-%' and id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThat(
                             jdbc.queryForObject(
                                     "select count(*) from shipment_facts where legacy and source='UNKNOWN'",

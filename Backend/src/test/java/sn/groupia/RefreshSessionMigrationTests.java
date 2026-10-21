@@ -44,17 +44,12 @@ class RefreshSessionMigrationTests {
                     new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12)
                             .encode(UUID.randomUUID().toString()));
             var accounts = j.queryForList("select * from user_accounts");
-            var checksums =
-                    j.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(j);
             try (var resource = new ClassLoaderResourceAccessor()) {
                 migrations.migrate(db, resource);
             }
             assertThat(j.queryForList("select * from user_accounts")).isEqualTo(accounts);
-            assertThat(
-                            j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(j, checksums);
             assertThat(j.queryForObject("select count(*) from auth_sessions", Integer.class))
                     .isZero();
             assertThat(j.queryForObject("select count(*) from auth_refresh_tokens", Integer.class))

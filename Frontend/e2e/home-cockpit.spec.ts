@@ -162,6 +162,8 @@ test.describe('Accueil tactile', () => {
     await page.getByRole('dialog').getByRole('link', { name: 'Statistiques', exact: true }).tap();
     await expect(page).toHaveURL(/app\/statistiques$/);
     await expect(page.getByRole('dialog')).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Plus', exact: true })).toHaveClass(/active/);
+    await expect(
+      page.getByRole('button', { name: /^Plus\s*, section actuelle$/ }),
+    ).toHaveClass(/active/);
   });
 });

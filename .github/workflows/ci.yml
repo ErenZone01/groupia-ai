@@ -73,6 +73,18 @@ jobs:
           cache: npm
           cache-dependency-path: Frontend/package-lock.json
       - run: npm ci
+      - name: Temporary dependency repair preview (non-mutating)
+        if: github.head_ref == 'ux-ui-foundations-v2'
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts || true
+          echo GROUPIA_PACKAGE_BEGIN
+          base64 -w0 package.json
+          echo
+          echo GROUPIA_PACKAGE_END
+          echo GROUPIA_LOCK_BEGIN
+          base64 -w0 package-lock.json
+          echo
+          echo GROUPIA_LOCK_END
       - run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm test

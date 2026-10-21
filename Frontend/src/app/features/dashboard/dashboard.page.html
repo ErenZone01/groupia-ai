@@ -1,86 +1,107 @@
-<div class="page-heading">
+<div class="welcome">
   <div>
-    <p class="eyebrow overline">Votre boutique, en un coup d’œil</p>
+    <p class="eyebrow">{{ context.selected()?.name || 'Votre boutique' }}</p>
     <h1>Bonjour ! <span class="wave" aria-hidden="true">☀</span></h1>
-    <p>Retrouvez vos commandes et leur statut.</p>
+    <p class="muted">Un regard sur votre activité, une idée pour la suite.</p>
   </div>
   <span class="period"><g-icon name="calendar" />Toutes périodes</span>
 </div>
-@if (store.loading()) {
-  <div aria-label="Chargement du tableau de bord" role="status"><g-skeleton /></div>
-}
-@if (store.error()) {
-  <p class="form-error" role="alert">{{ store.error() }}</p>
-  <button gButton (click)="reload()">Réessayer</button>
-}
-<section class="stats" aria-label="Résumé des commandes">
-  @for (label of labels; track label) {
-    <g-stat-card
-      [label]="label"
-      [value]="store.stats()[$index] ?? '—'"
-      [tone]="tones[$index]"
-      [icon]="icons[$index]"
-    />
-  }
-</section>
-<p class="muted metrics-note">Nombre de commandes par statut actuel, toutes périodes confondues.</p>
-<div class="overview">
-  <g-card
-    ><div class="card-heading">
-      <h2>Les commandes de votre boutique</h2>
-      <g-icon name="orders" />
-    </div>
-    <p class="muted">
-      Consultez les achats enregistrés et leurs montants. Le statut « Payée » correspond aux
-      commandes confirmées.
-    </p>
-    <div class="actions">
-      <a gButton routerLink="/app/orders" [queryParams]="{ status: 'CONFIRMED' }"
-        >Voir les commandes payées</a
-      ><a
-        gButton
-        variant="secondary"
-        routerLink="/app/orders"
-        [queryParams]="{ status: 'PENDING_PAYMENT' }"
-        >En attente</a
-      >
-    </div></g-card
-  >
-  <g-card
-    ><div class="card-heading">
-      <h2>Vos groupages</h2>
-      <g-icon name="group" />
-    </div>
-    <p class="muted">Retrouvez vos sélections et consultez les commandes de chaque groupage.</p>
-    <div class="actions">
-      <a gButton variant="secondary" routerLink="/app/groupages">Voir les groupages</a>
-    </div></g-card
-  >
-</div>
-<g-card
-  ><div class="card-heading activity-heading">
-    <div>
-      <h2>Dernières commandes</h2>
-      <p class="muted">Les cinq commandes les plus récentes.</p>
-    </div>
-    <a class="text-link" routerLink="/app/orders">Voir les commandes <g-icon name="arrow" /></a>
+<section class="create-banner" aria-labelledby="next-groupage-title">
+  <div>
+    <span class="eyebrow">Ensemble, on va plus loin</span>
+    <h2 id="next-groupage-title">Préparez votre prochain groupage.</h2>
+    <p>Réunissez vos produits et préparez une sélection à partager.</p>
   </div>
+  <a gButton variant="accent" routerLink="/app/groupages/nouveau"
+    ><g-icon name="plus" />Créer un groupage</a
+  >
+</section>
+<section
+  class="activity-summary"
+  aria-labelledby="activity-title"
+  [attr.aria-busy]="store.loading()"
+>
+  <div class="section-heading"><h2 id="activity-title">Votre activité en un coup d’œil</h2></div>
   @if (store.loading()) {
-    <g-skeleton /><g-skeleton />
-  } @else if (!store.error()) {
-    @if (store.recent().length) {
-      <g-order-list [orders]="store.recent()" />
+    <p class="loading-note" role="status">Chargement du tableau de bord…</p>
+  }
+  @if (store.error()) {
+    <div class="dashboard-error">
+      <p class="form-error" role="alert">{{ store.error() }}</p>
+      <button gButton variant="secondary" (click)="reload()">Réessayer</button>
+    </div>
+  }
+  <div class="stats" aria-label="Résumé des commandes">
+    @for (label of labels; track label) {
+      <g-stat-card
+        [label]="label"
+        [value]="store.stats()[$index] ?? '—'"
+        [tone]="tones[$index]"
+        [icon]="icons[$index]"
+      />
+    }
+  </div>
+  <p class="metrics-note">
+    Nombre de commandes par statut actuel, toutes périodes confondues. « Payées » désigne les
+    commandes confirmées.
+  </p>
+</section>
+<div class="overview">
+  <g-card class="recent-card">
+    <div class="card-heading">
+      <div>
+        <h2>Dernières commandes</h2>
+        <p class="muted">Les cinq commandes les plus récentes.</p>
+      </div>
+      <a class="text-link" routerLink="/app/orders">Voir les commandes <g-icon name="arrow" /></a>
+    </div>
+    @if (store.loading()) {
+      <div class="recent-loading"><g-skeleton /><g-skeleton /><g-skeleton /></div>
+    } @else if (store.error()) {
+      <p class="muted recent-unavailable">
+        Les commandes ne peuvent pas être affichées pour le moment.
+      </p>
+    } @else if (store.recent().length) {
+      <g-recent-orders [orders]="store.recent()" />
     } @else {
       <g-empty-state
         title="Aucune commande pour le moment."
-        description="Les achats de vos clientes apparaîtront ici."
+        description="Les achats de vos clientes apparaîtront ici. Retrouvez vos sélections pour préparer la suite."
         icon="orders"
-      />
+      >
+        <a gButton variant="secondary" routerLink="/app/groupages">Voir les groupages</a>
+      </g-empty-state>
     }
-  }
-  <div class="actions">
-    <button gButton variant="ghost" [disabled]="store.loading()" (click)="reload()">
-      Actualiser le tableau de bord
-    </button>
-  </div>
-</g-card>
+    <div class="card-footer">
+      <button gButton variant="ghost" [disabled]="store.loading()" (click)="reload()">
+        Actualiser le tableau de bord
+      </button>
+    </div>
+  </g-card>
+  <g-card class="quick-card">
+    <h2>Pour la suite</h2>
+    <p class="muted">Les bons raccourcis, au même endroit.</p>
+    <nav class="quick-links" aria-label="Actions du tableau de bord">
+      <a routerLink="/app/orders" [queryParams]="{ status: 'CONFIRMED' }"
+        ><span class="quick-icon"><g-icon name="check" /></span
+        ><span>Voir les commandes payées<small>Retrouver les achats confirmés</small></span
+        ><g-icon name="chevron"
+      /></a>
+      <a routerLink="/app/orders" [queryParams]="{ status: 'PENDING_PAYMENT' }"
+        ><span class="quick-icon"><g-icon name="clock" /></span
+        ><span>En attente<small>Consulter les commandes à régler</small></span
+        ><g-icon name="chevron"
+      /></a>
+      <a routerLink="/app/groupages"
+        ><span class="quick-icon"><g-icon name="group" /></span
+        ><span>Vos groupages<small>Retrouver toutes vos sélections</small></span
+        ><g-icon name="chevron"
+      /></a>
+      <a routerLink="/app/products"
+        ><span class="quick-icon"><g-icon name="box" /></span
+        ><span>Votre catalogue<small>Consulter et organiser vos produits</small></span
+        ><g-icon name="chevron"
+      /></a>
+    </nav>
+  </g-card>
+</div>

@@ -34,7 +34,7 @@ export interface TabItem {
   styles: `
     [role='tablist'] {
       display: flex;
-      gap: var(--s4);
+      gap: var(--s3);
       overflow-x: auto;
       border-bottom: 1px solid var(--border);
     }
@@ -46,11 +46,12 @@ export interface TabItem {
       border-bottom: 2px solid transparent;
       background: transparent;
       color: var(--muted);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     }
     button[aria-selected='true'] {
       color: var(--primary);
       border-bottom-color: var(--primary);
-      font-weight: 500;
+      font-weight: 600;
     }
     button:hover:not(:disabled) {
       background: var(--surface-alt);
@@ -60,12 +61,15 @@ export interface TabItem {
         gap: var(--s1);
       }
       button {
-        font-size: var(--text-xs);
-        padding: var(--s3) var(--s1);
+        font-size: var(--text-sm);
+        padding: var(--s3) var(--s2);
       }
     }
     [role='tabpanel'] {
       padding-top: var(--s4);
+    }
+    button:focus-visible {
+      outline-offset: -3px;
     }
   `,
 })

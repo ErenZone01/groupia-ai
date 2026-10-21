@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -77,6 +79,19 @@ class BusinessAnalyticsServiceTest {
         assertThat(view.goodsSalesChangePercent()).isNull();
         assertThat(view.confirmedOrdersChangePercent()).isNull();
         assertThat(view.months()).allSatisfy(point -> assertThat(point.confirmedOrders()).isZero());
+    }
+
+    @Test
+    void refusesAnalyticsBeforeReadingAnyOtherOrganizationData() {
+        doThrow(new ApiException(403, "FORBIDDEN", "Accès refusé."))
+                .when(access)
+                .requirePermission(org, OrganizationPermission.VIEW_ORDERS);
+
+        assertThatThrownBy(() -> service.overview(org, 12))
+                .isInstanceOf(ApiException.class)
+                .extracting("status")
+                .isEqualTo(403);
+        verifyNoInteractions(readModel);
     }
 
     @Test

@@ -77,6 +77,7 @@ jobs:
         if: github.head_ref == 'ux-ui-foundations-v2'
         run: |
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));for(const d of [p.dependencies,p.devDependencies])for(const name of Object.keys(d))if(name.startsWith('@angular/'))d[name]='22.2.3';fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
+          rm -rf node_modules package-lock.json
           npm install --package-lock-only --ignore-scripts
           npm audit fix --package-lock-only --ignore-scripts || true
           echo GROUPIA_PACKAGE_BEGIN

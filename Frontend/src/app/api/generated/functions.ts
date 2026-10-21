@@ -197,3 +197,5 @@ export type { Get2$Params as Get2$Params } from './fn/public-grouping-controller
 export { get2 as get2 } from './fn/public-grouping-controller/get-2';
 export type { SupplierSummary$Params as SupplierSummary$Params } from './fn/supplier-summary-controller/supplier-summary';
 export { supplierSummary as supplierSummary } from './fn/supplier-summary-controller/supplier-summary';
+export type { BusinessAnalytics$Params as BusinessAnalytics$Params } from './fn/business-analytics-controller/business-analytics';
+export { businessAnalytics as businessAnalytics } from './fn/business-analytics-controller/business-analytics';

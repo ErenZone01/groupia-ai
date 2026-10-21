@@ -1,27 +1,23 @@
 <div class="welcome">
   <div>
     <p class="eyebrow">{{ context.selected()?.name || 'Votre boutique' }}</p>
-    <h1>Bonjour ! <span class="wave" aria-hidden="true">☀</span></h1>
-    <p class="muted">Un regard sur votre activité, une idée pour la suite.</p>
-  </div>
-  <span class="period"><g-icon name="calendar" />Toutes périodes</span>
-</div>
-<section class="create-banner" aria-labelledby="next-groupage-title">
-  <div>
-    <span class="eyebrow">Ensemble, on va plus loin</span>
-    <h2 id="next-groupage-title">Préparez votre prochain groupage.</h2>
-    <p>Réunissez vos produits et préparez une sélection à partager.</p>
+    <h1>Vue d’ensemble</h1>
+    <p class="muted">Votre activité, en toute clarté.</p>
   </div>
   <a gButton variant="accent" routerLink="/app/groupages/nouveau"
     ><g-icon name="plus" />Créer un groupage</a
   >
-</section>
+</div>
+<g-business-overview />
 <section
   class="activity-summary"
   aria-labelledby="activity-title"
   [attr.aria-busy]="store.loading()"
 >
-  <div class="section-heading"><h2 id="activity-title">Votre activité en un coup d’œil</h2></div>
+  <div class="section-heading">
+    <h2 id="activity-title">Les commandes, aujourd’hui</h2>
+    <span class="period">Toutes périodes</span>
+  </div>
   @if (store.loading()) {
     <p class="loading-note" role="status">Chargement du tableau de bord…</p>
   }

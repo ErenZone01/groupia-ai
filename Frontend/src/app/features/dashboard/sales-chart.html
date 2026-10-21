@@ -1,0 +1,139 @@
+<figure aria-label="Évolution mensuelle des ventes d’articles confirmées">
+  <div class="legend">
+    <span><i class="current"></i>Période sélectionnée</span
+    ><span><i class="previous"></i>Même période N−1</span>
+  </div>
+  <p class="chart-unit">Montants en FCFA · mois en cours partiel</p>
+  <svg
+    [attr.viewBox]="'0 0 ' + width() + ' 268'"
+    role="img"
+    aria-label="Courbes des ventes mensuelles, valeurs détaillées ci-dessous"
+    aria-describedby="chart-instructions"
+    (pointermove)="pointAt($event)"
+    (pointerdown)="pointAt($event)"
+  >
+    @for (tick of ticks(); track $index) {
+      <line x1="48" [attr.x2]="width() - 16" [attr.y1]="tick.y" [attr.y2]="tick.y" class="grid" />
+      <text x="36" [attr.y]="tick.y + 4" text-anchor="end">{{ axisLabel(tick.value) }}</text>
+    }
+    <path [attr.d]="area()" class="area" />
+    <path [attr.d]="previousPath()" class="line previous-line" />
+    <path [attr.d]="currentPath()" class="line current-line" />
+    @for (point of months(); track point.month) {
+      <circle [attr.cx]="x($index)" [attr.cy]="y(point.goodsSales)" r="3.5" class="dot" />
+      <text
+        [attr.x]="x($index)"
+        y="252"
+        text-anchor="middle"
+        [class.sparse]="months().length > 6 && $index % 2 === 0"
+      >
+        {{ monthLabel(point.month, true) }}
+      </text>
+    }
+    @if (selected(); as point) {
+      <line
+        [attr.x1]="x(selectedIndex())"
+        [attr.x2]="x(selectedIndex())"
+        y1="18"
+        y2="224"
+        class="cursor"
+      />
+      <circle
+        [attr.cx]="x(selectedIndex())"
+        [attr.cy]="y(point.goodsSales)"
+        r="6"
+        class="selected-dot"
+      />
+      <circle
+        [attr.cx]="x(selectedIndex())"
+        [attr.cy]="y(point.previousYearGoodsSales)"
+        r="5"
+        class="previous-dot"
+      />
+    }
+  </svg>
+  <figcaption id="chart-instructions">
+    Survolez la courbe ou choisissez un mois pour consulter les montants exacts.
+  </figcaption>
+  <div class="inspector">
+    <div class="month-control">
+      <label for="chart-month">Mois à explorer</label>
+      <div>
+        <button
+          type="button"
+          aria-label="Mois précédent"
+          [disabled]="selectedIndex() <= 0"
+          (click)="select(selectedIndex() - 1)"
+        >
+          ←
+        </button>
+        <select
+          id="chart-month"
+          (keydown)="keydown($event)"
+          [value]="selectedIndex()"
+          (change)="select(+$any($event.target).value)"
+        >
+          @for (point of months(); track point.month) {
+            <option [value]="$index" [selected]="$index === selectedIndex()">
+              {{ monthLabel(point.month) }}
+            </option>
+          }
+        </select>
+        <button
+          type="button"
+          aria-label="Mois suivant"
+          [disabled]="selectedIndex() >= months().length - 1"
+          (click)="select(selectedIndex() + 1)"
+        >
+          →
+        </button>
+      </div>
+    </div>
+    <div class="point-values" aria-live="polite" aria-atomic="true">
+      @if (selected(); as point) {
+        <span
+          ><small>{{ monthLabel(point.month) }}</small
+          ><strong>{{ francs(point.goodsSales) }}</strong
+          ><small>{{ quantity(point.confirmedOrders) }} commandes confirmées</small></span
+        >
+        <span
+          ><small>Même mois N−1</small><strong>{{ francs(point.previousYearGoodsSales) }}</strong
+          ><small
+            >{{ quantity(point.previousYearConfirmedOrders) }} commandes confirmées</small
+          ></span
+        >
+      }
+    </div>
+  </div>
+  <details>
+    <summary>Consulter le tableau des valeurs</summary>
+    <div class="table-wrap">
+      <table>
+        <caption>
+          Ventes d’articles confirmées en FCFA. N−1 : même période de l’année précédente, mois
+          partiel compris.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Mois</th>
+            <th scope="col">Ventes</th>
+            <th scope="col">Ventes N−1</th>
+            <th scope="col">Commandes</th>
+            <th scope="col">Commandes N−1</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (point of months(); track point.month) {
+            <tr>
+              <th scope="row">{{ monthLabel(point.month) }}</th>
+              <td>{{ francs(point.goodsSales) }}</td>
+              <td>{{ francs(point.previousYearGoodsSales) }}</td>
+              <td>{{ quantity(point.confirmedOrders) }}</td>
+              <td>{{ quantity(point.previousYearConfirmedOrders) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>

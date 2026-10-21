@@ -18,7 +18,7 @@ for (const width of [360, 768, 1024, 1440])
       await page.setViewportSize({ width, height: 1000 });
       await page.addInitScript((mode) => localStorage.setItem('groupia.theme', mode), theme);
       await page.goto('/accueil');
-      await expect(page.getByRole('heading', { name: 'Bonjour !' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -29,6 +29,7 @@ for (const width of [360, 768, 1024, 1440])
           (url) =>
             new URL(url).pathname === '/api/auth/refresh' ||
             new URL(url).pathname === '/api/organizations' ||
+            /\/api\/organizations\/[^/]+\/analytics\/business$/.test(new URL(url).pathname) ||
             /\/api\/organizations\/[^/]+\/orders$/.test(new URL(url).pathname) ||
             /\/api\/organizations\/[^/]+\/subscription(?:\/(?:history|invoices|invoice-preview))?$/.test(
               new URL(url).pathname,

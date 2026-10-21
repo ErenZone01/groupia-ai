@@ -193,6 +193,8 @@ for (const theme of ['light', 'dark']) {
         ['--on-accent', '--accent', 4.5],
         ['--hero-text', '--hero', 4.5],
         ['--hero-muted', '--hero', 4.5],
+        ['--primary', '--surface', 3],
+        ['--warning-text', '--surface', 3],
         ['--sidebar-muted', '--sidebar', 4.5],
         ['--sidebar-active-text', '--sidebar-active', 4.5],
         ['--positive-text', '--positive-soft', 4.5],

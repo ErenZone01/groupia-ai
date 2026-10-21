@@ -8,8 +8,8 @@ export interface PublicOfferView {
   catalog?: CatalogVariantView;
   commercialLabel?: string;
   currency?: string;
-  offerId?: string;
   images?: Array<PublicProductImageView>;
+  offerId?: string;
   priceRevision?: number;
   productVariantId?: string;
   unitPrice?: number;

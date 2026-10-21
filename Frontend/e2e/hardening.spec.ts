@@ -43,7 +43,7 @@ for (const width of [360, 1440])
       }),
     );
     await page.goto(origin + '/accueil');
-    await expect(page.getByRole('heading', { name: 'Bonjour !' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
     await expect(page.locator('g-stat-card')).toHaveCount(4);
     await noOverflow(page);
     await page

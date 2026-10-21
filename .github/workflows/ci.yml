@@ -76,7 +76,8 @@ jobs:
       - name: Temporary dependency repair preview (non-mutating)
         if: github.head_ref == 'ux-ui-foundations-v2'
         run: |
-          npm update @angular/core @angular/common @angular/compiler @angular/forms @angular/platform-browser @angular/router @angular/build @angular/cli @angular/compiler-cli vite --package-lock-only --ignore-scripts
+          npm install --package-lock-only --ignore-scripts --save-exact @angular/common@22.2.3 @angular/compiler@22.2.3 @angular/core@22.2.3 @angular/forms@22.2.3 @angular/platform-browser@22.2.3 @angular/router@22.2.3
+          npm install --package-lock-only --ignore-scripts --save-exact --save-dev @angular/build@22.2.3 @angular/cli@22.2.3 @angular/compiler-cli@22.2.3
           npm audit fix --package-lock-only --ignore-scripts || true
           echo GROUPIA_PACKAGE_BEGIN
           base64 -w0 package.json

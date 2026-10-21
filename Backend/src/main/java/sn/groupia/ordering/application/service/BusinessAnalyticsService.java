@@ -48,12 +48,10 @@ public class BusinessAnalyticsService {
         var firstMonth = YearMonth.from(now).minusMonths(months - 1L);
         Instant start = firstMonth.atDay(1).atStartOfDay(DAKAR).toInstant();
         Instant end = now.toInstant();
-        Instant comparisonStart =
-                firstMonth.minusYears(1).atDay(1).atStartOfDay(DAKAR).toInstant();
+        Instant comparisonStart = firstMonth.minusYears(1).atDay(1).atStartOfDay(DAKAR).toInstant();
         Instant comparisonEnd = now.minusYears(1).toInstant();
 
-        Map<String, MonthlyTotals> current =
-                index(readModel.monthly(organizationId, start, end));
+        Map<String, MonthlyTotals> current = index(readModel.monthly(organizationId, start, end));
         Map<String, MonthlyTotals> previous =
                 index(readModel.monthly(organizationId, comparisonStart, comparisonEnd));
         var points = new ArrayList<BusinessAnalyticsView.MonthlyPoint>(months);
@@ -71,8 +69,7 @@ public class BusinessAnalyticsService {
             BigDecimal previousMonthSales =
                     previousPoint == null ? BigDecimal.ZERO : previousPoint.goodsSales();
             long monthCount = currentPoint == null ? 0L : currentPoint.confirmedOrders();
-            long previousMonthCount =
-                    previousPoint == null ? 0L : previousPoint.confirmedOrders();
+            long previousMonthCount = previousPoint == null ? 0L : previousPoint.confirmedOrders();
             points.add(
                     new BusinessAnalyticsView.MonthlyPoint(
                             month.toString(),

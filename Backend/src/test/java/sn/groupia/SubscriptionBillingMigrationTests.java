@@ -102,9 +102,7 @@ class SubscriptionBillingMigrationTests {
                     j.queryForObject(
                             "select to_jsonb(p)::text from subscription_periods p", String.class);
             var paymentsBefore = j.queryForList("select * from payments");
-            var sums =
-                    j.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var sums = MigrationHistoryAssertions.snapshot(j);
             Files.writeString(master, full);
             migrate(db);
             assertThat(
@@ -120,10 +118,7 @@ class SubscriptionBillingMigrationTests {
                     .isEqualTo(periodsBefore);
             assertThat(j.queryForList("select * from payments")).isEqualTo(paymentsBefore);
             assertThat(j.queryForList("select * from payment_reviews")).isEqualTo(reviewsBefore);
-            assertThat(
-                            j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(sums);
+            MigrationHistoryAssertions.assertPreserved(j, sums);
             assertThat(
                             j.queryForObject(
                                     "select target_type from payment_requests where id=?",

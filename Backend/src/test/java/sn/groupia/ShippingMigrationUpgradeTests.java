@@ -42,9 +42,7 @@ class ShippingMigrationUpgradeTests {
                                     db.getJdbcUrl(), db.getUsername(), db.getPassword()));
             UUID order = seedOrder(jdbc);
             var before = jdbc.queryForMap("select * from orders where id=?", order);
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             UUID campaign =
                     jdbc.queryForObject(
                             "select campaign_id from orders where id=?", UUID.class, order);
@@ -73,10 +71,7 @@ class ShippingMigrationUpgradeTests {
             assertThat(upgraded).isEqualTo(before);
             assertThat(jdbc.queryForList("select * from shipment_facts")).isEqualTo(facts);
             assertThat(jdbc.queryForList("select * from shipments")).isEqualTo(shipments);
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '014-%' and id not like '015-%' and id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThat(
                             jdbc.queryForObject(
                                     "select volumetric_divisor from grouping_campaigns where id=?",

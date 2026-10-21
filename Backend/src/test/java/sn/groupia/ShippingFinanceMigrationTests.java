@@ -48,9 +48,7 @@ class ShippingFinanceMigrationTests {
                     jdbc.queryForList(
                             "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id");
             var orders = jdbc.queryForList("select * from orders");
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             try (var resources = new ClassLoaderResourceAccessor()) {
                 migrate(db, resources);
             }
@@ -61,10 +59,7 @@ class ShippingFinanceMigrationTests {
             var upgraded = jdbc.queryForList("select * from orders");
             upgraded.forEach(r -> assertThat(r.remove("ready_for_pickup_at")).isNull());
             assertThat(upgraded).isEqualTo(orders);
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '016-%' and id not like '017-%' and id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThatThrownBy(
                             () ->
                                     jdbc.update(

@@ -53,9 +53,7 @@ class DistributionChecksumUpgradeTests {
                             "Article manquant");
             var orders = jdbc.queryForList("select * from orders order by id");
             var history = jdbc.queryForList("select * from order_fulfillment_events order by id");
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             if (version.equals("unknown")) {
                 try (var resources = new ClassLoaderResourceAccessor()) {
                     assertThatThrownBy(() -> migration.migrate(db, resources))
@@ -128,10 +126,7 @@ class DistributionChecksumUpgradeTests {
                         .isInstanceOf(DataIntegrityViolationException.class);
             }
             assertThat(jdbc.queryForList("select * from orders order by id")).isEqualTo(orders);
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '018-%' and id not like '019-%' and id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
         }
     }
 

@@ -43,16 +43,11 @@ class GroupingCompletionMigrationTests {
             var history =
                     jdbc.queryForList(
                             "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id");
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             try (var resources = new ClassLoaderResourceAccessor()) {
                 runner.migrate(db, resources);
             }
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThat(
                             jdbc.queryForList(
                                     "select (to_jsonb(r)-'target_type'-'target_id')::text as historical from payment_requests r order by id"))

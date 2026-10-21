@@ -118,9 +118,7 @@ class SubscriptionMigrationTests {
                     UUID.randomUUID(),
                     organizationId,
                     ownerId);
-            var previousChecksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var previousChecksums = MigrationHistoryAssertions.snapshot(jdbc);
 
             Files.writeString(
                     destination.resolve("db.changelog-master.yaml"),
@@ -219,13 +217,7 @@ class SubscriptionMigrationTests {
                             jdbc.queryForList(
                                     "select * from subscription_billing_contacts order by organization_id"))
                     .isEqualTo(contactsBeforeReplay);
-            assertThat(
-                            jdbc.queryForList(
-                                    """
-                    select id,md5sum from databasechangelog where id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%'
-                    order by orderexecuted
-                    """))
-                    .isEqualTo(previousChecksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, previousChecksums);
         }
     }
 

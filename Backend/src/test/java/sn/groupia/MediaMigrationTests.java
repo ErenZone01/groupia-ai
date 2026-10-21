@@ -37,16 +37,11 @@ class MediaMigrationTests {
                     new JdbcTemplate(
                             new DriverManagerDataSource(
                                     db.getJdbcUrl(), db.getUsername(), db.getPassword()));
-            var checksums =
-                    jdbc.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(jdbc);
             try (var resource = new ClassLoaderResourceAccessor()) {
                 migrations.migrate(db, resource);
             }
-            assertThat(
-                            jdbc.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThat(jdbc.queryForObject("select count(*) from product_media", Integer.class))
                     .isZero();
             assertThat(

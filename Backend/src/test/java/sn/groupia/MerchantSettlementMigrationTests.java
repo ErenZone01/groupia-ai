@@ -44,9 +44,7 @@ class MerchantSettlementMigrationTests {
             MerchantSettlementFixtures.settledBefore026(j, manual, "INITIAL_ORDER");
             UUID auto = MerchantSettlementFixtures.refund(j, platform, "BICTORYS_PAYOUT"),
                     own = MerchantSettlementFixtures.refund(j, manual, "MANUAL_EXTERNAL");
-            var checksums =
-                    j.queryForList(
-                            "select id,md5sum from databasechangelog order by orderexecuted");
+            var checksums = MigrationHistoryAssertions.snapshot(j);
             var originals = new HashMap<String, List<Map<String, Object>>>();
             for (var table : List.of("orders", "payment_requests", "payments", "payment_refunds"))
                 originals.put(table, j.queryForList("select * from " + table + " order by id"));
@@ -100,10 +98,7 @@ class MerchantSettlementMigrationTests {
                 }
                 assertThat(rows).isEqualTo(originals.get(table));
             }
-            assertThat(
-                            j.queryForList(
-                                    "select id,md5sum from databasechangelog where id not like '020-%' and id not like '021-%' and id not like '022-%' and id not like '023-%' and id not like '024-%' and id not like '025-%' and id not like '026-%' and id not like '027-%' and id not like '028-%' and id not like '029-%' order by orderexecuted"))
-                    .isEqualTo(checksums);
+            MigrationHistoryAssertions.assertPreserved(j, checksums);
             assertThatThrownBy(() -> j.update("delete from merchant_ledger_entries"))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             assertThatThrownBy(() -> j.update("update merchant_ledger_entries set amount=1"))

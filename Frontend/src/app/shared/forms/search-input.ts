@@ -26,14 +26,15 @@ import { Input } from './input';
     g-icon {
       position: absolute;
       left: var(--s3);
-      top: 13px;
+      top: 50%;
+      transform: translateY(-50%);
       color: var(--muted);
       pointer-events: none;
     }
     input {
       padding-left: var(--s10);
       background: var(--surface-alt);
-      border-color: transparent;
+      border-color: var(--control-border);
     }
   `,
 })

@@ -30,10 +30,11 @@ import { SubscriptionNotice } from '../../features/subscription/subscription-not
   styles: `
     .workspace {
       margin-left: var(--sidebar-width);
+      min-width: 0;
     }
     main {
-      padding: var(--s8);
-      max-width: 1380px;
+      padding: var(--s8) var(--page-gutter);
+      max-width: var(--content-width);
       margin: auto;
       min-height: calc(100dvh - 150px);
       outline: none;
@@ -53,7 +54,7 @@ import { SubscriptionNotice } from '../../features/subscription/subscription-not
       border-radius: var(--pill);
     }
     footer {
-      max-width: 1380px;
+      max-width: var(--content-width);
       margin: auto;
       padding: var(--s4) var(--s8) var(--s6);
       display: flex;
@@ -85,7 +86,7 @@ import { SubscriptionNotice } from '../../features/subscription/subscription-not
         padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
       }
       main {
-        padding: var(--s6) var(--s5);
+        padding: var(--s6) var(--page-gutter);
       }
       footer {
         padding: var(--s4) var(--s5);

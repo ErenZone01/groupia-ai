@@ -9,12 +9,15 @@ import { Component, input } from '@angular/core';
       align-items: center;
       gap: var(--s1);
       padding: var(--s1) var(--s2);
-      border-radius: var(--radius-sm);
+      border-radius: var(--pill);
       font-size: var(--text-xs);
-      font-weight: 500;
+      font-weight: 600;
+      line-height: 1.5;
+      max-width: 100%;
       background: var(--surface-alt);
       color: var(--muted);
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     :host([data-tone='positive']) {
       color: var(--positive-text);

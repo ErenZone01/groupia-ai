@@ -12,6 +12,7 @@ import { Component } from '@angular/core';
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
+      overflow-wrap: anywhere;
     }
     @media (max-width: 599px) {
       :host {

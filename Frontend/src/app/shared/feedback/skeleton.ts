@@ -10,7 +10,7 @@ import { Component, input } from '@angular/core';
       display: block;
       height: 1.2em;
       border-radius: var(--radius-sm);
-      background: var(--surface-alt);
+      background: var(--skeleton);
       animation: pulse 1.5s ease-in-out infinite;
     }
     @keyframes pulse {

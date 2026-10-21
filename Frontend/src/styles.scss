@@ -12,13 +12,22 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font: 400 var(--text-sm)/1.6 var(--font);
+  font: 400 var(--text-base)/var(--leading-body) var(--font);
+}
+html {
+  scroll-padding-block: calc(var(--topbar-height) + var(--s4))
+    calc(var(--bottom-nav-height) + var(--s4));
 }
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+input[type='file'] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 button {
   cursor: pointer;
@@ -30,11 +39,11 @@ a {
 button:disabled,
 [aria-disabled='true'] {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 :focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 4px;
+  outline-offset: 3px;
 }
 h1,
 h2,
@@ -44,16 +53,16 @@ p {
 }
 h1 {
   font-size: var(--text-2xl);
-  line-height: 1.3;
-  letter-spacing: -0.045em;
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading);
   font-weight: 600;
 }
 h2 {
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 h3 {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 img,
@@ -88,25 +97,30 @@ svg {
   align-items: center;
   justify-content: center;
   gap: var(--s2);
-  min-height: 44px;
+  min-height: var(--control-height);
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
   padding: var(--s3) var(--s5);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--text-sm);
   transition:
     background var(--duration),
-    transform var(--duration);
+    border-color var(--duration),
+    box-shadow var(--duration);
   background: var(--primary);
   color: var(--on-primary);
 }
 .g-button:hover:not(:disabled):not([aria-disabled='true']) {
-  filter: brightness(0.94);
-  transform: translateY(-1px);
+  background: var(--primary-hover);
 }
 .g-button--secondary {
   background: var(--surface);
-  border-color: var(--border);
+  border-color: var(--control-border);
   color: var(--text);
 }
 .g-button--ghost {
@@ -116,6 +130,16 @@ svg {
 .g-button--accent {
   background: var(--accent);
   color: var(--on-accent);
+}
+.g-button--secondary:hover:not(:disabled):not([aria-disabled='true']),
+.g-button--ghost:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--surface-hover);
+}
+.g-button--accent:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--accent-hover);
+}
+.g-button:active:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: inset 0 0 0 2px currentColor;
 }
 .g-button[aria-busy='true']::before {
   content: '';
@@ -129,12 +153,16 @@ svg {
 .g-input {
   width: 100%;
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--control-height);
+  font-size: var(--text-base);
   padding: var(--s3) var(--s4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   background: var(--surface);
   color: var(--text);
   border-radius: var(--radius-sm);
+  transition:
+    border-color var(--duration),
+    background var(--duration);
 }
 .g-input::placeholder {
   color: var(--muted);
@@ -143,10 +171,11 @@ svg {
   border-color: var(--primary);
 }
 .g-input[aria-invalid='true'] {
-  border-color: var(--danger);
+  border-color: var(--danger-text);
 }
 .g-input:disabled {
-  opacity: 0.55;
+  background: var(--surface-alt);
+  opacity: 0.65;
   cursor: not-allowed;
 }
 .page-heading {

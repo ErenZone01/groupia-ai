@@ -5,10 +5,10 @@ import { Icon } from './icon';
   imports: [Icon],
   host: { '[attr.data-tone]': 'tone()' },
   template: `<div class="top">
-      <span class="value">{{ value() }}</span
-      ><span class="icon"><g-icon [name]="icon()" /></span>
+      <span class="icon"><g-icon [name]="icon()" /></span>
+      <p>{{ label() }}</p>
     </div>
-    <p>{{ label() }}</p>`,
+    <strong class="value">{{ value() }}</strong>`,
   styles: `
     :host {
       display: block;
@@ -16,25 +16,30 @@ import { Icon } from './icon';
       background: var(--surface);
       padding: var(--s5);
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
     }
     .top {
       display: flex;
-      justify-content: space-between;
       align-items: center;
       gap: var(--s2);
     }
     .value {
-      font-size: var(--text-2xl);
+      display: block;
+      font-size: var(--text-3xl);
       font-weight: 600;
-      letter-spacing: -0.05em;
+      letter-spacing: var(--tracking-heading);
+      font-variant-numeric: tabular-nums;
+      line-height: var(--leading-heading);
+      margin-top: var(--s4);
+      overflow-wrap: anywhere;
     }
     .icon {
       display: grid;
       place-items: center;
       width: 38px;
       height: 38px;
+      flex-shrink: 0;
       border-radius: var(--radius-sm);
       background: var(--info-soft);
       color: var(--info-text);
@@ -42,7 +47,7 @@ import { Icon } from './icon';
     p {
       font-size: var(--text-sm);
       color: var(--muted);
-      margin-top: var(--s3);
+      font-weight: 500;
     }
     :host([data-tone='positive']) .icon {
       background: var(--positive-soft);
@@ -67,17 +72,31 @@ import { Icon } from './icon';
     }
     @media (max-width: 599px) {
       :host {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--s3) var(--s2);
         padding: var(--s4);
       }
+      .top {
+        display: contents;
+      }
       .value {
-        font-size: var(--text-xl);
+        grid-row: 2;
+        grid-column: 1;
+        margin-top: 0;
+        font-size: var(--text-2xl);
       }
       .icon {
+        grid-row: 2;
+        grid-column: 2;
         width: 32px;
         height: 32px;
       }
       p {
-        font-size: var(--text-xs);
+        grid-column: 1 / -1;
+        grid-row: 1;
+        font-size: var(--text-sm);
+        overflow-wrap: anywhere;
       }
     }
   `,

@@ -19,10 +19,13 @@ import { Icon } from './icon';
       place-items: center;
       width: 44px;
       height: 44px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--control-border);
       border-radius: var(--radius-sm);
       background: var(--surface);
       color: var(--muted);
+      transition:
+        background var(--duration),
+        border-color var(--duration);
     }
     button:hover:not(:disabled) {
       color: var(--primary);

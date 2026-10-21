@@ -15,6 +15,8 @@ import { Icon } from '../ui/icon';
       text-align: center;
       padding: var(--s10) var(--s4);
       gap: var(--s3);
+      min-width: 0;
+      background: var(--surface);
     }
     .symbol {
       display: grid;
@@ -33,6 +35,12 @@ import { Icon } from '../ui/icon';
     p {
       color: var(--muted);
       max-width: 38ch;
+      font-size: var(--text-sm);
+      overflow-wrap: anywhere;
+    }
+    h2 {
+      max-width: 30ch;
+      overflow-wrap: anywhere;
     }
   `,
 })

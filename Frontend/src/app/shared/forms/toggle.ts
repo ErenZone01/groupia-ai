@@ -15,28 +15,38 @@ import { Component, input, model } from '@angular/core';
     button {
       display: block;
       width: 44px;
-      height: 26px;
-      padding: 3px;
-      border: 1px solid var(--border);
+      height: 44px;
+      padding: 0;
+      border: 0;
       border-radius: var(--pill);
-      background: var(--muted);
+      background: transparent;
     }
     span {
       display: block;
+      width: 44px;
+      height: 26px;
+      padding: 3px;
+      background: var(--muted);
+      border: 1px solid var(--control-border);
+      border-radius: var(--pill);
+    }
+    span::after {
+      content: '';
+      display: block;
       width: 18px;
       height: 18px;
-      background: var(--surface);
+      background: var(--control-thumb);
       border-radius: var(--pill);
       transition: transform var(--duration);
     }
-    button[aria-checked='true'] {
+    button[aria-checked='true'] span {
       background: var(--primary);
     }
-    button[aria-checked='true'] span {
+    button[aria-checked='true'] span::after {
       transform: translateX(17px);
     }
     button:hover:not(:disabled) {
-      filter: brightness(0.95);
+      background: var(--surface-hover);
     }
   `,
 })

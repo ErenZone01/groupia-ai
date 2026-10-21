@@ -9,13 +9,15 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s6);
-  padding: 0 var(--s8);
+  gap: var(--s4);
+  padding: 0 var(--page-gutter);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 .search {
-  width: min(430px, 50%);
+  flex: 1;
+  max-width: 400px;
+  min-width: 160px;
   position: relative;
 }
 .results {
@@ -25,7 +27,7 @@ header {
   padding: var(--s2);
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-raised);
   border-radius: var(--radius-md);
 }
 .results a {
@@ -33,6 +35,8 @@ header {
   align-items: center;
   gap: var(--s3);
   padding: var(--s3);
+  min-height: var(--control-height);
+  border-radius: var(--radius-sm);
   color: var(--text);
 }
 .results a:hover {
@@ -45,12 +49,12 @@ header {
 .tools {
   display: flex;
   align-items: center;
-  gap: var(--s5);
+  gap: var(--s3);
   margin-left: auto;
 }
 .theme select {
-  font-size: var(--text-xs);
-  width: 112px;
+  font-size: var(--text-sm);
+  width: 106px;
 }
 .divider {
   width: 1px;
@@ -62,11 +66,13 @@ header {
   align-items: center;
   gap: var(--s3);
   color: var(--text);
+  min-height: 44px;
+  border-radius: var(--radius-sm);
 }
 .profile strong,
 .profile small {
   display: block;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 .profile small {
   font-size: var(--text-xs);
@@ -78,7 +84,7 @@ header {
 @media (max-width: 1023px) {
   header {
     height: 72px;
-    padding: 0 var(--s5);
+    padding: 0 var(--page-gutter);
     gap: var(--s3);
   }
   .search {
@@ -101,15 +107,24 @@ header {
   .theme select {
     width: 102px;
     padding: var(--s2);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
   }
 }
 
 .profile strong {
-  max-width: 180px;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .profile span,
+  .divider {
+    display: none;
+  }
+  .logout {
+    padding-inline: var(--s2);
+  }
 }
 @media (max-width: 1023px) {
   .logout {

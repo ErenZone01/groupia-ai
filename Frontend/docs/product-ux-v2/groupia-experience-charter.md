@@ -59,7 +59,7 @@ Si tout est terminé : montrer synthèse et invitation à relancer un groupage, 
 | Écran | Rôle / propriétaire de l'information | Peut résumer ailleurs | Ne doit pas être dupliqué ailleurs |
 | --- | --- | --- | --- |
 | **Accueil** | Priorités **actionnables**, quelques groupages en cours, mini synthèse datée | Synthèse de commandes ou ventes avec lien | Graphique complet, tableau de commandes, état détaillé des paiements |
-| **Statistiques** (validé) | Historique des ventes d'articles confirmées et commandes, comparaisons N−1, périodes et courbes | Un ou deux KPI explicitement datés à l'accueil | Statuts des remboursements, gains nets, soldes de reversement |
+| **Statistiques** (`/app/statistiques`) | Historique des ventes d'articles confirmées et commandes, comparaisons N−1, périodes et courbes | Un ou deux KPI explicitement datés à l'accueil | Statuts des remboursements, gains nets, soldes de reversement |
 | **Groupages** | Recherche/liste filtrable des campagnes, statut, échéance et navigation | 1–3 campagnes pertinentes à l'accueil | Édition du contenu et du cycle, détails de transport |
 | **Détail du groupage** | **Source de vérité du cycle** : offre, prix, partage, achats associés, fournisseur, transport, distribution, clôture | Statut/étape/alerte vérifiée sur l'accueil | Analyses globales par période, gestion complète de la boutique |
 | **Produits** | Catalogue durable, variantes, médias R2, activation et prix de référence | Raccourci « Ajouter un produit » en onboarding | Prix propres aux offres de groupages comme si c'était le prix catalogue |
@@ -129,3 +129,14 @@ Avant de coder une page, renseigner dans la PR :
 - Polaris Pro Design Language : https://polaris-site-prod-kit.shopify.prod.shopifyapps.com/design/pro-design-language
 
 Ces références servent pour la méthode, **pas pour copier l'identité graphique**.
+
+## Arbitrages appliqués — PR #29, séparation Accueil / Statistiques
+
+- `/app/accueil` porte les prochaines étapes, les extraits de groupages, un aperçu de trois mois et trois commandes maximum. Les quatre totaux par statut et les raccourcis répétés sont retirés ; leur consultation détaillée reste dans Commandes / Groupages.
+- `/app/statistiques` est une route lazy du même espace authentifié et de la boutique sélectionnée. Elle possède exclusivement les trois KPI analytiques, la courbe N−1, le tableau et les sélecteurs 3/6/12 mois. Entrée secondaire dans Plus, entrée desktop après Paiements, recherche de page disponible. Les quatre destinations mobiles primaires et la gestion du focus sont préservées.
+- L’Accueil lit seulement la première page de 20 groupages, triés côté serveur par `createdAt DESC, id ASC`. Il présente au plus deux priorités (brouillons puis groupages ouverts avec identifiant public), puis trois autres groupages actifs au maximum, sans duplication. Ce périmètre est écrit à l’écran ; aucune prétention de liste exhaustive ni d’urgence.
+- Les liens de priorité ouvrent le détail existant : ils ne réalisent aucune mutation et ne créent aucun nouveau droit. `CampaignSummary` ne fournit pas les permissions de distribution ; ARRIVED/DISTRIBUTING restent de simples statuts avec accès neutre au détail. Aucune alerte de paiement n’est déduite de PENDING_PAYMENT.
+- L’aperçu commercial porte sur **3 mois calendaires dont le mois courant**, avec les dates fournies par le serveur. Deux valeurs seulement, brutes avant corrections/remboursements, hors frais ; aucun bénéfice ou solde. La précision et le filtrage session/boutique sont identiques à Statistiques.
+- L’onboarding n’apparaît que si le total retourné des groupages est exactement zéro. Une seule lecture de catalogue, page 0 taille 1, distingue la prochaine étape. Une erreur ou un total absent ne constitue jamais une preuve de boutique vide.
+- États indépendants pour groupages, activité, commandes et catalogue éventuel ; une panne partielle laisse les autres zones utilisables. Aucune donnée ancienne conservée lors d’un changement de contexte. Aucun cache financier persistant.
+- Les captures avant Statistiques représentent sa source fonctionnelle : le dashboard analytique ancien sur `/app/accueil`, puisque la route séparée n’existait pas. La galerie explicite cette correspondance. Validation visuelle humaine requise avant tout merge.

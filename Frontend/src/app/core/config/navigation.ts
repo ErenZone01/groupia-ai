@@ -1,7 +1,7 @@
 export const navigation = [
   {
     path: '/app/accueil',
-    label: 'Tableau de bord',
+    label: 'Accueil',
     shortLabel: 'Accueil',
     icon: 'home',
     mobile: 'primary',
@@ -38,6 +38,14 @@ export const navigation = [
     icon: 'card',
     mobile: 'secondary',
     mobileOrder: 1,
+  },
+  {
+    path: '/app/statistiques',
+    label: 'Statistiques',
+    shortLabel: 'Statistiques',
+    icon: 'trend',
+    mobile: 'secondary',
+    mobileOrder: 4,
   },
   {
     path: '/app/boutique',

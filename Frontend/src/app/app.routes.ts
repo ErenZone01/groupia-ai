@@ -78,9 +78,15 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'accueil' },
       {
         path: 'accueil',
-        title: 'Tableau de bord · Groupia',
+        title: 'Accueil · Groupia',
         loadComponent: () =>
           import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage),
+      },
+      {
+        path: 'statistiques',
+        title: 'Statistiques · Groupia',
+        loadComponent: () =>
+          import('./features/dashboard/statistics.page').then((m) => m.StatisticsPage),
       },
       {
         path: 'boutique',

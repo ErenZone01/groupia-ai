@@ -43,8 +43,9 @@ for (const width of [360, 1440])
       }),
     );
     await page.goto(origin + '/accueil');
-    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
-    await expect(page.locator('g-stat-card')).toHaveCount(4);
+    await expect(page.getByRole('heading', { name: 'Accueil', exact: true })).toBeVisible();
+    await expect(page.locator('g-sales-chart')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Voir les statistiques' })).toBeVisible();
     await noOverflow(page);
     await page
       .getByRole('link', { name: 'Groupages', exact: true })

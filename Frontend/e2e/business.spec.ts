@@ -17,7 +17,7 @@ for (const [width, theme] of [
     ).toBeVisible();
     await page.getByLabel('Nom de la boutique').fill('La boutique de Mame');
     await page.getByRole('button', { name: 'Créer ma boutique' }).click();
-    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Accueil', exact: true })).toBeVisible();
     await page.goto('/app/products');
     await page.getByRole('button', { name: 'Créer un produit', exact: true }).click();
     await page.getByLabel('Nom du produit').fill('Chemise en lin');
@@ -221,7 +221,7 @@ test('production : connexion et client généré fonctionnels', async ({ page })
   await page.getByLabel('Numéro de téléphone').fill('+221771234567');
   await page.getByLabel('Mot de passe', { exact: true }).fill('une phrase suffisamment longue');
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Accueil', exact: true })).toBeVisible();
   await page.goto('http://127.0.0.1:4300/app/products');
   await expect(page.getByRole('heading', { name: 'Chemise en lin', exact: true })).toBeVisible();
   expect(state.calls.some((c) => c.path.endsWith('/products'))).toBe(true);

@@ -1,103 +1,207 @@
-<div class="welcome">
+<header class="welcome">
   <div>
-    <p class="eyebrow">{{ context.selected()?.name || 'Votre boutique' }}</p>
-    <h1>Vue d’ensemble</h1>
-    <p class="muted">Votre activité, en toute clarté.</p>
+    <p class="shop-name">{{ context.selected()?.name || 'Votre boutique' }}</p>
+    <h1>Accueil</h1>
   </div>
   <a gButton variant="accent" routerLink="/app/groupages/nouveau"
     ><g-icon name="plus" />Créer un groupage</a
   >
-</div>
-<g-business-overview />
-<section
-  class="activity-summary"
-  aria-labelledby="activity-title"
-  [attr.aria-busy]="store.loading()"
->
-  <div class="section-heading">
-    <h2 id="activity-title">État actuel des commandes</h2>
-    <span class="period">Toutes périodes</span>
-  </div>
-  @if (store.loading()) {
-    <p class="loading-note" role="status">Chargement du tableau de bord…</p>
-  }
-  @if (store.error()) {
-    <div class="dashboard-error">
-      <p class="form-error" role="alert">{{ store.error() }}</p>
-      <button gButton variant="secondary" (click)="reload()">Réessayer</button>
-    </div>
-  }
-  <div class="stats" aria-label="Résumé des commandes">
-    @for (label of labels; track label) {
-      <g-stat-card
-        [label]="label"
-        [value]="store.stats()[$index] ?? '—'"
-        [tone]="tones[$index]"
-        [icon]="icons[$index]"
-      />
-    }
-  </div>
-  <p class="metrics-note">
-    Nombre de commandes par statut actuel, toutes périodes confondues. « Payées » désigne les
-    commandes confirmées.
-  </p>
-</section>
-<div class="overview">
-  <g-card class="recent-card">
-    <div class="card-heading">
-      <div>
-        <h2>Dernières commandes</h2>
-        <p class="muted">Les cinq commandes les plus récentes.</p>
+</header>
+<div class="home-grid">
+  <section
+    class="work-area"
+    aria-label="Vos groupages et prochaines étapes"
+    [attr.aria-busy]="store.groups.loading()"
+  >
+    @if (store.groups.loading()) {
+      <div class="panel">
+        <h2>Vos groupages</h2>
+        <p role="status">Chargement des groupages…</p>
+        <g-skeleton /><g-skeleton />
       </div>
+    } @else if (store.groups.error()) {
+      <div class="panel">
+        <h2>Vos groupages</h2>
+        <p role="alert">Les groupages sont momentanément indisponibles.</p>
+        <button gButton variant="secondary" (click)="store.groups.retry()">
+          Réessayer les groupages
+        </button>
+      </div>
+    } @else if (store.noGroups()) {
+      <div class="panel onboarding">
+        <span class="section-mark"><g-icon name="group" /></span>
+        <h2>Votre premier groupage commence ici</h2>
+        @if (store.products.loading()) {
+          <p role="status">Préparation de vos premières étapes…</p>
+        } @else if (store.products.error()) {
+          <p role="alert">Le catalogue ne peut pas être vérifié pour le moment.</p>
+          <button gButton variant="secondary" (click)="store.products.retry()">
+            Réessayer le catalogue
+          </button>
+        } @else if (store.products.value(); as products) {
+          <ol class="steps">
+            <li [class.next]="products.totalElements === 0">
+              <strong>Ajouter des produits</strong
+              ><span>Votre sélection réutilisable, au même endroit.</span>
+              @if (products.totalElements === 0) {
+                <a class="text-link" routerLink="/app/products"
+                  >Préparer mon catalogue <g-icon name="arrow"
+                /></a>
+              } @else {
+                <span>Votre catalogue est prêt à être utilisé.</span>
+              }
+            </li>
+            <li [class.next]="(products.totalElements ?? 0) > 0">
+              <strong>Créer un groupage</strong
+              ><span>Réunissez vos produits et fixez vos conditions.</span>
+              @if ((products.totalElements ?? 0) > 0) {
+                <a class="text-link" routerLink="/app/groupages/nouveau"
+                  >Préparer mon premier groupage <g-icon name="arrow"
+                /></a>
+              }
+            </li>
+            <li>
+              <strong>Publier et partager</strong
+              ><span>Le lien à envoyer à vos clientes sera disponible après publication.</span>
+            </li>
+          </ol>
+        }
+      </div>
+    } @else if (store.groups.value()) {
+      @if (store.priorities().length) {
+        <section class="panel priorities" aria-labelledby="priorities-title">
+          <div class="section-heading">
+            <h2 id="priorities-title">À suivre</h2>
+            <span class="meta">Vos prochaines étapes</span>
+          </div>
+          @for (group of store.priorities(); track group.id) {
+            <a class="priority-row" [routerLink]="['/app/groupages', group.id]">
+              <span class="section-mark"
+                ><g-icon [name]="group.status === 'DRAFT' ? 'orders' : 'link'"
+              /></span>
+              <span class="row-copy"
+                ><strong>{{ priorityLabel(group) }}</strong
+                ><span>{{ group.title }}</span
+                ><small
+                  >{{ statusLabel(group.status) }}
+                  @if (closing(group.closesAt)) {
+                    · Clôture : {{ closing(group.closesAt) }}
+                  }
+                </small></span
+              ><g-icon name="arrow" />
+            </a>
+          }
+          @if (!store.otherGroups().length) {
+            <a class="text-link all-groups" routerLink="/app/groupages"
+              >Voir tous les groupages <g-icon name="arrow"
+            /></a>
+          }
+        </section>
+      }
+      @if (store.otherGroups().length || !store.priorities().length) {
+        <section class="panel campaigns" aria-labelledby="groups-title">
+          <div class="section-heading">
+            <h2 id="groups-title">Mes groupages en cours</h2>
+            <a class="text-link" routerLink="/app/groupages">Tout voir <g-icon name="arrow" /></a>
+          </div>
+          @for (group of store.otherGroups(); track group.id) {
+            <a class="campaign-row" [routerLink]="['/app/groupages', group.id]"
+              ><span class="row-copy"
+                ><strong>{{ group.title }}</strong
+                ><span
+                  ><g-badge [tone]="group.status === 'OPEN' ? 'positive' : 'neutral'">{{
+                    statusLabel(group.status)
+                  }}</g-badge></span
+                >
+                @if (closing(group.closesAt)) {
+                  <small>Clôture : {{ closing(group.closesAt) }} · heure de Dakar</small>
+                }</span
+              ><g-icon name="arrow"
+            /></a>
+          } @empty {
+            <p>
+              Aucun groupage en cours parmi les
+              {{ store.groups.value()?.items?.length ?? 0 }} derniers consultés. Retrouvez
+              l’ensemble de vos groupages pour préparer la suite.
+            </p>
+          }
+        </section>
+      }
+      <p class="scope-note">
+        Aperçu parmi les 20 derniers groupages créés. Les actions et le suivi complet restent dans
+        chaque groupage.
+      </p>
+    }
+  </section>
+  <aside
+    class="panel activity-preview"
+    aria-labelledby="preview-title"
+    [attr.aria-busy]="analytics.loading()"
+  >
+    <div class="section-heading">
+      <h2 id="preview-title">Mon activité</h2>
+      <g-icon name="trend" />
+    </div>
+    <p class="meta">3 mois calendaires dont le mois courant</p>
+    @if (analytics.loading()) {
+      <p role="status">Chargement de l’activité…</p>
+      <g-skeleton />
+    } @else if (analytics.error()) {
+      <p role="alert">{{ analytics.error() }}</p>
+      <button gButton variant="secondary" (click)="analytics.retry()">Réessayer l’activité</button>
+    } @else if (analytics.data(); as data) {
+      <p class="meta">{{ periodLabel(data.periodStart, data.periodEndExclusive) }} · Dakar</p>
+      <dl class="preview-values">
+        <div>
+          <dt>Ventes d’articles confirmées</dt>
+          <dd>{{ francs(data.goodsSales) }}</dd>
+        </div>
+        <div>
+          <dt>Commandes confirmées</dt>
+          <dd>{{ quantity(data.confirmedOrders) }}</dd>
+        </div>
+      </dl>
+      <p class="financial-note">
+        Valeur brute des articles, hors frais, avant remboursements et corrections. Ce n’est ni un
+        bénéfice ni un solde disponible.
+      </p>
+    }
+    <a class="text-link statistics-link" routerLink="/app/statistiques"
+      >Voir les statistiques <g-icon name="arrow"
+    /></a>
+  </aside>
+  <section
+    class="panel recent-panel"
+    aria-labelledby="recent-title"
+    [attr.aria-busy]="store.orders.loading()"
+  >
+    <div class="section-heading">
+      <h2 id="recent-title">Dernières commandes</h2>
       <a class="text-link" routerLink="/app/orders">Voir les commandes <g-icon name="arrow" /></a>
     </div>
-    @if (store.loading()) {
-      <div class="recent-loading"><g-skeleton /><g-skeleton /><g-skeleton /></div>
-    } @else if (store.error()) {
-      <p class="muted recent-unavailable">
-        Les commandes ne peuvent pas être affichées pour le moment.
-      </p>
+    <p class="meta">Les trois dernières commandes · montant initial à régler, frais inclus</p>
+    @if (store.orders.loading()) {
+      <p role="status">Chargement des commandes…</p>
+      <g-skeleton />
+    } @else if (store.orders.error()) {
+      <p class="form-error" role="alert">Les commandes sont momentanément indisponibles.</p>
+      <button gButton variant="secondary" (click)="store.orders.retry()">
+        Réessayer les commandes
+      </button>
     } @else if (store.recent().length) {
       <g-recent-orders [orders]="store.recent()" />
     } @else {
-      <g-empty-state
-        title="Aucune commande pour le moment."
-        description="Les achats de vos clientes apparaîtront ici. Retrouvez vos sélections pour préparer la suite."
-        icon="orders"
-      >
-        <a gButton variant="secondary" routerLink="/app/groupages">Voir les groupages</a>
-      </g-empty-state>
+      <h3 class="empty-title">Aucune commande pour le moment.</h3>
+      <p>Les achats de vos clientes apparaîtront ici.</p>
     }
-    <div class="card-footer">
-      <button gButton variant="ghost" [disabled]="store.loading()" (click)="reload()">
-        Actualiser le tableau de bord
-      </button>
-    </div>
-  </g-card>
-  <g-card class="quick-card">
-    <h2>Pour la suite</h2>
-    <p class="muted">Les bons raccourcis, au même endroit.</p>
-    <nav class="quick-links" aria-label="Actions du tableau de bord">
-      <a routerLink="/app/orders" [queryParams]="{ status: 'CONFIRMED' }"
-        ><span class="quick-icon"><g-icon name="check" /></span
-        ><span>Voir les commandes payées<small>Retrouver les achats confirmés</small></span
-        ><g-icon name="chevron"
-      /></a>
-      <a routerLink="/app/orders" [queryParams]="{ status: 'PENDING_PAYMENT' }"
-        ><span class="quick-icon"><g-icon name="clock" /></span
-        ><span>En attente<small>Consulter les commandes à régler</small></span
-        ><g-icon name="chevron"
-      /></a>
-      <a routerLink="/app/groupages"
-        ><span class="quick-icon"><g-icon name="group" /></span
-        ><span>Vos groupages<small>Retrouver toutes vos sélections</small></span
-        ><g-icon name="chevron"
-      /></a>
-      <a routerLink="/app/products"
-        ><span class="quick-icon"><g-icon name="box" /></span
-        ><span>Votre catalogue<small>Consulter et organiser vos produits</small></span
-        ><g-icon name="chevron"
-      /></a>
-    </nav>
-  </g-card>
+    <button
+      class="refresh-orders"
+      gButton
+      variant="ghost"
+      [disabled]="store.orders.loading()"
+      (click)="store.orders.retry()"
+    >
+      Actualiser les commandes
+    </button>
+  </section>
 </div>

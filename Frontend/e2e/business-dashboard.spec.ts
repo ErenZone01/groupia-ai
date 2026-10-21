@@ -21,7 +21,7 @@ for (const width of [360, 390, 430, 768, 1024, 1280, 1440])
       await page.setViewportSize({ width, height: 960 });
       await page.addInitScript((t) => localStorage.setItem('groupia.theme', t), theme);
       const calls = await setup(page);
-      await page.goto('/app/accueil');
+      await page.goto('/app/statistiques');
       await expect(page.locator('.metric-value').first()).toContainText('FCFA');
       await expect(page.getByLabel('Mois à explorer')).toHaveValue('11');
       await noOverflow(page);
@@ -64,7 +64,7 @@ test('montants et comparaison exacts, absence de doublon de requêtes opération
   page.on('request', (r) => {
     if (/\/orders\?/.test(r.url())) orders.push(r.url());
   });
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page.locator('.metric-value')).toHaveCount(3);
   await expect(page.locator('.metric-value').first()).toContainText('FCFA');
   const data = analyticsFixture();
@@ -75,11 +75,11 @@ test('montants et comparaison exacts, absence de doublon de requêtes opération
     `${data.averageBasket}FCFA`,
   );
   await expect(page.getByText('Même période N−1', { exact: true })).toBeVisible();
-  await expect(page.getByText('Toutes périodes', { exact: true })).toBeVisible();
+  await expect(page.locator('g-recent-orders')).toHaveCount(0);
   await page.getByRole('button', { name: '3 mois', exact: true }).click();
   await expect(page.locator('#chart-month option')).toHaveCount(3);
   expect(calls).toEqual([12, 3]);
-  expect(orders).toHaveLength(4);
+  expect(orders).toHaveLength(0);
   expect(orders.every((url) => Number(new URL(url).searchParams.get('size')) <= 5)).toBe(true);
 });
 
@@ -90,7 +90,7 @@ test('déconnexion pendant une requête : réponse tardive ignorée', async ({ p
     await new Promise<void>((resolve) => (release = resolve));
     await route.fulfill({ json: analyticsFixture(3) });
   });
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page.locator('.metric-value')).toHaveCount(3);
   const pending = page.waitForRequest('**/analytics/business?months=3');
   await page.getByRole('button', { name: '3 mois', exact: true }).click();
@@ -105,7 +105,7 @@ test.describe('Graphique tactile', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
   test('explore les points au doigt sans survol', async ({ page }) => {
     await setup(page);
-    await page.goto('/app/accueil');
+    await page.goto('/app/statistiques');
     const select = page.getByLabel('Mois à explorer');
     await expect(select).toHaveValue('11');
     await page.getByRole('button', { name: 'Mois précédent', exact: true }).tap();
@@ -123,7 +123,7 @@ test('zéro, panier absent et comparaison indéfinie restent explicites', async 
   await page.route('**/analytics/business?*', (r) =>
     r.fulfill({ json: analyticsFixture(12, true) }),
   );
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page.locator('.metric-value')).toHaveText(['0 FCFA', '0', '—']);
   await expect(page.locator('.variation')).toHaveText([
     'Comparaison indisponible',
@@ -151,7 +151,7 @@ test('erreur puis retry, chiffres imprécis refusés', async ({ page }) => {
           : { json: analyticsFixture() },
     );
   });
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page.locator('g-business-overview [role=alert]')).toContainText('indisponibles');
   await expect(page.locator('.metric-value')).toHaveCount(0);
   await page.getByRole('button', { name: 'Réessayer les statistiques' }).click();
@@ -167,7 +167,7 @@ test('une ancienne période ne peut remplacer une réponse plus récente', async
     await new Promise<void>((resolve) => (release = resolve));
     await route.fulfill({ json: analyticsFixture(3) });
   });
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page.locator('.metric-value')).toHaveCount(3);
   const pending = page.waitForRequest('**/analytics/business?months=3');
   await page.getByRole('button', { name: '3 mois', exact: true }).click();
@@ -192,11 +192,12 @@ test('changement de boutique pendant une requête et retour : aucune fuite', asy
     await new Promise<void>((resolve) => (release = resolve));
     await route.fulfill({ json: { ...analyticsFixture(), goodsSales: 999999 } });
   });
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page.getByText('Chargement des statistiques…', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Ouvrir ma boutique' }).click();
   await page.getByLabel('Changer de boutique').selectOption('77777777-7777-4777-8777-777777777777');
-  await expect(page.locator('.welcome .eyebrow')).toHaveText('Deuxième boutique');
+  await page.goto('/app/statistiques');
+  await expect(page.locator('.welcome .shop-name')).toHaveText('Deuxième boutique');
   await expect(page.locator('.metric-value')).toHaveCount(3);
   release();
   expect(normalized(await page.locator('.metric-value').first().innerText())).toBe(
@@ -212,7 +213,7 @@ test('expiration pendant le chargement : aucune statistique après perte de sess
     await page.context().clearCookies();
     return route.fulfill({ status: 401, json: { code: 'AUTHENTICATION_REQUIRED' } });
   });
-  await page.goto('/app/accueil');
+  await page.goto('/app/statistiques');
   await expect(page).toHaveURL(/connexion/);
   await expect(page.locator('.metric-value')).toHaveCount(0);
 });

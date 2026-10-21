@@ -3,7 +3,7 @@
   min-width: 0;
 }
 .business-summary {
-  margin-bottom: var(--s10);
+  margin-bottom: var(--s6);
 }
 .section-heading {
   display: flex;
@@ -16,7 +16,7 @@
   margin-bottom: var(--s5);
 }
 .period-caption {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   margin-top: var(--s1);
 }
 .period-picker {
@@ -57,11 +57,11 @@
 }
 .metric {
   overflow-wrap: anywhere;
-  padding: var(--s6);
+  padding: var(--s4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow);
+
   min-width: 0;
 }
 .metric-primary {
@@ -72,7 +72,7 @@
   display: flex;
   align-items: start;
   gap: var(--s2);
-  min-height: 44px;
+  min-height: 0;
 }
 .metric-label g-icon {
   width: 18px;
@@ -87,7 +87,7 @@
 }
 .metric-value {
   display: block;
-  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  font-size: clamp(1.5rem, 2vw, 1.875rem);
   line-height: var(--leading-heading);
   font-weight: 600;
   letter-spacing: var(--tracking-heading);
@@ -96,7 +96,7 @@
   margin-block: var(--s3) var(--s4);
 }
 .metric p {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
   margin-top: var(--s2);
 }
@@ -105,7 +105,7 @@
 }
 .variation,
 .metric-explainer {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 .variation {
@@ -124,7 +124,7 @@
   background: var(--danger-soft);
 }
 .comparison-note {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
   margin-block: var(--s3) var(--s5);
 }
@@ -138,20 +138,20 @@
 }
 .chart-heading p {
   color: var(--muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   margin-top: var(--s1);
 }
 .chart-currency {
   color: var(--primary);
   background: var(--primary-soft);
   border-radius: var(--pill);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 500;
   padding: var(--s1) var(--s3);
 }
 .financial-note {
   color: var(--muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   border-top: 1px solid var(--border);
   padding-top: var(--s4);
   margin-top: var(--s3);
@@ -173,7 +173,7 @@
   font-size: var(--text-sm);
 }
 .zero-sales p {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 .analytics-loading > p {
@@ -229,4 +229,11 @@
   .period-picker button {
     flex: 1;
   }
+}
+
+h2 {
+  font-size: var(--text-lg);
+}
+:host {
+  line-height: 1.5;
 }

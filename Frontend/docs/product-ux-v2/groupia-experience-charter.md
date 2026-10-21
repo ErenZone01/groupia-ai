@@ -1,6 +1,6 @@
-# Groupia — Charte d'expérience produit et répartition des pages (proposition V2)
+# Groupia — Charte d'expérience produit et répartition des pages (V2)
 
-**Statut : PROPOSITION À VALIDER AVANT REFONTE ; ne constitue pas une spécification métier ou une autorisation de changer les API.**
+**Statut : DÉCISION PRODUIT VALIDÉE LE 21 OCTOBRE 2026.** Séparation Accueil = pilotage quotidien des groupages ; Statistiques = analyse de l'évolution commerciale. Les détails visuels restent à prototyper et valider avant merge. Aucun changement des règles métier ou des autorisations n'est implicitement accordé.
 
 **Contexte :** revue du dashboard de la PR #29, de la navigation Angular et des pages Groupages, Commandes, Paiements, Versements et Boutique le 21 octobre 2026. Ce document est la mémoire de conception inter-pages : toute PR UX doit consulter et mettre à jour la matrice avant d'ajouter ou de dupliquer une information.
 
@@ -21,11 +21,11 @@ Principes de décision (ordre de priorité) :
 6. Défilement mobile court avant les premières informations utiles ; progressivité plutôt qu'un mur de cartes.
 7. Accessibilité, simplicité de saisie et performance avant animation.
 
-## 2. Accueil ≠ Statistiques : décision proposée
+## 2. Accueil ≠ Statistiques : décision validée
 
 Aujourd'hui `/app/accueil` contient KPI de ventes, courbe 12 mois, 4 compteurs opérationnels, dernières commandes et 4 raccourcis. La page dépasse largement un écran mobile avant que l'organisatrice n'atteigne ses groupages.
 
-**Cible recommandée :**
+**Cible validée :**
 - **Accueil (`/app/accueil`) = cockpit de travail du jour**, personnalisable par situation, pas page de rapport.
 - **Statistiques (`/app/statistiques`, nouvelle route à évaluer) = suivi et comparaison de l'activité**, avec la courbe et les détails de 3/6/12 mois de la PR #29.
 - Pas de nouvel onglet mobile primaire par défaut : entrée « Voir les statistiques » depuis l'aperçu d'accueil, éventuellement dans les pages secondaires du menu Plus. Évaluer l'usage avant de créer une entrée top-level supplémentaire.
@@ -59,7 +59,7 @@ Si tout est terminé : montrer synthèse et invitation à relancer un groupage, 
 | Écran | Rôle / propriétaire de l'information | Peut résumer ailleurs | Ne doit pas être dupliqué ailleurs |
 | --- | --- | --- | --- |
 | **Accueil** | Priorités **actionnables**, quelques groupages en cours, mini synthèse datée | Synthèse de commandes ou ventes avec lien | Graphique complet, tableau de commandes, état détaillé des paiements |
-| **Statistiques** (proposé) | Historique des ventes d'articles confirmées et commandes, comparaisons N−1, périodes et courbes | Un ou deux KPI explicitement datés à l'accueil | Statuts des remboursements, gains nets, soldes de reversement |
+| **Statistiques** (validé) | Historique des ventes d'articles confirmées et commandes, comparaisons N−1, périodes et courbes | Un ou deux KPI explicitement datés à l'accueil | Statuts des remboursements, gains nets, soldes de reversement |
 | **Groupages** | Recherche/liste filtrable des campagnes, statut, échéance et navigation | 1–3 campagnes pertinentes à l'accueil | Édition du contenu et du cycle, détails de transport |
 | **Détail du groupage** | **Source de vérité du cycle** : offre, prix, partage, achats associés, fournisseur, transport, distribution, clôture | Statut/étape/alerte vérifiée sur l'accueil | Analyses globales par période, gestion complète de la boutique |
 | **Produits** | Catalogue durable, variantes, médias R2, activation et prix de référence | Raccourci « Ajouter un produit » en onboarding | Prix propres aux offres de groupages comme si c'était le prix catalogue |

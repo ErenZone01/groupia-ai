@@ -140,3 +140,10 @@ Ces références servent pour la méthode, **pas pour copier l'identité graphiq
 - L’onboarding n’apparaît que si le total retourné des groupages est exactement zéro. Une seule lecture de catalogue, page 0 taille 1, distingue la prochaine étape. Une erreur ou un total absent ne constitue jamais une preuve de boutique vide.
 - États indépendants pour groupages, activité, commandes et catalogue éventuel ; une panne partielle laisse les autres zones utilisables. Aucune donnée ancienne conservée lors d’un changement de contexte. Aucun cache financier persistant.
 - Les captures avant Statistiques représentent sa source fonctionnelle : le dashboard analytique ancien sur `/app/accueil`, puisque la route séparée n’existait pas. La galerie explicite cette correspondance. Validation visuelle humaine requise avant tout merge.
+
+
+## Décision complémentaire — Accueil mobile mixte V3.4
+
+**Validée le 24 octobre 2026.** Le prototype mobile mixte V3.4 est la référence pour l'ordre : **actions concrètes → deux indicateurs utiles → opérations en cours → aperçu commercial → commandes récentes**. L'Accueil doit s'adapter aux boutiques avec seulement des groupages, seulement des ventes directes, une activité mixte ou sans activité ; ne jamais introduire de fausses métriques ni de fonctions avant leur implémentation. Les statistiques restent dans leur page dédiée. La vente directe est un **objectif produit futur**, non disponible dans le backend actuel.
+
+Lire impérativement **[Accueil mobile V3.4 — validation et scénarios](accueil-mobile-v3.4-validation.md)** avant toute refonte de l'Accueil, du menu Plus, de Groupages, des Commandes, des produits, de Statistiques ou de la future vente directe.

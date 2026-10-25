@@ -1,0 +1,104 @@
+<header class="groupages-header">
+  <div class="heading-copy">
+    <p class="eyebrow">Vos activités · Groupages</p>
+    <h1>Groupages</h1>
+    <p>Retrouvez vos sélections, leurs étapes et les actions à poursuivre.</p>
+  </div>
+  <a gButton variant="accent" routerLink="/app/groupages/nouveau" class="create-groupage">
+    <g-icon name="plus" />Créer un groupage
+  </a>
+</header>
+
+<section class="groupages-content" aria-label="Liste de vos groupages" [attr.aria-busy]="loading()">
+  @if (loading()) {
+    <div class="loading-list">
+      <p role="status">Chargement de vos groupages…</p>
+      <g-skeleton /><g-skeleton /><g-skeleton />
+    </div>
+  } @else if (error()) {
+    <div class="feedback">
+      <span class="feedback-icon"><g-icon name="info" /></span>
+      <h2>Impossible de charger vos groupages</h2>
+      <p role="alert">{{ error() }}</p>
+      <button gButton variant="secondary" (click)="load()">Réessayer</button>
+    </div>
+  } @else if (data(); as listing) {
+    @if (listing.totalElements === 0 || (!listing.items?.length && !listing.page)) {
+      <div class="empty-wrap">
+        <g-empty-state
+          title="Votre premier groupage vous attend"
+          description="Commencez par réunir vos produits et définir vos conditions. Vous pourrez ensuite publier et partager votre sélection."
+          icon="group"
+        />
+        <p class="empty-help">Pour démarrer, utilisez le bouton « Créer un groupage » ci-dessus.</p>
+      </div>
+    } @else {
+      <div class="list-header">
+        <div>
+          <p class="section-kicker">Vue d’ensemble</p>
+          <h2>Vos sélections</h2>
+        </div>
+        @if (listing.totalElements !== undefined) {
+          <span class="list-total">
+            {{ listing.totalElements }} groupage{{ listing.totalElements === 1 ? '' : 's' }} au total
+          </span>
+        }
+      </div>
+
+      @if (listing.items?.length) {
+        <div class="groupages-list">
+          @for (group of listing.items; track group.id) {
+            <article class="groupage-card">
+              <div class="card-top">
+                <span class="card-symbol"><g-icon name="group" /></span>
+                <g-badge [tone]="statusTone(group)">{{ statusLabel(group.status) }}</g-badge>
+              </div>
+              <h3>{{ group.title || 'Groupage sans titre' }}</h3>
+              <p class="status-hint">{{ statusHint(group) }}</p>
+              <div class="card-bottom">
+                <div class="closing-date">
+                  <g-icon name="calendar" />
+                  @if (closing(group.closesAt); as date) {
+                    <span>Clôture : {{ date }} <span class="timezone">· Dakar</span></span>
+                  } @else {
+                    <span>Clôture non renseignée</span>
+                  }
+                </div>
+                @if (group.id) {
+                  <a class="card-link" [routerLink]="['/app/groupages', group.id]"
+                    [attr.aria-label]="'Voir le groupage ' + (group.title || 'sans titre')">
+                    Voir le groupage <g-icon name="arrow" />
+                  </a>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="feedback">
+          <h2>Aucun groupage sur cette page</h2>
+          <p>Revenez à la page précédente pour retrouver vos sélections.</p>
+        </div>
+      }
+      <p class="scope-note">
+        Résultats paginés par groupes de 20. Ouvrez un groupage pour consulter ses produits,
+        commandes, étapes de transport et actions disponibles.
+      </p>
+    }
+
+    @if ((listing.totalPages ?? 0) > 1) {
+      <nav class="pagination" aria-label="Pages des groupages">
+        <button
+          gButton variant="secondary" [disabled]="!listing.page || loading()"
+          (click)="load((listing.page ?? 0) - 1)"
+        >Précédent</button>
+        <span aria-live="polite">Page {{ (listing.page ?? 0) + 1 }} sur {{ listing.totalPages }}</span>
+        <button
+          gButton variant="secondary"
+          [disabled]="(listing.page ?? 0) + 1 >= (listing.totalPages ?? 0) || loading()"
+          (click)="load((listing.page ?? 0) + 1)"
+        >Suivant</button>
+      </nav>
+    }
+  }
+</section>

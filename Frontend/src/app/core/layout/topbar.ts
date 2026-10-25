@@ -36,7 +36,7 @@ import { MobileMenuService } from './mobile-menu.service';
       }
     </div>
     <div class="tools">
-      <details #quickCreate class="quick-create" (keydown.escape)="closeCreation(true)">
+      <details #quickCreate class="quick-create">
         <summary aria-label="Créer" title="Créer">
           <g-icon name="plus" /><span class="create-label">Créer</span>
         </summary>
@@ -112,6 +112,11 @@ export class Topbar {
   closeOutside(event: MouseEvent) {
     if (!this.root.nativeElement.contains(event.target as Node)) this.closeCreation();
     else if (!this.quickCreate()?.nativeElement.contains(event.target as Node)) this.closeCreation();
+  }
+
+  @HostListener('document:keydown.escape')
+  closeCreationOnEscape() {
+    this.closeCreation(true);
   }
 
   changeTheme(value: ThemePreference) {

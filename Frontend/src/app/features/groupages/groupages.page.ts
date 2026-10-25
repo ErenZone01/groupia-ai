@@ -1,87 +1,21 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CampaignPage } from '../../api/generated/models';
+import { CampaignPage, CampaignSummary } from '../../api/generated/models';
 import { GroupiaApi } from '../../api/groupia-api';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
-import { Card } from '../../shared/ui/card';
 import { Badge } from '../../shared/ui/badge';
 import { Button } from '../../shared/ui/button';
+import { Icon } from '../../shared/ui/icon';
 import { Skeleton } from '../../shared/feedback/skeleton';
 import { EmptyState } from '../../shared/feedback/empty-state';
 import { dateLabel, statusLabel } from '../../shared/utils/display';
+
 @Component({
   selector: 'g-groupages-page',
-  imports: [RouterLink, Card, Badge, Button, Skeleton, EmptyState],
-  template: `
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Ensemble, on va plus loin</p>
-        <h1>Groupages</h1>
-        <p>Préparez, publiez et partagez vos sélections.</p>
-      </div>
-      <a gButton routerLink="/app/groupages/nouveau">Créer un groupage</a>
-    </div>
-    @if (loading()) {
-      <g-skeleton /><g-skeleton />
-    } @else if (error()) {
-      <p class="form-error" role="alert">{{ error() }}</p>
-      <button gButton (click)="load()">Réessayer</button>
-    } @else if (!data()?.items?.length) {
-      <g-empty-state
-        title="Votre premier groupage vous attend"
-        description="Réunissez vos produits et fixez vos prix pour partager votre sélection."
-        icon="group"
-      />
-    } @else {
-      <div class="list">
-        @for (group of data()?.items; track group.id) {
-          <g-card
-            ><div class="section-heading">
-              <h2>{{ group.title }}</h2>
-              <g-badge [tone]="group.status === 'OPEN' ? 'positive' : 'neutral'">{{
-                statusLabel(group.status)
-              }}</g-badge>
-            </div>
-            <p class="muted">{{ dateLabel(group.closesAt) }}</p>
-            <a gButton variant="secondary" [routerLink]="['/app/groupages', group.id]"
-              >Voir le groupage</a
-            ></g-card
-          >
-        }
-      </div>
-    }
-    @if ((data()?.totalPages ?? 0) > 1) {
-      <nav class="actions" aria-label="Pages des groupages">
-        <button
-          gButton
-          variant="secondary"
-          [disabled]="!data()?.page || loading()"
-          (click)="load((data()?.page ?? 0) - 1)"
-        >
-          Précédent</button
-        ><span>Page {{ (data()?.page ?? 0) + 1 }} / {{ data()?.totalPages }}</span
-        ><button
-          gButton
-          variant="secondary"
-          [disabled]="(data()?.page ?? 0) + 1 >= (data()?.totalPages ?? 0) || loading()"
-          (click)="load((data()?.page ?? 0) + 1)"
-        >
-          Suivant
-        </button>
-      </nav>
-    }
-  `,
-  styles: `
-    .list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-      gap: var(--s5);
-    }
-    g-card p {
-      margin: var(--s4) 0;
-    }
-  `,
+  imports: [RouterLink, Badge, Button, Icon, Skeleton, EmptyState],
+  templateUrl: './groupages.page.html',
+  styleUrl: './groupages.page.scss',
 })
 export class GroupagesPage {
   private readonly api = inject(GroupiaApi);
@@ -90,28 +24,80 @@ export class GroupagesPage {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly statusLabel = statusLabel;
-  readonly dateLabel = dateLabel;
   private request = 0;
+  private currentPage = 0;
+
   constructor() {
     effect(() => {
-      const id = this.context.selectedId();
-      if (id) void this.load();
+      const org = this.context.selectedId();
+      // Never leave another organization's campaigns visible after the boutique is cleared.
+      if (!org) {
+        this.request++;
+        this.currentPage = 0;
+        this.data.set(null);
+        this.error.set('');
+        this.loading.set(false);
+        return;
+      }
+      void this.load(0, org);
     });
   }
-  async load(page = 0) {
-    const id = this.context.selectedId();
-    if (!id) return;
+
+  async load(page = this.currentPage, organizationId = this.context.selectedId()) {
+    if (!organizationId || !Number.isSafeInteger(page) || page < 0) return;
     const seq = ++this.request;
+    this.currentPage = page;
     this.loading.set(true);
     this.error.set('');
     this.data.set(null);
     try {
-      const result = await this.api.campaigns(id, page);
-      if (seq === this.request) this.data.set(result);
+      const result = await this.api.campaigns(organizationId, page);
+      if (seq === this.request && this.context.selectedId() === organizationId)
+        this.data.set(result);
     } catch (e) {
-      if (seq === this.request) this.error.set(apiMessage(e));
+      if (seq === this.request && this.context.selectedId() === organizationId)
+        this.error.set(apiMessage(e));
     } finally {
-      if (seq === this.request) this.loading.set(false);
+      if (seq === this.request && this.context.selectedId() === organizationId)
+        this.loading.set(false);
     }
+  }
+
+  statusTone(group: CampaignSummary): 'positive' | 'warning' | 'neutral' | 'info' {
+    if (group.status === 'OPEN') return 'positive';
+    if (group.status === 'DRAFT') return 'warning';
+    if (['IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING'].includes(group.status ?? '')) return 'info';
+    return 'neutral';
+  }
+
+  statusHint(group: CampaignSummary) {
+    switch (group.status) {
+      case 'DRAFT':
+        return 'En préparation · non publié';
+      case 'OPEN':
+        return group.publicIdentifier
+          ? 'En ligne · lien disponible dans le détail'
+          : 'Commandes ouvertes';
+      case 'CLOSED':
+        return 'Période de commande terminée';
+      case 'SUPPLIER_ORDERED':
+        return 'Commande fournisseur en cours';
+      case 'IN_TRANSIT':
+        return 'Transport en cours';
+      case 'ARRIVED':
+        return 'Marchandise arrivée';
+      case 'DISTRIBUTING':
+        return 'Distribution en cours';
+      case 'COMPLETED':
+        return 'Groupage terminé';
+      case 'CANCELLED':
+        return 'Groupage annulé';
+      default:
+        return 'Consultez le détail du groupage';
+    }
+  }
+
+  closing(value?: string) {
+    return value && Number.isFinite(Date.parse(value)) ? dateLabel(value) : '';
   }
 }

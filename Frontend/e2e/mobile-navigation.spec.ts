@@ -75,6 +75,7 @@ test('tiroir droit V6 : clavier, focus, thème, backdrop et scroll', async ({ pa
   const theme = sheet.getByLabel('Apparence');
   await theme.selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await close.focus();
   await page.keyboard.press('Shift+Tab');
   await expect(sheet.getByRole('button', { name: 'Se déconnecter' })).toBeFocused();
   await page.keyboard.press('Tab');

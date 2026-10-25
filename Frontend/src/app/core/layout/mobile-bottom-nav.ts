@@ -6,7 +6,6 @@ import {
   effect,
   ElementRef,
   inject,
-  signal,
   untracked,
   viewChild,
 } from '@angular/core';

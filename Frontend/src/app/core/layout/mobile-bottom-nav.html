@@ -9,53 +9,57 @@
       <g-icon [name]="item.icon" /><span>{{ item.shortLabel }}</span>
     </a>
   }
-  <button
-    #more
-    type="button"
-    class="more"
-    [class.active]="secondaryActive()"
-    aria-haspopup="dialog"
-    aria-controls="mobile-more-pages"
-    [attr.aria-expanded]="opened()"
-    (click)="open()"
-  >
-    <g-icon name="menu" /><span>Plus</span>
-    @if (secondaryActive()) {
-      <span class="sr-only">, section actuelle</span>
-    }
-  </button>
 </nav>
 
 <dialog
   #sheet
   tabindex="-1"
-  id="mobile-more-pages"
-  aria-labelledby="mobile-more-title"
+  id="mobile-menu-panel"
+  aria-labelledby="mobile-menu-title"
   (cancel)="cancel($event)"
   (click)="backdrop($event)"
   (keydown)="keepFocus($event)"
-  (close)="close()"
+  (touchstart)="touchStart($event)"
+  (touchend)="touchEnd($event)"
+  (close)="close(false)"
 >
   <header>
-    <h2 id="mobile-more-title">Plus de pages</h2>
-    <button type="button" class="close" aria-label="Fermer le menu Plus" (click)="close()">
+    <div>
+      <p class="eyebrow">Votre espace</p>
+      <h2 id="mobile-menu-title">Menu Groupia</h2>
+    </div>
+    <button type="button" class="close" aria-label="Fermer le menu" (click)="close()">
       <g-icon name="close" />
     </button>
   </header>
-  <nav class="destinations" aria-label="Autres pages">
-    @for (item of secondary; track item.path) {
-      <a
-        [routerLink]="item.path"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="matchOptions"
-        ariaCurrentWhenActive="page"
-        (click)="close()"
-      >
-        <g-icon [name]="item.icon" /><span>{{ item.shortLabel }}</span
-        ><g-icon name="chevron" />
-      </a>
-    }
-  </nav>
+  @for (section of sections; track section.id) {
+    <section class="menu-group">
+      <h3>{{ section.label }}</h3>
+      <nav class="destinations" [attr.aria-label]="section.label">
+        @for (item of section.items; track item.path) {
+          <a
+            [routerLink]="item.path"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="matchOptions"
+            ariaCurrentWhenActive="page"
+            (click)="close(false)"
+          >
+            <g-icon [name]="item.icon" /><span>{{ item.shortLabel }}</span>
+            <g-icon name="chevron" />
+          </a>
+        }
+      </nav>
+    </section>
+  }
+  <section class="preferences">
+    <h3>Préférences</h3>
+    <label for="mobile-theme">Apparence</label>
+    <select id="mobile-theme" [value]="theme.preference()" (change)="changeTheme($any($event.target).value)">
+      <option value="system">Système</option>
+      <option value="light">Clair</option>
+      <option value="dark">Sombre</option>
+    </select>
+  </section>
   <div class="session-action">
     <button type="button" class="logout" (click)="logout()">
       <g-icon name="logout" /><span>Se déconnecter</span>

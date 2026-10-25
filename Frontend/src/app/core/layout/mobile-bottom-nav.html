@@ -23,6 +23,7 @@
   (touchend)="touchEnd($event)"
   (close)="close(false)"
 >
+  <div class="drawer-dismiss-layer" aria-hidden="true" (pointerdown)="close()"></div>
   <div class="panel">
   <header>
     <div>

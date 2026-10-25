@@ -29,9 +29,10 @@ export class DashboardPage {
   /** Tiny visual hint only. Full sales chart and accessible values live in Statistiques. */
   readonly miniChart = computed(() => {
     const data = this.analytics.data();
-    if (!data) return [];
-    const maximum = Math.max(1, ...data.months.map((month) => month.goodsSales ?? 0));
-    return data.months.map((month) => ({
+    const months = data?.months ?? [];
+    if (!months.length) return [];
+    const maximum = Math.max(1, ...months.map((month) => month.goodsSales ?? 0));
+    return months.map((month) => ({
       month: month.month ?? '',
       label: monthLabel(month.month, true),
       height: Math.max(3, Math.round(((month.goodsSales ?? 0) / maximum) * 100)),

@@ -49,7 +49,7 @@ import { MobileMenuService } from './mobile-menu.service';
           </a>
         </nav>
       </details>
-      <button type="button" class="menu-trigger" aria-controls="mobile-menu-panel"
+      <button type="button" class="menu-trigger" aria-label="Menu" aria-controls="mobile-menu-panel"
         aria-haspopup="dialog" [attr.aria-expanded]="mobileMenu.opened()"
         (click)="openMenu($event)" title="Ouvrir le menu">
         <g-icon name="menu" /><span>Menu</span>

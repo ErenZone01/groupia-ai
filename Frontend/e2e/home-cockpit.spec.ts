@@ -60,7 +60,7 @@ test('Accueil mobile V3.4 : actions, repères, groupages, activité, commandes d
   }
   await expect(page.locator('.snapshot-card')).toHaveCount(2);
   await expect(page.locator('.mini-chart .mini-column')).toHaveCount(3);
-  await expect(page.getByText('Parmi les 20 derniers groupages')).toBeVisible();
+  await expect(page.getByText('Parmi les 20 derniers groupages', { exact: true })).toBeVisible();
   await expect(page.locator('g-sales-chart')).toHaveCount(0);
   await noOverflow(page);
 });

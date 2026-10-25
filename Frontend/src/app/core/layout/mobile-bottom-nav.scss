@@ -31,18 +31,27 @@
 dialog {
   box-sizing: border-box;
   position: fixed;
-  inset: 0 0 0 auto;
-  width: min(370px, 92vw);
+  inset: 0;
+  width: 100vw;
   height: 100dvh;
   max-width: none;
-  max-height: 100dvh;
+  max-height: none;
   margin: 0;
-  padding: var(--s5) var(--s5) calc(var(--s5) + env(safe-area-inset-bottom));
+  padding: 0;
   border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+.panel {
+  box-sizing: border-box;
+  width: min(370px, 92vw);
+  height: 100%;
+  margin-left: auto;
+  padding: var(--s5) var(--s5) calc(var(--s5) + env(safe-area-inset-bottom));
   border-left: 1px solid var(--border);
   border-radius: var(--radius-xl) 0 0 var(--radius-xl);
   background: var(--surface);
-  color: var(--text);
   box-shadow: var(--shadow-raised);
   overflow-y: auto;
   overscroll-behavior: contain;

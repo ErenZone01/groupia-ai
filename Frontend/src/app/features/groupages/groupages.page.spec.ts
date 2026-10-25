@@ -52,6 +52,7 @@ describe('GroupagesPage V1 — contexte boutique et pagination', () => {
     expect(component.statusTone({ status: 'DRAFT' })).toBe('warning');
     expect(component.statusTone({ status: 'IN_TRANSIT' })).toBe('info');
     expect(component.closing('invalid')).toBe('');
+    expect(component.closing('2026-10-25T12:00:00Z')).toContain('12:00');
   });
 
   it('charge seulement une page de 20 groupages et conserve la pagination', async () => {

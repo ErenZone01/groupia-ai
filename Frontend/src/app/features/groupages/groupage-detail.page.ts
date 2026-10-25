@@ -17,6 +17,7 @@ import { ProductPicker } from './product-picker';
 import { OfferPriceEditor } from './offer-price-editor';
 import { GroupageSettings } from './groupage-settings';
 import { Card } from '../../shared/ui/card';
+import { Icon } from '../../shared/ui/icon';
 import { Badge } from '../../shared/ui/badge';
 import { Button } from '../../shared/ui/button';
 import { Tabs } from '../../shared/ui/tabs';
@@ -42,6 +43,7 @@ import {
     MerchantFundsPanel,
     CompletionPanel,
     Card,
+    Icon,
     Badge,
     Button,
     Tabs,
@@ -52,36 +54,8 @@ import {
     GroupageSettings,
   ],
   templateUrl: './groupage-detail.page.html',
-  styles: `
-    .share {
-      background: var(--primary-soft);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: var(--s5);
-      margin-bottom: var(--s6);
-    }
-    .share a {
-      overflow-wrap: anywhere;
-    }
-    .product {
-      padding: var(--s5) 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .price {
-      font-size: var(--text-lg);
-      font-weight: 600;
-      margin: var(--s3) 0;
-    }
-    .summary {
-      display: grid;
-      gap: var(--s4);
-    }
-    g-product-picker {
-      display: block;
-      margin-top: var(--s6);
-    }
-  `,
-})
+  styleUrl: './groupage-detail.page.scss',
+)
 export class GroupageDetailPage {
   readonly store = inject(GroupageStore);
   readonly context = inject(BoutiqueContextService);
@@ -131,6 +105,36 @@ export class GroupageDetailPage {
   );
   readonly published = this.route.snapshot.queryParamMap.has('published');
   readonly statusLabel = statusLabel;
+  readonly displayStatusTone = computed<'positive' | 'warning' | 'info' | 'neutral'>(() => {
+    const status = this.store.current()?.status;
+    if (status === 'OPEN') return 'positive';
+    if (status === 'DRAFT') return 'warning';
+    if (['IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING'].includes(status ?? '')) return 'info';
+    return 'neutral';
+  });
+  readonly nextStepLabel = computed(() => {
+    switch (this.store.current()?.status) {
+      case 'DRAFT': return 'Complétez les produits et les conditions, puis publiez lorsque tout est prêt.';
+      case 'OPEN': return 'Les commandes sont ouvertes. Retrouvez le lien de partage et les commandes ci-dessous.';
+      case 'CLOSED': return 'La prise de commandes est terminée. Consultez les étapes fournisseur et transport.';
+      case 'SUPPLIER_ORDERED': return 'La commande fournisseur est enregistrée. Suivez les étapes logistiques.';
+      case 'IN_TRANSIT': return 'Les marchandises sont en transport. Consultez les informations logistiques.';
+      case 'ARRIVED': return 'Les marchandises sont arrivées. Consultez les étapes de distribution disponibles.';
+      case 'DISTRIBUTING': return 'La distribution est en cours. Retrouvez les retraits et le suivi ci-dessous.';
+      case 'COMPLETED': return 'Ce groupage est terminé. Les informations restent accessibles en lecture.';
+      case 'CANCELLED': return 'Ce groupage est annulé. Consultez les informations conservées.';
+      default: return 'Consultez les sections ci-dessous pour suivre ce groupage.';
+    }
+  });
+  readonly dakarDate = (date?: string) =>
+    date && Number.isFinite(Date.parse(date))
+      ? new Intl.DateTimeFormat('fr-FR', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Africa/Dakar',
+        }).format(new Date(date))
+      : '';
+
   readonly dateLabel = dateLabel;
   readonly money = money;
   readonly optionLabel = optionLabel;

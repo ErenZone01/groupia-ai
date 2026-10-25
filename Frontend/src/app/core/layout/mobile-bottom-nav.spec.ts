@@ -119,7 +119,7 @@ describe('MobileBottomNav V6', () => {
 
   it('ferme au backdrop mais pas sur le panneau', async () => {
     await open();
-    vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({
+    vi.spyOn(dialog.querySelector<HTMLElement>('.panel')!, 'getBoundingClientRect').mockReturnValue({
       left: 70, right: 390, top: 0, bottom: 844,
     } as DOMRect);
     dialog.dispatchEvent(new MouseEvent('click', { clientX: 200, clientY: 150 }));

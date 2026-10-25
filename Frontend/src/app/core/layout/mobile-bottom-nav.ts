@@ -98,9 +98,11 @@ export class MobileBottomNav {
   }
 
   backdrop(event: MouseEvent) {
-    // Backdrop interactions can be retargeted by the browser's modal top layer.
-    // Use the pointer coordinates, not the event target, to detect clicks outside.
-    const rect = this.dialog().nativeElement.getBoundingClientRect();
+    // The modal fills the viewport; the scrollable panel occupies only the right side.
+    // Coordinate checks also work when Chromium retargets backdrop clicks to the dialog.
+    const panel = this.dialog().nativeElement.querySelector<HTMLElement>('.panel');
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
     if (
       event.clientX < rect.left ||
       event.clientX > rect.right ||

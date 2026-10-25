@@ -202,7 +202,7 @@ describe('MobileBottomNav V6', () => {
   it('ferme au breakpoint desktop et restaure le scroll à la destruction', async () => {
     await open();
     media.matches = true;
-    for (const [, change] of media.addEventListener.mock.calls) change();
+    for (const [, change] of media.addEventListener.mock.calls) change({ matches: true });
     expect(dialog.open).toBe(false);
     expect(document.documentElement.style.overflow).toBe('');
   });

@@ -126,5 +126,43 @@ header {
   .menu-trigger { display: inline-flex; }
   .quick-create summary,.menu-trigger { padding: var(--s2); }
   .menu-trigger span { font-size: var(--text-xs); }
-  .create-options { right: -56px; }
+  /* Keep the collapsed details' absolute menu out of intrinsic header width. */
+  .mobile-brand {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .tools {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .quick-create {
+    width: 44px;
+    min-width: 44px;
+    flex: 0 0 44px;
+  }
+  .quick-create summary {
+    width: 44px;
+    height: 44px;
+  }
+  .quick-create:not([open]) .create-options {
+    display: none;
+  }
+  .create-options {
+    position: fixed;
+    top: calc(var(--topbar-height) + var(--s2));
+    right: var(--page-gutter);
+    left: auto;
+    max-width: calc(100vw - 2 * var(--page-gutter));
+  }
+  .menu-trigger {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+  .menu-trigger:focus-visible {
+    outline-offset: 2px;
+  }
+  @media (max-width: 380px) {
+    .menu-trigger span { display: none; }
+    .menu-trigger { width: 44px; }
+  }
 }

@@ -9,7 +9,7 @@ import { Button } from '../../shared/ui/button';
 import { Icon } from '../../shared/ui/icon';
 import { Skeleton } from '../../shared/feedback/skeleton';
 import { EmptyState } from '../../shared/feedback/empty-state';
-import { dateLabel, statusLabel } from '../../shared/utils/display';
+import { statusLabel } from '../../shared/utils/display';
 
 @Component({
   selector: 'g-groupages-page',
@@ -98,6 +98,11 @@ export class GroupagesPage {
   }
 
   closing(value?: string) {
-    return value && Number.isFinite(Date.parse(value)) ? dateLabel(value) : '';
+    if (!value || !Number.isFinite(Date.parse(value))) return '';
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Africa/Dakar',
+    }).format(new Date(value));
   }
 }

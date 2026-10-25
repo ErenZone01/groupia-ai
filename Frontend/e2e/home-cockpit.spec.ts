@@ -37,6 +37,48 @@ for (const width of [360, 390, 430, 768, 1024, 1280, 1440])
       await expect(page).toHaveURL(new RegExp('/app/groupages/' + group.id + '$'));
     });
   }
+test('Accueil mobile V3.4 : actions, repères, groupages, activité, commandes dans cet ordre', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page);
+  await page.goto('/app/accueil');
+  const sections = [
+    '.priorities',
+    '.operational-snapshot',
+    '.campaigns',
+    '.activity-preview',
+    '.recent-panel',
+  ];
+  let previous = -1;
+  for (const selector of sections) {
+    const element = page.locator(selector);
+    await expect(element).toBeVisible();
+    const position = (await element.boundingBox())!.y;
+    expect(position, selector + ' doit suivre la section précédente').toBeGreaterThan(previous);
+    previous = position;
+  }
+  await expect(page.locator('.snapshot-card')).toHaveCount(2);
+  await expect(page.locator('.mini-chart .mini-column')).toHaveCount(3);
+  await expect(page.getByText('Parmi les 20 derniers groupages')).toBeVisible();
+  await expect(page.locator('g-sales-chart')).toHaveCount(0);
+  await noOverflow(page);
+});
+
+test('Accueil vide V3.4 : démarrage guidé sans indicateurs ni sections commerciales fictives', async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.groups = [];
+  state.products = [];
+  await page.goto('/app/accueil');
+  await expect(page.getByRole('heading', { name: 'Votre premier groupage commence ici' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Préparer mon catalogue' })).toBeVisible();
+  await expect(page.locator('.operational-snapshot, .activity-preview, .recent-panel')).toHaveCount(0);
+  await expect(page.locator('.mini-chart')).toHaveCount(0);
+  await noOverflow(page);
+});
+
 test('Accueil → Statistiques : un appel agrégé par page et aucun chargement opérationnel dans Statistiques', async ({
   page,
 }) => {

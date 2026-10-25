@@ -89,13 +89,13 @@ for (const width of [360, 390, 430, 768, 1024, 1280]) {
           expect(text.x).toBeGreaterThanOrEqual(target.x);
           expect(text.x + text.width).toBeLessThanOrEqual(target.x + target.width);
         }
-        const more = page.getByRole('button', { name: 'Plus', exact: true });
+        const more = page.locator('g-topbar').getByRole('button', { name: 'Menu', exact: true });
         await more.focus();
         await page.keyboard.press('Enter');
-        const dialog = page.getByRole('dialog', { name: 'Plus de pages' });
-        await expect(dialog.getByRole('button', { name: 'Fermer le menu Plus' })).toBeFocused();
+        const dialog = page.getByRole('dialog', { name: 'Menu Groupia' });
+        await expect(dialog.getByRole('button', { name: 'Fermer le menu' })).toBeFocused();
         await noOverflow(page);
-        await page.screenshot({ path: info.outputPath(`plus-${width}-${theme}.png`) });
+        await page.screenshot({ path: info.outputPath(`menu-${width}-${theme}.png`) });
         await page.keyboard.press('Escape');
         await expect(more).toBeFocused();
       }

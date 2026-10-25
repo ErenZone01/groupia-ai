@@ -63,6 +63,9 @@ test('navigation mobile et focus clavier', async ({ page }) => {
   await dialog.getByRole('link', { name: 'Ma boutique', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Ma boutique', exact: true })).toBeVisible();
   await menu.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(menu).toBeFocused();
   expect(
     await menu.evaluate((el) => getComputedStyle(el).outlineStyle),
   ).not.toBe('none');

@@ -96,13 +96,17 @@ for (const view of ['accueil', 'statistiques'])
           );
           if (state === 'populated' && (phase === 'before' || view === 'accueil'))
             await expect(page.locator('g-recent-orders li')).toHaveCount(2);
-          if (state === 'empty' && (phase === 'before' || view === 'accueil'))
+          if (state === 'empty' && phase === 'after' && view === 'accueil') {
+            await expect(page.getByRole('heading', { name: 'Votre premier groupage commence ici' })).toBeVisible();
+            await expect(page.getByRole('link', { name: 'Préparer mon catalogue' })).toBeVisible();
+            await expect(page.locator('.activity-preview, .recent-panel, .operational-snapshot')).toHaveCount(0);
+          } else if (state === 'empty' && phase === 'before')
             await expect(
               page.getByRole('heading', { name: 'Aucune commande pour le moment.' }),
             ).toBeVisible();
           if (state === 'error') await expect(page.getByRole('alert').first()).toBeVisible();
           if (state === 'loading') await expect(page.getByRole('status').first()).toBeVisible();
-          if (state === 'populated' || state === 'empty')
+          if (state === 'populated' || (state === 'empty' && view === 'statistiques'))
             await expect(
               page.locator(view === 'statistiques' ? '.metric-value' : '.preview-values'),
             ).not.toHaveCount(0);

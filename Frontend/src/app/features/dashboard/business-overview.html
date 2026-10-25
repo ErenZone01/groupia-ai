@@ -1,0 +1,113 @@
+<section
+  class="business-summary"
+  aria-labelledby="business-title"
+  [attr.aria-busy]="analytics.loading()"
+>
+  <div class="section-heading business-heading">
+    <div>
+      <h2 id="business-title">L’évolution de votre activité</h2>
+      <p class="muted period-caption">Mois en cours inclus · heure de Dakar</p>
+    </div>
+    <div class="period-picker" role="group" aria-label="Période des statistiques">
+      @for (period of periods; track period) {
+        <button
+          type="button"
+          [attr.aria-pressed]="analytics.period() === period"
+          (click)="analytics.period.set(period)"
+        >
+          {{ period }} mois
+        </button>
+      }
+    </div>
+  </div>
+  @if (analytics.loading()) {
+    <div class="analytics-loading">
+      <p role="status">Chargement des statistiques…</p>
+      <div class="business-metrics">
+        @for (item of periods; track item) {
+          <g-card><g-skeleton /><g-skeleton /></g-card>
+        }
+      </div>
+      <g-card class="chart-loading"><g-skeleton /><g-skeleton /><g-skeleton /></g-card>
+    </div>
+  } @else if (analytics.error()) {
+    <g-card class="analytics-error"
+      ><g-icon name="trend" />
+      <h3>Vos chiffres prennent une pause</h3>
+      <p role="alert">{{ analytics.error() }}</p>
+      <button gButton variant="secondary" (click)="analytics.retry()">
+        Réessayer les statistiques
+      </button></g-card
+    >
+  } @else if (analytics.data(); as data) {
+    <div class="business-metrics">
+      <article class="metric metric-primary" aria-label="Ventes d’articles confirmées">
+        <div class="metric-label">
+          <g-icon name="trend" />
+          <h3>Ventes d’articles confirmées</h3>
+        </div>
+        <strong class="metric-value">{{ francs(data.goodsSales) }}</strong>
+        <span
+          class="variation"
+          [class.positive]="(data.goodsSalesChangePercent ?? 0) > 0"
+          [class.negative]="(data.goodsSalesChangePercent ?? 0) < 0"
+          >{{ changeLabel(data.goodsSalesChangePercent) }}</span
+        >
+        <p>Année précédente : {{ francs(data.previousYearGoodsSales) }}</p>
+      </article>
+      <article class="metric" aria-label="Commandes confirmées sur la période">
+        <div class="metric-label">
+          <g-icon name="orders" />
+          <h3>Commandes confirmées</h3>
+        </div>
+        <strong class="metric-value">{{ quantity(data.confirmedOrders) }}</strong>
+        <span
+          class="variation"
+          [class.positive]="(data.confirmedOrdersChangePercent ?? 0) > 0"
+          [class.negative]="(data.confirmedOrdersChangePercent ?? 0) < 0"
+          >{{ changeLabel(data.confirmedOrdersChangePercent) }}</span
+        >
+        <p>Année précédente : {{ quantity(data.previousYearConfirmedOrders) }}</p>
+      </article>
+      <article class="metric" aria-label="Panier moyen d’articles">
+        <div class="metric-label">
+          <g-icon name="bag" />
+          <h3>Panier moyen d’articles</h3>
+        </div>
+        <strong class="metric-value">{{ francs(data.averageBasket) }}</strong>
+        <span class="metric-explainer">{{
+          data.averageBasket == null ? 'Aucune commande confirmée' : 'Par commande confirmée'
+        }}</span>
+        <p>Hors frais de plateforme et de transport</p>
+      </article>
+    </div>
+    <p class="comparison-note">
+      Comparaison avec la même période de l’année précédente. Une base à zéro ne permet pas de
+      calculer de variation.
+    </p>
+    <g-card class="chart-card">
+      <div class="chart-heading">
+        <div>
+          <h2>Les ventes au fil des mois</h2>
+          <p>{{ periodLabel(data.periodStart, data.periodEndExclusive) }}</p>
+        </div>
+        <span class="chart-currency">FCFA / XOF</span>
+      </div>
+      @if (data.confirmedOrders === 0) {
+        <div class="zero-sales" role="status">
+          <g-icon name="trend" />
+          <div>
+            <strong>Aucune vente confirmée sur cette période</strong>
+            <p>Les chiffres évolueront avec vos prochaines commandes confirmées.</p>
+          </div>
+        </div>
+      }
+      <g-sales-chart [months]="data.months ?? []" />
+      <p class="financial-note">
+        Valeur brute des articles des commandes confirmées ou terminées, hors frais et avant
+        remboursements ou corrections. Ce montant ne représente ni votre bénéfice net, ni l’argent
+        encaissé, ni un reversement disponible.
+      </p>
+    </g-card>
+  }
+</section>

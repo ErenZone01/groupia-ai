@@ -1,3 +1,4 @@
+import { analyticsFixture } from './business-dashboard-fixture';
 import { expect, Page } from '@playwright/test';
 import type { CampaignView, OrganizationView, ProductView } from '../src/app/api/generated/models';
 export const shopId = '11111111-1111-4111-8111-111111111111';
@@ -237,6 +238,8 @@ export async function mockApi(
         billingContact: { name: 'Boutique du Soleil', phoneE164: '+221771234567' },
       });
     }
+    if (path.endsWith('/analytics/business'))
+      return reply(analyticsFixture(Number(url.searchParams.get('months') ?? 12), true));
     if (/\/orders$/.test(path))
       return reply({
         items: [],
@@ -339,7 +342,21 @@ export async function mockApi(
   return state;
 }
 export async function noOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
+  const result = await page.evaluate(() => ({
+    valid: document.documentElement.scrollWidth <= window.innerWidth,
+    overflowing: [...document.querySelectorAll('body *')]
+      .filter((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.right > innerWidth + 1;
+      })
+      .slice(-12)
+      .map((el) => ({
+        tag: el.tagName,
+        class: el.getAttribute('class'),
+        element: el.outerHTML.slice(0, 250),
+        parent: el.parentElement?.className,
+        right: el.getBoundingClientRect().right,
+      })),
+  }));
+  expect(result.valid, JSON.stringify(result.overflowing)).toBe(true);
 }

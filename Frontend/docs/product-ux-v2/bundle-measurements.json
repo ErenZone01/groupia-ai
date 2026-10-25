@@ -1,0 +1,23 @@
+{
+  "before": {
+    "javascript": {
+      "raw": 903013,
+      "gzip": 273178
+    },
+    "delta": {
+      "raw": 23583,
+      "gzip": 6139
+    },
+    "dashboardChunk": {
+      "file": "chunk-BaVydh-x.js",
+      "raw": 40744,
+      "gzip": 11144
+    },
+    "dependenciesAdded": 0
+  },
+  "after": {
+    "javascriptBytes": 914693,
+    "javascriptGzipBytes": 279181,
+    "dependenciesAdded": 0
+  }
+}

@@ -10,6 +10,7 @@ import { OrderDetailPage } from './order-detail.page';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { orderFilter, orderPage, orderLabel, orderTone, paymentLabel } from './order-labels';
 import { money } from '../../shared/utils/display';
+import { AuthService } from '../../core/auth/auth.service';
 describe('Libellés et filtres de commandes', () => {
   for (const [status, label] of [
     ['CONFIRMED', 'Payée'],
@@ -43,10 +44,16 @@ describe('Lecture paginée des commandes', () => {
   beforeEach(() => {
     sessionStorage.clear();
     TestBed.configureTestingModule({
-      providers: [...apiTestProviders(), OrdersStore, OrdersDashboardStore],
+      providers: [
+        ...apiTestProviders(),
+        OrdersStore,
+        OrdersDashboardStore,
+        { provide: BoutiqueContextService, useValue: { selectedId: signal('shop') } },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     store = TestBed.inject(OrdersStore);
+    TestBed.inject(AuthService).acceptSession('test-session', 900);
   });
   afterEach(() => http.verify());
   it('affiche loading puis une page sans charger chaque détail', () => {

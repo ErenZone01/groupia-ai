@@ -22,3 +22,4 @@ export { AuthControllerService } from './services/auth-controller.service';
 export { LocalMediaControllerService } from './services/local-media-controller.service';
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';
+export { BusinessAnalyticsControllerService } from './services/business-analytics-controller.service';

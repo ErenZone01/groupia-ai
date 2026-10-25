@@ -169,16 +169,19 @@ test('recherche annoncée locale et aucun chargement automatique des autres page
   await page.getByRole('button', { name: 'Suivante' }).click();
   await expect(page.getByRole('link', { name: 'Voir la commande GRP-000000000025' })).toBeVisible();
 });
-test('dashboard compte les totaux réels et ne récupère pas les détails', async ({ page }) => {
+test('accueil charge trois commandes réelles sans détails ni comptages redondants', async ({
+  page,
+}) => {
   const state = await managerOrders(page);
   await page.goto('/app/accueil');
-  await expect(page.locator('g-stat-card').first().locator('.value')).toHaveText('25');
-  for (const index of [1, 2, 3])
-    await expect(page.locator('g-stat-card').nth(index).locator('.value')).toHaveText('5');
-  expect(state.calls).toHaveLength(4);
+  await expect(page.locator('g-recent-orders li')).toHaveCount(3);
+  expect(state.calls).toHaveLength(1);
   expect(state.calls.every((c) => c.path.endsWith('/orders') && c.page === '0')).toBe(true);
-  await expect(page.getByText('Toutes périodes', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Les trois dernières commandes · montant initial à régler, frais inclus'),
+  ).toBeVisible();
 });
+
 test('groupage : corrélation exacte et retour aux commandes', async ({ page }) => {
   const state = await managerOrders(page);
   await page.setViewportSize({ width: 360, height: 900 });

@@ -69,6 +69,7 @@ for (const [width, height, theme] of [
       ['Versements', 'versements', 'Mes versements'],
       ['Abonnement', 'abonnement', 'Abonnement'],
       ['Ma boutique', 'boutique', 'Ma boutique'],
+      ['Statistiques', 'statistiques', 'Statistiques'],
     ]) {
       await more.click();
       await expect(sheet).toBeVisible();
@@ -78,6 +79,7 @@ for (const [width, height, theme] of [
         'Paiements',
         'Versements',
         'Abonnement',
+        'Statistiques',
       ]);
       await noOverflow(page);
       if (path === 'paiements') await page.screenshot({ path: info.outputPath('plus-menu.png') });
@@ -87,13 +89,17 @@ for (const [width, height, theme] of [
       await expect(sheet).not.toBeVisible();
       await expect(more).toHaveClass(/active/);
       await expect(nav.locator('a.active')).toHaveCount(0);
-      await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe('');
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.style.overflow))
+        .toBe('');
     }
     await more.click();
     await sheet.getByRole('button', { name: 'Se déconnecter', exact: true }).click();
     await expect(page).toHaveURL(/\/connexion/);
     await expect(nav).not.toBeVisible();
-    await expect.poll(() => state.calls.filter((call) => call.path === '/api/auth/logout')).toHaveLength(1);
+    await expect
+      .poll(() => state.calls.filter((call) => call.path === '/api/auth/logout'))
+      .toHaveLength(1);
     expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
   });
 }
@@ -139,11 +145,12 @@ for (const width of [1024, 1440]) {
     const sidebar = page.getByRole('navigation', { name: 'Navigation principale', exact: true });
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByRole('link')).toHaveText([
-      'Tableau de bord',
+      'Accueil',
       'Groupages',
       'Produits',
       'Commandes',
       'Paiements',
+      'Statistiques',
       'Ma boutique',
       'Mes versements',
       'Abonnement',

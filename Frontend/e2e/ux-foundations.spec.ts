@@ -61,14 +61,11 @@ for (const width of [360, 390, 430, 768, 1024, 1280]) {
       await page.addInitScript((value) => localStorage.setItem('groupia.theme', value), theme);
       const calls = await dashboard(page);
       await page.goto('/app/accueil');
-      await expect(page.locator('g-stat-card .value')).toHaveText(['25', '7', '5', '2']);
-      const label = page.locator('g-stat-card p').first();
-      expect(
-        await label.evaluate(
-          (el) => el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight),
-        ),
-      ).toBeLessThanOrEqual(1.1);
-      expect(calls).toHaveLength(4);
+      await expect(
+        page.getByRole('link', { name: 'Reprendre le brouillon', exact: false }),
+      ).toBeVisible();
+      expect(calls).toHaveLength(1);
+      expect(new URLSearchParams(calls[0]).get('size')).toBe('3');
       await expect(page.locator('g-recent-orders li')).toHaveCount(3);
       await noOverflow(page);
       expect(
@@ -115,20 +112,22 @@ test('état vide réel et erreur ne sont pas confondus avec des statistiques inv
 }) => {
   await dashboard(page, 'empty');
   await page.goto('/app/accueil');
-  await expect(page.locator('g-stat-card .value')).toHaveText(['0', '0', '0', '0']);
+  await expect(page.locator('g-recent-orders li')).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: 'Aucune commande pour le moment.' }),
   ).toBeVisible();
   await page.route('**/api/organizations/*/orders?*', (route) =>
     route.fulfill({ status: 503, json: { code: 'SERVICE_UNAVAILABLE' } }),
   );
-  await page.getByRole('button', { name: 'Actualiser le tableau de bord' }).click();
+  await page.getByRole('button', { name: 'Actualiser les commandes' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.locator('g-stat-card .value')).toHaveText(['—', '—', '—', '—']);
+  await expect(page.locator('g-recent-orders li')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Aucune commande pour le moment.' })).toHaveCount(
     0,
   );
-  await expect(page.getByRole('button', { name: 'Réessayer', exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Réessayer les commandes', exact: true }),
+  ).toBeEnabled();
 });
 
 test('composants : cibles tactiles, reduced motion, reflow à 200 % et focus', async ({ page }) => {
@@ -193,6 +192,8 @@ for (const theme of ['light', 'dark']) {
         ['--on-accent', '--accent', 4.5],
         ['--hero-text', '--hero', 4.5],
         ['--hero-muted', '--hero', 4.5],
+        ['--primary', '--surface', 3],
+        ['--warning-text', '--surface', 3],
         ['--sidebar-muted', '--sidebar', 4.5],
         ['--sidebar-active-text', '--sidebar-active', 4.5],
         ['--positive-text', '--positive-soft', 4.5],

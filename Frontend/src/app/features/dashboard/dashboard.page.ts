@@ -1,35 +1,39 @@
-import { Component, effect, inject, untracked } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Card } from '../../shared/ui/card';
 import { Button } from '../../shared/ui/button';
 import { Icon } from '../../shared/ui/icon';
-import { StatCard } from '../../shared/ui/stat-card';
-import { EmptyState } from '../../shared/feedback/empty-state';
+import { Badge } from '../../shared/ui/badge';
 import { Skeleton } from '../../shared/feedback/skeleton';
 import { RecentOrders } from './recent-orders';
-import { OrdersDashboardStore } from './orders-dashboard.store';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
+import { BusinessAnalyticsStore } from './business-analytics.store';
+import { francs, periodLabel, quantity } from './business-analytics.model';
+import { HomeStore, priorityLabel } from './home.store';
+import { statusLabel } from '../../shared/utils/display';
 @Component({
   selector: 'g-dashboard-page',
-  providers: [OrdersDashboardStore],
-  imports: [RouterLink, Card, Button, Icon, StatCard, EmptyState, Skeleton, RecentOrders],
+  providers: [HomeStore, BusinessAnalyticsStore],
+  imports: [RouterLink, Button, Icon, Badge, Skeleton, RecentOrders],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
 })
 export class DashboardPage {
-  readonly store = inject(OrdersDashboardStore);
+  readonly store = inject(HomeStore);
+  readonly analytics = inject(BusinessAnalyticsStore);
   readonly context = inject(BoutiqueContextService);
-  readonly labels = ['Commandes', 'Payées', 'En attente', 'Expirées'];
-  readonly tones = ['info', 'positive', 'warning', 'danger'];
-  readonly icons = ['orders', 'check', 'clock', 'close'];
+  readonly priorityLabel = priorityLabel;
+  readonly statusLabel = statusLabel;
+  readonly francs = francs;
+  readonly quantity = quantity;
+  readonly periodLabel = periodLabel;
   constructor() {
-    effect(() => {
-      const id = this.context.selectedId();
-      untracked(() => (id ? this.store.load(id) : this.store.reset()));
-    });
+    this.analytics.period.set(3);
   }
-  reload() {
-    const id = this.context.selectedId();
-    if (id) this.store.load(id);
+  closing(value?: string) {
+    if (!value || !Number.isFinite(Date.parse(value))) return '';
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeZone: 'Africa/Dakar',
+    }).format(new Date(value));
   }
 }

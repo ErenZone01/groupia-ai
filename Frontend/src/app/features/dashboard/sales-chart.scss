@@ -1,0 +1,200 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+figure {
+  margin: 0;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3) var(--s6);
+  font-size: var(--text-sm);
+}
+.legend span {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+}
+.legend i {
+  width: 20px;
+  border-top: 3px solid var(--primary);
+}
+.legend .previous {
+  border-color: var(--warning-text);
+  border-top-style: dashed;
+}
+.chart-unit,
+figcaption {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  margin-top: var(--s3);
+}
+svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  margin-block: var(--s3);
+}
+svg text {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.current-line {
+  stroke: var(--primary);
+}
+.previous-line {
+  stroke: var(--warning-text);
+  stroke-dasharray: 6 6;
+  stroke-width: 2;
+}
+.area {
+  fill: var(--primary);
+  opacity: 0.06;
+}
+.dot {
+  fill: var(--primary);
+}
+.cursor {
+  stroke: var(--control-border);
+  stroke-dasharray: 3 5;
+}
+.selected-dot {
+  fill: var(--primary);
+  stroke: var(--surface);
+  stroke-width: 3;
+}
+.previous-dot {
+  fill: var(--warning-text);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.inspector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s4);
+  margin-block: var(--s4);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+}
+.month-control {
+  min-width: 0;
+  flex: 1;
+}
+.month-control label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  margin-bottom: var(--s2);
+}
+.month-control > div {
+  display: flex;
+  gap: var(--s2);
+}
+button,
+select {
+  min-height: 44px;
+  border: 1px solid var(--control-border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+button {
+  min-width: 44px;
+  transition: background var(--duration);
+}
+button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+select {
+  min-width: 0;
+  flex: 1;
+  padding-inline: var(--s2);
+}
+.point-values {
+  display: flex;
+  flex: 1.5;
+  flex-wrap: wrap;
+  gap: var(--s4) var(--s6);
+}
+.point-values span {
+  display: grid;
+  min-width: 0;
+}
+.point-values small {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.point-values strong {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: var(--s3);
+  color: var(--primary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+caption {
+  text-align: left;
+  color: var(--muted);
+  padding-block: var(--s3);
+}
+th,
+td {
+  padding: var(--s3) var(--s1);
+  text-align: right;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+th:first-child {
+  text-align: left;
+}
+@media (max-width: 599px) {
+  svg {
+    min-height: 180px;
+  }
+  svg .sparse {
+    display: none;
+  }
+  .inspector {
+    display: grid;
+    padding: var(--s3);
+    gap: var(--s4);
+  }
+  .point-values {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s3);
+  }
+  .point-values strong {
+    font-size: var(--text-base);
+  }
+  .legend {
+    font-size: var(--text-xs);
+  }
+}

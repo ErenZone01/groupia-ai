@@ -18,18 +18,22 @@ for (const width of [360, 768, 1024, 1440])
       await page.setViewportSize({ width, height: 1000 });
       await page.addInitScript((mode) => localStorage.setItem('groupia.theme', mode), theme);
       await page.goto('/accueil');
-      await expect(page.getByRole('heading', { name: 'Bonjour !' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Accueil', exact: true })).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
-      await expect(page.locator('g-stat-card')).toHaveCount(4);
+      await expect(page.locator('g-sales-chart')).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Voir les statistiques' })).toBeVisible();
       expect(
         calls.every(
           (url) =>
             new URL(url).pathname === '/api/auth/refresh' ||
             new URL(url).pathname === '/api/organizations' ||
-            /\/api\/organizations\/[^/]+\/orders$/.test(new URL(url).pathname) ||
+            /\/api\/organizations\/[^/]+\/analytics\/business$/.test(new URL(url).pathname) ||
+            /\/api\/organizations\/[^/]+\/(?:orders|grouping-campaigns|products)$/.test(
+              new URL(url).pathname,
+            ) ||
             /\/api\/organizations\/[^/]+\/subscription(?:\/(?:history|invoices|invoice-preview))?$/.test(
               new URL(url).pathname,
             ),

@@ -83,11 +83,12 @@ describe('MobileBottomNav', () => {
 
   it('garde les destinations desktop et réutilise leurs objets pour le mobile', () => {
     expect(navigation.map(({ path, label, icon }) => [path, label, icon])).toEqual([
-      ['/app/accueil', 'Tableau de bord', 'home'],
+      ['/app/accueil', 'Accueil', 'home'],
       ['/app/groupages', 'Groupages', 'group'],
       ['/app/products', 'Produits', 'box'],
       ['/app/orders', 'Commandes', 'orders'],
       ['/app/paiements', 'Paiements', 'card'],
+      ['/app/statistiques', 'Statistiques', 'trend'],
       ['/app/boutique', 'Ma boutique', 'store'],
       ['/app/versements', 'Mes versements', 'card'],
       ['/app/abonnement', 'Abonnement', 'card'],
@@ -110,6 +111,7 @@ describe('MobileBottomNav', () => {
       'Paiements',
       'Versements',
       'Abonnement',
+      'Statistiques',
     ]);
     expect(dialog.querySelector('.logout')?.textContent?.trim()).toBe('Se déconnecter');
     expect(document.documentElement.style.overflow).toBe('hidden');
@@ -182,6 +184,7 @@ describe('MobileBottomNav', () => {
     '/app/versements',
     '/app/abonnement',
     '/app/boutique',
+    '/app/statistiques',
   ])('active Plus et le lien secondaire pour %s', async (path) => {
     await router.navigateByUrl(path + '?page=2#details');
     await fixture.whenStable();

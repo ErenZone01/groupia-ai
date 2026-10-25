@@ -98,7 +98,8 @@ export class MobileBottomNav {
   }
 
   backdrop(event: MouseEvent) {
-    if (event.target !== this.dialog().nativeElement) return;
+    // Backdrop interactions can be retargeted by the browser's modal top layer.
+    // Use the pointer coordinates, not the event target, to detect clicks outside.
     const rect = this.dialog().nativeElement.getBoundingClientRect();
     if (
       event.clientX < rect.left ||

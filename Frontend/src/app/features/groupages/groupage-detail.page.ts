@@ -55,7 +55,7 @@ import {
   ],
   templateUrl: './groupage-detail.page.html',
   styleUrl: './groupage-detail.page.scss',
-)
+})
 export class GroupageDetailPage {
   readonly store = inject(GroupageStore);
   readonly context = inject(BoutiqueContextService);

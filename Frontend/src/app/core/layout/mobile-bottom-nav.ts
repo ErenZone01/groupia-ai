@@ -113,7 +113,7 @@ export class MobileBottomNav {
     if (event.key !== 'Tab') return;
     const elements = [...this.dialog().nativeElement.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), select:not([disabled])',
-    )].filter((el) => el.getClientRects().length > 0);
+    )];
     const first = elements[0], last = elements[elements.length - 1];
     if (event.shiftKey && this.document.activeElement === first) {
       event.preventDefault();

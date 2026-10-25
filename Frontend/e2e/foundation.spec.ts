@@ -56,16 +56,18 @@ test('navigation mobile et focus clavier', async ({ page }) => {
     'aria-current',
     'page',
   );
-  await nav.getByRole('button', { name: 'Plus', exact: true }).click();
-  await page
-    .getByRole('dialog', { name: 'Plus de pages' })
-    .getByRole('link', { name: 'Ma boutique', exact: true })
-    .click();
+  const menu = page.locator('g-topbar').getByRole('button', { name: 'Menu', exact: true });
+  await menu.click();
+  const dialog = page.getByRole('dialog', { name: 'Menu Groupia' });
+  await expect(dialog.getByRole('button', { name: 'Fermer le menu' })).toBeFocused();
+  await dialog.getByRole('link', { name: 'Ma boutique', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Ma boutique', exact: true })).toBeVisible();
+  await menu.focus();
   await page.keyboard.press('Shift+Tab');
-  await expect(nav.getByRole('link', { name: 'Commandes', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(menu).toBeFocused();
   expect(
-    await page.evaluate(() => getComputedStyle(document.activeElement!).outlineStyle),
+    await menu.evaluate((el) => getComputedStyle(el).outlineStyle),
   ).not.toBe('none');
 });
 test('préférence thème persistée et système respecté', async ({ page }) => {

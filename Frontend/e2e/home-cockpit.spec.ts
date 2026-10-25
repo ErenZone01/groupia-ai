@@ -152,18 +152,18 @@ test('recherche desktop : Statistiques est une destination réelle', async ({ pa
 });
 test.describe('Accueil tactile', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-  test('ouvre les statistiques depuis le menu Plus, sans cinquième onglet primaire', async ({
+  test('ouvre les statistiques depuis le menu droit, sans cinquième onglet primaire', async ({
     page,
   }) => {
     await setup(page);
     await page.goto('/app/accueil');
     await expect(page.locator('g-mobile-bottom-nav .bar a')).toHaveCount(4);
-    await page.getByRole('button', { name: 'Plus', exact: true }).tap();
-    await page.getByRole('dialog').getByRole('link', { name: 'Statistiques', exact: true }).tap();
+    const menu = page.locator('g-topbar').getByRole('button', { name: 'Menu', exact: true });
+    await menu.tap();
+    const dialog = page.getByRole('dialog', { name: 'Menu Groupia' });
+    await dialog.getByRole('link', { name: 'Statistiques', exact: true }).tap();
     await expect(page).toHaveURL(/app\/statistiques$/);
-    await expect(page.getByRole('dialog')).not.toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /^Plus\s*, section actuelle$/ }),
-    ).toHaveClass(/active/);
+    await expect(dialog).not.toBeVisible();
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
   });
 });

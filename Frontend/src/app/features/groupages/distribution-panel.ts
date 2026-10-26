@@ -57,9 +57,13 @@ import { filterDistribution } from './distribution-labels';
       gap:var(--s2);
     }
     .distribution-extra { margin:var(--s2) 0 var(--s4); }
-    .distribution-extra summary { cursor:pointer; display:flex; align-items:center; min-height:44px; font-size:var(--text-sm); font-weight:600; }
+    .distribution-extra summary { cursor:pointer; display:flex; align-items:center; min-height:44px; font-size:var(--text-sm); font-weight:600; color:var(--primary); }
+    .distribution-extra summary:after { content:'⌄'; margin-left:auto; font-size:22px; }
+    .distribution-extra[open] summary:after { transform:rotate(180deg); }
     .distribution-extra .counts { margin:var(--s2) 0; }
     .distribution-show-all { min-height:44px; margin-top:var(--s2); }
+    .distribution-show-all:after { content:'⌄'; padding-left:var(--s2); }
+    .distribution-show-all[aria-expanded='true']:after { display:inline-block; transform:rotate(180deg); }
     .counts div { font-size:var(--text-xs); }
 
   `,

@@ -48,15 +48,6 @@
       </section>
     }
   </header>
-  @if (confirmingClose()) {
-    <div class="notice close-confirm" role="group" aria-label="Confirmation de fermeture">
-      <p>Fermer les commandes ? Les clientes ne pourront plus commander.</p>
-      <div class="actions">
-        <button gButton [loading]="store.busy()" [disabled]="store.stale()" (click)="perform('close')">Confirmer</button>
-        <button gButton variant="ghost" [disabled]="store.busy()" (click)="confirmingClose.set(false)">Annuler</button>
-      </div>
-    </div>
-  }
   <g-tabs id="groupage-sections" [tabs]="tabs()" [(active)]="tab" label="Sections du groupage">
     <g-card>
       @if (tab() === 'products') {
@@ -110,6 +101,15 @@
           <span>Prise de commandes en cours</span>
           <button gButton variant="secondary" [disabled]="store.busy() || store.stale()"
                   (click)="confirmingClose.set(true)">Fermer les commandes</button>
+        </div>
+      }
+      @if (tab() === 'orders' && confirmingClose() && group.status === 'OPEN') {
+        <div class="notice close-confirm" role="group" aria-label="Confirmation de fermeture">
+          <p>Fermer les commandes ? Les clientes ne pourront plus commander.</p>
+          <div class="actions">
+            <button gButton [loading]="store.busy()" [disabled]="store.stale()" (click)="perform('close')">Confirmer</button>
+            <button gButton variant="ghost" [disabled]="store.busy()" (click)="confirmingClose.set(false)">Annuler</button>
+          </div>
         </div>
       }
       @if (tab() === 'orders') {

@@ -1,11 +1,14 @@
 import { Component, ElementRef, inject, input, model } from '@angular/core';
+import { Icon } from './icon';
 export interface TabItem {
   id: string;
   label: string;
+  icon?: string;
   disabled?: boolean;
 }
 @Component({
   selector: 'g-tabs',
+  imports: [Icon],
   template: `<div role="tablist" [attr.aria-label]="label()">
       @for (tab of tabs(); track tab.id) {
         <button
@@ -19,6 +22,7 @@ export interface TabItem {
           (click)="active.set(tab.id)"
           (keydown)="navigate($event, tab.id)"
         >
+          @if (tab.icon) { <g-icon [name]="tab.icon" /> }
           {{ tab.label }}
         </button>
       }
@@ -39,6 +43,7 @@ export interface TabItem {
       border-bottom: 1px solid var(--border);
     }
     button {
+      display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
       flex-shrink: 0;
       padding: var(--s3) var(--s2);
       min-height: 44px;
@@ -48,6 +53,7 @@ export interface TabItem {
       color: var(--muted);
       border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     }
+    button g-icon { width:17px; height:17px; }
     button[aria-selected='true'] {
       color: var(--primary);
       border-bottom-color: var(--primary);

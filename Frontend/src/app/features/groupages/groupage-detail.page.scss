@@ -56,3 +56,17 @@ g-product-picker { display:block; margin-top:var(--s4); }
   .shipping-summary dl { gap:var(--s3); }
 }
 @media(max-width:359px) { .detail-toolbar { flex-wrap:wrap; } .shipping-summary dl { grid-template-columns:1fr; } }
+
+/* Offres lisibles sans galerie pleine largeur */
+.offer-list { display:grid; gap:var(--s2); }
+.offer-list .product { display:flex; gap:var(--s3); align-items:center; border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--s3); background:var(--surface); }
+.offer-photo { flex:0 0 56px; width:56px; height:56px; border-radius:var(--radius-sm); background:var(--surface-alt); display:grid; place-items:center; overflow:hidden; color:var(--muted); }
+.offer-photo img { width:100%; height:100%; object-fit:cover; }
+.offer-body { flex:1; min-width:0; }
+.offer-heading { display:flex; align-items:start; justify-content:space-between; gap:var(--s2); }
+.offer-heading h3 { margin:0; font-size:var(--text-sm); line-height:1.4; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.offer-variant { margin:var(--s1) 0; color:var(--muted); font-size:var(--text-xs); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.offer-bottom { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--s2); }
+.offer-bottom .price { font-size:var(--text-sm); margin:0; }
+.list-toggle { display:block; margin:var(--s3) auto; min-height:44px; }
+@media(max-width:480px) { .offer-list .product { align-items:start; } .offer-photo { flex-basis:48px; width:48px; height:48px; } }

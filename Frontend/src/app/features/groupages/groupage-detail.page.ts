@@ -150,7 +150,8 @@ export class GroupageDetailPage {
   private sequence = 0;
   constructor() {
     effect(() => {
-      if (!this.tabs().some((item) => item.id === this.tab())) this.tab.set('products');
+      if (this.store.current() && !this.tabs().some((item) => item.id === this.tab()))
+        this.tab.set('products');
     });
     effect(() => {
       const id = this.context.selectedId();

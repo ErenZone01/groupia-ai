@@ -103,6 +103,30 @@ export class GroupageDetailPage {
       { id: 'info', label: 'Infos', icon: 'info' },
     ];
   });
+  readonly journey = [
+    { name: 'Offres', tab: 'products' },
+    { name: 'Commandes', tab: 'orders' },
+    { name: 'Fournisseur', tab: 'supplier' },
+    { name: 'Transport', tab: 'transport' },
+    { name: 'Retraits', tab: 'distribution' },
+    { name: 'Bilan', tab: 'completion' },
+  ] as const;
+  readonly journeyIndex = computed(() => {
+    switch (this.store.current()?.status) {
+      case 'DRAFT': return 0;
+      case 'OPEN': return 1;
+      case 'CLOSED': return 2;
+      case 'SUPPLIER_ORDERED':
+      case 'IN_TRANSIT': return 3;
+      case 'ARRIVED':
+      case 'DISTRIBUTING': return 4;
+      case 'COMPLETED': return 5;
+      default: return -1;
+    }
+  });
+  readonly currentJourney = computed(() =>
+    this.journeyIndex() >= 0 ? this.journey[this.journeyIndex()].name : 'Arrêté',
+  );
   readonly priorityTab = computed(() => {
     switch (this.store.current()?.status) {
       case 'OPEN': return 'orders';

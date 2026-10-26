@@ -9,6 +9,8 @@ import { DOCUMENT } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { GroupiaApi } from '../../api/groupia-api';
+import { ProductMediaApi } from '../catalog/product-media.api';
+import { ProductMediaSummary } from '../../api/generated/models';
 import { ProductView, OfferView, CampaignLifecycleView } from '../../api/generated/models';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
@@ -60,6 +62,7 @@ export class GroupageDetailPage {
   readonly store = inject(GroupageStore);
   readonly context = inject(BoutiqueContextService);
   private readonly api = inject(GroupiaApi);
+  private readonly mediaApi = inject(ProductMediaApi);
   private readonly route = inject(ActivatedRoute);
   private readonly document = inject(DOCUMENT);
   private readonly toast = inject(ToastService);
@@ -67,6 +70,11 @@ export class GroupageDetailPage {
   readonly error = signal('');
   readonly catalogError = signal('');
   readonly products = signal<ProductView[]>([]);
+  readonly media = signal<Record<string, ProductMediaSummary>>({});
+  readonly showAllOffers = signal(false);
+  readonly visibleOffers = computed(() => this.showAllOffers()
+    ? (this.store.current()?.offers ?? [])
+    : (this.store.current()?.offers ?? []).slice(0, 4));
   private readonly requestedTab = this.route.snapshot.queryParamMap.get('tab');
   readonly tab = signal(
     this.requestedTab === 'overview' || this.requestedTab === 'settings'
@@ -164,6 +172,8 @@ export class GroupageDetailPage {
     this.loading.set(true);
     this.error.set('');
     this.products.set([]);
+    this.media.set({});
+    this.showAllOffers.set(false);
     this.catalogError.set('');
     try {
       await this.store.load(id, this.id());
@@ -179,13 +189,40 @@ export class GroupageDetailPage {
     this.loading.set(false);
     try {
       const products = await this.api.allProducts(id);
-      if (seq === this.sequence) this.products.set(products);
+      if (seq !== this.sequence || id !== this.context.selectedId()) return;
+      this.products.set(products);
+      const productIds = [...new Set((this.store.current()?.offers ?? []).flatMap((offer) =>
+        products.filter((p) => p.variants?.some((v) => v.id === offer.productVariantId))
+          .map((p) => p.id).filter((value): value is string => !!value)))];
+      if (productIds.length) {
+        try {
+          const summaries = await this.mediaApi.batch(id, productIds);
+          if (seq === this.sequence && id === this.context.selectedId())
+            this.media.set(Object.fromEntries(summaries.filter((m) => !!m.productId)
+              .map((m) => [m.productId!, m])));
+        } catch {
+          // Les photos sont facultatives : ne pas bloquer les offres.
+        }
+      }
     } catch {
       if (seq === this.sequence)
         this.catalogError.set(
           'Les noms des produits ne sont pas disponibles. Réessayez pour les actualiser.',
         );
     }
+  }
+  thumbnail(offer: OfferView) {
+    const product = this.products().find((p) =>
+      p.variants?.some((v) => v.id === offer.productVariantId));
+    return product?.id ? (this.media()[product.id]?.primaryThumbnailUrl ?? '') : '';
+  }
+  thumbnailFailed(offer: OfferView) {
+    const product = this.products().find((p) =>
+      p.variants?.some((v) => v.id === offer.productVariantId));
+    if (product?.id)
+      this.media.update((map) => ({
+        ...map, [product.id!]: { ...map[product.id!], primaryThumbnailUrl: undefined },
+      }));
   }
   label(offer: OfferView) {
     return (

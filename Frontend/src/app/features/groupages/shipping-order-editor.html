@@ -6,9 +6,9 @@
     </div>
     <span>{{ state() }}</span>
   </header>
+  @let snap = assessment()?.snapshot;
   <details class="shipping-details">
     <summary>Afficher mesures et calculs</summary>
-  @let snap = assessment()?.snapshot;
   <p class="muted">
     Estimation historique :
     @if (snap?.estimatedWeightKg != null) {

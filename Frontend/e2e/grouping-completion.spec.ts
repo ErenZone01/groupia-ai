@@ -46,7 +46,7 @@ async function setup(page: Page, conflict = false) {
       },
     });
   });
-  await page.goto('/app/groupages/' + groupId);
+  await page.goto('/app/groupages/' + groupId + '?tab=completion');
   return () => writes;
 }
 for (const width of [360, 1280])

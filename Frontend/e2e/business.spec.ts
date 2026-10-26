@@ -190,7 +190,7 @@ test('brouillon puis ajout depuis le détail, prix et fermeture versionnés', as
   await expect(page.getByRole('region', { name: 'Partager le groupage' })).toBeVisible();
   await page.getByRole('tab', { name: 'Commandes', exact: true }).click();
   await page.getByRole('button', { name: 'Fermer les commandes', exact: true }).click();
-  await page.getByRole('button', { name: 'Confirmer la fermeture', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmer', exact: true }).click();
   await expect(page.getByText('Commandes fermées', { exact: true })).toBeVisible();
   expect(state.groups[0].status).toBe('CLOSED');
 });

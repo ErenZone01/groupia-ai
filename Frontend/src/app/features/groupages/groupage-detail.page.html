@@ -16,7 +16,7 @@
     <div class="detail-hero-heading">
       <div class="detail-title">
         <p class="eyebrow">Groupage</p>
-        <h1>{{ group.title }}</h1>
+        <h1 [title]="group.title">{{ group.title }}</h1>
       </div>
       <g-badge [tone]="displayStatusTone()">{{ statusLabel(group.status) }}</g-badge>
     </div>
@@ -160,10 +160,10 @@
       @if (tab() === 'info') {
         <section class="summary" aria-labelledby="detail-info-title">
           <h2 id="detail-info-title">Informations</h2>
-          <div class="info-description">
-            <h3>Description</h3>
+          <details class="info-description">
+            <summary>Description</summary>
             <p class="preserve">{{ group.description || 'Aucune description' }}</p>
-          </div>
+          </details>
           <section class="shipping-summary" aria-labelledby="detail-shipping-title">
             <h3 id="detail-shipping-title">Livraison</h3>
             <dl>

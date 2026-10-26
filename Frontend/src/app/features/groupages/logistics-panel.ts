@@ -43,10 +43,18 @@ import { optionLabel, transportOptions } from './groupage-labels';
   ],
   templateUrl: './logistics-panel.html',
   styles: `
-    :host {
-      display: block;
-      margin-top: var(--s6);
-    }
+    :host { display:block; min-width:0; }
+    .transport-workspace { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(290px,1fr); gap:var(--s4); align-items:start; }
+    .transport-workspace > * { min-width:0; }
+    @media(max-width:900px) { .transport-workspace { grid-template-columns:minmax(0,1fr); } }
+    .transport-side { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:var(--s4); }
+    .transport-side h2 { margin:0 0 var(--s2); font-size:var(--text-lg); }
+    .transport-side p { font-size:var(--text-sm); margin-bottom:var(--s3); }
+    .transport-batch-toggle { display:flex; align-items:center; justify-content:space-between; gap:var(--s2); width:100%; }
+    .toggle-caret { font-size:23px; line-height:1; transition:transform .15s ease; }
+    .transport-batch-toggle[aria-expanded='true'] .toggle-caret { transform:rotate(180deg); }
+    .logistics > button[gButton] { margin-block:var(--s2); }
+
     .logistics {
       padding: var(--s4);
       border: 1px solid var(--border);
@@ -83,8 +91,13 @@ import { optionLabel, transportOptions } from './groupage-labels';
     .logistics-summary dt { color:var(--muted); font-size:var(--text-xs); }
     .logistics-summary dd { font-weight:650; font-size:var(--text-sm); margin:var(--s1) 0 0; }
     .logistics-actions { display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s3) 0; }
-    .logistics-more { border-top:1px solid var(--border); margin-top:var(--s4); padding-top:var(--s3); }
-    .logistics-more summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:var(--text-sm); font-weight:650; }
+    .logistics-more { background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:var(--s3); padding:0 var(--s3); min-width:0; }
+    .logistics-more summary { list-style:none; cursor:pointer; min-height:50px; display:flex; align-items:center; gap:var(--s2); font-size:var(--text-sm); font-weight:650; color:var(--primary); }
+    .logistics-more summary::-webkit-details-marker { display:none; }
+    .logistics-more summary:after { content:'⌄'; font-size:23px; margin-left:auto; transition:transform .15s ease; }
+    .logistics-more[open] summary:after { transform:rotate(180deg); }
+    .logistics-more summary:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+    .logistics-more[open] { padding-bottom:var(--s3); }
     .logistics-more dl { margin-top:var(--s3); }
     .transport-batch-toggle { margin-top:var(--s3); }
 

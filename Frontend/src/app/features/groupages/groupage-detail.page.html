@@ -14,159 +14,51 @@
 @if (!loading() && store.current(); as group) {
   <header class="detail-hero">
     <div class="detail-hero-heading">
-      <div>
-        <p class="eyebrow">Votre groupage</p>
+      <div class="detail-title">
+        <p class="eyebrow">Groupage</p>
         <h1>{{ group.title }}</h1>
       </div>
       <g-badge [tone]="displayStatusTone()">{{ statusLabel(group.status) }}</g-badge>
     </div>
-    <p class="detail-next-step">{{ nextStepLabel() }}</p>
-    <dl class="detail-facts">
-      <div>
-        <dt><g-icon name="calendar" /> Clôture prévue</dt>
-        <dd>
-          @if (dakarDate(group.closesAt); as closing) {
-            {{ closing }} <small>· Dakar</small>
-          } @else {
-            Non renseignée
-          }
-        </dd>
-      </div>
-      <div>
-        <dt><g-icon name="box" /> Articles du groupage</dt>
-        <dd>{{ group.offers?.length ?? 0 }} produit(s)</dd>
-      </div>
-      <div>
-        <dt><g-icon name="link" /> Partage</dt>
-        <dd>
-          @if (group.status === 'OPEN' && publicUrl()) {
-            Lien disponible
-          } @else if (group.status === 'DRAFT') {
-            Après publication
-          } @else {
-            Voir le suivi
-          }
-        </dd>
-      </div>
-    </dl>
+    <div class="detail-meta">
+      <span><g-icon name="calendar" /> @if (dakarDate(group.closesAt); as closing) { {{ closing }} } @else { Date non définie }</span>
+      <span><g-icon name="box" /> {{ group.offers?.length ?? 0 }} offre(s)</span>
+    </div>
+    <div class="detail-toolbar">
+      <span class="detail-next-step">{{ nextStepLabel() }}</span>
+      @if (group.status === 'DRAFT') {
+        <button gButton [loading]="store.busy()" [disabled]="store.stale()" (click)="perform('open')">
+          <g-icon name="check" /> Publier
+        </button>
+      }
+      @if (group.status === 'OPEN' && publicUrl()) {
+        <button gButton (click)="copy()"><g-icon name="link" /> Copier le lien</button>
+      }
+    </div>
+    @if (group.status === 'OPEN' && publicUrl()) {
+      <section class="detail-share" aria-label="Partager le groupage">
+        <a [routerLink]="['/public/groupages', group.publicIdentifier]" class="public-preview">
+          <g-icon name="arrow" /> Voir la page cliente
+        </a>
+        <details class="share-disclosure">
+          <summary>Afficher le lien</summary>
+          <a class="share-link" [href]="publicUrl()" [title]="publicUrl()"
+             target="_blank" rel="noopener">{{ publicUrl() }}</a>
+        </details>
+      </section>
+    }
   </header>
-  @if (group.status === 'OPEN' && publicUrl()) {
-    <section class="share" aria-label="Partager le groupage">
-      <h2>{{ published ? 'Votre groupage est en ligne 🎉' : 'Votre lien public' }}</h2>
-      <p class="share-hint">Partagez ce lien avec vos clientes, notamment sur WhatsApp.</p>
-      <a class="share-link" [href]="publicUrl()" target="_blank" rel="noopener">{{ publicUrl() }}</a>
+  @if (confirmingClose()) {
+    <div class="notice close-confirm" role="group" aria-label="Confirmation de fermeture">
+      <p>Fermer les commandes ? Les clientes ne pourront plus commander.</p>
       <div class="actions">
-        <button gButton variant="secondary" (click)="copy()">Copier le lien</button
-        ><a gButton [routerLink]="['/public/groupages', group.publicIdentifier]"
-          >Voir comme une cliente</a
-        >
+        <button gButton [loading]="store.busy()" [disabled]="store.stale()" (click)="perform('close')">Confirmer</button>
+        <button gButton variant="ghost" [disabled]="store.busy()" (click)="confirmingClose.set(false)">Annuler</button>
       </div>
-    </section>
-  }
-  @if (group.status === 'DISTRIBUTING' || group.status === 'COMPLETED') {
-    <g-completion-panel
-      [campaign]="group"
-      [organizationId]="context.selectedId()!"
-      (refreshCampaign)="load()"
-    />
+    </div>
   }
   <g-tabs id="groupage-sections" [tabs]="tabs()" [(active)]="tab" label="Sections du groupage">
     <g-card>
-      @if (tab() === 'overview') {
-        @if (
-          [
-            'CLOSED',
-            'SUPPLIER_ORDERED',
-            'IN_TRANSIT',
-            'ARRIVED',
-            'DISTRIBUTING',
-            'COMPLETED',
-          ].includes(group.status ?? '')
-        ) {
-          <g-merchant-funds-panel
-            [organizationId]="context.selectedId()!"
-            [campaignId]="group.id!"
-          />
-        }
-        @if (
-          ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(
-            group.status ?? ''
-          )
-        ) {
-          <g-logistics-panel
-            [campaign]="group"
-            [organizationId]="context.selectedId()!"
-            (campaignChanged)="purchaseCreated($event)"
-          />
-        }
-        <section class="summary" aria-labelledby="detail-overview-title">
-          <h2 id="detail-overview-title">Aperçu</h2>
-          <p class="preserve">{{ group.description || 'Aucune description' }}</p>
-          <section class="shipping-summary" aria-labelledby="detail-shipping-title">
-            <h3 id="detail-shipping-title">Conditions de livraison</h3>
-            <dl>
-              <div>
-                <dt>Transport</dt>
-                <dd>{{ optionLabel(transportOptions, group.shippingTerms?.transportMode) }}</dd>
-              </div>
-              <div>
-                <dt>Tarification</dt>
-                <dd>{{ optionLabel(pricingOptions, group.shippingTerms?.shippingPricingMethod) }}</dd>
-              </div>
-              <div>
-                <dt>Perception du transport</dt>
-                <dd>{{ optionLabel(collectionOptions, group.shippingTerms?.shippingCollectionMode) }}</dd>
-              </div>
-              <div>
-                <dt>Tarif indiqué</dt>
-                <dd>{{ money(group.shippingTerms?.shippingRate) }}</dd>
-              </div>
-            </dl>
-          </section>
-        </section>
-        <div class="actions">
-          @if (group.status === 'DRAFT') {
-            <button
-              gButton
-              [loading]="store.busy()"
-              [disabled]="store.stale()"
-              (click)="perform('open')"
-            >
-              Publier le groupage
-            </button>
-          }
-          @if (group.status === 'OPEN') {
-            <button
-              gButton
-              variant="secondary"
-              [disabled]="store.busy() || store.stale()"
-              (click)="confirmingClose.set(true)"
-            >
-              Fermer les commandes
-            </button>
-          }
-        </div>
-        @if (confirmingClose()) {
-          <div class="notice" role="group" aria-label="Confirmation de fermeture">
-            <p>
-              Fermer les commandes de ce groupage ? Les clientes ne pourront plus choisir de
-              produits.
-            </p>
-            <div class="actions">
-              <button gButton [loading]="store.busy()" (click)="perform('close')">
-                Confirmer la fermeture</button
-              ><button
-                gButton
-                variant="ghost"
-                [disabled]="store.busy()"
-                (click)="confirmingClose.set(false)"
-              >
-                Garder ouvert
-              </button>
-            </div>
-          </div>
-        }
-      }
       @if (tab() === 'products') {
         <div class="section-heading">
           <h2>Produits du groupage</h2>
@@ -213,6 +105,13 @@
           />
         }
       }
+      @if (tab() === 'orders' && group.status === 'OPEN') {
+        <div class="order-toolbar">
+          <span>Prise de commandes en cours</span>
+          <button gButton variant="secondary" [disabled]="store.busy() || store.stale()"
+                  (click)="confirmingClose.set(true)">Fermer les commandes</button>
+        </div>
+      }
       @if (tab() === 'orders') {
         <h2>Commandes du groupage</h2>
         <g-orders-panel [campaignId]="group.id!" />
@@ -228,6 +127,26 @@
           [campaignId]="group.id!"
         />
       }
+      @if (tab() === 'transport') {
+        <g-logistics-panel
+          [campaign]="group"
+          [organizationId]="context.selectedId()!"
+          (campaignChanged)="purchaseCreated($event)"
+        />
+      }
+      @if (tab() === 'finances') {
+        <g-merchant-funds-panel
+          [organizationId]="context.selectedId()!"
+          [campaignId]="group.id!"
+        />
+      }
+      @if (tab() === 'completion') {
+        <g-completion-panel
+          [campaign]="group"
+          [organizationId]="context.selectedId()!"
+          (refreshCampaign)="load()"
+        />
+      }
       @if (
         tab() === 'distribution' &&
         ['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(group.status ?? '')
@@ -238,16 +157,31 @@
           (campaignChanged)="purchaseCreated($event)"
         />
       }
-      @if (tab() === 'settings') {
-        @if (editable()) {
-          <g-groupage-settings [campaign]="group" [organizationId]="context.selectedId()!" />
-        } @else {
-          <g-empty-state
-            title="Paramètres en lecture seule"
-            description="Ce groupage ne peut plus être modifié dans son état actuel."
-          />
-        }
-      }</g-card
+      @if (tab() === 'info') {
+        <section class="summary" aria-labelledby="detail-info-title">
+          <h2 id="detail-info-title">Informations</h2>
+          <div class="info-description">
+            <h3>Description</h3>
+            <p class="preserve">{{ group.description || 'Aucune description' }}</p>
+          </div>
+          <section class="shipping-summary" aria-labelledby="detail-shipping-title">
+            <h3 id="detail-shipping-title">Livraison</h3>
+            <dl>
+              <div><dt>Transport</dt><dd>{{ optionLabel(transportOptions, group.shippingTerms?.transportMode) }}</dd></div>
+              <div><dt>Tarification</dt><dd>{{ optionLabel(pricingOptions, group.shippingTerms?.shippingPricingMethod) }}</dd></div>
+              <div><dt>Perception</dt><dd>{{ optionLabel(collectionOptions, group.shippingTerms?.shippingCollectionMode) }}</dd></div>
+              <div><dt>Tarif</dt><dd>{{ money(group.shippingTerms?.shippingRate) }}</dd></div>
+            </dl>
+          </section>
+          @if (editable()) {
+            <details class="settings-disclosure">
+              <summary><g-icon name="info" /> Modifier les informations</summary>
+              <g-groupage-settings [campaign]="group" [organizationId]="context.selectedId()!" />
+            </details>
+          }
+        </section>
+      }
+</g-card
   ></g-tabs>
 } @else if (!loading()) {
   <button gButton (click)="load()">Réessayer</button>

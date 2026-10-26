@@ -124,9 +124,10 @@ export class GroupageDetailPage {
       default: return -1;
     }
   });
-  readonly currentJourney = computed(() =>
-    this.journeyIndex() >= 0 ? this.journey[this.journeyIndex()].name : 'Arrêté',
-  );
+  readonly currentJourney = computed(() => {
+    const index = this.journeyIndex();
+    return index >= 0 ? (this.journey[index]?.name ?? 'Arrêté') : 'Arrêté';
+  });
   readonly availableJourneyTabs = computed(() => new Set(this.tabs().map((item) => item.id)));
   readonly priorityTab = computed(() => {
     switch (this.store.current()?.status) {

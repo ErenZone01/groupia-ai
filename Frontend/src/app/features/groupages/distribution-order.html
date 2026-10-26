@@ -84,6 +84,8 @@
     </form>
   }
   </div>
+  <details class="distribution-financial">
+    <summary>Voir paiement et crédits</summary>
   <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
   @if (
     canManageRefunds() &&
@@ -96,6 +98,7 @@
       (changed)="creditChanged.emit()"
     />
   }
+  </details>
   @if (row().fulfillmentStatus === 'NOT_READY' && row().readinessBlocker) {
     <p class="notice">{{ blockerLabel(row().readinessBlocker) }}</p>
   }

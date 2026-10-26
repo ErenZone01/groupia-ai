@@ -1,4 +1,6 @@
-<a routerLink="/app/groupages">← Tous les groupages</a>
+<nav class="detail-breadcrumb" aria-label="Retour">
+  <a routerLink="/app/groupages"><g-icon name="arrow" /> Tous les groupages</a>
+</nav>
 @if (loading()) {
   <g-skeleton /><g-skeleton />
 }
@@ -10,20 +12,49 @@
   <button gButton (click)="load()">Actualiser</button>
 }
 @if (!loading() && store.current(); as group) {
-  <div class="page-heading">
-    <div>
-      <p class="eyebrow">Votre groupage</p>
-      <h1>{{ group.title }}</h1>
-      <p>{{ dateLabel(group.closesAt) }}</p>
+  <header class="detail-hero">
+    <div class="detail-hero-heading">
+      <div>
+        <p class="eyebrow">Votre groupage</p>
+        <h1>{{ group.title }}</h1>
+      </div>
+      <g-badge [tone]="displayStatusTone()">{{ statusLabel(group.status) }}</g-badge>
     </div>
-    <g-badge [tone]="group.status === 'OPEN' ? 'positive' : 'neutral'">{{
-      statusLabel(group.status)
-    }}</g-badge>
-  </div>
+    <p class="detail-next-step">{{ nextStepLabel() }}</p>
+    <dl class="detail-facts">
+      <div>
+        <dt><g-icon name="calendar" /> Clôture prévue</dt>
+        <dd>
+          @if (dakarDate(group.closesAt); as closing) {
+            {{ closing }} <small>· Dakar</small>
+          } @else {
+            Non renseignée
+          }
+        </dd>
+      </div>
+      <div>
+        <dt><g-icon name="box" /> Articles du groupage</dt>
+        <dd>{{ group.offers?.length ?? 0 }} produit(s)</dd>
+      </div>
+      <div>
+        <dt><g-icon name="link" /> Partage</dt>
+        <dd>
+          @if (group.status === 'OPEN' && publicUrl()) {
+            Lien disponible
+          } @else if (group.status === 'DRAFT') {
+            Après publication
+          } @else {
+            Voir le suivi
+          }
+        </dd>
+      </div>
+    </dl>
+  </header>
   @if (group.status === 'OPEN' && publicUrl()) {
     <section class="share" aria-label="Partager le groupage">
       <h2>{{ published ? 'Votre groupage est en ligne 🎉' : 'Votre lien public' }}</h2>
-      <a [href]="publicUrl()" target="_blank" rel="noopener">{{ publicUrl() }}</a>
+      <p class="share-hint">Partagez ce lien avec vos clientes, notamment sur WhatsApp.</p>
+      <a class="share-link" [href]="publicUrl()" target="_blank" rel="noopener">{{ publicUrl() }}</a>
       <div class="actions">
         <button gButton variant="secondary" (click)="copy()">Copier le lien</button
         ><a gButton [routerLink]="['/public/groupages', group.publicIdentifier]"
@@ -68,20 +99,31 @@
             (campaignChanged)="purchaseCreated($event)"
           />
         }
-        <div class="summary">
-          <h2>Aperçu</h2>
+        <section class="summary" aria-labelledby="detail-overview-title">
+          <h2 id="detail-overview-title">Aperçu</h2>
           <p class="preserve">{{ group.description || 'Aucune description' }}</p>
-          <p>{{ group.offers?.length ?? 0 }} produit(s) dans ce groupage</p>
-          <h3>Livraison</h3>
-          <p>
-            {{ optionLabel(transportOptions, group.shippingTerms?.transportMode) }} ·
-            {{ optionLabel(pricingOptions, group.shippingTerms?.shippingPricingMethod) }}
-          </p>
-          <p>
-            {{ optionLabel(collectionOptions, group.shippingTerms?.shippingCollectionMode) }} ·
-            {{ money(group.shippingTerms?.shippingRate) }}
-          </p>
-        </div>
+          <section class="shipping-summary" aria-labelledby="detail-shipping-title">
+            <h3 id="detail-shipping-title">Conditions de livraison</h3>
+            <dl>
+              <div>
+                <dt>Transport</dt>
+                <dd>{{ optionLabel(transportOptions, group.shippingTerms?.transportMode) }}</dd>
+              </div>
+              <div>
+                <dt>Tarification</dt>
+                <dd>{{ optionLabel(pricingOptions, group.shippingTerms?.shippingPricingMethod) }}</dd>
+              </div>
+              <div>
+                <dt>Perception du transport</dt>
+                <dd>{{ optionLabel(collectionOptions, group.shippingTerms?.shippingCollectionMode) }}</dd>
+              </div>
+              <div>
+                <dt>Tarif indiqué</dt>
+                <dd>{{ money(group.shippingTerms?.shippingRate) }}</dd>
+              </div>
+            </dl>
+          </section>
+        </section>
         <div class="actions">
           @if (group.status === 'DRAFT') {
             <button

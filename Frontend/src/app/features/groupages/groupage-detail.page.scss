@@ -1,7 +1,7 @@
 :host { display:block; min-width:0; }
 .detail-breadcrumb { margin-bottom:var(--s3); }
 .detail-breadcrumb a { display:inline-flex; align-items:center; gap:var(--s2); min-height:44px; color:var(--primary); font-size:var(--text-sm); font-weight:600; }
-.detail-breadcrumb g-icon { width:16px; transform:rotate(180deg); }
+
 .detail-hero { background:var(--hero); color:var(--hero-text); border:1px solid var(--hero-border); border-radius:var(--radius-lg); padding:var(--s4) var(--s5); margin-bottom:var(--s4); min-width:0; }
 .detail-hero-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--s3); }
 .detail-title { min-width:0; flex:1; }
@@ -10,7 +10,7 @@
 .detail-hero g-badge { flex-shrink:0; }
 .detail-meta { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s4); margin-top:var(--s2); color:var(--hero-muted); font-size:var(--text-xs); }
 .detail-meta span { display:inline-flex; align-items:center; gap:var(--s1); min-width:0; }
-.detail-meta g-icon { width:15px; height:15px; }
+
 .detail-toolbar { display:flex; justify-content:space-between; align-items:center; gap:var(--s2); margin-top:var(--s3); }
 .detail-next-step { color:var(--hero-muted); font-size:var(--text-sm); min-width:0; }
 .detail-toolbar button { flex-shrink:0; display:inline-flex; align-items:center; gap:var(--s2); }
@@ -41,9 +41,9 @@
 .info-description[open],.settings-disclosure[open] { padding-bottom:var(--s4); }
 .info-description p { font-size:var(--text-sm); overflow-wrap:anywhere; }
 .settings-disclosure g-icon { width:16px; }
-.product { padding:var(--s3) 0; border-bottom:1px solid var(--border); min-width:0; }
-.product h3 { font-size:var(--text-sm); overflow-wrap:anywhere; }
-.price { font-size:var(--text-base); font-weight:650; margin:var(--s2) 0; }
+
+
+
 g-product-picker { display:block; margin-top:var(--s4); }
 @media(max-width:599px) {
   .detail-hero { padding:var(--s3); }
@@ -55,7 +55,7 @@ g-product-picker { display:block; margin-top:var(--s4); }
   .detail-share { gap:var(--s1) var(--s3); }
   .shipping-summary dl { gap:var(--s3); }
 }
-@media(max-width:359px) { .detail-toolbar { flex-wrap:wrap; } .shipping-summary dl { grid-template-columns:1fr; } }
+
 
 /* Offres lisibles sans galerie pleine largeur */
 .offer-list { display:grid; gap:var(--s2); }
@@ -71,7 +71,7 @@ g-product-picker { display:block; margin-top:var(--s4); }
 .list-toggle { display:block; margin:var(--s3) auto; min-height:44px; }
 .list-toggle:after { content:'⌄'; padding-left:var(--s2); }
 .list-toggle[aria-expanded='true']:after { display:inline-block; transform:rotate(180deg); }
-@media(max-width:480px) { .offer-list .product { align-items:start; } .offer-photo { flex-basis:48px; width:48px; height:48px; } }
+
 
 /* Parcours métier : les étapes sont réelles, les finances restent un onglet transversal. */
 .journey { min-width:0; margin-bottom:var(--s4); padding:var(--s3); background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); }
@@ -81,10 +81,10 @@ g-product-picker { display:block; margin-top:var(--s4); }
 .journey-track { display:flex; align-items:stretch; list-style:none; margin:0; padding:0 0 var(--s1); gap:var(--s1); overflow-x:auto; overscroll-behavior-inline:contain; scroll-snap-type:x proximity; scrollbar-width:thin; }
 .journey-track li { flex:1 0 120px; min-width:0; scroll-snap-align:start; }
 .journey-track button { appearance:none; display:flex; align-items:center; gap:var(--s2); width:100%; min-height:46px; padding:var(--s2); border-radius:var(--radius-md); border:1px solid var(--border); background:var(--surface-alt); color:var(--muted); text-align:left; font-size:var(--text-xs); font-weight:600; }
-.journey-track button:not(:disabled) { cursor:pointer; }
-.journey-track button:disabled { opacity:.62; cursor:default; }
+
+
 .journey-track .current button { color:var(--primary); background:var(--primary-soft); border-color:var(--primary); }
-.journey-track .done button { color:var(--primary); }
+
 .journey-marker { width:27px; height:27px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; color:var(--muted); border:1px solid var(--border); background:var(--surface); font-size:var(--text-xs); }
 .journey-marker g-icon { width:16px; height:16px; }
 .journey-track .current .journey-marker { color:white; background:var(--primary); border-color:var(--primary); }

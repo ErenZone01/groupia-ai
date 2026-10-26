@@ -6,6 +6,8 @@
     </div>
     <span>{{ state() }}</span>
   </header>
+  <details class="shipping-details">
+    <summary>Afficher mesures et calculs</summary>
   @let snap = assessment()?.snapshot;
   <p class="muted">
     Estimation historique :
@@ -53,6 +55,7 @@
   @if (final()?.explanation; as e) {
     <g-shipping-explanation [value]="e" />
   }
+  </details>
   <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
   @if (row().fulfillmentStatus && row().fulfillmentStatus !== 'NOT_READY') {
     <p class="notice">

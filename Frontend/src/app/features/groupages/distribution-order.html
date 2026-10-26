@@ -84,9 +84,14 @@
     </form>
   }
   </div>
-  <details class="distribution-financial">
-    <summary>Voir paiement et crédits</summary>
-  <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
+  @if (row().shippingSettlement?.status === 'CREDIT_DUE' || row().shippingSettlement?.refunds?.length) {
+    <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
+  } @else {
+    <details class="distribution-financial">
+      <summary>Voir les frais et paiements</summary>
+      <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
+    </details>
+  }
   @if (
     canManageRefunds() &&
     (row().shippingSettlement?.status === 'CREDIT_DUE' || row().shippingSettlement?.refunds?.length)
@@ -98,7 +103,6 @@
       (changed)="creditChanged.emit()"
     />
   }
-  </details>
   @if (row().fulfillmentStatus === 'NOT_READY' && row().readinessBlocker) {
     <p class="notice">{{ blockerLabel(row().readinessBlocker) }}</p>
   }

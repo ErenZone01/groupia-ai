@@ -104,6 +104,26 @@ export class GroupageDetailPage {
       { id: 'info', label: 'Infos', icon: 'info' },
     ];
   });
+  readonly priorityTab = computed(() => {
+    switch (this.store.current()?.status) {
+      case 'OPEN': return 'orders';
+      case 'CLOSED': return 'supplier';
+      case 'SUPPLIER_ORDERED':
+      case 'IN_TRANSIT': return 'transport';
+      case 'ARRIVED':
+      case 'DISTRIBUTING': return 'distribution';
+      case 'COMPLETED': return 'completion';
+      default: return 'products';
+    }
+  });
+  readonly priorityLabel = computed(() => ({
+    orders: 'Voir les commandes',
+    supplier: 'Gérer le fournisseur',
+    transport: 'Suivre le transport',
+    distribution: 'Gérer les retraits',
+    completion: 'Voir le bilan',
+    products: 'Voir les offres',
+  })[this.priorityTab()]);
   readonly editable = computed(() =>
     ['DRAFT', 'OPEN'].includes(this.store.current()?.status ?? ''),
   );
@@ -157,10 +177,17 @@ export class GroupageDetailPage {
   });
   private readonly id = computed(() => this.params().get('id')!);
   private sequence = 0;
+  private lastTabCampaign = '';
   constructor() {
     effect(() => {
-      if (this.store.current() && !this.tabs().some((item) => item.id === this.tab()))
-        this.tab.set('products');
+      const current = this.store.current();
+      if (!current) return;
+      if (current.id && current.id !== this.lastTabCampaign) {
+        this.lastTabCampaign = current.id;
+        if (!this.requestedTab) this.tab.set(this.priorityTab());
+      }
+      if (!this.tabs().some((item) => item.id === this.tab()))
+        this.tab.set(this.priorityTab());
     });
     effect(() => {
       const id = this.context.selectedId();

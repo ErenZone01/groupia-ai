@@ -67,32 +67,34 @@ export class GroupageDetailPage {
   readonly error = signal('');
   readonly catalogError = signal('');
   readonly products = signal<ProductView[]>([]);
+  private readonly requestedTab = this.route.snapshot.queryParamMap.get('tab');
   readonly tab = signal(
-    ['orders', 'supplier', 'distribution'].includes(
-      this.route.snapshot.queryParamMap.get('tab') ?? '',
-    )
-      ? this.route.snapshot.queryParamMap.get('tab')!
-      : 'overview',
+    this.requestedTab === 'overview' || this.requestedTab === 'settings'
+      ? 'info'
+      : ['products', 'orders', 'supplier', 'transport', 'distribution', 'finances', 'completion', 'info']
+          .includes(this.requestedTab ?? '')
+        ? this.requestedTab!
+        : 'products',
   );
   readonly adding = signal(false);
   readonly confirmingClose = signal(false);
-  readonly tabs = computed(() => [
-    { id: 'overview', label: 'Aperçu' },
-    { id: 'products', label: 'Produits' },
-    { id: 'orders', label: 'Commandes' },
-    {
-      id: 'supplier',
-      label: ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(
-        this.store.current()?.status ?? '',
-      )
-        ? 'Commande fournisseur'
-        : 'À commander',
-    },
-    ...(['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(this.store.current()?.status ?? '')
-      ? [{ id: 'distribution', label: 'Distribution et retraits' }]
-      : []),
-    { id: 'settings', label: 'Paramètres' },
-  ]);
+  readonly tabs = computed(() => {
+    const status = this.store.current()?.status ?? '';
+    const afterClosing = ['CLOSED', 'SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status);
+    const afterSupplier = ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status);
+    const afterArrival = ['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status);
+    return [
+      { id: 'products', label: 'Offres', icon: 'box' },
+      { id: 'orders', label: 'Commandes', icon: 'orders' },
+      ...(afterClosing ? [{ id: 'supplier', label: 'Fournisseur', icon: 'bag' }] : []),
+      ...(afterSupplier ? [{ id: 'transport', label: 'Transport', icon: 'group' }] : []),
+      ...(afterArrival ? [{ id: 'distribution', label: 'Retraits', icon: 'check' }] : []),
+      ...(afterClosing ? [{ id: 'finances', label: 'Finances', icon: 'card' }] : []),
+      ...(['DISTRIBUTING', 'COMPLETED'].includes(status)
+        ? [{ id: 'completion', label: 'Bilan', icon: 'trend' }] : []),
+      { id: 'info', label: 'Infos', icon: 'info' },
+    ];
+  });
   readonly editable = computed(() =>
     ['DRAFT', 'OPEN'].includes(this.store.current()?.status ?? ''),
   );
@@ -114,16 +116,16 @@ export class GroupageDetailPage {
   });
   readonly nextStepLabel = computed(() => {
     switch (this.store.current()?.status) {
-      case 'DRAFT': return 'Complétez les produits et les conditions, puis publiez lorsque tout est prêt.';
-      case 'OPEN': return 'Les commandes sont ouvertes. Retrouvez le lien de partage et les commandes ci-dessous.';
-      case 'CLOSED': return 'La prise de commandes est terminée. Consultez les étapes fournisseur et transport.';
-      case 'SUPPLIER_ORDERED': return 'La commande fournisseur est enregistrée. Suivez les étapes logistiques.';
-      case 'IN_TRANSIT': return 'Les marchandises sont en transport. Consultez les informations logistiques.';
-      case 'ARRIVED': return 'Les marchandises sont arrivées. Consultez les étapes de distribution disponibles.';
-      case 'DISTRIBUTING': return 'La distribution est en cours. Retrouvez les retraits et le suivi ci-dessous.';
-      case 'COMPLETED': return 'Ce groupage est terminé. Les informations restent accessibles en lecture.';
-      case 'CANCELLED': return 'Ce groupage est annulé. Consultez les informations conservées.';
-      default: return 'Consultez les sections ci-dessous pour suivre ce groupage.';
+      case 'DRAFT': return 'Préparez vos offres';
+      case 'OPEN': return 'Commandes ouvertes';
+      case 'CLOSED': return 'Préparez le fournisseur';
+      case 'SUPPLIER_ORDERED': return 'Préparez le transport';
+      case 'IN_TRANSIT': return 'Transport en cours';
+      case 'ARRIVED': return 'Organisez les retraits';
+      case 'DISTRIBUTING': return 'Retraits en cours';
+      case 'COMPLETED': return 'Groupage terminé';
+      case 'CANCELLED': return 'Groupage annulé';
+      default: return 'Suivi du groupage';
     }
   });
   readonly dakarDate = (date?: string) =>
@@ -147,6 +149,9 @@ export class GroupageDetailPage {
   private readonly id = computed(() => this.params().get('id')!);
   private sequence = 0;
   constructor() {
+    effect(() => {
+      if (!this.tabs().some((item) => item.id === this.tab())) this.tab.set('products');
+    });
     effect(() => {
       const id = this.context.selectedId();
       this.id();

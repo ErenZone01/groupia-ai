@@ -27,7 +27,7 @@
     <div class="detail-toolbar">
       <span class="detail-next-step">{{ nextStepLabel() }}</span>
       @if (group.status === 'DRAFT') {
-        <button gButton [loading]="store.busy()" [disabled]="store.stale()" (click)="perform('open')">
+        <button gButton aria-label="Publier le groupage" [loading]="store.busy()" [disabled]="store.stale()" (click)="perform('open')">
           <g-icon name="check" /> Publier
         </button>
       }

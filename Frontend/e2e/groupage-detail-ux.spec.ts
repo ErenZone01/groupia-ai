@@ -24,7 +24,7 @@ for (const status of ['DRAFT', 'OPEN'] as const) {
       await expect(page.getByRole('tab', { name: 'Commandes' })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Infos' })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Aperçu' })).toHaveCount(0);
-      await expect(page.getByRole('tab', { name: 'Fournisseur' })).toHaveCount(status === 'OPEN' ? 1 : 0);
+      await expect(page.getByRole('tab', { name: 'Fournisseur' })).toHaveCount(1);
       await expect(page.locator('g-logistics-panel, g-merchant-funds-panel, g-completion-panel')).toHaveCount(0);
       if (status === 'OPEN') {
         const share = page.getByRole('region', { name: 'Partager le groupage' });

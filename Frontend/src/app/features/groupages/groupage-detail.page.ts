@@ -94,7 +94,7 @@ export class GroupageDetailPage {
     return [
       { id: 'products', label: 'Offres', icon: 'box' },
       { id: 'orders', label: 'Commandes', icon: 'orders' },
-      { id: 'supplier', label: 'Fournisseur', icon: 'bag' },
+      ...(status !== 'CANCELLED' ? [{ id: 'supplier', label: 'Fournisseur', icon: 'bag' }] : []),
       ...(afterSupplier ? [{ id: 'transport', label: 'Transport', icon: 'group' }] : []),
       ...(afterArrival ? [{ id: 'distribution', label: 'Retraits', icon: 'check' }] : []),
       ...(afterClosing ? [{ id: 'finances', label: 'Finances', icon: 'card' }] : []),
@@ -127,6 +127,7 @@ export class GroupageDetailPage {
   readonly currentJourney = computed(() =>
     this.journeyIndex() >= 0 ? this.journey[this.journeyIndex()].name : 'Arrêté',
   );
+  readonly availableJourneyTabs = computed(() => new Set(this.tabs().map((item) => item.id)));
   readonly priorityTab = computed(() => {
     switch (this.store.current()?.status) {
       case 'OPEN': return 'orders';

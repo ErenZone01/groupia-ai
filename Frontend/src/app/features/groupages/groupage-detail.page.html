@@ -53,6 +53,30 @@
       </section>
     }
   </header>
+  @if (journeyIndex() >= 0) {
+    <section class="journey" aria-labelledby="journey-heading">
+      <div class="journey-heading">
+        <h2 id="journey-heading">Étape {{ journeyIndex() + 1 }} sur {{ journey.length }}</h2>
+        <span>{{ currentJourney() }}</span>
+      </div>
+      <ol class="journey-track" aria-label="Progression du groupage">
+        @for (step of journey; track step.tab; let i = $index) {
+          <li [class.done]="i < journeyIndex()" [class.current]="i === journeyIndex()">
+            <button type="button" [attr.aria-current]="i === journeyIndex() ? 'step' : null"
+                    [disabled]="!tabs().some(t => t.id === step.tab)"
+                    [attr.aria-label]="'Étape ' + (i + 1) + ' : ' + step.name"
+                    (click)="tab.set(step.tab)">
+              <span class="journey-marker" aria-hidden="true">
+                @if (i < journeyIndex()) { <g-icon name="check" /> }
+                @else { {{ i + 1 }} }
+              </span>
+              <span>{{ step.name }}</span>
+            </button>
+          </li>
+        }
+      </ol>
+    </section>
+  }
   <g-tabs id="groupage-sections" [tabs]="tabs()" [(active)]="tab" label="Sections du groupage">
     <g-card>
       @if (tab() === 'products') {

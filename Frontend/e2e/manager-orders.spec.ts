@@ -189,7 +189,7 @@ test('groupage : corrélation exacte et retour aux commandes', async ({ page }) 
   await page.getByRole('tab', { name: 'Commandes', exact: true }).click();
   await expect(page.getByText('20 commande(s) au total')).toBeVisible();
   expect(state.calls.at(-1)?.campaign).toBe(groupId);
-  await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Fournisseur', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Payées', exact: true }).click();
   await expect(page.getByText('4 commande(s) pour ce filtre')).toBeVisible();
   expect(state.calls.at(-1)?.status).toBe('CONFIRMED');

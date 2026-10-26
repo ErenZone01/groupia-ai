@@ -48,7 +48,7 @@ import { optionLabel, transportOptions } from './groupage-labels';
       margin-top: var(--s6);
     }
     .logistics {
-      padding: var(--s5);
+      padding: var(--s4);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       background: var(--surface);
@@ -77,9 +77,17 @@ import { optionLabel, transportOptions } from './groupage-labels';
     .actions {
       flex-wrap: wrap;
     }
-    button {
-      white-space: normal;
-    }
+    button { white-space:normal; min-height:44px; }
+    .logistics-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:var(--s2); margin:var(--s3) 0; }
+    .logistics-summary div { padding:var(--s3); border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface-alt); }
+    .logistics-summary dt { color:var(--muted); font-size:var(--text-xs); }
+    .logistics-summary dd { font-weight:650; font-size:var(--text-sm); margin:var(--s1) 0 0; }
+    .logistics-actions { display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s3) 0; }
+    .logistics-more { border-top:1px solid var(--border); margin-top:var(--s4); padding-top:var(--s3); }
+    .logistics-more summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:var(--text-sm); font-weight:650; }
+    .logistics-more dl { margin-top:var(--s3); }
+    .transport-batch-toggle { margin-top:var(--s3); }
+
   `,
 })
 export class LogisticsPanel {
@@ -95,6 +103,8 @@ export class LogisticsPanel {
   readonly stale = signal(true);
   readonly error = signal('');
   readonly editing = signal(false);
+  readonly shippingExpanded = signal(false);
+  readonly moreDetails = signal(false);
   readonly confirmingArrival = signal(false);
   readonly dateLabel = dateLabel;
   readonly statusLabel = statusLabel;
@@ -122,6 +132,8 @@ export class LogisticsPanel {
         this.request?.unsubscribe();
         this.busy.set(false);
         this.editing.set(false);
+        this.shippingExpanded.set(false);
+        this.moreDetails.set(false);
         this.confirmingArrival.set(false);
         this.shipment.set(null);
         this.lifecycle.set(null);

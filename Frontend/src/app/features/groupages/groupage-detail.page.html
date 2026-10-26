@@ -63,7 +63,7 @@
         @for (step of journey; track step.tab; let i = $index) {
           <li [class.done]="i < journeyIndex()" [class.current]="i === journeyIndex()">
             <button type="button" [attr.aria-current]="i === journeyIndex() ? 'step' : null"
-                    [disabled]="!tabs().some(t => t.id === step.tab)"
+                    [disabled]="i > journeyIndex() || !availableJourneyTabs().has(step.tab)"
                     [attr.aria-label]="'Étape ' + (i + 1) + ' : ' + step.name"
                     (click)="tab.set(step.tab)">
               <span class="journey-marker" aria-hidden="true">

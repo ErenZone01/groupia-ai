@@ -10,26 +10,7 @@
   @if (row().pickedUpAt) {
     <p>Retirée le {{ dateLabel(row().pickedUpAt) }}</p>
   }
-  <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
-  @if (
-    canManageRefunds() &&
-    (row().shippingSettlement?.status === 'CREDIT_DUE' || row().shippingSettlement?.refunds?.length)
-  ) {
-    <g-credit-resolution
-      [organizationId]="organizationId()"
-      [row]="row()"
-      [disabled]="disabled()"
-      (changed)="creditChanged.emit()"
-    />
-  }
-  @if (row().fulfillmentStatus === 'NOT_READY' && row().readinessBlocker) {
-    <p class="notice">{{ blockerLabel(row().readinessBlocker) }}</p>
-  }
-  @if (row().shippingSettlement?.status === 'CREDIT_DUE') {
-    <p class="muted">
-      Ce crédit n’empêche pas le retrait. La régularisation reste à effectuer par la boutique.
-    </p>
-  }
+  <div class="distribution-primary-actions">
   @if (!mode()) {
     <div class="actions">
       @if (row().canMarkReady) {
@@ -101,6 +82,27 @@
         </button>
       </div>
     </form>
+  }
+  </div>
+  <g-shipping-settlement [value]="row().shippingSettlement" [manager]="true" />
+  @if (
+    canManageRefunds() &&
+    (row().shippingSettlement?.status === 'CREDIT_DUE' || row().shippingSettlement?.refunds?.length)
+  ) {
+    <g-credit-resolution
+      [organizationId]="organizationId()"
+      [row]="row()"
+      [disabled]="disabled()"
+      (changed)="creditChanged.emit()"
+    />
+  }
+  @if (row().fulfillmentStatus === 'NOT_READY' && row().readinessBlocker) {
+    <p class="notice">{{ blockerLabel(row().readinessBlocker) }}</p>
+  }
+  @if (row().shippingSettlement?.status === 'CREDIT_DUE') {
+    <p class="muted">
+      Ce crédit n’empêche pas le retrait. La régularisation reste à effectuer par la boutique.
+    </p>
   }
   @if (row().history?.length) {
     <details>

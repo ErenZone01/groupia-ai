@@ -87,6 +87,6 @@ test('détail V2 : anciens liens, navigation au clavier et retour', async ({ pag
   await page.keyboard.press('Home');
   await expect(page.getByRole('tab', { name: 'Offres' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('link', { name: 'Tous les groupages' }).click();
-  await expect(page).toHaveURL(/\\/app\\/groupages$/);
+  await expect(page).toHaveURL(/\/app\/groupages$/);
   await noOverflow(page);
 });

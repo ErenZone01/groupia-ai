@@ -37,7 +37,7 @@
     </div>
     @if (group.status === 'OPEN' && publicUrl()) {
       <section class="detail-share" aria-label="Partager le groupage">
-        <a [routerLink]="['/public/groupages', group.publicIdentifier]" class="public-preview">
+        <a [routerLink]="['/public/groupages', group.publicIdentifier]" class="public-preview" aria-label="Voir comme une cliente">
           <g-icon name="arrow" /> Voir la page cliente
         </a>
         <details class="share-disclosure">

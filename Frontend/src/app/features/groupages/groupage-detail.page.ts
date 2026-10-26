@@ -177,15 +177,10 @@ export class GroupageDetailPage {
   });
   private readonly id = computed(() => this.params().get('id')!);
   private sequence = 0;
-  private lastTabCampaign = '';
   constructor() {
     effect(() => {
       const current = this.store.current();
       if (!current) return;
-      if (current.id && current.id !== this.lastTabCampaign) {
-        this.lastTabCampaign = current.id;
-        if (!this.requestedTab) this.tab.set(this.priorityTab());
-      }
       if (!this.tabs().some((item) => item.id === this.tab()))
         this.tab.set(this.priorityTab());
     });

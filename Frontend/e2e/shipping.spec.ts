@@ -223,7 +223,8 @@ for (const [i, c] of cases.entries()) {
     const theme = i % 2 ? 'dark' : 'light';
     await page.setViewportSize({ width: 360, height: 900 });
     await page.addInitScript((t) => localStorage.setItem('groupia.theme', t), theme);
-    await page.goto('/app/groupages/' + groupId);
+    await page.goto('/app/groupages/' + groupId + '?tab=transport');
+    await page.getByRole('button', { name: 'Gérer les frais par commande' }).click();
     const batch = page.locator('g-shipping-batch'),
       editor = batch.locator('g-shipping-order-editor');
     await expect(editor).toContainText('GRP-SHIPPING');

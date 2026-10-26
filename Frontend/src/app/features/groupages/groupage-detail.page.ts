@@ -94,7 +94,8 @@ export class GroupageDetailPage {
     return [
       { id: 'products', label: 'Offres', icon: 'box' },
       { id: 'orders', label: 'Commandes', icon: 'orders' },
-      ...(afterClosing ? [{ id: 'supplier', label: 'Fournisseur', icon: 'bag' }] : []),
+      ...(['OPEN', 'CLOSED', 'SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status)
+        ? [{ id: 'supplier', label: 'Fournisseur', icon: 'bag' }] : []),
       ...(afterSupplier ? [{ id: 'transport', label: 'Transport', icon: 'group' }] : []),
       ...(afterArrival ? [{ id: 'distribution', label: 'Retraits', icon: 'check' }] : []),
       ...(afterClosing ? [{ id: 'finances', label: 'Finances', icon: 'card' }] : []),
@@ -125,7 +126,7 @@ export class GroupageDetailPage {
   readonly nextStepLabel = computed(() => {
     switch (this.store.current()?.status) {
       case 'DRAFT': return 'Préparez vos offres';
-      case 'OPEN': return 'Commandes ouvertes';
+      case 'OPEN': return 'Partagez et suivez les commandes';
       case 'CLOSED': return 'Préparez le fournisseur';
       case 'SUPPLIER_ORDERED': return 'Préparez le transport';
       case 'IN_TRANSIT': return 'Transport en cours';

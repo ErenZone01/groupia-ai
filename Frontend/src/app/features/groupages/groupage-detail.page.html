@@ -31,6 +31,11 @@
           <g-icon name="check" /> Publier
         </button>
       }
+      @if (['CLOSED','SUPPLIER_ORDERED','IN_TRANSIT','ARRIVED','DISTRIBUTING','COMPLETED'].includes(group.status ?? '')) {
+        <button gButton class="priority-action" (click)="tab.set(priorityTab())">
+          <g-icon name="arrow" /> {{ priorityLabel() }}
+        </button>
+      }
       @if (group.status === 'OPEN' && publicUrl()) {
         <button gButton (click)="copy()"><g-icon name="link" /> Copier le lien</button>
       }

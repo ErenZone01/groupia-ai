@@ -72,11 +72,10 @@ for (const [width, theme] of [
     await page.goto('/app/groupages/' + groupId);
     expect(state.calls).toBe(0);
     // Navigation au clavier depuis l’onglet sélectionné.
-    await page.getByRole('tab', { name: 'Aperçu', exact: true }).focus();
+    await page.getByRole('tab', { name: 'Offres', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('tab', { name: 'Fournisseur', exact: true })).toHaveAttribute(
       'aria-selected',
       'true',
     );

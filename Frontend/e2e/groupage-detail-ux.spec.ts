@@ -28,7 +28,7 @@ for (const status of ['DRAFT', 'OPEN'] as const) {
       await expect(page.locator('g-logistics-panel, g-merchant-funds-panel, g-completion-panel')).toHaveCount(0);
       if (status === 'OPEN') {
         const share = page.getByRole('region', { name: 'Partager le groupage' });
-        await expect(share.getByRole('link', { name: 'Voir la page cliente' })).toBeVisible();
+        await expect(share.getByRole('link', { name: 'Voir comme une cliente' })).toBeVisible();
         await expect(share.locator('.share-link')).not.toBeVisible();
         await share.locator('summary').click();
         await expect(share.locator('.share-link')).toBeVisible();
@@ -39,7 +39,7 @@ for (const status of ['DRAFT', 'OPEN'] as const) {
         await page.getByRole('button', { name: 'Annuler' }).click();
         await expect(page.getByRole('group', { name: 'Confirmation de fermeture' })).toHaveCount(0);
       } else {
-        await expect(hero.getByRole('button', { name: 'Publier' })).toBeVisible();
+        await expect(hero.getByRole('button', { name: 'Publier le groupage' })).toBeVisible();
         await expect(page.getByRole('region', { name: 'Partager le groupage' })).toHaveCount(0);
       }
       await page.getByRole('tab', { name: 'Infos' }).click();

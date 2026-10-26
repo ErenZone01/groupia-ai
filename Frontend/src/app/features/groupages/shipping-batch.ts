@@ -87,8 +87,12 @@ import { money } from '../../shared/utils/display';
       margin-bottom: var(--s3);
     }
     .shipping-stat-details { grid-column:1/-1; }
-    .shipping-stat-details summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-weight:600; }
+    .shipping-stat-details summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-weight:600; color:var(--primary); }
+    .shipping-stat-details summary:after { content:'⌄'; margin-left:auto; font-size:22px; }
+    .shipping-stat-details[open] summary:after { transform:rotate(180deg); }
     .shipping-show-all { margin-top:var(--s3); min-height:44px; }
+    .shipping-show-all:after { content:'⌄'; padding-left:var(--s2); }
+    .shipping-show-all[aria-expanded='true']:after { display:inline-block; transform:rotate(180deg); }
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));

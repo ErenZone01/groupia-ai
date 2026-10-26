@@ -52,14 +52,14 @@
     <g-card>
       @if (tab() === 'products') {
         <div class="section-heading">
-          <h2>Produits du groupage</h2>
+          <h2>Offres <small>({{ group.offers?.length ?? 0 }})</small></h2>
           @if (editable()) {
             <button
               gButton
               [disabled]="store.busy() || store.stale()"
               (click)="adding.set(!adding())"
             >
-              {{ adding() ? 'Masquer l’ajout' : 'Ajouter un produit' }}
+              {{ adding() ? 'Fermer' : 'Ajouter une offre' }}
             </button>
           }
         </div>
@@ -67,25 +67,43 @@
           <p role="status">{{ catalogError() }}</p>
           <button gButton variant="ghost" (click)="load()">Actualiser les produits</button>
         }
-        @for (offer of group.offers; track offer.id) {
-          <article class="product">
-            <div class="section-heading">
-              <h3>{{ label(offer) }}</h3>
-              <g-badge [tone]="offer.active ? 'positive' : 'neutral'">{{
-                offer.active ? 'Actif' : 'Inactif'
-              }}</g-badge>
-            </div>
-            <p class="muted">{{ variant(offer) }}</p>
-            <p class="price">{{ money(offer.unitPrice, offer.currency) }}</p>
-            @if (editable()) {
-              <g-offer-price-editor [offer]="offer" [organizationId]="context.selectedId()!" />
-            }
-          </article>
-        } @empty {
-          <g-empty-state
-            title="Aucun produit dans ce groupage"
-            description="Ajoutez votre première sélection depuis le catalogue."
-          />
+        <div class="offer-list" aria-label="Offres du groupage">
+          @for (offer of visibleOffers(); track offer.id) {
+            <article class="product">
+              <div class="offer-photo">
+                @if (thumbnail(offer); as image) {
+                  <img [src]="image" [alt]="label(offer)" width="56" height="56"
+                       loading="lazy" decoding="async" (error)="thumbnailFailed(offer)" />
+                } @else {
+                  <g-icon name="box" />
+                }
+              </div>
+              <div class="offer-body">
+                <div class="offer-heading">
+                  <h3 [title]="label(offer)">{{ label(offer) }}</h3>
+                  <g-badge [tone]="offer.active ? 'positive' : 'neutral'">
+                    {{ offer.active ? 'Actif' : 'Inactif' }}
+                  </g-badge>
+                </div>
+                <p class="offer-variant" [title]="variant(offer)">{{ variant(offer) }}</p>
+                <div class="offer-bottom">
+                  <strong class="price">{{ money(offer.unitPrice, offer.currency) }}</strong>
+                  @if (editable()) {
+                    <g-offer-price-editor [offer]="offer" [organizationId]="context.selectedId()!" />
+                  }
+                </div>
+              </div>
+            </article>
+          } @empty {
+            <g-empty-state title="Aucune offre" description="Ajoutez un produit depuis le catalogue." />
+          }
+        </div>
+        @if ((group.offers?.length ?? 0) > 4) {
+          <button gButton variant="secondary" class="list-toggle"
+                  [attr.aria-expanded]="showAllOffers()"
+                  (click)="showAllOffers.set(!showAllOffers())">
+            {{ showAllOffers() ? 'Réduire la liste' : 'Voir toutes les offres (' + (group.offers?.length ?? 0) + ')' }}
+          </button>
         }
         @if (adding() && editable()) {
           <g-product-picker

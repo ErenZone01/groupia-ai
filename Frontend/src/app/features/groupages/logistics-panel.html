@@ -10,6 +10,7 @@
   @if (!loading()) {
     @if (lifecycle(); as current) {
       <p><strong>{{ statusLabel(current.status) }}</strong></p>
+      <p class="muted">Transport : {{ optionLabel(transportOptions, shipment()?.transportMode ?? campaign().shippingTerms?.transportMode) }}</p>
       @if (shipment(); as s) {
         <dl class="logistics-summary">
           <div><dt>Départ</dt><dd>{{ s.departureConfirmedAt ? 'Confirmé' : 'À confirmer' }}</dd></div>

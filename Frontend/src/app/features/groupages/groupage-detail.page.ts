@@ -94,8 +94,7 @@ export class GroupageDetailPage {
     return [
       { id: 'products', label: 'Offres', icon: 'box' },
       { id: 'orders', label: 'Commandes', icon: 'orders' },
-      ...(['OPEN', 'CLOSED', 'SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status)
-        ? [{ id: 'supplier', label: 'Fournisseur', icon: 'bag' }] : []),
+      { id: 'supplier', label: 'Fournisseur', icon: 'bag' },
       ...(afterSupplier ? [{ id: 'transport', label: 'Transport', icon: 'group' }] : []),
       ...(afterArrival ? [{ id: 'distribution', label: 'Retraits', icon: 'check' }] : []),
       ...(afterClosing ? [{ id: 'finances', label: 'Finances', icon: 'card' }] : []),

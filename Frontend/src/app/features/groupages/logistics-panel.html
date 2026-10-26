@@ -1,5 +1,6 @@
+<div class="transport-workspace">
 <section class="logistics" aria-labelledby="logistics-title">
-  <h2 id="logistics-title">Logistique</h2>
+  <h2 id="logistics-title">Expédition</h2>
   <p class="muted">Départ, arrivée et frais de livraison.</p>
   @if (loading()) {
     <g-skeleton />
@@ -17,7 +18,7 @@
           <div><dt>Arrivée</dt><dd>{{ s.arrivalConfirmedAt ? 'Confirmée' : (s.expectedArrivalAt ? dateLabel(s.expectedArrivalAt) : 'En attente') }}</dd></div>
         </dl>
         <details class="logistics-more">
-          <summary>Informations et références</summary>
+          <summary>Afficher le dossier et les références</summary>
         <dl>
           <div>
             <dt>Transport</dt>
@@ -76,7 +77,7 @@
       }
       @if (['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED'].includes(current.status ?? '')) {
         <details class="logistics-more">
-          <summary>Compléter le suivi</summary>
+          <summary>Ajouter ou modifier le suivi</summary>
         <div class="actions">
           <button
             gButton
@@ -236,7 +237,7 @@
         <p class="notice">Arrivée confirmée. Préparez les retraits dans l’onglet Retraits.</p>
       }
       @if (shipment(); as s) {
-        <details class="logistics-more"><summary>Historique ({{ s.timeline?.length ?? 0 }})</summary>
+        <details class="logistics-more"><summary>Voir l’historique ({{ s.timeline?.length ?? 0 }})</summary>
           <g-logistics-timeline [facts]="s.timeline ?? []" />
         </details>
       }
@@ -250,12 +251,21 @@
 </section>
 
 @if (['SUPPLIER_ORDERED','IN_TRANSIT','ARRIVED','DISTRIBUTING','COMPLETED'].includes(lifecycle()?.status ?? '')) {
-  <button gButton variant="secondary" class="transport-batch-toggle"
-          [attr.aria-expanded]="shippingExpanded()" (click)="shippingExpanded.set(!shippingExpanded())">
-    {{ shippingExpanded() ? 'Masquer les frais par commande' : 'Gérer les frais par commande' }}
-  </button>
-  @if (shippingExpanded()) {
-    <g-shipping-batch [readOnly]="campaign().status === 'COMPLETED'"
-      [organizationId]="organizationId()" [campaignId]="campaign().id!" />
-  }
+  <aside class="transport-side" aria-labelledby="transport-side-title">
+    <h2 id="transport-side-title">Frais par commande</h2>
+    <p class="muted">Saisir ou vérifier les montants.</p>
+    <button gButton variant="secondary" class="transport-batch-toggle"
+            [attr.aria-expanded]="shippingExpanded()" aria-controls="transport-orders"
+            (click)="shippingExpanded.set(!shippingExpanded())">
+      {{ shippingExpanded() ? 'Masquer les commandes' : 'Afficher les commandes et frais' }}
+      <span class="toggle-caret" aria-hidden="true">⌄</span>
+    </button>
+    <div id="transport-orders">
+      @if (shippingExpanded()) {
+        <g-shipping-batch [readOnly]="campaign().status === 'COMPLETED'"
+          [organizationId]="organizationId()" [campaignId]="campaign().id!" />
+      }
+    </div>
+  </aside>
 }
+</div>

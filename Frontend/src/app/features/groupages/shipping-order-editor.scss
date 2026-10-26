@@ -53,3 +53,17 @@ summary {
   padding: var(--s3) 0;
   border-top: 1px solid var(--border);
 }
+
+/* Une ligne d'abord, calculs et historique seulement sur demande. */
+article { padding:var(--s3); margin:var(--s2) 0; }
+header { align-items:center; }
+header h3 { font-size:var(--text-base); font-weight:650; margin:0; }
+header p { font-size:var(--text-sm); color:var(--muted); margin:var(--s1) 0 0; }
+header span { border-radius:99px; padding:var(--s1) var(--s2); font-size:var(--text-xs); background:var(--primary-soft); color:var(--primary); font-weight:600; }
+.shipping-details { background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); margin:var(--s3) 0; padding:0 var(--s3); }
+.shipping-details summary { list-style:none; min-height:44px; display:flex; align-items:center; font-weight:600; color:var(--primary); }
+.shipping-details summary::-webkit-details-marker { display:none; }
+.shipping-details summary:after { content:'⌄'; font-size:23px; margin-left:auto; }
+.shipping-details[open] { padding-bottom:var(--s3); }
+.shipping-details[open] summary:after { transform:rotate(180deg); }
+.shipping-details summary:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }

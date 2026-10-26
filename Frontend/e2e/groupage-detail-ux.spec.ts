@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { groupId, mockApi, noOverflow, session } from './api-mock';
+import { groupId, mockApi, noOverflow, session, productId, variantId, publicProductImage } from './api-mock';
 
 for (const status of ['DRAFT', 'OPEN'] as const) {
   for (const [width, height, theme] of [
@@ -88,5 +88,27 @@ test('détail V2 : anciens liens, navigation au clavier et retour', async ({ pag
   await expect(page.getByRole('tab', { name: 'Offres' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('link', { name: 'Tous les groupages' }).click();
   await expect(page).toHaveURL(/\/app\/groupages$/);
+  await noOverflow(page);
+});
+
+test('détail V2 : miniatures et longue liste sans défilement initial', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await session(page);
+  const state = await mockApi(page, { status: 'OPEN' });
+  state.groups[0].offers = Array.from({ length: 9 }, (_, i) => ({
+    id: 'offre-' + i, productVariantId: variantId, commercialLabel: 'Chemise ' + (i + 1),
+    unitPrice: 5000, currency: 'XOF', active: true, version: 1, priceRevision: 1,
+  }));
+  await page.route('**/api/organizations/*/product-media*', route =>
+    route.fulfill({ json: [{ productId, enabled: true, primaryThumbnailUrl: publicProductImage }] }),
+  );
+  await page.goto('/app/groupages/' + groupId + '?tab=products');
+  const offers = page.locator('.offer-list .product');
+  await expect(offers).toHaveCount(4);
+  await expect(offers.first().getByRole('img', { name: 'Chemise 1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Voir toutes les offres (9)' }).click();
+  await expect(offers).toHaveCount(9);
+  await page.getByRole('button', { name: 'Réduire la liste' }).click();
+  await expect(offers).toHaveCount(4);
   await noOverflow(page);
 });

@@ -51,7 +51,7 @@ export interface TabItem {
     button:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
     [role='tabpanel'] { padding-top:var(--s4); min-width:0; }
     @media(max-width:599px) { [role='tablist'] { gap:var(--s1); padding:var(--s1); } button { padding:var(--s2); } }
-  `,,
+  `,
 })
 export class Tabs {
   readonly id = input.required<string>();

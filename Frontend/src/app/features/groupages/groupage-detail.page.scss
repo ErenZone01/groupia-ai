@@ -36,6 +36,8 @@
 .shipping-summary dd { margin:var(--s1) 0 0; font-size:var(--text-sm); overflow-wrap:anywhere; }
 .info-description,.settings-disclosure { border:1px solid var(--border); border-radius:var(--radius-md); padding:0 var(--s4); min-width:0; }
 .info-description summary,.settings-disclosure summary { display:flex; align-items:center; gap:var(--s2); cursor:pointer; font-weight:600; font-size:var(--text-sm); min-height:48px; }
+.info-description summary:after,.settings-disclosure summary:after { content:'⌄'; margin-left:auto; color:var(--primary); }
+.info-description[open] summary:after,.settings-disclosure[open] summary:after { transform:rotate(180deg); }
 .info-description[open],.settings-disclosure[open] { padding-bottom:var(--s4); }
 .info-description p { font-size:var(--text-sm); overflow-wrap:anywhere; }
 .settings-disclosure g-icon { width:16px; }

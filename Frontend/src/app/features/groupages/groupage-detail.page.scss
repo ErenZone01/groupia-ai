@@ -69,6 +69,8 @@ g-product-picker { display:block; margin-top:var(--s4); }
 .offer-bottom { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--s2); }
 .offer-bottom .price { font-size:var(--text-sm); margin:0; }
 .list-toggle { display:block; margin:var(--s3) auto; min-height:44px; }
+.list-toggle:after { content:'⌄'; padding-left:var(--s2); }
+.list-toggle[aria-expanded='true']:after { display:inline-block; transform:rotate(180deg); }
 @media(max-width:480px) { .offer-list .product { align-items:start; } .offer-photo { flex-basis:48px; width:48px; height:48px; } }
 
 /* Parcours métier : les étapes sont réelles, les finances restent un onglet transversal. */

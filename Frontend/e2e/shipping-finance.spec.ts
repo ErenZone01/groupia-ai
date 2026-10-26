@@ -186,7 +186,8 @@ for (const width of [360, 1280])
         ],
       }),
     );
-    await page.goto('/app/groupages/' + groupId);
+    await page.goto('/app/groupages/' + groupId + '?tab=transport');
+    await page.getByRole('button', { name: 'Gérer les frais par commande' }).click();
     await expect(page.getByText('Payé initialement', { exact: true })).toBeVisible();
     await expect(page.getByText('Compléments réglés', { exact: true })).toBeVisible();
     await expect(page.getByText('Solde ouvert', { exact: true })).toBeVisible();

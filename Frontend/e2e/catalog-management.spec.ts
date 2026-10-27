@@ -3,7 +3,7 @@ import { mockApi, noOverflow, productId, session } from './api-mock';
 
 async function mutableCatalog(page: Page, state: Awaited<ReturnType<typeof mockApi>>) {
   let conflict = false;
-  await page.route('**/api/organizations/*/products/*', async route => {
+  await page.route('**/api/organizations/*/products/**', async route => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
     if (req.method() === 'GET') return route.fallback();

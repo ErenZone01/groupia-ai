@@ -1,119 +1,145 @@
-<a class="back" [routerLink]="backLink()" [queryParams]="backQuery()"
-  >← {{ fromGroupage() ? 'Commandes du groupage' : 'Toutes les commandes' }}</a
->
+<a class="back" [routerLink]="backLink()" [queryParams]="backQuery()">
+  ← {{ fromGroupage() ? 'Commandes du groupage' : 'Toutes les commandes' }}
+</a>
 @if (loading()) {
   <g-skeleton /><g-skeleton />
 } @else if (error()) {
-  <h1>Commande indisponible</h1>
-  <p class="form-error" role="alert">{{ error() }}</p>
-  <button gButton (click)="reload()">Réessayer</button>
+  <section class="failure">
+    <h1>Commande indisponible</h1>
+    <p class="form-error" role="alert">{{ error() }}</p>
+    <button gButton (click)="reload()">Réessayer</button>
+  </section>
 } @else if (data(); as view) {
   @if (view.order; as order) {
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Commande</p>
-        <h1>{{ order.orderNumber }}</h1>
-        <p>{{ date(order.placedAt) }}</p>
+    <header class="order-hero">
+      <div class="hero-top">
+        <div class="hero-title">
+          <p class="eyebrow">Détail de la commande</p>
+          <h1 id="order-title">{{ order.orderNumber }}</h1>
+        </div>
+        <g-badge [tone]="tone(order.status)">{{ status(order.status) }}</g-badge>
       </div>
-      <g-badge [tone]="tone(order.status)">{{ status(order.status) }}</g-badge>
-    </div>
-    <div class="details-grid">
-      <g-card
-        ><h2>Cliente</h2>
-        @if (view.customerContactSnapshot; as contact) {
-          <dl>
-            <div>
-              <dt>Prénom</dt>
-              <dd>{{ contact.firstName || 'Non renseigné' }}</dd>
-            </div>
-            <div>
-              <dt>Nom</dt>
-              <dd>{{ contact.lastName || 'Non renseigné' }}</dd>
-            </div>
-            <div>
-              <dt>Téléphone</dt>
-              <dd>{{ contact.phoneE164 || 'Non renseigné' }}</dd>
-            </div>
-            @if (contact.email) {
-              <div>
-                <dt>Email</dt>
-                <dd>{{ contact.email }}</dd>
-              </div>
+      <div class="hero-meta">
+        <span>{{ date(order.placedAt) }}</span>
+        <span>{{ customerName() }}</span>
+        <span>{{ items().length }} article(s) différent(s)</span>
+      </div>
+      <div class="order-progress" aria-label="Situation de la commande">
+        <div class="progress-step">
+          <span class="step-marker complete" aria-hidden="true">✓</span>
+          <div><strong>Commande</strong><small>Enregistrée</small></div>
+        </div>
+        <div class="progress-step">
+          <span class="step-marker" [class.complete]="order.status === 'CONFIRMED' || order.status === 'COMPLETED'"
+            [class.current]="order.status === 'PENDING_PAYMENT'" aria-hidden="true">
+            {{ order.status === 'CONFIRMED' || order.status === 'COMPLETED' ? '✓' : '2' }}
+          </span>
+          <div><strong>Paiement</strong><small>{{ order.status === 'CONFIRMED' || order.status === 'COMPLETED' ? 'Reçu' : status(order.status) }}</small></div>
+        </div>
+        <div class="progress-step">
+          <span class="step-marker"
+            [class.complete]="order.fulfillmentStatus === 'PICKED_UP'"
+            [class.current]="order.fulfillmentStatus === 'READY_FOR_PICKUP'" aria-hidden="true">
+            {{ order.fulfillmentStatus === 'PICKED_UP' ? '✓' : '3' }}
+          </span>
+          <div><strong>Retrait</strong><small>{{ fulfillment(order.fulfillmentStatus) }}</small></div>
+        </div>
+      </div>
+    </header>
+
+    <nav class="section-nav" aria-label="Sections du détail de commande">
+      <a href="#order-products">Produits</a>
+      <a href="#order-payment">Paiement</a>
+      <a href="#order-pickup">Retrait</a>
+      <a href="#order-customer">Cliente</a>
+    </nav>
+
+    <div class="order-layout">
+      <main class="main-column">
+        <section id="order-products" class="panel" aria-labelledby="products-heading">
+          <div class="panel-head">
+            <h2 id="products-heading">Produits commandés <span class="count">{{ items().length }}</span></h2>
+          </div>
+          <ul class="item-list">
+            @for (item of visibleItems(); track item.lineNumber) {
+              <li><g-order-line-card [item]="item" [currency]="order.currency || 'XOF'"
+                [image]="imageFor(item.lineNumber)" /></li>
+            } @empty {
+              <li class="empty">Les articles ne sont pas disponibles.</li>
             }
-          </dl>
-        } @else {
-          <p class="notice">Coordonnées indisponibles.</p>
-        }
-      </g-card>
-      <g-card
-        ><h2>Paiement</h2>
-        <p class="payment-state">{{ payment(order.status) }}</p>
-        <p class="muted">Statut de la commande communiqué par votre boutique.</p>
-        <h3>Retrait</h3>
-        <p>{{ fulfillment(order.fulfillmentStatus) }}</p></g-card
-      >
-    </div>
-    <g-card
-      ><h2>Articles</h2>
-      @for (item of order.items; track item.lineNumber) {
-        <article>
-          <h3>{{ item.productNameSnapshot || item.commercialLabelSnapshot || 'Produit' }}</h3>
-          @if (
-            item.commercialLabelSnapshot &&
-            item.productNameSnapshot &&
-            item.commercialLabelSnapshot !== item.productNameSnapshot
-          ) {
-            <p>{{ item.commercialLabelSnapshot }}</p>
+          </ul>
+          @if (items().length > 4) {
+            <button gButton variant="secondary" class="show-all"
+              [attr.aria-expanded]="showAllItems()" (click)="showAllItems.set(!showAllItems())">
+              {{ showAllItems() ? 'Réduire la liste' : 'Voir les autres produits (' + (items().length - 4) + ')' }}
+              <span aria-hidden="true">{{ showAllItems() ? '⌃' : '⌄' }}</span>
+            </button>
           }
-          <p class="preserve muted">{{ item.productDescriptionSnapshot }}</p>
-          <p>{{ variant(item.variantAttributesSnapshot) }}</p>
-          <dl>
-            <div>
-              <dt>Quantité</dt>
-              <dd>{{ item.quantity ?? '—' }}</dd>
-            </div>
-            <div>
-              <dt>Prix unitaire</dt>
-              <dd>{{ money(item.unitPriceSnapshot, order.currency) }}</dd>
-            </div>
-            <div>
-              <dt>Total ligne</dt>
-              <dd>{{ money(item.lineTotal, order.currency) }}</dd>
-            </div>
+        </section>
+
+        <section id="order-payment" class="panel" aria-labelledby="payment-heading">
+          <div class="panel-head">
+            <h2 id="payment-heading">Paiement et montants</h2>
+            <g-badge [tone]="tone(order.status)">{{ payment(order.status) }}</g-badge>
+          </div>
+          <dl class="amounts">
+            <div><dt>Sous-total produits</dt><dd>{{ money(order.goodsSubtotal, order.currency) }}</dd></div>
+            <div><dt>Frais de service</dt><dd>{{ money(order.platformFeeAmount, order.currency) }}</dd></div>
+            <div><dt>Transport initial</dt><dd>{{ money(order.initialShippingChargeAmount, order.currency) }}</dd></div>
+            <div class="total"><dt>Total initial</dt><dd>{{ money(order.initialAmountDue, order.currency) }}</dd></div>
           </dl>
-        </article>
-      } @empty {
-        <p class="notice">Les articles ne sont pas disponibles.</p>
-      }
-    </g-card>
-    <g-card class="amounts"
-      ><h2>Montants</h2>
-      <dl>
-        <div>
-          <dt>Sous-total produits</dt>
-          <dd>{{ money(order.goodsSubtotal, order.currency) }}</dd>
-        </div>
-        <div>
-          <dt>Frais de service</dt>
-          <dd>{{ money(order.platformFeeAmount, order.currency) }}</dd>
-        </div>
-        <div>
-          <dt>Transport initial</dt>
-          <dd>{{ money(order.initialShippingChargeAmount, order.currency) }}</dd>
-        </div>
-        <div class="total">
-          <dt>Total initial</dt>
-          <dd>{{ money(order.initialAmountDue, order.currency) }}</dd>
-        </div>
-      </dl>
-      <p class="muted">
-        Montants enregistrés lors de la commande. Le transport définitif peut faire l’objet d’un
-        règlement ultérieur.
-      </p></g-card
-    >
+          <details class="secondary-details">
+            <summary>Comprendre ces montants</summary>
+            <p>Ces montants sont ceux enregistrés au moment de la commande.
+              Le transport définitif peut nécessiter un règlement ultérieur ;
+              le statut de paiement affiché ici concerne la commande initiale.</p>
+          </details>
+        </section>
+      </main>
+
+      <aside class="side-column">
+        <section id="order-customer" class="panel" aria-labelledby="customer-heading">
+          <h2 id="customer-heading">Cliente</h2>
+          @if (view.customerContactSnapshot; as contact) {
+            <p class="customer-name">{{ customerName() }}</p>
+            @if (contact.phoneE164) {
+              <a class="customer-link" [href]="'tel:' + contact.phoneE164">{{ contact.phoneE164 }}</a>
+            } @else {
+              <p class="muted">Téléphone non renseigné</p>
+            }
+            @if (contact.email) {
+              <details class="secondary-details">
+                <summary>Afficher l’adresse e-mail</summary>
+                <a class="customer-link" [href]="'mailto:' + contact.email">{{ contact.email }}</a>
+              </details>
+            }
+          } @else {
+            <p class="muted">Coordonnées indisponibles.</p>
+          }
+        </section>
+
+        <section id="order-pickup" class="panel" aria-labelledby="pickup-heading">
+          <div class="panel-head">
+            <h2 id="pickup-heading">Retrait</h2>
+            <g-badge [tone]="order.fulfillmentStatus === 'PICKED_UP' ? 'positive' :
+              order.fulfillmentStatus === 'READY_FOR_PICKUP' ? 'info' : 'neutral'">
+              {{ fulfillment(order.fulfillmentStatus) }}
+            </g-badge>
+          </div>
+          <p class="muted">La préparation et la remise sont gérées dans l’onglet Retraits du groupage, selon son avancement.</p>
+          @if (view.campaignId) {
+            <a gButton variant="secondary" class="groupage-link"
+              [routerLink]="['/app/groupages', view.campaignId]"
+              [queryParams]="{ tab: 'distribution' }">Ouvrir le groupage <span aria-hidden="true">→</span></a>
+          }
+        </section>
+      </aside>
+    </div>
   } @else {
-    <h1>Commande indisponible</h1>
-    <p class="notice">Le détail n’est pas disponible.</p>
-    <button gButton (click)="reload()">Réessayer</button>
+    <section class="failure">
+      <h1>Commande indisponible</h1>
+      <p class="notice">Le détail n’est pas disponible.</p>
+      <button gButton (click)="reload()">Réessayer</button>
+    </section>
   }
 }

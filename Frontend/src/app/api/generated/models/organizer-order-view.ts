@@ -10,5 +10,6 @@ export interface OrganizerOrderView {
   id?: string;
   order?: OrderReceipt;
   organizationId?: string;
+  productIdsByLineNumber?: { [lineNumber: string]: string };
   version?: number;
 }

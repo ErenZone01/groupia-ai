@@ -28,7 +28,7 @@ public interface Orders {
 
     Optional<Order> find(UUID organizationId, UUID orderId);
 
-    /** Product identities from the already-authorized orders, loaded in a single tenant-scoped query. */
+    /** Product identities from already-authorized orders, loaded in a tenant-scoped query. */
     Map<UUID, List<UUID>> productPreviews(UUID organizationId, List<UUID> orderIds);
 
     Results list(UUID organizationId, UUID campaignId, OrderStatus status, int page, int size);

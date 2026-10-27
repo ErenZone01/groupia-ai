@@ -43,13 +43,16 @@ import { money, variantLabel } from '../../shared/utils/display';
   `,
   styles: `
     :host { display:block; min-width:0; }
-    .line-card { display:flex; align-items:flex-start; gap:var(--s3); min-width:0; padding:var(--s3);
-      border:1px solid var(--border); background:var(--surface-alt); border-radius:var(--radius-md); }
-    .line-content { flex:1; min-width:0; }
-    .line-head { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--s2); }
-    h3 { font-size:var(--text-sm); font-weight:650; min-width:0; margin:0;
-      line-height:1.4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .line-total { font-size:var(--text-sm); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .line-card { display:flex; align-items:flex-start; gap:var(--s3); min-width:0; max-width:100%;
+      padding:var(--s3); border:1px solid var(--border); background:var(--surface-alt);
+      border-radius:var(--radius-md); }
+    .line-content { flex:1 1 0; min-width:0; max-width:100%; }
+    .line-head { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--s1); min-width:0; }
+    h3 { font-size:var(--text-sm); font-weight:650; min-width:0; max-width:100%; margin:0;
+      line-height:1.4; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .line-total { display:block; min-width:0; max-width:100%; font-size:var(--text-sm);
+      font-variant-numeric:tabular-nums; white-space:normal; overflow-wrap:anywhere;
+      word-break:break-word; line-height:1.45; }
     .variant,.quantity { font-size:var(--text-xs); color:var(--muted); margin:var(--s1) 0 0;
       overflow-wrap:anywhere; }
     .extra { margin-top:var(--s2); font-size:var(--text-xs); overflow-wrap:anywhere; }

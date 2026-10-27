@@ -576,7 +576,9 @@ class OrderingIntegrationTests {
         auth(get("/api/organizations/" + org + "/orders/" + id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customerContactSnapshot.phoneE164").value("+221771234567"))
-                .andExpect(jsonPath("$.order.trackingToken").doesNotExist());
+                .andExpect(jsonPath("$.productIdsByLineNumber['1']").value(productId.toString()))
+                .andExpect(jsonPath("$.order.trackingToken").doesNotExist())
+                .andExpect(jsonPath("$.order.items[0].productId").doesNotExist());
         auth(get("/api/organizations/" + UUID.randomUUID() + "/orders/" + id))
                 .andExpect(status().isForbidden());
         auth(get("/api/organizations/" + org + "/orders/" + UUID.randomUUID()))

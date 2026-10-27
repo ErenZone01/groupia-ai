@@ -20,3 +20,14 @@ Maquette validée : `groupia_catalogue_maquette.html` (mobile et desktop).
 `Frontend/e2e/product-media.spec.ts` conserve le contrôle des uploads, des droits, du réordonnancement et de l'idempotence dans le nouveau dialogue.
 
 Avant de reproduire ces cartes dans une autre page, vérifier que les statuts et métriques qu'elle consomme existent dans l'API. Ne pas inventer de compteur global ou de recherche serveur quand ils n'existent pas.
+
+## Édition et retrait V3.3
+
+- Le produit existant peut être modifié (nom, description) dans un dialogue isolé, avec les champs initiaux, limites serveur (160/5 000 caractères) et protection par `version` du produit.
+- En cas de 409 `PRODUCT_VERSION_CONFLICT`, aucune réécriture automatique : l'utilisateur voit un message et peut **actualiser** explicitement le produit avant de recommencer.
+- Les variantes actuelles et la galerie **ne sont pas modifiées** par le formulaire nom/description. Les fonctions backend des variantes existent et nécessitent leur propre UX.
+- « Retirer du catalogue actif » = **Archiver**, pas DELETE. L'opération est soumise à confirmation explicite, mentionne qu'elle n'est pas réversible dans la version courante, respecte l'autorisation serveur `MANAGE_CATALOG` et garde tout l'historique des commandes et des groupages.
+- Les produits archivés restent visibles sous « Archivés » ; aucune action d'édition ou de ré-archivage n'est proposée dans la liste.
+- En cas d'erreur de version à l'archivage, il faut actualiser la fiche et confirmer à nouveau ; ne jamais relancer l'écriture automatiquement.
+- Le backend actuel ne propose **ni DELETE ni restauration** ; ne pas afficher un faux bouton « Supprimer définitivement » ou une promesse de restauration.
+- Tests : `catalog-management.spec.ts`, `catalog-api.spec.ts` (sauvegarde, annulation, version obsolète, archivage explicite, droits via API).

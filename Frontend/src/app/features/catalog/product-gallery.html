@@ -25,12 +25,27 @@
       }
     </div>
 
-    <div class="photo-stage" aria-label="Aperçu de la photo sélectionnée">
+    <div class="photo-stage" [class.zoomed]="zoomed()" aria-label="Aperçu de la photo sélectionnée">
       @if (selectedPhoto(); as photo) {
         @if ((photo.displayUrl || photo.thumbnailUrl) && failedPhoto() !== photo.id) {
-          <img class="hero-photo" [src]="photo.displayUrl || photo.thumbnailUrl"
-            [alt]="productName() + ' — image ' + (selectedIndex() + 1)"
-            (error)="failedPhoto.set(photo.id ?? null)" />
+          <div #photoViewport class="photo-viewport"
+            [attr.tabindex]="zoomed() ? 0 : -1"
+            [attr.aria-label]="zoomed()
+              ? 'Photo agrandie. Faites défiler pour explorer l’image.'
+              : 'Photo complète adaptée à la fenêtre.'">
+            <div class="photo-canvas">
+              <img class="hero-photo" [src]="photo.displayUrl || photo.thumbnailUrl"
+                [alt]="productName() + ' — image ' + (selectedIndex() + 1)"
+                (error)="failedPhoto.set(photo.id ?? null)" />
+            </div>
+          </div>
+          <button type="button" class="photo-zoom-control"
+            [attr.aria-pressed]="zoomed()"
+            [attr.aria-label]="zoomed() ? 'Afficher toute la photo' : 'Zoomer sur la photo'"
+            (click)="toggleZoom()">
+            <g-icon [name]="zoomed() ? 'minus' : 'plus'" />
+            {{ zoomed() ? 'Voir en entier' : 'Zoomer' }}
+          </button>
         } @else {
           <div class="empty-photo"><g-icon name="box" />Aperçu indisponible</div>
         }

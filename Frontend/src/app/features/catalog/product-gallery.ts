@@ -35,6 +35,8 @@ export class ProductGallery {
   readonly confirm = signal<string | null>(null);
   readonly selectedId = signal<string | null>(null);
   readonly failedPhoto = signal<string | null>(null);
+  readonly zoomed = signal(false);
+  private readonly photoViewport = viewChild<ElementRef<HTMLDivElement>>('photoViewport');
   readonly selectedIndex = computed(() => {
     const photos = this.store.gallery()?.items ?? [];
     if (!photos.length) return -1;
@@ -56,6 +58,7 @@ export class ProductGallery {
         this.confirm.set(null);
         this.selectedId.set(null);
         this.failedPhoto.set(null);
+        this.zoomed.set(false);
         void this.store.open(org, product);
       });
     });
@@ -63,8 +66,28 @@ export class ProductGallery {
   selectPhoto(id?: string) {
     if (!id) return;
     this.selectedId.set(id);
+    this.zoomed.set(false);
     this.confirm.set(null);
   }
+  toggleZoom() {
+    const enlarge = !this.zoomed();
+    this.zoomed.set(enlarge);
+    // Center the 2× canvas after Angular renders it. Users may scroll or swipe
+    // inside the image viewport to inspect the edges; outside remains stationary.
+    if (enlarge) {
+      requestAnimationFrame(() => {
+        if (!this.zoomed()) return;
+        const element = this.photoViewport()?.nativeElement;
+        if (!element) return;
+        element.scrollLeft = (element.scrollWidth - element.clientWidth) / 2;
+        element.scrollTop = (element.scrollHeight - element.clientHeight) / 2;
+      });
+    } else {
+      const element = this.photoViewport()?.nativeElement;
+      element?.scrollTo(0, 0);
+    }
+  }
+
   select(event: Event) {
     const input = event.target as HTMLInputElement;
     this.store.select(Array.from(input.files ?? []));
@@ -86,6 +109,7 @@ export class ProductGallery {
       this.confirm.set(null);
       this.selectedId.set(null);
       this.failedPhoto.set(null);
+      this.zoomed.set(false);
       this.heading()?.nativeElement.focus();
     }
     this.changed.emit();

@@ -58,4 +58,30 @@ describe('Catalogue réel', () => {
     expect((await pending).status).toBe('ARCHIVED');
   });
 
+  it('ajoute une variante sans remplacer celles existantes', async () => {
+    const pending = api.addProductVariant('shop', 'product', 5, {
+      attributes: { color: 'Vert' },
+      sku: 'SKU-VERTE',
+      estimatedUnitWeightKg: 0.2,
+    });
+    const req = http.expectOne('/api/organizations/shop/products/product/variants');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      version: 5,
+      variant: { attributes: { color: 'Vert' }, sku: 'SKU-VERTE',
+        estimatedUnitWeightKg: 0.2 },
+    });
+    req.flush({ id: 'product', version: 6, status: 'ACTIVE',
+      variants: [{ id: 'existing' }, { id: 'new' }] });
+    expect((await pending).variants).toHaveLength(2);
+  });
+  it('restaure la fiche archivée avec la version, sans appel DELETE', async () => {
+    const pending = api.restoreProduct('shop', 'product', 7);
+    const req = http.expectOne('/api/organizations/shop/products/product/restore');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ version: 7 });
+    req.flush({ id: 'product', status: 'ACTIVE', version: 8 });
+    expect((await pending).status).toBe('ACTIVE');
+  });
+
 });

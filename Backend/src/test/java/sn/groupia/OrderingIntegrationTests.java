@@ -618,7 +618,9 @@ class OrderingIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.items", hasSize(1)))
-                .andExpect(jsonPath("$.items[0].items").doesNotExist());
+                .andExpect(jsonPath("$.items[0].items").doesNotExist())
+                .andExpect(jsonPath("$.items[0].previewProductIds[0]").value(productId.toString()))
+                .andExpect(jsonPath("$.items[0].productCount").value(1));
         auth(get("/api/organizations/" + org + "/orders?status=CONFIRMED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));

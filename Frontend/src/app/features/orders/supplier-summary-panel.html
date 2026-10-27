@@ -19,7 +19,7 @@
         Commandée le <time [attr.datetime]="p.orderedAt">{{ dateLabel(p.orderedAt) }}</time>
       </p>
     </div>
-    <p class="muted">Achat enregistré : quantités et prix figés.</p>
+    <p class="muted">Achat enregistré : ce récapitulatif ne changera plus.</p>
     @if (lateCount() > 0) {
       <p class="notice" role="alert">
         {{ count(lateCount()) }} commande(s) ont été confirmées après cet achat et ne figurent pas

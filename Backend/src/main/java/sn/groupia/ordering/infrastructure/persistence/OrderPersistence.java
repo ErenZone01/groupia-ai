@@ -140,8 +140,10 @@ class OrderPersistence implements Orders {
                 order by oi.order_id, oi.line_number
                 """,
                 Map.of("org", org, "ids", orderIds),
-                rs -> result.computeIfAbsent(rs.getObject(1, UUID.class), ignored -> new LinkedHashSet<>())
-                        .add(rs.getObject(2, UUID.class)));
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> {
+                    result.computeIfAbsent(rs.getObject(1, UUID.class), ignored -> new LinkedHashSet<>())
+                            .add(rs.getObject(2, UUID.class));
+                });
         var out = new HashMap<UUID, List<UUID>>();
         result.forEach((id, products) -> out.put(id, List.copyOf(products)));
         return out;

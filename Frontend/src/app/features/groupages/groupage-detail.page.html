@@ -100,12 +100,7 @@
           @for (offer of visibleOffers(); track offer.id) {
             <article class="product">
               <div class="offer-photo">
-                @if (thumbnail(offer); as image) {
-                  <img [src]="image" [alt]="label(offer)" width="56" height="56"
-                       loading="lazy" decoding="async" (error)="thumbnailFailed(offer)" />
-                } @else {
-                  <g-icon name="box" />
-                }
+                <g-product-thumbnail [src]="thumbnail(offer)" [alt]="label(offer)" [size]="56" />
               </div>
               <div class="offer-body">
                 <div class="offer-heading">
@@ -172,6 +167,8 @@
           (manageOrders)="tab.set('orders')"
           [organizationId]="context.selectedId()!"
           [campaignId]="group.id!"
+          [products]="products()"
+          [media]="media()"
         />
       }
       @if (tab() === 'transport') {

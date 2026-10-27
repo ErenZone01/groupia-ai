@@ -19,6 +19,7 @@ import { ProductPicker } from './product-picker';
 import { OfferPriceEditor } from './offer-price-editor';
 import { GroupageSettings } from './groupage-settings';
 import { Card } from '../../shared/ui/card';
+import { ProductThumbnail } from '../../shared/ui/product-thumbnail';
 import { Icon } from '../../shared/ui/icon';
 import { Badge } from '../../shared/ui/badge';
 import { Button } from '../../shared/ui/button';
@@ -45,6 +46,7 @@ import {
     MerchantFundsPanel,
     CompletionPanel,
     Card,
+    ProductThumbnail,
     Icon,
     Badge,
     Button,

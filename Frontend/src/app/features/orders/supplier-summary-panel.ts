@@ -16,10 +16,14 @@ import {
   SupplierOrderResponse,
   SupplierOrderView,
   SupplierSummaryView,
+  SupplierSummaryLine,
+  ProductView,
+  ProductMediaSummary,
 } from '../../api/generated/models';
 import { OrdersApi } from './orders-api';
 import { apiCode, apiMessage } from '../../core/http/api-error';
 import { Button } from '../../shared/ui/button';
+import { ProductThumbnail } from '../../shared/ui/product-thumbnail';
 import { Badge } from '../../shared/ui/badge';
 import { Skeleton } from '../../shared/feedback/skeleton';
 import { EmptyState } from '../../shared/feedback/empty-state';
@@ -29,7 +33,7 @@ const orderedStates = ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTIN
 
 @Component({
   selector: 'g-supplier-summary-panel',
-  imports: [Button, Badge, Skeleton, EmptyState],
+  imports: [Button, Badge, Skeleton, EmptyState, ProductThumbnail],
   templateUrl: './supplier-summary-panel.html',
   styleUrl: './supplier-summary-panel.scss',
 })
@@ -38,6 +42,10 @@ export class SupplierSummaryPanel {
   readonly campaignId = input.required<string>();
   readonly campaignStatus = input('DRAFT');
   readonly campaignVersion = input<number>();
+  readonly products = input<ProductView[]>([]);
+  readonly media = input<Record<string, ProductMediaSummary>>({});
+  readonly showAll = signal(false);
+  readonly visibleLines = computed(() => this.showAll() ? (this.data()?.lines ?? []) : (this.data()?.lines ?? []).slice(0, 4));
   readonly campaignChanged = output<CampaignLifecycleView>();
   readonly refreshCampaign = output<void>();
   readonly manageOrders = output<void>();
@@ -67,6 +75,23 @@ export class SupplierSummaryPanel {
       this.campaignVersion()! >= 0,
   );
   readonly money = money;
+  /** Frozen purchases contain a stable product ID; before purchase require a unique exact match. */
+  photo(line: SupplierSummaryLine, index: number) {
+    const frozen = this.purchase()?.lines?.[index];
+    const id = frozen?.productId ?? this.uniqueCurrentProduct(line);
+    return id ? (this.media()[id]?.primaryThumbnailUrl ?? '') : '';
+  }
+  private uniqueCurrentProduct(line: SupplierSummaryLine): string | undefined {
+    const candidates = this.products().flatMap((product) => (product.variants ?? [])
+      .map((variant) => ({ product, variant })));
+    const matches = line.skuSnapshot
+      ? candidates.filter(({ variant }) => variant.sku === line.skuSnapshot)
+      : candidates.filter(({ product, variant }) => product.name === line.productNameSnapshot &&
+          JSON.stringify(Object.entries(variant.attributes ?? {}).sort()) ===
+          JSON.stringify(Object.entries(line.variantAttributesSnapshot ?? {}).sort()));
+    const unique = [...new Set(matches.map(({ product }) => product.id).filter((id): id is string => !!id))];
+    return unique.length === 1 ? unique[0] : undefined;
+  }
   readonly dateLabel = dateLabel;
   readonly variantLabel = variantLabel;
   private subscription?: Subscription;
@@ -89,6 +114,7 @@ export class SupplierSummaryPanel {
         this.busy.set(false);
         this.confirming.set(false);
         this.purchase.set(null);
+        this.showAll.set(false);
         this.stale.set(false);
         this.load(org, campaign, orderedStates.includes(status));
       });

@@ -12,6 +12,9 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
+  // Fallback for user-entered names, emails, URLs and other unbroken strings across Groupia.
+  // Do not hide overflow on the page: let normal text wrap; isolate truly scrollable controls.
+  overflow-wrap: anywhere;
   font: 400 var(--text-base)/var(--leading-body) var(--font);
 }
 html {

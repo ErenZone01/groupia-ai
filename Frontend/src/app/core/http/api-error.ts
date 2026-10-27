@@ -103,6 +103,7 @@ const messages: Record<string, string> = {
   INVALID_VARIANT_ATTRIBUTES: 'Vérifiez les options de vos variantes.',
   INVALID_VARIANT_ESTIMATE: 'Le poids et le volume doivent être strictement positifs.',
   PRODUCT_ARCHIVED: 'Ce produit est archivé.',
+  PRODUCT_NOT_ARCHIVED: 'Ce produit est déjà actif. Actualisez le catalogue.',
   GROUPING_OFFER_ALREADY_EXISTS: 'Cette variante est déjà dans le groupage.',
   GROUPING_OFFER_NOT_AVAILABLE: 'Ce produit n’est plus disponible pour ce groupage.',
   GROUPING_HAS_NO_ACTIVE_OFFERS: 'Ajoutez au moins un produit actif avant de publier.',

@@ -35,6 +35,9 @@ export class CatalogPage {
   readonly selectedProduct = signal<ProductView | null>(null);
   readonly editingProduct = signal<ProductView | null>(null);
   readonly archivingProduct = signal<ProductView | null>(null);
+  readonly restoringProduct = signal<ProductView | null>(null);
+  readonly restoreBusy = signal(false);
+  readonly restoreError = signal('');
   readonly archiveBusy = signal(false);
   readonly archiveError = signal('');
   readonly media = signal<Record<string, ProductMediaSummary>>({});
@@ -49,6 +52,7 @@ export class CatalogPage {
   private readonly imageDialog = viewChild<ElementRef<HTMLDialogElement>>('imageDialog');
   private readonly editDialog = viewChild<ElementRef<HTMLDialogElement>>('editDialog');
   private readonly archiveDialog = viewChild<ElementRef<HTMLDialogElement>>('archiveDialog');
+  private readonly restoreDialog = viewChild<ElementRef<HTMLDialogElement>>('restoreDialog');
   private readonly api = inject(GroupiaApi);
   private readonly mediaApi = inject(ProductMediaApi);
   private readonly auth = inject(AuthService);
@@ -105,6 +109,7 @@ export class CatalogPage {
         this.closeGallery();
         this.closeEdit();
         this.closeArchive(true);
+        this.closeRestore(true);
         this.media.set({});
         this.search.set('');
         this.filter.set('all');
@@ -279,6 +284,75 @@ export class CatalogPage {
         this.archiveError.set(apiMessage(error));
     } finally {
       this.archiveBusy.set(false);
+    }
+  }
+
+  variantAdded(product: ProductView) {
+    this.store.products.update(items => items.map(item => item.id === product.id ? product : item));
+    this.toast.show('Nouvelle variante enregistrée.');
+  }
+  openRestore(product: ProductView) {
+    if (!product.id || product.status !== 'ARCHIVED') return;
+    this.restoreError.set('');
+    this.restoringProduct.set(product);
+    this.restoreDialog()?.nativeElement.showModal();
+  }
+  closeRestore(force = false) {
+    if (this.restoreBusy() && !force) return;
+    if (force) this.restoreBusy.set(false);
+    this.restoringProduct.set(null);
+    this.restoreError.set('');
+    const dialog = this.restoreDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+  onRestoreDialogCancel(event: Event) {
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeRestore();
+  }
+  async restoreProduct() {
+    const item = this.restoringProduct();
+    const org = this.context.selectedId();
+    if (!org || !item?.id || item.version === undefined || this.restoreBusy()) return;
+    const generation = this.auth.generation();
+    this.restoreBusy.set(true);
+    this.restoreError.set('');
+    try {
+      await this.api.restoreProduct(org, item.id, item.version);
+      if (generation !== this.auth.generation() || org !== this.context.selectedId()) return;
+      this.restoreBusy.set(false);
+      this.closeRestore();
+      this.toast.show('Produit restauré dans le catalogue actif.');
+      this.load(this.store.page());
+    } catch (error) {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.restoreError.set(apiMessage(error));
+    } finally {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.restoreBusy.set(false);
+    }
+  }
+  async refreshRestoreProduct() {
+    const item = this.restoringProduct();
+    const org = this.context.selectedId();
+    if (!item?.id || !org || this.restoreBusy()) return;
+    this.restoreBusy.set(true);
+    try {
+      const fresh = await this.api.product(org, item.id);
+      if (org !== this.context.selectedId()) return;
+      if (fresh.status !== 'ARCHIVED') {
+        this.restoreBusy.set(false);
+        this.closeRestore();
+        this.toast.show('Ce produit est déjà actif.');
+        this.load(this.store.page());
+        return;
+      }
+      this.restoringProduct.set(fresh);
+      this.restoreError.set('');
+    } catch (error) {
+      if (org === this.context.selectedId()) this.restoreError.set(apiMessage(error));
+    } finally {
+      this.restoreBusy.set(false);
     }
   }
 

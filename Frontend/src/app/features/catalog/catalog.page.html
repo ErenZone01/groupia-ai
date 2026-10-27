@@ -114,6 +114,11 @@
                     <button gButton variant="secondary" (click)="openEdit(product)">Modifier</button>
                     <button gButton variant="ghost" (click)="openArchive(product)">Archiver</button>
                   }
+                  @if (product.status === 'ARCHIVED') {
+                    <button gButton variant="secondary" (click)="openRestore(product)">
+                      Restaurer
+                    </button>
+                  }
                   <button gButton variant="secondary"
                     [attr.aria-expanded]="expandedVariants().has(product.id!)"
                     [attr.aria-controls]="'variants-' + product.id"
@@ -204,7 +209,8 @@
   @if (editingProduct(); as selected) {
     @if (context.selectedId(); as org) {
       <g-product-edit-form [organizationId]="org" [product]="selected"
-        (saved)="edited($event)" (cancelled)="closeEdit()" />
+        (saved)="edited($event)" (variantAdded)="variantAdded($event)"
+        (cancelled)="closeEdit()" />
     }
   }
 </dialog>
@@ -218,8 +224,8 @@
       <p class="archive-product-name">{{ selected.name }}</p>
       <p>L’archivage retire ce produit des nouvelles offres de groupage.
         Il reste consultable dans « Archivés », et les commandes historiques sont conservées.</p>
-      <p class="archive-warning"><strong>Attention :</strong> cette action n’est pas réversible
-        dans la version actuelle. Aucune suppression définitive n’est effectuée.</p>
+      <p class="archive-warning"><strong>Important :</strong> ce produit peut être
+        restauré ultérieurement. Aucune suppression définitive n’est effectuée.</p>
       @if (archiveError()) {
         <p class="form-error" role="alert">{{ archiveError() }}</p>
         <button gButton variant="secondary" type="button"
@@ -232,6 +238,33 @@
           [loading]="archiveBusy()" (click)="archiveProduct()">Confirmer l’archivage</button>
         <button gButton variant="secondary" type="button"
           [disabled]="archiveBusy()" (click)="closeArchive()">Annuler</button>
+      </div>
+    </section>
+  }
+</dialog>
+
+<dialog #restoreDialog class="catalog-dialog archive-dialog" aria-label="Restaurer un produit"
+  (close)="restoringProduct.set(null)" (cancel)="onRestoreDialogCancel($event)">
+  @if (restoringProduct(); as item) {
+    <section class="archive-confirm">
+      <p class="eyebrow">Catalogue / Archives</p>
+      <h2>Restaurer le produit ?</h2>
+      <p class="archive-product-name">{{ item.name }}</p>
+      <p>Le produit et ses variantes encore actives redeviendront disponibles dans le catalogue.
+        Les données et commandes passées sont conservées.</p>
+      <p class="archive-warning"><strong>Attention :</strong> les anciennes offres encore
+        actives dans des groupages ouverts peuvent redevenir visibles aux clientes.
+        Vérifiez les groupages concernés après la restauration.</p>
+      @if (restoreError()) {
+        <p class="form-error" role="alert">{{ restoreError() }}</p>
+        <button gButton variant="secondary" type="button" [disabled]="restoreBusy()"
+          (click)="refreshRestoreProduct()">Actualiser les informations</button>
+      }
+      <div class="archive-actions">
+        <button gButton type="button" [disabled]="restoreBusy()" [loading]="restoreBusy()"
+          (click)="restoreProduct()">Confirmer la restauration</button>
+        <button gButton variant="secondary" type="button" [disabled]="restoreBusy()"
+          (click)="closeRestore()">Annuler</button>
       </div>
     </section>
   }

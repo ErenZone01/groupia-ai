@@ -101,7 +101,7 @@ for (const width of [360, 390, 430, 768, 1280]) {
     ]);
     await page.getByRole('button', { name: 'Envoyer / réessayer' }).click();
     await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(2);
-    await expect(page.locator('img.product-photo')).toBeVisible();
+    await expect(page.locator('g-product-thumbnail.product-photo img')).toBeVisible();
     const gallerySection = page.locator('g-product-gallery section[aria-label="Images du produit"]');
     const second = state.items[1].id;
     const makePrimary = page.getByRole('button', { name: 'Définir comme principale' }).nth(1);

@@ -11,6 +11,7 @@ import {
   CreateCampaign,
   CreateProduct,
   ProductView,
+  UpdateProduct,
   UpdateCampaign,
   UpdateOffer,
 } from './generated/models';
@@ -28,6 +29,12 @@ export class GroupiaApi {
   }
   createProduct(organizationId: string, body: CreateProduct) {
     return firstValueFrom(this.catalog.create1({ organizationId, body }));
+  }
+  updateProduct(organizationId: string, productId: string, body: UpdateProduct) {
+    return firstValueFrom(this.catalog.update({ organizationId, productId, body }));
+  }
+  archiveProduct(organizationId: string, productId: string, version: number) {
+    return firstValueFrom(this.catalog.archive({ organizationId, productId, body: { version } }));
   }
   campaigns(organizationId: string, page = 0) {
     return firstValueFrom(this.grouping.list2({ organizationId, page, size: 20 }));

@@ -71,6 +71,7 @@ async function managerOrders(page: Page) {
       id: order.id,
       campaignId: order.campaignId,
       organizationId: shopId,
+      productIdsByLineNumber: { '1': productId },
       customerContactSnapshot: {
         firstName: 'Awa',
         lastName: 'Diop',
@@ -130,6 +131,8 @@ for (const [width, theme] of [
     await expect(page.getByRole('heading', { name: 'GRP-000000000001' })).toBeVisible();
     await expect(page.getByText('Paiement confirmé', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Chemise historique' })).toBeVisible();
+    await expect(page.locator('g-order-line-card g-product-thumbnail img')).toBeVisible();
+    await page.locator('g-order-line-card details summary').click();
     await expect(page.getByText('Description au moment de l’achat.')).toBeVisible();
     await noOverflow(page);
     await expect(page.getByRole('button', { name: 'Marquer comme payé' })).toHaveCount(0);
@@ -221,4 +224,40 @@ test('erreur réessayable et liste vide après filtre', async ({ page }) => {
   state.empty = true;
   await page.getByRole('button', { name: 'Payées', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Aucune commande payée.' })).toBeVisible();
+});
+
+test('détail commande : aperçu limité à quatre articles et sans actions inventées', async ({ page }) => {
+  await managerOrders(page);
+  await page.setViewportSize({ width: 360, height: 780 });
+  const items = Array.from({ length: 7 }, (_, i) => ({
+    lineNumber: i + 1,
+    productNameSnapshot: 'Produit ' + (i + 1),
+    variantAttributesSnapshot: { color: 'Vert' },
+    quantity: 1,
+    unitPriceSnapshot: 5000,
+    lineTotal: 5000,
+    productDescriptionSnapshot: 'Description complémentaire ' + (i + 1),
+  }));
+  await page.route('**/api/organizations/*/orders/*', route => route.fulfill({ json: {
+    id: ids[0], campaignId: groupId, organizationId: shopId,
+    productIdsByLineNumber: { '1': productId },
+    customerContactSnapshot: { firstName: 'Awa', lastName: 'Diop',
+      phoneE164: '+221771234567', email: 'awa@example.test' },
+    order: { orderNumber: 'GRP-000000000001', status: 'CONFIRMED',
+      fulfillmentStatus: 'NOT_READY', placedAt: '2026-09-26T09:00:00Z',
+      currency: 'XOF', goodsSubtotal: 35000, platformFeeAmount: 300,
+      initialShippingChargeAmount: 0, initialAmountDue: 35300, items },
+  } }));
+  await page.goto('/app/orders/' + ids[0]);
+  await expect(page.locator('g-order-line-card')).toHaveCount(4);
+  await expect(page.getByRole('heading', { name: 'Produit 1' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Produit 7' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Voir les autres produits (3)' }).click();
+  await expect(page.locator('g-order-line-card')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Réduire la liste' }).click();
+  await expect(page.locator('g-order-line-card')).toHaveCount(4);
+  await expect(page.getByText('Paiement confirmé', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Ouvrir le groupage/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Marquer comme payée|Confirmer le retrait|Marquer prête/ })).toHaveCount(0);
+  await noOverflow(page);
 });

@@ -1,0 +1,35 @@
+name: Format catalogue V3 (one-off)
+on:
+  push:
+    branches: [catalog-ux-v3]
+    paths: [.github/workflows/format-catalog-v3-once.yml]
+permissions:
+  contents: write
+jobs:
+  format-and-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Apply repository Spotless formatting
+        run: mvn -ntp -f Backend/pom.xml spotless:apply
+      - name: Commit formatted catalogue files and remove one-off workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- Backend/src/main/java/sn/groupia/catalog/application/service/CatalogService.java \
+            Backend/src/main/java/sn/groupia/catalog/domain/model/Product.java \
+            Backend/src/main/java/sn/groupia/catalog/infrastructure/web/CatalogController.java \
+            Backend/src/test/java/sn/groupia/CatalogIntegrationTests.java
+          git rm -- .github/workflows/format-catalog-v3-once.yml
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "style(catalog): apply Spotless formatting"
+          git push origin HEAD:catalog-ux-v3

@@ -83,8 +83,7 @@ public class OrderQueries {
         }
         var result = orders.list(org, campaign, filter, page, size);
         var preview =
-                orders.productPreviews(
-                        org, result.items().stream().map(o -> o.getId()).toList());
+                orders.productPreviews(org, result.items().stream().map(o -> o.getId()).toList());
         return new OrderPage(
                 result.items().stream()
                         .map(

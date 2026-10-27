@@ -25,9 +25,15 @@ Avant de reproduire ces cartes dans une autre page, vérifier que les statuts et
 
 - Le produit existant peut être modifié (nom, description) dans un dialogue isolé, avec les champs initiaux, limites serveur (160/5 000 caractères) et protection par `version` du produit.
 - En cas de 409 `PRODUCT_VERSION_CONFLICT`, aucune réécriture automatique : l'utilisateur voit un message et peut **actualiser** explicitement le produit avant de recommencer.
-- Les variantes actuelles et la galerie **ne sont pas modifiées** par le formulaire nom/description. Les fonctions backend des variantes existent et nécessitent leur propre UX.
-- « Retirer du catalogue actif » = **Archiver**, pas DELETE. L'opération est soumise à confirmation explicite, mentionne qu'elle n'est pas réversible dans la version courante, respecte l'autorisation serveur `MANAGE_CATALOG` et garde tout l'historique des commandes et des groupages.
-- Les produits archivés restent visibles sous « Archivés » ; aucune action d'édition ou de ré-archivage n'est proposée dans la liste.
+- Les variantes existantes et la galerie **ne sont pas modifiées** par le formulaire nom/description. Le volet « Ajouter une variante » crée une nouvelle variante via `POST /variants` avec `version`, après validation des options, des SKU et des estimations. Aucune suppression ni modification implicite des variantes précédentes. Les modifications des variantes existantes nécessiteront leur propre UX.
+- « Retirer du catalogue actif » = **Archiver**, pas DELETE. L'opération est soumise à confirmation explicite, respecte l'autorisation serveur `MANAGE_CATALOG` et garde tout l'historique des commandes et des groupages. Une restauration versionnée est maintenant possible via `POST /restore`, également protégée par `MANAGE_CATALOG`.
+- Les produits archivés restent visibles sous « Archivés » et proposent « Restaurer », avec confirmation. Seuls les produits actifs proposent « Modifier » et « Archiver ». L'archivage ne touche pas aux anciennes variantes ou photos.
 - En cas d'erreur de version à l'archivage, il faut actualiser la fiche et confirmer à nouveau ; ne jamais relancer l'écriture automatiquement.
-- Le backend actuel ne propose **ni DELETE ni restauration** ; ne pas afficher un faux bouton « Supprimer définitivement » ou une promesse de restauration.
+- Le backend ne propose toujours **pas de DELETE**. Restauration ≠ republication contrôlée des offres : si une variante encore active est référencée par une offre active dans un groupage ouvert, sa restauration peut lui rendre de la visibilité. Afficher cette conséquence dans la confirmation, puis inviter à vérifier les groupages. Une nouvelle mise en vente reste encadrée par les règles de statut des campagnes et offres.
 - Tests : `catalog-management.spec.ts`, `catalog-api.spec.ts` (sauvegarde, annulation, version obsolète, archivage explicite, droits via API).
+
+## Nouveaux contrôles
+
+- `CatalogIntegrationTests` : restauration avec version, identité du produit et variantes conservées, aucun nouvel enregistrement, 409 sur version périmée/état incompatible, rôles écrivains/lecteurs et frontières des boutiques.
+- `catalog-management.spec.ts` : ajouter une variante, valider les champs, erreur de version et actualisation, archivage puis restauration confirmée, annulation et textes responsive.
+- `catalog-api.spec.ts` : POST /restore et POST /variants avec version, sans modifier les modèles générés manuellement.

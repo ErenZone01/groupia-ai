@@ -264,3 +264,57 @@ for (const [shape, widthPx, heightPx] of [
     });
   }
 }
+
+test('annuler le sélecteur natif de fichiers conserve le dialogue, la photo et les actions', async ({ page }) => {
+  await session(page);
+  await mockApi(page);
+  const state = await mediaApi(page);
+  state.items.push({
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    state: 'READY',
+    position: 0,
+    thumbnailUrl: url,
+    displayUrl: url,
+  });
+  await page.goto('/app/products');
+  await page.getByRole('button', { name: 'Voir les images' }).click();
+  const modal = page.getByRole('dialog', { name: 'Gestion des images du produit' });
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('.photo-stage .hero-photo')).toBeVisible();
+  await expect(modal.locator('.photo-indicator')).toContainText('Photo principale');
+  // Browsers bubble <input type=file>'s "cancel" when the OS picker is dismissed.
+  // The ancestor <dialog> must not interpret that as closing the gallery.
+  await modal.getByLabel('Ajouter des images').dispatchEvent('cancel', { bubbles: true });
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('g-product-gallery')).toBeVisible();
+  await expect(modal.locator('.photo-stage .hero-photo')).toBeVisible();
+  await expect(modal.getByRole('button', { name: 'Zoomer sur la photo' })).toBeVisible();
+  await expect(modal.getByRole('button', { name: 'Supprimer l’image 1' })).toBeVisible();
+  await expect(modal.locator('.uploads li')).toHaveCount(0);
+  expect(state.items).toHaveLength(1);
+  await noOverflow(page);
+
+  // Deliberately pressing Escape on the dialog is different: it must close.
+  await modal.getByRole('button', { name: 'Fermer', exact: true }).focus();
+  await page.keyboard.press('Escape');
+  await expect(modal).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vos produits' })).toBeVisible();
+  await page.getByRole('button', { name: 'Voir les images' }).click();
+  await expect(modal.locator('.photo-stage .hero-photo')).toBeVisible();
+});
+
+test('annuler la sélection sans photo ne laisse pas de dialogue blanc', async ({ page }) => {
+  await session(page);
+  await mockApi(page);
+  await mediaApi(page);
+  await page.goto('/app/products');
+  await page.getByRole('button', { name: 'Voir les images' }).click();
+  const modal = page.getByRole('dialog', { name: 'Gestion des images du produit' });
+  await expect(modal.getByText('Aucune photo pour ce produit')).toBeVisible();
+  await modal.getByLabel('Ajouter des images').dispatchEvent('cancel', { bubbles: true });
+  await expect(modal).toBeVisible();
+  await expect(modal.getByText('Aucune photo pour ce produit')).toBeVisible();
+  await expect(modal.getByLabel('Ajouter des images')).toBeEnabled();
+  await expect(modal.locator('g-product-gallery')).toBeVisible();
+  await noOverflow(page);
+});

@@ -4,6 +4,8 @@
 
 .detail-hero { background:var(--hero); color:var(--hero-text); border:1px solid var(--hero-border); border-radius:var(--radius-lg); padding:var(--s4) var(--s5); margin-bottom:var(--s4); min-width:0; }
 .detail-hero-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--s3); }
+.detail-title-wrap { display:flex; flex:1; min-width:0; align-items:center; gap:var(--s3); }
+.detail-title-wrap g-product-thumbnail { flex-shrink:0; }
 .detail-title { min-width:0; flex:1; }
 .detail-title .eyebrow { font-size:var(--text-xs); color:var(--hero-muted); margin:0; }
 .detail-title h1 { font-size:clamp(1.3rem,2.5vw,1.8rem); line-height:1.2; margin:var(--s1) 0; font-weight:650; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }

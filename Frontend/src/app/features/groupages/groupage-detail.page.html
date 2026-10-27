@@ -14,9 +14,15 @@
 @if (!loading() && store.current(); as group) {
   <header class="detail-hero">
     <div class="detail-hero-heading">
-      <div class="detail-title">
+      <div class="detail-title-wrap">
+        @if (group.offers?.[0]; as firstOffer) {
+          <g-product-thumbnail [src]="thumbnail(firstOffer)" [size]="48"
+            [alt]="label(firstOffer)" />
+        }
+        <div class="detail-title">
         <p class="eyebrow">Groupage</p>
         <h1 [title]="group.title">{{ group.title }}</h1>
+        </div>
       </div>
       <g-badge [tone]="displayStatusTone()">{{ statusLabel(group.status) }}</g-badge>
     </div>

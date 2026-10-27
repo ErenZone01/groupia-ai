@@ -261,3 +261,74 @@ test('détail commande : aperçu limité à quatre articles et sans actions inve
   await expect(page.getByRole('button', { name: /Marquer comme payée|Confirmer le retrait|Marquer prête/ })).toHaveCount(0);
   await noOverflow(page);
 });
+
+const extremeProductName = "Smartphone Samsung S24FE Ultra Edition spéciale ProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspacesProduitSuperLongSansEspaces";
+const extremeCustomer = 'Awa-' + 'PrénomTrèsLongSansSéparateur'.repeat(7);
+
+for (const [width, theme] of [
+  [320, 'light'],
+  [360, 'dark'],
+  [390, 'light'],
+  [768, 'dark'],
+  [1440, 'light'],
+] as const) {
+  test('montants et textes extrêmes sans débordement ' + width + 'px ' + theme, async ({ page }) => {
+    await managerOrders(page);
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme: theme });
+    const price = 49_600_000;
+    const order = {
+      id: ids[0], campaignId: groupId, organizationId: shopId,
+      productIdsByLineNumber: { '1': productId },
+      customerContactSnapshot: {
+        firstName: extremeCustomer, lastName: 'NomTrèsLongSansEspaces'.repeat(5),
+        phoneE164: '+221771234567',
+        email: 'ContactSuperLongSansEspaces'.repeat(5) + '@example.test',
+      },
+      order: {
+        orderNumber: 'GRP-000000000001', status: 'CONFIRMED',
+        fulfillmentStatus: 'NOT_READY', placedAt: '2026-09-26T09:00:00Z',
+        currency: 'XOF', goodsSubtotal: price, platformFeeAmount: 300,
+        initialShippingChargeAmount: price, initialAmountDue: 99_200_300,
+        items: [{
+          lineNumber: 1,
+          productNameSnapshot: extremeProductName,
+          productDescriptionSnapshot: 'DescriptionSansEspaces'.repeat(65),
+          commercialLabelSnapshot: 'OffreTrèsLongue'.repeat(20),
+          skuSnapshot: 'REF'.repeat(70),
+          variantAttributesSnapshot: { color: 'CouleurTrèsLongueSansEspaces'.repeat(12) },
+          quantity: 1, unitPriceSnapshot: price, lineTotal: price,
+        }],
+      },
+    };
+    await page.route('**/api/organizations/*/orders/*', route => route.fulfill({ json: order }));
+    await page.goto('/app/orders/' + ids[0]);
+    await expect(page.locator('g-order-line-card')).toHaveCount(1);
+    await expect(page.locator('g-order-line-card h3')).toHaveText(extremeProductName);
+    await expect(page.locator('g-order-line-card .line-total')).toContainText('49');
+    await expect(page.locator('.amounts .total dd')).toContainText('99');
+    await noOverflow(page);
+    const sizes = await page.locator('g-order-line-card .line-card, g-order-line-card .line-total, .amounts dd')
+      .evaluateAll(nodes => nodes.map(el => ({
+        client: el.clientWidth, scroll: el.scrollWidth, text: el.textContent?.slice(0, 35),
+      })));
+    expect(sizes.every(s => s.scroll <= s.client + 1), JSON.stringify(sizes)).toBe(true);
+    await page.locator('g-order-line-card details summary').click();
+    await page.locator('#order-customer details summary').click();
+    await noOverflow(page);
+    await expect(page.getByText('DescriptionSansEspaces'.repeat(65))).toBeVisible();
+  });
+}
+
+test('offres : titre produit et prix élevés gardent le groupage responsive à 320px', async ({ page }) => {
+  await session(page);
+  const state = await mockApi(page, { status: 'OPEN' });
+  state.products[0].name = extremeProductName;
+  state.groups[0].title = extremeProductName;
+  state.groups[0].offers![0].unitPrice = 49_600_000;
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto('/app/groupages/' + groupId);
+  await expect(page.getByRole('heading', { name: extremeProductName, level: 1 })).toBeVisible();
+  await expect(page.locator('.offer-bottom .price').first()).toContainText('49');
+  await noOverflow(page);
+});

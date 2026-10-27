@@ -153,7 +153,7 @@ for (const [width, theme] of [
     );
     await expect(
       page.getByText(
-        'Cette liste correspond aux articles commandés chez le fournisseur et ne changera plus.',
+        'Achat enregistré : ce récapitulatif ne changera plus.',
       ),
     ).toBeVisible();
     await noOverflow(page);

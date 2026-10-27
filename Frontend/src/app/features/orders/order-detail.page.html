@@ -42,7 +42,7 @@
             [class.current]="order.fulfillmentStatus === 'READY_FOR_PICKUP'" aria-hidden="true">
             {{ order.fulfillmentStatus === 'PICKED_UP' ? '✓' : '3' }}
           </span>
-          <div><strong>Retrait</strong><small>{{ fulfillment(order.fulfillmentStatus) }}</small></div>
+          <div><strong>Retrait</strong><small>{{ pickupLabel(order.status, order.fulfillmentStatus) }}</small></div>
         </div>
       </div>
     </header>
@@ -123,7 +123,7 @@
             <h2 id="pickup-heading">Retrait</h2>
             <g-badge [tone]="order.fulfillmentStatus === 'PICKED_UP' ? 'positive' :
               order.fulfillmentStatus === 'READY_FOR_PICKUP' ? 'info' : 'neutral'">
-              {{ fulfillment(order.fulfillmentStatus) }}
+              {{ pickupLabel(order.status, order.fulfillmentStatus) }}
             </g-badge>
           </div>
           <p class="muted">La préparation et la remise sont gérées dans l’onglet Retraits du groupage, selon son avancement.</p>

@@ -18,7 +18,7 @@ import { money, variantLabel } from '../../shared/utils/display';
           </h3>
           <strong class="line-total">{{ money(item().lineTotal, currency()) }}</strong>
         </div>
-        @if (item().variantAttributesSnapshot && variant(item().variantAttributesSnapshot) !== '—') {
+        @if (item().variantAttributesSnapshot && variant(item().variantAttributesSnapshot) !== 'Standard') {
           <p class="variant">{{ variant(item().variantAttributesSnapshot) }}</p>
         }
         <p class="quantity">{{ item().quantity ?? '—' }} ×

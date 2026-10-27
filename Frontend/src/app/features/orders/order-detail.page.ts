@@ -94,6 +94,15 @@ export class OrderDetailPage {
     });
   }
 
+  pickupLabel(orderStatus?: string, fulfillmentStatus?: string) {
+    if (fulfillmentStatus === 'PICKED_UP' || fulfillmentStatus === 'READY_FOR_PICKUP') {
+      return fulfillmentLabel(fulfillmentStatus);
+    }
+    if (orderStatus === 'PENDING_PAYMENT') return 'Après paiement';
+    if (orderStatus === 'CANCELLED' || orderStatus === 'EXPIRED') return 'Non disponible';
+    return fulfillmentLabel(fulfillmentStatus);
+  }
+
   imageFor(lineNumber?: number) {
     const id = this.data()?.productIdsByLineNumber?.[String(lineNumber ?? '')];
     return id ? (this.media()[id]?.primaryThumbnailUrl ?? '') : '';

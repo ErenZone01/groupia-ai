@@ -106,7 +106,21 @@ for (const width of [320, 360, 390, 430, 768, 1280]) {
     const second = state.items[1].id;
     const gallery = page.getByRole('dialog', { name: 'Gestion des images du produit' });
     await expect(gallery.locator('.photo-stage .hero-photo')).toBeVisible();
+    await expect(gallery.getByRole('button', { name: 'Zoomer sur la photo' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(gallery.locator('.hero-photo')).toHaveCSS('object-fit', 'contain');
+    await gallery.getByRole('button', { name: 'Zoomer sur la photo' }).click();
+    await expect(gallery.getByRole('button', { name: 'Afficher toute la photo' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    const viewport = gallery.locator('.photo-viewport');
+    await expect.poll(() => viewport.evaluate((el) => el.scrollWidth > el.clientWidth &&
+      el.scrollHeight > el.clientHeight)).toBe(true);
+    await gallery.getByRole('button', { name: 'Afficher toute la photo' }).click();
+    await expect(gallery.getByRole('button', { name: 'Zoomer sur la photo' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    await expect(viewport).toHaveCSS('overflow', 'hidden');
     await gallery.getByRole('button', { name: 'Sélectionner l’image 2' }).click();
+    await expect(gallery.getByRole('button', { name: 'Zoomer sur la photo' }))
+      .toHaveAttribute('aria-pressed', 'false');
     await expect(gallery.getByRole('button', { name: 'Sélectionner l’image 2' }))
       .toHaveAttribute('aria-pressed', 'true');
     await expect(gallery.locator('.photo-indicator')).toContainText('Photo 2');
@@ -197,3 +211,56 @@ test('galerie : lecture seule et archive ne proposent pas d’actions non autori
   await expect(modal.getByLabel('Ajouter des images')).toHaveCount(0);
   await noOverflow(page);
 });
+
+for (const [shape, widthPx, heightPx] of [
+  ['portrait', 160, 480],
+  ['paysage', 480, 160],
+  ['carre', 320, 320],
+] as const) {
+  for (const viewportWidth of [320, 1280]) {
+    test(`galerie : image ${shape} entière et zoom parcourable à ${viewportWidth}px`, async ({ page }) => {
+      await page.setViewportSize({ width: viewportWidth, height: 820 });
+      await session(page);
+      await mockApi(page);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" viewBox="0 0 ${widthPx} ${heightPx}"><rect width="100%" height="100%" fill="teal"/></svg>`;
+      const displayUrl = 'data:image/svg+xml,' + encodeURIComponent(svg);
+      await page.route('**/api/organizations/*/products/*/media**', (route) =>
+        route.fulfill({ json: {
+          productId, version: 1, enabled: true, canManage: false, reservedCount: 0,
+          items: [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', position: 0,
+            thumbnailUrl: displayUrl, displayUrl, state: 'READY' }],
+        } }),
+      );
+      await page.goto('/app/products');
+      await page.getByRole('button', { name: 'Voir les images' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Gestion des images du produit' });
+      const photo = dialog.locator('.photo-stage .hero-photo');
+      await expect(photo).toBeVisible();
+      await expect(photo).toHaveJSProperty('naturalWidth', widthPx);
+      await expect(photo).toHaveJSProperty('naturalHeight', heightPx);
+      await expect(photo).toHaveCSS('object-fit', 'contain');
+      const fit = await dialog.locator('.photo-stage').evaluate((stage) => {
+        const image = stage.querySelector('img')!;
+        const stageBounds = stage.getBoundingClientRect();
+        const imageBounds = image.getBoundingClientRect();
+        const ratio = image.naturalWidth / image.naturalHeight;
+        const drawnWidth = Math.min(imageBounds.width, imageBounds.height * ratio);
+        const drawnHeight = Math.min(imageBounds.height, imageBounds.width / ratio);
+        return {
+          drawnWidth, drawnHeight, stageWidth: stageBounds.width,
+          stageHeight: stageBounds.height,
+        };
+      });
+      expect(fit.drawnWidth).toBeLessThanOrEqual(fit.stageWidth + 1);
+      expect(fit.drawnHeight).toBeLessThanOrEqual(fit.stageHeight + 1);
+      await noOverflow(page);
+      await dialog.getByRole('button', { name: 'Zoomer sur la photo' }).click();
+      await expect(dialog.getByRole('button', { name: 'Afficher toute la photo' })).toBeVisible();
+      await expect.poll(() => dialog.locator('.photo-viewport').evaluate(el =>
+        el.scrollWidth > el.clientWidth && el.scrollHeight > el.clientHeight)).toBe(true);
+      await noOverflow(page);
+      await dialog.getByRole('button', { name: 'Afficher toute la photo' }).click();
+      await expect(dialog.locator('.photo-viewport')).toHaveCSS('overflow', 'hidden');
+    });
+  }
+}

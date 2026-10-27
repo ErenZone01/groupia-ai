@@ -24,6 +24,7 @@ const paths: Record<string, string[]> = {
     'M5 14v7h14v-7M10 21v-5h4v5',
   ],
   plus: ['M12 5v14M5 12h14'],
+  minus: ['M5 12h14'],
   menu: ['M4 6h16M4 12h16M4 18h16'],
   spark: ['m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z'],
   link: [

@@ -68,14 +68,10 @@ g-product-picker { display:block; margin-top:var(--s4); }
 .offer-photo g-product-thumbnail { border:0; }
 .offer-body { flex:1; min-width:0; }
 .offer-heading { display:flex; align-items:start; justify-content:space-between; gap:var(--s2); }
-.offer-heading h3 { margin:0; min-width:0; max-width:100%; font-size:var(--text-sm);
-  line-height:1.4; font-weight:650; overflow-wrap:anywhere; word-break:break-word;
-  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
-.offer-variant { margin:var(--s1) 0; min-width:0; max-width:100%; color:var(--muted);
-  font-size:var(--text-xs); overflow-wrap:anywhere; }
+
+
 .offer-bottom { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--s2); }
-.offer-bottom .price { min-width:0; max-width:100%; font-size:var(--text-sm); margin:0;
-  white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+
 .list-toggle { display:block; margin:var(--s3) auto; min-height:44px; }
 .list-toggle:after { content:'⌄'; padding-left:var(--s2); }
 .list-toggle[aria-expanded='true']:after { display:inline-block; transform:rotate(180deg); }

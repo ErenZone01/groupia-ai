@@ -284,3 +284,16 @@ g-skeleton {
   display: inline-flex;
   align-items: center;
 }
+
+/* Text overflow safety reused by the groupage offer list. */
+g-groupage-detail .offer-heading h3 { margin:0; min-width:0; max-width:100%; font-size:var(--text-sm);
+  line-height:1.4; font-weight:650; overflow-wrap:anywhere; word-break:break-word;
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+
+/* Text overflow safety reused by the groupage offer list. */
+g-groupage-detail .offer-variant { margin:var(--s1) 0; min-width:0; max-width:100%; color:var(--muted);
+  font-size:var(--text-xs); overflow-wrap:anywhere; }
+
+/* Text overflow safety reused by the groupage offer list. */
+g-groupage-detail .offer-bottom .price { min-width:0; max-width:100%; font-size:var(--text-sm); margin:0;
+  white-space:normal; overflow-wrap:anywhere; word-break:break-word; }

@@ -104,7 +104,7 @@ export class CatalogPage {
         this.closeCreate();
         this.closeGallery();
         this.closeEdit();
-        this.closeArchive();
+        this.closeArchive(true);
         this.media.set({});
         this.search.set('');
         this.filter.set('all');
@@ -221,8 +221,9 @@ export class CatalogPage {
     this.archivingProduct.set(product);
     this.archiveDialog()?.nativeElement.showModal();
   }
-  closeArchive() {
-    if (this.archiveBusy()) return;
+  closeArchive(force = false) {
+    if (this.archiveBusy() && !force) return;
+    if (force) this.archiveBusy.set(false);
     this.archivingProduct.set(null);
     this.archiveError.set('');
     const dialog = this.archiveDialog()?.nativeElement;
@@ -251,7 +252,8 @@ export class CatalogPage {
       if (generation === this.auth.generation() && org === this.context.selectedId())
         this.archiveError.set(apiMessage(error));
     } finally {
-      this.archiveBusy.set(false);
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.archiveBusy.set(false);
     }
   }
   async refreshArchiveProduct() {

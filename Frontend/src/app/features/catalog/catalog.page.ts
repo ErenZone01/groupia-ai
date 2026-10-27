@@ -88,16 +88,20 @@ export class CatalogPage {
     effect(() => {
       const id = this.context.selectedId();
       this.auth.generation();
-      this.closeCreate();
-      this.closeGallery();
-      this.media.set({});
-      this.search.set('');
-      this.filter.set('all');
-      this.sort.set('recent');
-      this.showAll.set(false);
-      this.expandedVariants.set(new Set());
-      if (id) void this.store.load(id);
-      else this.store.clear();
+      // The dialog view queries are signals too. Don't reload the catalog when
+      // they first become available, only when the boutique or session changes.
+      untracked(() => {
+        this.closeCreate();
+        this.closeGallery();
+        this.media.set({});
+        this.search.set('');
+        this.filter.set('all');
+        this.sort.set('recent');
+        this.showAll.set(false);
+        this.expandedVariants.set(new Set());
+        if (id) void this.store.load(id);
+        else this.store.clear();
+      });
     });
     effect(() => {
       this.store.products();

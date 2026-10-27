@@ -42,9 +42,12 @@ public class OrderQueries {
             catch (IllegalArgumentException ex) { throw invalidFilter(); }
         }
         var result = orders.list(org, campaign, filter, page, size);
+        var preview = orders.productPreviews(org, result.items().stream().map(o -> o.getId()).toList());
         return new OrderPage(result.items().stream().map(o -> new OrderSummary(o.getId(), o.getCampaignId(),
                 o.getOrderNumber(), o.getStatus().name(), o.getFulfillmentStatus().name(), o.getInitialAmountDue(),
-                o.getCurrency(), o.getPlacedAt())).toList(), page, size, result.totalElements(), result.totalPages());
+                o.getCurrency(), o.getPlacedAt(), preview.getOrDefault(o.getId(), java.util.List.of())
+                        .stream().limit(3).toList(), preview.getOrDefault(o.getId(), java.util.List.of()).size()))
+                .toList(), page, size, result.totalElements(), result.totalPages());
     }
     private ApiException trackingInvalid() { return new ApiException(404, "ORDER_TRACKING_INVALID", "Accès de suivi invalide ou expiré."); }
     private ApiException invalidFilter() { return new ApiException(400, "INVALID_REQUEST", "Filtres ou pagination invalides."); }

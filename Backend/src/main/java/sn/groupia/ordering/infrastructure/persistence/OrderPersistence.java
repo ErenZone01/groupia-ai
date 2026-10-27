@@ -127,6 +127,27 @@ class OrderPersistence implements Orders {
     }
 
     @Override
+    public Map<UUID, List<UUID>> productPreviews(UUID org, List<UUID> orderIds) {
+        if (orderIds.isEmpty()) return Map.of();
+        // Query one page only. Both the order AND item belong to the selected boutique.
+        var result = new HashMap<UUID, LinkedHashSet<UUID>>();
+        new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc).query(
+                """
+                select oi.order_id, oi.product_id_snapshot
+                from order_items oi
+                join orders o on o.id=oi.order_id and o.organization_id=oi.organization_id
+                where oi.organization_id=:org and oi.order_id in (:ids)
+                order by oi.order_id, oi.line_number
+                """,
+                Map.of("org", org, "ids", orderIds),
+                rs -> result.computeIfAbsent(rs.getObject(1, UUID.class), ignored -> new LinkedHashSet<>())
+                        .add(rs.getObject(2, UUID.class)));
+        var out = new HashMap<UUID, List<UUID>>();
+        result.forEach((id, products) -> out.put(id, List.copyOf(products)));
+        return out;
+    }
+
+    @Override
     public Results list(UUID org, UUID campaign, OrderStatus status, int page, int size) {
         var result =
                 orders.search(

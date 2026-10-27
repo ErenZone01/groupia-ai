@@ -63,6 +63,12 @@ public class CatalogService {
     }
 
     @Transactional
+    public ProductView restore(UUID organizationId, UUID productId, long version) {
+        return change(
+                organizationId, productId, version, product -> product.restore(clock.instant()));
+    }
+
+    @Transactional
     public ProductView addVariant(UUID organizationId, UUID productId, long version, VariantSpecification specification) {
         return change(organizationId, productId, version, product -> product.addVariant(specification, clock.instant()));
     }

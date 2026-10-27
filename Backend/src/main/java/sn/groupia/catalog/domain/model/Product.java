@@ -84,6 +84,15 @@ public class Product {
         touch(now);
     }
 
+    public void restore(Instant now) {
+        if (status != ProductStatus.ARCHIVED) {
+            throw new ApiException(
+                    409, "PRODUCT_NOT_ARCHIVED", "Seul un produit archivé peut être restauré.");
+        }
+        status = ProductStatus.ACTIVE;
+        touch(now);
+    }
+
     private ProductVariant variant(UUID id) {
         return variants.stream().filter(variant -> variant.getId().equals(id)).findFirst()
                 .orElseThrow(() -> new ApiException(404, "VARIANT_NOT_FOUND", "Variante introuvable pour ce produit."));

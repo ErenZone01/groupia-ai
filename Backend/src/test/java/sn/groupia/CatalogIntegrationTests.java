@@ -323,6 +323,45 @@ class CatalogIntegrationTests {
     }
 
     @Test
+    void restoringArchivedProductKeepsIdentityVariantsAndVersionAndRejectsStaleRetry()
+            throws Exception {
+        var created = create(Map.of("name", "Historique restaurable"));
+        var originalVariantId = variantId(created, 0);
+        var archived =
+                body(
+                        perform(
+                                        post(base() + "/" + id(created) + "/archive"),
+                                        version(created))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        perform(post(base() + "/" + id(created) + "/restore"), version(created))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_VERSION_CONFLICT"));
+        var restored =
+                body(
+                        perform(
+                                        post(base() + "/" + id(created) + "/restore"),
+                                        version(archived))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                                .andReturn());
+        assertThat(id(restored)).isEqualTo(id(created));
+        assertThat(restored.get("version").asLong())
+                .isGreaterThan(archived.get("version").asLong());
+        assertThat(variantId(restored, 0)).isEqualTo(originalVariantId);
+        assertThat(count("products")).isEqualTo(1);
+        assertThat(count("product_variants")).isEqualTo(1);
+        perform(post(base() + "/" + id(created) + "/restore"), version(restored))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_ARCHIVED"));
+        perform(
+                        post(base() + "/" + id(created) + "/variants"),
+                        change(restored, variant(Map.of("size", "M"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.variants", hasSize(2)));
+    }
+
+    @Test
     void listingIsPagedScopedAndDoesNotLoadVariantPayloads() throws Exception {
         var a = create(Map.of("name", "A"));
         create(Map.of("name", "B"));
@@ -400,8 +439,14 @@ class CatalogIntegrationTests {
                                         version(product))
                                 .andExpect(status().isOk())
                                 .andReturn());
-        perform(post(base() + "/" + id(product) + "/archive"), version(product))
-                .andExpect(status().isOk());
+        var archived =
+                body(
+                        perform(post(base() + "/" + id(product) + "/archive"), version(product))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        perform(post(base() + "/" + id(product) + "/restore"), version(archived))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @ParameterizedTest
@@ -731,6 +776,9 @@ class CatalogIntegrationTests {
                                                 "version",
                                                 product.get("version").asLong()))),
                 post(path + "/archive")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(version(product))),
+                post(path + "/restore")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(version(product))),
                 post(path + "/variants")

@@ -46,6 +46,14 @@ class CatalogController {
         return catalog.archive(organizationId, productId, request.version());
     }
 
+    @PostMapping("/{productId}/restore")
+    ProductView restore(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID productId,
+            @Valid @RequestBody VersionInput request) {
+        return catalog.restore(organizationId, productId, request.version());
+    }
+
     @PostMapping("/{productId}/variants")
     ProductView addVariant(@PathVariable UUID organizationId, @PathVariable UUID productId, @Valid @RequestBody VariantChange request) {
         return catalog.addVariant(organizationId, productId, request.version(), request.variant().specification());

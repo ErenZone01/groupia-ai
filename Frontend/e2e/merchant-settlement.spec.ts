@@ -204,10 +204,10 @@ test('Fonds boutique apparaît dans le groupage fermé sans bloquer le fournisse
   page,
 }) => {
   await setup(page);
-  await page.goto('/app/groupages/' + groupId);
+  await page.goto('/app/groupages/' + groupId + '?tab=finances');
   await expect(page.getByRole('region', { name: 'Fonds boutique' })).toBeVisible();
   await expect(
     page.getByRole('region', { name: 'Fonds boutique' }).getByText(/Collectés/),
   ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'À commander' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Fournisseur' })).toBeVisible();
 });

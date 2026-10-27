@@ -72,11 +72,10 @@ for (const [width, theme] of [
     await page.goto('/app/groupages/' + groupId);
     expect(state.calls).toBe(0);
     // Navigation au clavier depuis l’onglet sélectionné.
-    await page.getByRole('tab', { name: 'Aperçu', exact: true }).focus();
+    await page.getByRole('tab', { name: 'Offres', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('tab', { name: 'Fournisseur', exact: true })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -118,4 +117,25 @@ test('chargement, erreur réessayable et récapitulatif vide', async ({ page }) 
   await page.getByRole('button', { name: 'Actualiser le récapitulatif' }).click();
   await expect(page.getByText('14 articles', { exact: true })).toBeVisible();
   expect(state.calls).toBe(3);
+});
+
+
+test('le fournisseur retrouve les miniatures uniquement avec une identité de produit fiable', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 844 });
+  await session(page);
+  await mockApi(page, { status: 'OPEN' });
+  await page.route('**/supplier-summary', route => route.fulfill({ json: {
+    groupingCampaignId: groupId, acceptedOrderCount: 1, totalUnits: 3,
+    goodsAmount: 15000, currency: 'XOF',
+    lines: [{ productNameSnapshot: 'Chemise en lin', variantAttributesSnapshot: {},
+              totalQuantity: 3, goodsAmount: 15000, saleUnitSnapshot: 'UNIT' }],
+  } }));
+  await page.route('**/api/organizations/*/product-media*', route => route.fulfill({ json: [
+    { productId: '22222222-2222-4222-8222-222222222222', primaryThumbnailUrl:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' },
+  ] }));
+  await page.goto('/app/groupages/' + groupId + '?tab=supplier');
+  await expect(page.locator('g-supplier-summary-panel g-product-thumbnail img')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Chemise en lin' })).toBeVisible();
+  await noOverflow(page);
 });

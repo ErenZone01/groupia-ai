@@ -9,6 +9,8 @@ import { DOCUMENT } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { GroupiaApi } from '../../api/groupia-api';
+import { ProductMediaApi } from '../catalog/product-media.api';
+import { ProductMediaSummary } from '../../api/generated/models';
 import { ProductView, OfferView, CampaignLifecycleView } from '../../api/generated/models';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
@@ -17,6 +19,7 @@ import { ProductPicker } from './product-picker';
 import { OfferPriceEditor } from './offer-price-editor';
 import { GroupageSettings } from './groupage-settings';
 import { Card } from '../../shared/ui/card';
+import { ProductThumbnail } from '../../shared/ui/product-thumbnail';
 import { Icon } from '../../shared/ui/icon';
 import { Badge } from '../../shared/ui/badge';
 import { Button } from '../../shared/ui/button';
@@ -43,6 +46,7 @@ import {
     MerchantFundsPanel,
     CompletionPanel,
     Card,
+    ProductThumbnail,
     Icon,
     Badge,
     Button,
@@ -60,6 +64,7 @@ export class GroupageDetailPage {
   readonly store = inject(GroupageStore);
   readonly context = inject(BoutiqueContextService);
   private readonly api = inject(GroupiaApi);
+  private readonly mediaApi = inject(ProductMediaApi);
   private readonly route = inject(ActivatedRoute);
   private readonly document = inject(DOCUMENT);
   private readonly toast = inject(ToastService);
@@ -67,32 +72,84 @@ export class GroupageDetailPage {
   readonly error = signal('');
   readonly catalogError = signal('');
   readonly products = signal<ProductView[]>([]);
+  readonly media = signal<Record<string, ProductMediaSummary>>({});
+  readonly showAllOffers = signal(false);
+  readonly visibleOffers = computed(() => this.showAllOffers()
+    ? (this.store.current()?.offers ?? [])
+    : (this.store.current()?.offers ?? []).slice(0, 4));
+  private readonly requestedTab = this.route.snapshot.queryParamMap.get('tab');
   readonly tab = signal(
-    ['orders', 'supplier', 'distribution'].includes(
-      this.route.snapshot.queryParamMap.get('tab') ?? '',
-    )
-      ? this.route.snapshot.queryParamMap.get('tab')!
-      : 'overview',
+    this.requestedTab === 'overview' || this.requestedTab === 'settings'
+      ? 'info'
+      : ['products', 'orders', 'supplier', 'transport', 'distribution', 'finances', 'completion', 'info']
+          .includes(this.requestedTab ?? '')
+        ? this.requestedTab!
+        : 'products',
   );
   readonly adding = signal(false);
   readonly confirmingClose = signal(false);
-  readonly tabs = computed(() => [
-    { id: 'overview', label: 'Aperçu' },
-    { id: 'products', label: 'Produits' },
-    { id: 'orders', label: 'Commandes' },
-    {
-      id: 'supplier',
-      label: ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(
-        this.store.current()?.status ?? '',
-      )
-        ? 'Commande fournisseur'
-        : 'À commander',
-    },
-    ...(['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(this.store.current()?.status ?? '')
-      ? [{ id: 'distribution', label: 'Distribution et retraits' }]
-      : []),
-    { id: 'settings', label: 'Paramètres' },
-  ]);
+  readonly tabs = computed(() => {
+    const status = this.store.current()?.status ?? '';
+    const afterClosing = ['CLOSED', 'SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status);
+    const afterSupplier = ['SUPPLIER_ORDERED', 'IN_TRANSIT', 'ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status);
+    const afterArrival = ['ARRIVED', 'DISTRIBUTING', 'COMPLETED'].includes(status);
+    return [
+      { id: 'products', label: 'Offres', icon: 'box' },
+      { id: 'orders', label: 'Commandes', icon: 'orders' },
+      ...(status !== 'CANCELLED' ? [{ id: 'supplier', label: 'Fournisseur', icon: 'bag' }] : []),
+      ...(afterSupplier ? [{ id: 'transport', label: 'Transport', icon: 'group' }] : []),
+      ...(afterArrival ? [{ id: 'distribution', label: 'Retraits', icon: 'check' }] : []),
+      ...(afterClosing ? [{ id: 'finances', label: 'Finances', icon: 'card' }] : []),
+      ...(['DISTRIBUTING', 'COMPLETED'].includes(status)
+        ? [{ id: 'completion', label: 'Bilan', icon: 'trend' }] : []),
+      { id: 'info', label: 'Infos', icon: 'info' },
+    ];
+  });
+  readonly journey = [
+    { name: 'Offres', tab: 'products' },
+    { name: 'Commandes', tab: 'orders' },
+    { name: 'Fournisseur', tab: 'supplier' },
+    { name: 'Transport', tab: 'transport' },
+    { name: 'Retraits', tab: 'distribution' },
+    { name: 'Bilan', tab: 'completion' },
+  ] as const;
+  readonly journeyIndex = computed(() => {
+    switch (this.store.current()?.status) {
+      case 'DRAFT': return 0;
+      case 'OPEN': return 1;
+      case 'CLOSED': return 2;
+      case 'SUPPLIER_ORDERED':
+      case 'IN_TRANSIT': return 3;
+      case 'ARRIVED':
+      case 'DISTRIBUTING': return 4;
+      case 'COMPLETED': return 5;
+      default: return -1;
+    }
+  });
+  readonly currentJourney = computed(() =>
+    this.journey.find((_, index) => index === this.journeyIndex())?.name ?? 'Arrêté',
+  );
+  readonly availableJourneyTabs = computed(() => new Set(this.tabs().map((item) => item.id)));
+  readonly priorityTab = computed(() => {
+    switch (this.store.current()?.status) {
+      case 'OPEN': return 'orders';
+      case 'CLOSED': return 'supplier';
+      case 'SUPPLIER_ORDERED':
+      case 'IN_TRANSIT': return 'transport';
+      case 'ARRIVED':
+      case 'DISTRIBUTING': return 'distribution';
+      case 'COMPLETED': return 'completion';
+      default: return 'products';
+    }
+  });
+  readonly priorityLabel = computed(() => ({
+    orders: 'Voir les commandes',
+    supplier: 'Gérer le fournisseur',
+    transport: 'Suivre le transport',
+    distribution: 'Gérer les retraits',
+    completion: 'Voir le bilan',
+    products: 'Voir les offres',
+  })[this.priorityTab()]);
   readonly editable = computed(() =>
     ['DRAFT', 'OPEN'].includes(this.store.current()?.status ?? ''),
   );
@@ -114,16 +171,16 @@ export class GroupageDetailPage {
   });
   readonly nextStepLabel = computed(() => {
     switch (this.store.current()?.status) {
-      case 'DRAFT': return 'Complétez les produits et les conditions, puis publiez lorsque tout est prêt.';
-      case 'OPEN': return 'Les commandes sont ouvertes. Retrouvez le lien de partage et les commandes ci-dessous.';
-      case 'CLOSED': return 'La prise de commandes est terminée. Consultez les étapes fournisseur et transport.';
-      case 'SUPPLIER_ORDERED': return 'La commande fournisseur est enregistrée. Suivez les étapes logistiques.';
-      case 'IN_TRANSIT': return 'Les marchandises sont en transport. Consultez les informations logistiques.';
-      case 'ARRIVED': return 'Les marchandises sont arrivées. Consultez les étapes de distribution disponibles.';
-      case 'DISTRIBUTING': return 'La distribution est en cours. Retrouvez les retraits et le suivi ci-dessous.';
-      case 'COMPLETED': return 'Ce groupage est terminé. Les informations restent accessibles en lecture.';
-      case 'CANCELLED': return 'Ce groupage est annulé. Consultez les informations conservées.';
-      default: return 'Consultez les sections ci-dessous pour suivre ce groupage.';
+      case 'DRAFT': return 'Préparez vos offres';
+      case 'OPEN': return 'Partagez et suivez les commandes';
+      case 'CLOSED': return 'Préparez le fournisseur';
+      case 'SUPPLIER_ORDERED': return 'Préparez le transport';
+      case 'IN_TRANSIT': return 'Transport en cours';
+      case 'ARRIVED': return 'Organisez les retraits';
+      case 'DISTRIBUTING': return 'Retraits en cours';
+      case 'COMPLETED': return 'Groupage terminé';
+      case 'CANCELLED': return 'Groupage annulé';
+      default: return 'Suivi du groupage';
     }
   });
   readonly dakarDate = (date?: string) =>
@@ -148,6 +205,12 @@ export class GroupageDetailPage {
   private sequence = 0;
   constructor() {
     effect(() => {
+      const current = this.store.current();
+      if (!current) return;
+      if (!this.tabs().some((item) => item.id === this.tab()))
+        this.tab.set(this.priorityTab());
+    });
+    effect(() => {
       const id = this.context.selectedId();
       this.id();
       if (id) void this.load(id);
@@ -158,6 +221,8 @@ export class GroupageDetailPage {
     this.loading.set(true);
     this.error.set('');
     this.products.set([]);
+    this.media.set({});
+    this.showAllOffers.set(false);
     this.catalogError.set('');
     try {
       await this.store.load(id, this.id());
@@ -173,13 +238,40 @@ export class GroupageDetailPage {
     this.loading.set(false);
     try {
       const products = await this.api.allProducts(id);
-      if (seq === this.sequence) this.products.set(products);
+      if (seq !== this.sequence || id !== this.context.selectedId()) return;
+      this.products.set(products);
+      const productIds = [...new Set((this.store.current()?.offers ?? []).flatMap((offer) =>
+        products.filter((p) => p.variants?.some((v) => v.id === offer.productVariantId))
+          .map((p) => p.id).filter((value): value is string => !!value)))];
+      if (productIds.length) {
+        try {
+          const summaries = await this.mediaApi.batch(id, productIds);
+          if (seq === this.sequence && id === this.context.selectedId())
+            this.media.set(Object.fromEntries(summaries.filter((m) => !!m.productId)
+              .map((m) => [m.productId!, m])));
+        } catch {
+          // Les photos sont facultatives : ne pas bloquer les offres.
+        }
+      }
     } catch {
       if (seq === this.sequence)
         this.catalogError.set(
           'Les noms des produits ne sont pas disponibles. Réessayez pour les actualiser.',
         );
     }
+  }
+  thumbnail(offer: OfferView) {
+    const product = this.products().find((p) =>
+      p.variants?.some((v) => v.id === offer.productVariantId));
+    return product?.id ? (this.media()[product.id]?.primaryThumbnailUrl ?? '') : '';
+  }
+  thumbnailFailed(offer: OfferView) {
+    const product = this.products().find((p) =>
+      p.variants?.some((v) => v.id === offer.productVariantId));
+    if (product?.id)
+      this.media.update((map) => ({
+        ...map, [product.id!]: { ...map[product.id!], primaryThumbnailUrl: undefined },
+      }));
   }
   label(offer: OfferView) {
     return (

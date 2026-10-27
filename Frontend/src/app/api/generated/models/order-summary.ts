@@ -9,5 +9,7 @@ export interface OrderSummary {
   initialAmountDue?: number;
   orderNumber?: string;
   placedAt?: string;
+  previewProductIds?: Array<string>;
+  productCount?: number;
   status?: string;
 }

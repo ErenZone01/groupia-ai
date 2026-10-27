@@ -128,8 +128,8 @@ async function logistics(page: Page) {
   return state;
 }
 async function open(page: Page) {
-  await page.goto('/app/groupages/' + groupId);
-  await expect(page.getByRole('heading', { name: 'Logistique', exact: true })).toBeVisible();
+  await page.goto('/app/groupages/' + groupId + '?tab=transport');
+  await expect(page.getByRole('heading', { name: 'Expédition', exact: true })).toBeVisible();
 }
 async function departure(page: Page) {
   await page.getByRole('button', { name: 'Marquer comme en transport' }).click();
@@ -156,12 +156,13 @@ for (const [width, theme] of [
     await page.addInitScript((theme) => localStorage.setItem('groupia.theme', theme), theme);
     await open(page);
     await departure(page);
-    await expect(page.getByText('Transport : Bateau')).toBeVisible();
+    await expect(page.getByText('Transport : Bateau').first()).toBeVisible();
     await noOverflow(page);
     await page.getByRole('button', { name: 'Confirmer le départ' }).click();
     await expect(page.getByRole('button', { name: 'Marquer comme arrivée' })).toBeVisible();
     expect(state.posts[0].body.version).toBe(7);
     await page.reload();
+    await page.getByText('Afficher le dossier et les références').click();
     await expect(page.getByText('REF-FOURNISSEUR-PRIVEE', { exact: true })).toBeVisible();
     await page.goto('/public/order');
     await expect(page.locator('g-order-timeline [aria-current="step"]')).toContainText(
@@ -188,6 +189,7 @@ for (const [width, theme] of [
     await page.getByRole('button', { name: 'Confirmer l’arrivée' }).click();
     await expect(page.getByText('Marchandise arrivée', { exact: true }).first()).toBeVisible();
     expect(state.posts[1].body.version).toBe(12);
+    await page.getByText('Afficher le dossier et les références').click();
     await expect(page.getByText('Date d’arrivée communiquée', { exact: true })).toBeVisible();
     await noOverflow(page);
     await page.evaluate(() => {
@@ -277,8 +279,10 @@ test('dossier facultatif, ETA révisée, information et transitions sans dates �
   const state = await logistics(page);
   await page.setViewportSize({ width: 360, height: 900 });
   await open(page);
+  await page.getByText('Ajouter ou modifier le suivi').click();
   await page.getByRole('button', { name: 'Renseigner le prestataire' }).click();
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await page.locator('g-logistics-panel details > summary').filter({ hasText: 'Voir l’historique' }).click();
   await expect(page.getByRole('heading', { name: 'Historique logistique' })).toBeVisible();
   await page.getByRole('button', { name: 'Modifier l’arrivée estimée' }).click();
   await page.getByLabel('Arrivée estimée (facultatif)', { exact: true }).fill('2026-11-01T09:00');
@@ -302,7 +306,7 @@ test('dossier facultatif, ETA révisée, information et transitions sans dates �
   expect(state.posts.find((p) => p.action === 'ship')!.body.departedAt).toBeUndefined();
   await page.getByRole('button', { name: 'Marquer comme arrivée' }).click();
   await page.getByRole('button', { name: 'Confirmer l’arrivée' }).click();
-  await expect(page.getByText('Arrivée confirmée', { exact: true })).toBeVisible();
+  await expect(page.getByText('Arrivée confirmée. Préparez les retraits dans l’onglet Retraits.')).toBeVisible();
   await expect(page.getByText('Date d’arrivée communiquée', { exact: true })).toHaveCount(0);
   await noOverflow(page);
   await page.screenshot({ path: 'artifacts/logistics-dossier-360.png', fullPage: true });

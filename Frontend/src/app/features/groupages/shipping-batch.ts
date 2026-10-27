@@ -12,10 +12,7 @@ import { money } from '../../shared/utils/display';
   imports: [Button, ShippingOrderEditor, DecimalPipe],
   template: ` <section aria-labelledby="shipping-batch-title">
     <h2 id="shipping-batch-title">Transport des commandes</h2>
-    <p>
-      Renseignez chaque commande à votre rythme. La finalisation rend le solde éventuel accessible
-      depuis le suivi cliente.
-    </p>
+    <p class="muted">Frais et finalisation des commandes.</p>
     @if (loading()) {
       <p role="status">Chargement du transport…</p>
     }
@@ -35,6 +32,7 @@ import { money } from '../../shared/utils/display';
           <strong>{{ t.finalized }}</strong> finalisées · {{ t.remaining }} restantes
         </p>
         <p>Transport final : {{ money(t.amount.value) }} ({{ t.amount.count }} commandes)</p>
+        <details class="shipping-stat-details"><summary>Poids et volumes</summary>
         @if (t.weight.count) {
           <p>
             Poids réel : {{ t.weight.value | number: '1.0-9' }} kg ({{ t.weight.count }}/{{
@@ -50,13 +48,12 @@ import { money } from '../../shared/utils/display';
           </p>
         }
         @if (t.volume.count) {
-          <p>
-            Volume : {{ t.volume.value | number: '1.0-9' }} m³ ({{ t.volume.count }}/{{ t.count }})
-          </p>
+          <p>Volume : {{ t.volume.value | number: '1.0-9' }} m³ ({{ t.volume.count }}/{{ t.count }})</p>
         }
+        </details>
       </div>
-      <p class="muted">Totaux des données renseignées, sans répartition d’une facture globale.</p>
-      @for (row of rows(); track row.orderId) {
+      <p class="muted">Montants renseignés uniquement.</p>
+      @for (row of visibleRows(); track row.orderId) {
         <g-shipping-order-editor
           [row]="row"
           [readOnly]="readOnly()"
@@ -67,6 +64,12 @@ import { money } from '../../shared/utils/display';
         />
       } @empty {
         <p>Aucune commande confirmée à traiter.</p>
+      }
+      @if (rows().length > 4) {
+        <button gButton variant="secondary" class="shipping-show-all" [attr.aria-expanded]="showAll()"
+                (click)="showAll.set(!showAll())">
+          {{ showAll() ? 'Réduire la liste' : 'Voir toutes les commandes (' + rows().length + ')' }}
+        </button>
       }
     }
   </section>`,
@@ -83,6 +86,13 @@ import { money } from '../../shared/utils/display';
     p {
       margin-bottom: var(--s3);
     }
+    .shipping-stat-details { grid-column:1/-1; }
+    .shipping-stat-details summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-weight:600; color:var(--primary); }
+    .shipping-stat-details summary:after { content:'⌄'; margin-left:auto; font-size:22px; }
+    .shipping-stat-details[open] summary:after { transform:rotate(180deg); }
+    .shipping-show-all { margin-top:var(--s3); min-height:44px; }
+    .shipping-show-all:after { content:'⌄'; padding-left:var(--s2); }
+    .shipping-show-all[aria-expanded='true']:after { display:inline-block; transform:rotate(180deg); }
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
@@ -99,6 +109,8 @@ export class ShippingBatch {
   readonly organizationId = input.required<string>();
   readonly campaignId = input.required<string>();
   readonly rows = signal<OrderShippingRow[]>([]);
+  readonly showAll = signal(false);
+  readonly visibleRows = computed(() => this.showAll() ? this.rows() : this.rows().slice(0, 4));
   readonly loading = signal(true);
   readonly error = signal('');
   readonly editing = signal(false);
@@ -122,6 +134,7 @@ export class ShippingBatch {
   }
   reload() {
     this.request?.unsubscribe();
+    this.showAll.set(false);
     this.loading.set(true);
     this.error.set('');
     this.request = this.api

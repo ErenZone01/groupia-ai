@@ -125,7 +125,7 @@ for (const [width, theme] of [
     await page.setViewportSize({ width, height: 1000 });
     await page.emulateMedia({ colorScheme: theme });
     await open(page);
-    await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('tab', { name: 'Fournisseur', exact: true })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -144,7 +144,7 @@ for (const [width, theme] of [
       page.getByRole('heading', { name: 'Commande fournisseur', exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: 'Commande fournisseur', exact: true }),
+      page.getByRole('tab', { name: 'Fournisseur', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByText('Commandée au fournisseur', { exact: true })).toBeVisible();
     await expect(page.locator('g-supplier-summary-panel time')).toHaveAttribute(
@@ -153,7 +153,7 @@ for (const [width, theme] of [
     );
     await expect(
       page.getByText(
-        'Cette liste correspond aux articles commandés chez le fournisseur et ne changera plus.',
+        'Achat enregistré : ce récapitulatif ne changera plus.',
       ),
     ).toBeVisible();
     await noOverflow(page);
@@ -182,7 +182,7 @@ test('paiements en attente : nombre sûr et aucun gel', async ({ page }) => {
   );
   await expect(page.getByRole('alert')).not.toContainText('email');
   expect(state.purchase).toBeNull();
-  await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Fournisseur', exact: true })).toBeVisible();
 });
 test('version périmée : nouvelle version lue sur le serveur avant nouvel essai', async ({
   page,

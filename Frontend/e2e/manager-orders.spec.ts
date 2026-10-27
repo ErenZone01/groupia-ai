@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { mockApi, session, shopId, groupId, noOverflow } from './api-mock';
+import { mockApi, session, shopId, groupId, noOverflow, productId, publicProductImage } from './api-mock';
 const ids = Array.from(
   { length: 25 },
   (_, i) => '90000000-0000-4000-8000-' + String(i + 1).padStart(12, '0'),
@@ -17,7 +17,11 @@ async function managerOrders(page: Page) {
     initialAmountDue: 10300,
     currency: 'XOF',
     placedAt: '2026-09-26T09:00:00Z',
+    previewProductIds: [productId], productCount: 1,
   }));
+  await page.route('**/api/organizations/*/product-media*', (route) =>
+    route.fulfill({ json: [{ productId, enabled: true, primaryThumbnailUrl: publicProductImage }] }),
+  );
   const state = {
     calls: [] as {
       path: string;
@@ -109,6 +113,7 @@ for (const [width, theme] of [
     await page.goto('/app/orders');
     await expect(page.getByRole('heading', { name: 'Commandes', exact: true })).toBeVisible();
     await expect(page.getByText('25 commande(s) au total')).toBeVisible();
+    await expect(page.locator(width >= 1024 ? '.desktop-orders g-product-thumbnail img' : '.mobile-orders g-product-thumbnail img').first()).toBeVisible();
     await noOverflow(page);
     if (width >= 1024) await expect(page.getByRole('table')).toBeVisible();
     else await expect(page.getByRole('table')).toBeHidden();
@@ -189,7 +194,7 @@ test('groupage : corrélation exacte et retour aux commandes', async ({ page }) 
   await page.getByRole('tab', { name: 'Commandes', exact: true }).click();
   await expect(page.getByText('20 commande(s) au total')).toBeVisible();
   expect(state.calls.at(-1)?.campaign).toBe(groupId);
-  await expect(page.getByRole('tab', { name: 'À commander', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Fournisseur', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Payées', exact: true }).click();
   await expect(page.getByText('4 commande(s) pour ce filtre')).toBeVisible();
   expect(state.calls.at(-1)?.status).toBe('CONFIRMED');

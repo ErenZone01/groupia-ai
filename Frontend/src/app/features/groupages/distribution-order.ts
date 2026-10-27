@@ -22,11 +22,24 @@ export interface DistributionAction {
       min-width: 0;
     }
     article {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: var(--s5);
-      background: var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      padding:var(--s3);
+      background:var(--surface);
+      min-width:0;
     }
+    article > h3 { font-size:var(--text-base); font-weight:650; margin:0 0 var(--s1); }
+    article > p { font-size:var(--text-sm); }
+    .distribution-primary-actions { margin:var(--s3) 0; }
+    .distribution-primary-actions .actions { display:flex; flex-wrap:wrap; gap:var(--s2); }
+    .distribution-primary-actions button { min-height:44px; }
+    .distribution-financial { margin:var(--s2) 0; padding:0 var(--s3); border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface-alt); }
+    .distribution-financial summary { display:flex; align-items:center; min-height:44px; list-style:none; font-size:var(--text-sm); font-weight:650; color:var(--primary); }
+    .distribution-financial summary:after { content:'⌄'; font-size:23px; margin-left:auto; }
+    .distribution-financial summary::-webkit-details-marker { display:none; }
+    .distribution-financial[open] { padding-bottom:var(--s3); }
+    .distribution-financial[open] summary:after { transform:rotate(180deg); }
+    .distribution-financial summary:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
     h3,
     p {
       overflow-wrap: anywhere;

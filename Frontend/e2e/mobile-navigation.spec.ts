@@ -90,8 +90,14 @@ test('tiroir droit V6 : clavier, focus, thème, backdrop et scroll', async ({ pa
   await expect(menu).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
   await menu.click();
-  await page.mouse.click(10, 20);
+  // L'ouverture passe par un signal Angular : attendre que le dialogue natif
+  // soit effectivement dans la top layer avant de tester le clic extérieur.
+  await expect(sheet).toBeVisible();
+  await expect(menu).toHaveAttribute('aria-expanded', 'true');
+  // Cibler la vraie zone de dismissal, hors du panneau à droite.
+  await sheet.locator('.drawer-dismiss-layer').click({ position: { x: 10, y: 20 } });
   await expect(sheet).not.toBeVisible();
+  await expect(menu).toHaveAttribute('aria-expanded', 'false');
   await noOverflow(page);
 });
 

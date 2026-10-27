@@ -1,9 +1,6 @@
 <section aria-labelledby="distribution-title">
   <h2 id="distribution-title">Distribution et retraits</h2>
-  <p>
-    Vérifiez chaque commande et confirmez sa disponibilité physique avant de la remettre à la
-    cliente.
-  </p>
+  <p>Préparez, puis remettez les commandes.</p>
   @if (error()) {
     <p role="alert" class="form-error">{{ error() }}</p>
   }
@@ -13,34 +10,24 @@
   @if (loading()) {
     <p role="status">Chargement de la distribution…</p>
   }
-  <button gButton variant="secondary" [disabled]="loading() || busy()" (click)="load()">
-    Actualiser la distribution
-  </button>
   @if (data(); as batch) {
     @if (!batch.canManageFulfillment) {
       <p class="notice">Vous disposez d’un accès en lecture seule à la distribution.</p>
     }
     <div class="counts" aria-label="Résumé de distribution">
-      <div>
-        Commandes<strong>{{ batch.counts?.total ?? 0 }}</strong>
-      </div>
-      <div>
-        À préparer<strong>{{ batch.counts?.toPrepare ?? 0 }}</strong>
-      </div>
-      <div>
-        Bloquées par paiement<strong>{{ batch.counts?.paymentBlocked ?? 0 }}</strong>
-      </div>
-      <div>
-        Prêtes<strong>{{ batch.counts?.ready ?? 0 }}</strong>
-      </div>
-      <div>
-        Retirées<strong>{{ batch.counts?.pickedUp ?? 0 }}</strong>
-      </div>
-      <div>
-        Crédits clientes<strong>{{ batch.counts?.customerCredits ?? 0 }}</strong>
-      </div>
+      <div>À préparer<strong>{{ batch.counts?.toPrepare ?? 0 }}</strong></div>
+      <div>Prêtes<strong>{{ batch.counts?.ready ?? 0 }}</strong></div>
+      <div>Retirées<strong>{{ batch.counts?.pickedUp ?? 0 }}</strong></div>
     </div>
-    <p>{{ batch.counts?.eligible ?? 0 }} commande(s) éligible(s) à la préparation physique.</p>
+    <p class="muted">{{ batch.counts?.eligible ?? 0 }} commande(s) éligible(s) à la préparation physique.</p>
+    <details class="distribution-extra">
+      <summary>Autres indicateurs</summary>
+      <div class="counts">
+        <div>Commandes<strong>{{ batch.counts?.total ?? 0 }}</strong></div>
+        <div>Bloquées par paiement<strong>{{ batch.counts?.paymentBlocked ?? 0 }}</strong></div>
+        <div>Crédits clientes<strong>{{ batch.counts?.customerCredits ?? 0 }}</strong></div>
+      </div>
+    </details>
     <div class="filters">
       <div>
         <label for="distribution-search">Rechercher une commande ou une cliente</label
@@ -71,7 +58,7 @@
       </div>
     </div>
     <div class="orders">
-      @for (row of rows(); track row.orderId) {
+      @for (row of visibleRows(); track row.orderId) {
         <g-distribution-order
           [row]="row"
           [organizationId]="organizationId()"
@@ -85,5 +72,12 @@
         <p>Aucune commande ne correspond à cette sélection.</p>
       }
     </div>
+    @if (rows().length > 4) {
+      <button gButton variant="secondary" class="distribution-show-all"
+              [attr.aria-expanded]="showAll()" (click)="showAll.set(!showAll())">
+        {{ showAll() ? 'Réduire la liste' : 'Voir toutes les commandes (' + rows().length + ')' }}
+      </button>
+    }
   }
+  <button gButton variant="secondary" [disabled]="loading() || busy()" (click)="load()">Actualiser</button>
 </section>

@@ -43,7 +43,7 @@ for (const [width, theme] of [
     await page.screenshot({ path: `artifacts/wizard-${width}-${theme}.png`, fullPage: true });
     await page.getByRole('button', { name: 'Publier le groupage', exact: true }).click();
     await expect(
-      page.getByRole('heading', { name: 'Votre groupage est en ligne 🎉' }),
+      page.getByRole('region', { name: 'Partager le groupage' }),
     ).toBeVisible();
     expect(state.groups[0].version).toBe(99);
     const publicLink = page.getByRole('link', { name: 'Voir comme une cliente' });
@@ -135,7 +135,7 @@ test('conflit de version actualise sans republier automatiquement', async ({ pag
   await expect(page.getByRole('alert')).toContainText('actualisé');
   expect(state.calls.filter((c) => c.path.endsWith('/open'))).toHaveLength(1);
   await page.getByRole('button', { name: 'Publier le groupage', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Votre lien public' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Partager le groupage' })).toBeVisible();
 });
 test('page non commandable et variante désactivée', async ({ page }) => {
   await mockApi(page, { orderable: false, status: 'CLOSED' });
@@ -175,9 +175,9 @@ test('brouillon puis ajout depuis le détail, prix et fermeture versionnés', as
   const state = await mockApi(page);
   state.groups[0].offers = [];
   await page.goto('/app/groupages/' + groupId);
-  await page.getByRole('tab', { name: 'Produits', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Aucun produit dans ce groupage' })).toBeVisible();
-  await page.getByRole('button', { name: 'Ajouter un produit', exact: true }).click();
+  await page.getByRole('tab', { name: 'Offres', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Aucune offre' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ajouter une offre', exact: true }).click();
   await page.getByLabel('Produit et variante').selectOption({ label: 'Chemise en lin · Standard' });
   await page.getByLabel('Prix dans ce groupage (F CFA)').fill('5000');
   await page.getByRole('button', { name: 'Ajouter au groupage', exact: true }).click();
@@ -186,11 +186,11 @@ test('brouillon puis ajout depuis le détail, prix et fermeture versionnés', as
   await page.getByLabel('Prix dans ce groupage (F CFA)').fill('6000');
   await page.getByRole('button', { name: 'Enregistrer le prix', exact: true }).click();
   expect(state.groups[0].offers?.[0]?.unitPrice).toBe(6000);
-  await page.getByRole('tab', { name: 'Aperçu', exact: true }).click();
   await page.getByRole('button', { name: 'Publier le groupage', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Votre lien public' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Partager le groupage' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Commandes', exact: true }).click();
   await page.getByRole('button', { name: 'Fermer les commandes', exact: true }).click();
-  await page.getByRole('button', { name: 'Confirmer la fermeture', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmer', exact: true }).click();
   await expect(page.getByText('Commandes fermées', { exact: true })).toBeVisible();
   expect(state.groups[0].status).toBe('CLOSED');
 });

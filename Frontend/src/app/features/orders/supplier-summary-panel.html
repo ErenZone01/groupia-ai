@@ -7,10 +7,11 @@
       Actualiser le récapitulatif
     </button>
   </div>
-  <p class="muted">
-    Les commandes payées et terminées sont incluses. Les frais de service et de livraison sont
-    exclus.
-  </p>
+  <details class="supplier-explanation">
+    <summary>Comment est calculé ce récapitulatif ?</summary>
+    <p>Seules les commandes payées et terminées sont retenues. Les frais de service
+       et de livraison sont exclus du montant des marchandises.</p>
+  </details>
   @if (purchase(); as p) {
     <div class="section-heading">
       <g-badge tone="positive">Commandée</g-badge>
@@ -18,9 +19,7 @@
         Commandée le <time [attr.datetime]="p.orderedAt">{{ dateLabel(p.orderedAt) }}</time>
       </p>
     </div>
-    <p class="muted">
-      Cette liste correspond aux articles commandés chez le fournisseur et ne changera plus.
-    </p>
+    <p class="muted">Achat enregistré : ce récapitulatif ne changera plus.</p>
     @if (lateCount() > 0) {
       <p class="notice" role="alert">
         {{ count(lateCount()) }} commande(s) ont été confirmées après cet achat et ne figurent pas
@@ -102,42 +101,46 @@
       </div>
     </dl>
     @if (summary.lines?.length) {
+      <div class="supplier-list-heading">
+        <h3>Produits fournisseur <small>({{ summary.lines?.length }})</small></h3>
+        <span class="muted">Quantités et marchandises</span>
+      </div>
       <ul class="lines" aria-label="Articles à commander">
-        @for (line of summary.lines; track $index) {
+        @for (line of visibleLines(); track $index; let i = $index) {
           <li>
+            <g-product-thumbnail [src]="photo(line, i)"
+              [alt]="line.productNameSnapshot || 'Produit fournisseur'" [size]="52" />
             <div class="product">
-              <h3>{{ line.productNameSnapshot }}</h3>
+              <h3 [title]="line.productNameSnapshot">{{ line.productNameSnapshot }}</h3>
               <p class="variant">{{ variantLabel(line.variantAttributesSnapshot) }}</p>
-              @if (
-                line.commercialLabelSnapshot &&
-                line.commercialLabelSnapshot !== line.productNameSnapshot
-              ) {
+              @if (line.commercialLabelSnapshot && line.commercialLabelSnapshot !== line.productNameSnapshot) {
                 <p class="muted">{{ line.commercialLabelSnapshot }}</p>
               }
-              @if (line.productDescriptionSnapshot) {
-                <p class="muted preserve">{{ line.productDescriptionSnapshot }}</p>
+              @if (line.productDescriptionSnapshot || line.skuSnapshot || line.saleUnitSnapshot) {
+                <details class="line-more">
+                  <summary>Voir les détails</summary>
+                  @if (line.productDescriptionSnapshot) {
+                    <p class="preserve">{{ line.productDescriptionSnapshot }}</p>
+                  }
+                  @if (line.skuSnapshot) { <p>Référence : {{ line.skuSnapshot }}</p> }
+                  <p>Vente : {{ saleUnit(line.saleUnitSnapshot) }}</p>
+                </details>
               }
-              @if (line.skuSnapshot) {
-                <p class="muted">Référence : {{ line.skuSnapshot }}</p>
-              }
-              <p class="muted">
-                Vente :
-                {{ saleUnit(line.saleUnitSnapshot) }}
-              </p>
             </div>
             <dl class="quantities">
-              <div>
-                <dt>Quantité</dt>
-                <dd>{{ count(line.totalQuantity) }}</dd>
-              </div>
-              <div>
-                <dt>Marchandises</dt>
-                <dd>{{ money(line.goodsAmount, summary.currency) }}</dd>
-              </div>
+              <div><dt>Quantité</dt><dd>{{ count(line.totalQuantity) }}</dd></div>
+              <div><dt>Marchandises</dt><dd>{{ money(line.goodsAmount, summary.currency) }}</dd></div>
             </dl>
           </li>
         }
       </ul>
+      @if ((summary.lines?.length ?? 0) > 4) {
+        <button gButton variant="secondary" class="list-toggle"
+          [attr.aria-expanded]="showAll()" (click)="showAll.set(!showAll())">
+          {{ showAll() ? 'Réduire la liste' : 'Voir les autres produits (' + ((summary.lines?.length ?? 0) - 4) + ')' }}
+          <span aria-hidden="true">{{ showAll() ? '⌃' : '⌄' }}</span>
+        </button>
+      }
     } @else {
       <g-empty-state
         title="Aucune commande acceptée pour le moment"

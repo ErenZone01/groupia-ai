@@ -1,11 +1,14 @@
 import { Component, ElementRef, inject, input, model } from '@angular/core';
+import { Icon } from './icon';
 export interface TabItem {
   id: string;
   label: string;
+  icon?: string;
   disabled?: boolean;
 }
 @Component({
   selector: 'g-tabs',
+  imports: [Icon],
   template: `<div role="tablist" [attr.aria-label]="label()">
       @for (tab of tabs(); track tab.id) {
         <button
@@ -19,6 +22,7 @@ export interface TabItem {
           (click)="active.set(tab.id)"
           (keydown)="navigate($event, tab.id)"
         >
+          @if (tab.icon) { <g-icon [name]="tab.icon" /> }
           {{ tab.label }}
         </button>
       }
@@ -32,45 +36,21 @@ export interface TabItem {
       <ng-content />
     </div>`,
   styles: `
-    [role='tablist'] {
-      display: flex;
-      gap: var(--s3);
-      overflow-x: auto;
-      border-bottom: 1px solid var(--border);
-    }
-    button {
-      flex-shrink: 0;
-      padding: var(--s3) var(--s2);
-      min-height: 44px;
-      border: 0;
-      border-bottom: 2px solid transparent;
-      background: transparent;
-      color: var(--muted);
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    }
-    button[aria-selected='true'] {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
-      font-weight: 600;
-    }
-    button:hover:not(:disabled) {
-      background: var(--surface-alt);
-    }
-    @media (max-width: 599px) {
-      [role='tablist'] {
-        gap: var(--s1);
-      }
-      button {
-        font-size: var(--text-sm);
-        padding: var(--s3) var(--s2);
-      }
-    }
-    [role='tabpanel'] {
-      padding-top: var(--s4);
-    }
-    button:focus-visible {
-      outline-offset: -3px;
-    }
+    [role='tablist'] { display:flex; gap:var(--s2); padding:var(--s2); overflow-x:auto;
+      scrollbar-width:thin; overscroll-behavior-inline:contain; scroll-snap-type:x proximity;
+      background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-lg); }
+    button { display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
+      flex-shrink:0; scroll-snap-align:start; min-height:44px; padding:var(--s2) var(--s3);
+      border:1px solid transparent; border-radius:var(--radius-md); background:transparent;
+      color:var(--muted); font-size:var(--text-sm); font-weight:600; cursor:pointer; }
+    button g-icon { width:17px; height:17px; }
+    button[aria-selected='true'] { background:var(--primary-soft); border-color:var(--primary);
+      color:var(--primary); }
+    button:hover:not(:disabled) { background:var(--surface); color:var(--primary); }
+    button:disabled { opacity:.55; cursor:default; }
+    button:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+    [role='tabpanel'] { padding-top:var(--s4); min-width:0; }
+    @media(max-width:599px) { [role='tablist'] { gap:var(--s1); padding:var(--s1); } button { padding:var(--s2); } }
   `,
 })
 export class Tabs {

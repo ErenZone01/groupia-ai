@@ -19,10 +19,12 @@ for (const [width, theme] of [
     await page.getByRole('button', { name: 'Créer ma boutique' }).click();
     await expect(page.getByRole('heading', { name: 'Accueil', exact: true })).toBeVisible();
     await page.goto('/app/products');
-    await page.getByRole('button', { name: 'Créer un produit', exact: true }).click();
+    await page.getByRole('button', { name: 'Ajouter un produit', exact: true }).click();
     await page.getByLabel('Nom du produit').fill('Chemise en lin');
     await page.getByLabel('Description (facultative)').fill('Une coupe légère.');
     await page.getByRole('button', { name: 'Créer le produit', exact: true }).click();
+    await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await page.getByRole('button', { name: /Variantes/ }).click();
     await expect(page.getByText('Standard', { exact: true })).toBeVisible();
     expect(state.products[0].variants?.[0]?.canonicalVariantKey).toBe('DEFAULT');
     await page.goto('/app/groupages');
@@ -118,12 +120,14 @@ test('création produit avec options et SKU facultatif', async ({ page }) => {
   const state = await mockApi(page, { empty: true });
   state.shops.push({ id: '11111111-1111-4111-8111-111111111111', name: 'Boutique' });
   await page.goto('/app/products');
-  await page.getByRole('button', { name: 'Créer un produit', exact: true }).click();
+  await page.getByRole('button', { name: 'Ajouter un produit', exact: true }).click();
   await page.getByLabel('Nom du produit').fill('Chaussures');
   await page.getByRole('button', { name: 'Ajouter une option', exact: true }).click();
   await page.getByRole('combobox', { name: 'Option', exact: true }).selectOption('shoeSize');
   await page.getByLabel('Valeur', { exact: true }).fill('42');
   await page.getByRole('button', { name: 'Créer le produit', exact: true }).click();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByRole('button', { name: /Variantes/ }).click();
   await expect(page.getByText('Pointure : 42', { exact: true })).toBeVisible();
   expect(state.products[0].variants?.[0]?.sku).toBeUndefined();
 });
@@ -152,7 +156,7 @@ for (const width of [360, 768, 1440])
       await session(page);
       await mockApi(page, { status: 'OPEN' });
       for (const [path, title, name] of [
-        ['/app/products', 'Produits', 'catalogue'],
+        ['/app/products', 'Vos produits', 'catalogue'],
         ['/app/groupages', 'Groupages', 'groupages'],
         ['/app/groupages/' + groupId, 'Les essentiels de la rentrée', 'detail'],
         ['/public/groupages/' + publicId, 'Les essentiels de la rentrée', 'public'],

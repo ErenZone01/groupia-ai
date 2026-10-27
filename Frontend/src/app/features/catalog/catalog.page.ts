@@ -153,6 +153,24 @@ export class CatalogPage {
     const dialog = this.createDialog()?.nativeElement;
     if (dialog?.open) dialog.close();
   }
+
+  onCreateDialogCancel(event: Event) {
+    // A file input's native "cancel" event bubbles through its ancestor dialog.
+    // Only the dialog's own Escape event should close the dialog.
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeCreate();
+  }
+
+  onGalleryDialogCancel(event: Event) {
+    // Canceling the OS file picker is not a request to close the product gallery.
+    // Otherwise Angular clears selectedProduct while the dialog remains open,
+    // leaving an empty/white modal covering the catalog.
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeGallery();
+  }
+
   openGallery(product: ProductView) {
     if (!product.id) return;
     this.selectedProduct.set(product);

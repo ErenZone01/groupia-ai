@@ -177,7 +177,7 @@
 }
 
 <dialog #createDialog class="catalog-dialog create-dialog" aria-label="Ajouter un produit"
-  (close)="creating.set(false)" (cancel)="creating.set(false)">
+  (close)="creating.set(false)" (cancel)="onCreateDialogCancel($event)">
   @if (creating() && context.selectedId(); as org) {
     <g-product-form [organizationId]="org"
       (saved)="created($event)" (cancelled)="closeCreate()" />
@@ -185,7 +185,7 @@
 </dialog>
 
 <dialog #imageDialog class="catalog-dialog image-dialog" aria-label="Gestion des images du produit"
-  (close)="selectedProduct.set(null)" (cancel)="selectedProduct.set(null)">
+  (close)="selectedProduct.set(null)" (cancel)="onGalleryDialogCancel($event)">
   @if (selectedProduct(); as selected) {
     @if (context.selectedId(); as org) {
       <g-product-gallery [organizationId]="org" [productId]="selected.id!"

@@ -86,7 +86,7 @@ async function mediaApi(page: Page) {
   });
   return state;
 }
-for (const width of [360, 390, 430, 768, 1280]) {
+for (const width of [320, 360, 390, 430, 768, 1280]) {
   test(`galerie produit accessible ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await session(page);
@@ -100,25 +100,32 @@ for (const width of [360, 390, 430, 768, 1280]) {
       { name: 'b.png', mimeType: 'image/png', buffer: png },
     ]);
     await page.getByRole('button', { name: 'Envoyer / réessayer' }).click();
-    await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(2);
+    await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)')).toHaveCount(2);
     await expect(page.locator('g-product-thumbnail.product-photo img')).toBeVisible();
     const gallerySection = page.locator('g-product-gallery section[aria-label="Images du produit"]');
     const second = state.items[1].id;
-    const makePrimary = page.getByRole('button', { name: 'Définir comme principale' }).nth(1);
+    const gallery = page.getByRole('dialog', { name: 'Gestion des images du produit' });
+    await expect(gallery.locator('.photo-stage .hero-photo')).toBeVisible();
+    await gallery.getByRole('button', { name: 'Sélectionner l’image 2' }).click();
+    await expect(gallery.getByRole('button', { name: 'Sélectionner l’image 2' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(gallery.locator('.photo-indicator')).toContainText('Photo 2');
+    const makePrimary = gallery.getByRole('button', { name: 'Définir comme principale' });
     await makePrimary.focus();
     await page.keyboard.press('Enter');
     await expect.poll(() => state.items[0].id).toBe(second);
     await expect(gallerySection).toHaveAttribute('aria-busy', 'false');
-    await expect(page.locator('g-product-gallery .gallery > li').first().locator('img')).toHaveAttribute(
+    await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)').first().locator('img')).toHaveAttribute(
       'src',
       new RegExp(second),
     );
-    await expect(page.locator('g-product-gallery .gallery > li').first()).toContainText('Image principale');
+    await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)').first()).toContainText('Principale');
+    await expect(gallery.locator('.photo-indicator')).toContainText('Photo principale');
     await expect(page.getByRole('button', { name: 'Descendre l’image 1', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Descendre l’image 1', exact: true }).click();
     await expect.poll(() => state.items[1].id).toBe(second);
     await expect(gallerySection).toHaveAttribute('aria-busy', 'false');
-    await expect(page.locator('g-product-gallery .gallery > li').nth(1).locator('img')).toHaveAttribute(
+    await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)').nth(1).locator('img')).toHaveAttribute(
       'src',
       new RegExp(second),
     );
@@ -126,13 +133,13 @@ for (const width of [360, 390, 430, 768, 1280]) {
     await page.getByRole('button', { name: 'Monter l’image 2', exact: true }).click();
     await expect.poll(() => state.items[0].id).toBe(second);
     await expect(gallerySection).toHaveAttribute('aria-busy', 'false');
-    await expect(page.locator('g-product-gallery .gallery > li').first().locator('img')).toHaveAttribute(
+    await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)').first().locator('img')).toHaveAttribute(
       'src',
       new RegExp(second),
     );
     await page.getByRole('button', { name: 'Supprimer l’image 1', exact: true }).click();
     await page.getByRole('button', { name: 'Confirmer la suppression' }).click();
-    await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(1);
+    await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)')).toHaveCount(1);
     expect(state.items[0].position).toBe(0);
     await noOverflow(page);
   });
@@ -150,7 +157,7 @@ test('erreur puis retry idempotent et limite cinq', async ({ page }) => {
   await page.getByRole('button', { name: 'Envoyer / réessayer' }).click();
   await expect(page.getByRole('alert')).toContainText('traitement');
   await page.getByRole('button', { name: 'Envoyer / réessayer' }).click();
-  await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(1);
+  await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)')).toHaveCount(1);
   await expect(page.locator('g-product-gallery section[aria-label="Images du produit"]')).toHaveAttribute('aria-busy', 'false');
   expect(state.keys[1]).toBe(state.keys[0]);
   await page
@@ -163,6 +170,30 @@ test('erreur puis retry idempotent et limite cinq', async ({ page }) => {
       })),
     );
   await page.getByRole('button', { name: 'Envoyer / réessayer' }).click();
-  await expect(page.locator('g-product-gallery .gallery > li')).toHaveCount(5);
+  await expect(page.locator('g-product-gallery .gallery > li:has(.photo-choice)')).toHaveCount(5);
   await expect(page.getByLabel('Ajouter des images')).toBeDisabled();
+});
+
+test('galerie : lecture seule et archive ne proposent pas d’actions non autorisées', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await session(page);
+  await mockApi(page);
+  await page.route('**/api/organizations/*/products/*/media**', route => {
+    if (route.request().method() !== 'GET') throw new Error('Action non autorisée');
+    return route.fulfill({ json: {
+      productId, version: 1, enabled: true, canManage: false,
+      reservedCount: 0, items: [
+        { id: '11111111-2222-4333-8444-555555555555', position: 0,
+          thumbnailUrl: url, displayUrl: url, state: 'READY' },
+      ],
+    } });
+  });
+  await page.goto('/app/products');
+  await page.getByRole('button', { name: 'Voir les images' }).click();
+  const modal = page.getByRole('dialog', { name: 'Gestion des images du produit' });
+  await expect(modal.locator('.photo-stage .hero-photo')).toBeVisible();
+  await expect(modal.getByRole('button', { name: 'Définir comme principale' })).toHaveCount(0);
+  await expect(modal.getByRole('button', { name: /Supprimer l’image/ })).toHaveCount(0);
+  await expect(modal.getByLabel('Ajouter des images')).toHaveCount(0);
+  await noOverflow(page);
 });

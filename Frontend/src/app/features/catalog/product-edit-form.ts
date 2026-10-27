@@ -93,7 +93,7 @@ export class ProductEditForm implements OnInit {
   readonly error = signal('');
   name = '';
   description = '';
-  private latest: ProductView | null = null;
+  protected latest: ProductView | null = null;
 
   ngOnInit() {
     this.setDraft(this.product());

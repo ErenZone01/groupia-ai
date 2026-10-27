@@ -101,3 +101,15 @@
   .catalog-dialog { padding:var(--s3); }
   .image-dialog { margin:auto; max-height:calc(100dvh - 20px); }
 }
+
+/* Editing and safe retirement of catalog entries use the same responsive dialog shell. */
+.edit-dialog,.archive-dialog { max-width:min(100% - 24px,560px); }
+.archive-confirm { min-width:0; overflow-wrap:anywhere; }
+.archive-confirm h2 { margin:var(--s1) 0 var(--s3); font-size:var(--text-lg); }
+.archive-confirm p { font-size:var(--text-sm); line-height:1.55; }
+.archive-confirm .eyebrow { color:var(--primary); font-size:var(--text-xs); }
+.archive-product-name { font-weight:700; overflow-wrap:anywhere; }
+.archive-warning { padding:var(--s3); border-radius:var(--radius-md);
+  border:1px solid var(--border); background:var(--surface-alt); }
+.archive-actions { display:flex; flex-wrap:wrap; gap:var(--s2); margin-top:var(--s4); }
+.archive-actions button { min-height:44px; white-space:normal; }

@@ -110,6 +110,10 @@
                 </p>
                 <div class="product-actions">
                   <button gButton variant="secondary" (click)="openGallery(product)">Voir les images</button>
+                  @if (product.status === 'ACTIVE') {
+                    <button gButton variant="secondary" (click)="openEdit(product)">Modifier</button>
+                    <button gButton variant="ghost" (click)="openArchive(product)">Archiver</button>
+                  }
                   <button gButton variant="secondary"
                     [attr.aria-expanded]="expandedVariants().has(product.id!)"
                     [attr.aria-controls]="'variants-' + product.id"
@@ -192,5 +196,43 @@
         [productName]="selected.name ?? 'Produit'" [archived]="selected.status === 'ARCHIVED'"
         (closed)="closeGallery()" (changed)="loadMedia()" />
     }
+  }
+</dialog>
+
+<dialog #editDialog class="catalog-dialog edit-dialog" aria-label="Modifier un produit"
+  (close)="editingProduct.set(null)" (cancel)="onEditDialogCancel($event)">
+  @if (editingProduct(); as selected) {
+    @if (context.selectedId(); as org) {
+      <g-product-edit-form [organizationId]="org" [product]="selected"
+        (saved)="edited($event)" (cancelled)="closeEdit()" />
+    }
+  }
+</dialog>
+
+<dialog #archiveDialog class="catalog-dialog archive-dialog" aria-label="Archiver un produit"
+  (close)="archivingProduct.set(null)" (cancel)="onArchiveDialogCancel($event)">
+  @if (archivingProduct(); as selected) {
+    <section class="archive-confirm">
+      <p class="eyebrow">Retirer un produit du catalogue actif</p>
+      <h2>Archiver ce produit ?</h2>
+      <p class="archive-product-name">{{ selected.name }}</p>
+      <p>L’archivage retire ce produit des nouvelles offres de groupage.
+        Il reste consultable dans « Archivés », et les commandes historiques sont conservées.</p>
+      <p class="archive-warning"><strong>Attention :</strong> cette action n’est pas réversible
+        dans la version actuelle. Aucune suppression définitive n’est effectuée.</p>
+      @if (archiveError()) {
+        <p class="form-error" role="alert">{{ archiveError() }}</p>
+        <button gButton variant="secondary" type="button"
+          [disabled]="archiveBusy()" (click)="refreshArchiveProduct()">
+          Actualiser les informations
+        </button>
+      }
+      <div class="archive-actions">
+        <button gButton type="button" [disabled]="archiveBusy()"
+          [loading]="archiveBusy()" (click)="archiveProduct()">Confirmer l’archivage</button>
+        <button gButton variant="secondary" type="button"
+          [disabled]="archiveBusy()" (click)="closeArchive()">Annuler</button>
+      </div>
+    </section>
   }
 </dialog>

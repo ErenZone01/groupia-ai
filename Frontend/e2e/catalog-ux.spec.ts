@@ -90,7 +90,9 @@ test('catalogue V3 : création conserve le parcours de photos et ne fabrique auc
   await dialog.getByRole('button', { name: 'Créer le produit' }).click();
   await expect(page.getByRole('dialog', { name: 'Gestion des images du produit' })).toBeVisible();
   await expect(page.getByText('Le prix sera défini dans chaque groupage.')).not.toBeVisible();
-  await page.getByRole('button', { name: 'Fermer' }).click();
+  await page.getByRole('dialog', { name: 'Gestion des images du produit' })
+    .getByRole('button', { name: 'Fermer', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Gestion des images du produit' })).not.toBeVisible();
   await expect(page.locator('.catalog-product')).toHaveCount(1);
   expect(state.products[0].name).toBe('Écouteurs bluetooth');
   await noOverflow(page);

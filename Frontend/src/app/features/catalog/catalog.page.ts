@@ -1,11 +1,11 @@
-import { Component, effect, inject, signal, untracked } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ProductView, ProductMediaSummary } from '../../api/generated/models';
 import { AuthService } from '../../core/auth/auth.service';
 import { Icon } from '../../shared/ui/icon';
+import { ProductThumbnail } from '../../shared/ui/product-thumbnail';
 import { ProductGallery } from './product-gallery';
 import { ProductMediaApi } from './product-media.api';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
-import { Card } from '../../shared/ui/card';
 import { Button } from '../../shared/ui/button';
 import { Badge } from '../../shared/ui/badge';
 import { EmptyState } from '../../shared/feedback/empty-state';
@@ -14,164 +14,16 @@ import { CatalogStore } from './catalog.store';
 import { ProductForm } from './product-form';
 import { ToastService } from '../../shared/feedback/toast.service';
 import { statusLabel, variantLabel } from '../../shared/utils/display';
+
+type CatalogFilter = 'all' | 'active' | 'archived';
+type CatalogSort = 'recent' | 'oldest' | 'name' | 'variants';
+
 @Component({
   selector: 'g-catalog-page',
   providers: [CatalogStore],
-  imports: [Card, Button, Badge, EmptyState, Skeleton, ProductForm, Icon, ProductGallery],
-  template: `
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Votre catalogue</p>
-        <h1>Produits</h1>
-        <p>Des produits réutilisables dans tous vos groupages.</p>
-      </div>
-      <button gButton (click)="creating.set(true)">Créer un produit</button>
-    </div>
-    @if (creating() && context.selectedId()) {
-      <g-card
-        ><g-product-form
-          [organizationId]="context.selectedId()!"
-          (saved)="created($event)"
-          (cancelled)="creating.set(false)"
-      /></g-card>
-    }
-    @if (selectedProduct(); as selected) {
-      @if (context.selectedId(); as org) {
-        <g-card
-          ><g-product-gallery
-            [organizationId]="org"
-            [productId]="selected.id!"
-            [productName]="selected.name ?? 'Produit'"
-            [archived]="selected.status === 'ARCHIVED'"
-            (closed)="selectedProduct.set(null)"
-            (changed)="loadMedia()"
-        /></g-card>
-      }
-    }
-    @if (mediaError()) {
-      <p role="status">{{ mediaError() }}</p>
-      <button gButton variant="secondary" (click)="loadMedia()">Recharger les images</button>
-    }
-    @if (store.loading()) {
-      <g-skeleton /><g-skeleton />
-    } @else if (store.error()) {
-      <p role="alert" class="form-error">{{ store.error() }}</p>
-      <button gButton (click)="load()">Réessayer</button>
-    } @else if (!store.products().length) {
-      <g-empty-state
-        title="Votre catalogue commence ici"
-        description="Ajoutez votre premier produit pour préparer un groupage."
-        icon="box"
-      />
-    } @else {
-      <div class="product-grid">
-        @for (product of store.products(); track product.id) {
-          <g-card>
-            @if (media()[product.id!]?.primaryThumbnailUrl; as thumbnail) {
-              <img
-                class="product-photo"
-                [src]="thumbnail"
-                [alt]="product.name ?? 'Produit'"
-                width="300"
-                height="180"
-                loading="lazy"
-                (error)="imageFailed(product.id!)"
-              />
-            } @else {
-              <div class="product-photo placeholder" aria-label="Produit sans image">
-                <g-icon name="box" /><span>Aucune image</span>
-              </div>
-            }
-            <div class="section-heading">
-              <h2>{{ product.name }}</h2>
-              <g-badge>{{ statusLabel(product.status) }}</g-badge>
-            </div>
-            <p class="description">{{ product.description || 'Aucune description' }}</p>
-            <h3>Variantes</h3>
-            <ul class="variant-list">
-              @for (variant of product.variants; track variant.id) {
-                <li>
-                  <span>{{ variantLabel(variant.attributes) }}</span
-                  ><g-badge [tone]="variant.active ? 'positive' : 'neutral'">{{
-                    variant.active ? 'Disponible' : 'Inactive'
-                  }}</g-badge>
-                </li>
-              }
-            </ul>
-            <button gButton variant="secondary" (click)="selectedProduct.set(product)">
-              Voir les images
-            </button></g-card
-          >
-        }
-      </div>
-    }
-    @if (store.totalPages() > 1) {
-      <nav class="actions" aria-label="Pages du catalogue">
-        <button
-          gButton
-          variant="secondary"
-          [disabled]="store.page() === 0 || store.loading()"
-          (click)="load(store.page() - 1)"
-        >
-          Précédent</button
-        ><span>Page {{ store.page() + 1 }} / {{ store.totalPages() }}</span
-        ><button
-          gButton
-          variant="secondary"
-          [disabled]="store.page() + 1 >= store.totalPages() || store.loading()"
-          (click)="load(store.page() + 1)"
-        >
-          Suivant
-        </button>
-      </nav>
-    }
-  `,
-  styles: `
-    g-card {
-      display: block;
-      margin-bottom: var(--s5);
-    }
-    .product-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-      gap: var(--s5);
-    }
-    .product-photo {
-      width: 100%;
-      height: 180px;
-      object-fit: contain;
-      background: var(--surface-alt);
-      margin-bottom: var(--s3);
-    }
-    .placeholder {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--s2);
-      color: var(--muted);
-    }
-    .description {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      color: var(--muted);
-      margin: var(--s3) 0 var(--s5);
-    }
-    .variant-list {
-      list-style: none;
-      padding: 0;
-      margin: var(--s3) 0 0;
-    }
-    .variant-list li {
-      display: flex;
-      justify-content: space-between;
-      gap: var(--s3);
-      padding: var(--s3) 0;
-      border-top: 1px solid var(--border);
-    }
-    .variant-list span {
-      overflow-wrap: anywhere;
-    }
-  `,
+  imports: [Button, Badge, EmptyState, Skeleton, ProductForm, Icon, ProductGallery, ProductThumbnail],
+  templateUrl: './catalog.page.html',
+  styleUrl: './catalog.page.scss',
 })
 export class CatalogPage {
   readonly context = inject(BoutiqueContextService);
@@ -180,19 +32,70 @@ export class CatalogPage {
   readonly selectedProduct = signal<ProductView | null>(null);
   readonly media = signal<Record<string, ProductMediaSummary>>({});
   readonly mediaError = signal('');
+  readonly search = signal('');
+  readonly filter = signal<CatalogFilter>('all');
+  readonly sort = signal<CatalogSort>('recent');
+  readonly showAll = signal(false);
+  readonly helpVisible = signal(true);
+  readonly expandedVariants = signal<ReadonlySet<string>>(new Set<string>());
+  private readonly createDialog = viewChild<ElementRef<HTMLDialogElement>>('createDialog');
+  private readonly imageDialog = viewChild<ElementRef<HTMLDialogElement>>('imageDialog');
   private readonly mediaApi = inject(ProductMediaApi);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
   private mediaRequest = 0;
+
   readonly statusLabel = statusLabel;
   readonly variantLabel = variantLabel;
-  private readonly toast = inject(ToastService);
+
+  // Counts, search, filters and sorting concern only the loaded backend page.
+  // Don't imply a global catalog filter without a server-side endpoint.
+  readonly counts = computed(() => {
+    const items = this.store.products();
+    return {
+      all: items.length,
+      active: items.filter((item) => item.status === 'ACTIVE').length,
+      archived: items.filter((item) => item.status === 'ARCHIVED').length,
+    };
+  });
+  readonly matchingProducts = computed(() => {
+    const query = this.search().trim().toLocaleLowerCase('fr');
+    const selection = this.filter();
+    const sort = this.sort();
+    const products = this.store.products().filter((item) => {
+      if (selection === 'active' && item.status !== 'ACTIVE') return false;
+      if (selection === 'archived' && item.status !== 'ARCHIVED') return false;
+      return !query ||
+        (item.name ?? '').toLocaleLowerCase('fr').includes(query) ||
+        (item.description ?? '').toLocaleLowerCase('fr').includes(query) ||
+        (item.variants ?? []).some((variant) => [
+          variant.sku ?? '',
+          ...Object.values(variant.attributes ?? {}),
+        ].some((value) => value.toLocaleLowerCase('fr').includes(query)));
+    });
+    return [...products].sort((a, b) => {
+      if (sort === 'name') return (a.name ?? '').localeCompare(b.name ?? '', 'fr');
+      if (sort === 'variants') return (b.variants?.length ?? 0) - (a.variants?.length ?? 0);
+      const time = (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+      return sort === 'oldest' ? time : -time;
+    });
+  });
+  readonly visibleProducts = computed(() =>
+    this.showAll() ? this.matchingProducts() : this.matchingProducts().slice(0, 6),
+  );
+
   constructor() {
     effect(() => {
       const id = this.context.selectedId();
       this.auth.generation();
-      this.creating.set(false);
-      this.selectedProduct.set(null);
+      this.closeCreate();
+      this.closeGallery();
       this.media.set({});
+      this.search.set('');
+      this.filter.set('all');
+      this.sort.set('recent');
+      this.showAll.set(false);
+      this.expandedVariants.set(new Set());
       if (id) void this.store.load(id);
       else this.store.clear();
     });
@@ -203,45 +106,86 @@ export class CatalogPage {
       untracked(() => void this.loadMedia());
     });
   }
+
+  setFilter(next: CatalogFilter) {
+    this.filter.set(next);
+    this.showAll.set(false);
+  }
+  changeSort(next: string) {
+    if (['recent', 'oldest', 'name', 'variants'].includes(next)) {
+      this.sort.set(next as CatalogSort);
+      this.showAll.set(false);
+    }
+  }
+  resetFilters() {
+    this.search.set('');
+    this.filter.set('all');
+    this.sort.set('recent');
+    this.showAll.set(false);
+  }
+  toggleVariants(id: string) {
+    this.expandedVariants.update((ids) => {
+      const next = new Set(ids);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   load(page = 0) {
     const id = this.context.selectedId();
-    if (id) void this.store.load(id, page);
+    if (id) {
+      this.showAll.set(false);
+      this.expandedVariants.set(new Set());
+      void this.store.load(id, page);
+    }
+  }
+  openCreate() {
+    this.creating.set(true);
+    this.createDialog()?.nativeElement.showModal();
+  }
+  closeCreate() {
+    this.creating.set(false);
+    const dialog = this.createDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+  openGallery(product: ProductView) {
+    if (!product.id) return;
+    this.selectedProduct.set(product);
+    this.imageDialog()?.nativeElement.showModal();
+  }
+  closeGallery() {
+    this.selectedProduct.set(null);
+    const dialog = this.imageDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
   }
   created(product: ProductView) {
-    this.creating.set(false);
-    this.selectedProduct.set(product);
+    this.closeCreate();
     this.toast.show('Produit créé.');
     this.load();
+    this.openGallery(product);
   }
+
   async loadMedia() {
-    const request = ++this.mediaRequest,
-      org = this.context.selectedId(),
-      generation = this.auth.generation();
-    const ids = this.store
-      .products()
-      .map((p) => p.id!)
-      .filter(Boolean);
+    const request = ++this.mediaRequest;
+    const org = this.context.selectedId();
+    const generation = this.auth.generation();
+    const ids = this.store.products().map((p) => p.id).filter((id): id is string => !!id);
     this.mediaError.set('');
-    if (!org || !ids.length) {
-      this.media.set({});
-      return;
-    }
+    this.media.set({});
+    if (!org || !ids.length) return;
     const current = () =>
       request === this.mediaRequest &&
       org === this.context.selectedId() &&
       generation === this.auth.generation();
     try {
       const response = await this.mediaApi.batch(org, ids);
-      if (current())
-        this.media.set(Object.fromEntries(response.map((item) => [item.productId!, item])));
+      if (current()) this.media.set(Object.fromEntries(
+        response.filter((item) => !!item.productId && ids.includes(item.productId))
+          .map((item) => [item.productId!, item]),
+      ));
     } catch {
       if (current()) this.mediaError.set('Les images ne peuvent pas être chargées pour le moment.');
     }
-  }
-  imageFailed(id: string) {
-    this.media.update((items) => ({
-      ...items,
-      [id]: { ...items[id], primaryThumbnailUrl: undefined },
-    }));
   }
 }

@@ -5,9 +5,10 @@ import { BoutiqueContextService } from '../../core/boutique/boutique-context.ser
 import { apiMessage } from '../../core/http/api-error';
 import { ShippingInput } from '../../api/generated/models';
 import { GroupageStore, GroupageLine } from './groupage.store';
-import { ShippingFields, defaultShipping, validShipping } from './shipping-fields';
+import { defaultShipping, validShipping } from './shipping-fields';
 import { ProductPicker } from './product-picker';
 import { Button } from '../../shared/ui/button';
+import { Icon } from '../../shared/ui/icon';
 import { Input } from '../../shared/forms/input';
 import { ToastService } from '../../shared/feedback/toast.service';
 import { money, dateLabel } from '../../shared/utils/display';
@@ -21,7 +22,7 @@ import {
 @Component({
   selector: 'g-groupage-wizard',
   providers: [GroupageStore],
-  imports: [FormsModule, RouterLink, Button, Input, ShippingFields, ProductPicker],
+  imports: [FormsModule, RouterLink, Button, Input, Icon, ProductPicker],
   templateUrl: './groupage-wizard.page.html',
   styleUrl: './groupage-wizard.page.scss',
 })
@@ -54,7 +55,9 @@ export class GroupageWizardPage {
   readonly pricingOptions = pricingOptions;
   readonly collectionOptions = collectionOptions;
 
-  readonly previewTitle = computed(() => this.title.trim() || 'Votre futur groupage');
+  previewTitle() {
+    return this.title.trim() || 'Votre futur groupage';
+  }
   readonly progress = computed(() => this.step() * 25);
 
   excluded() {
@@ -88,6 +91,15 @@ export class GroupageWizardPage {
       FIXED: ' · forfait',
     };
     return money(rate) + (unit[this.shipping().shippingPricingMethod ?? ''] ?? '');
+  }
+
+  patchShipping(change: Partial<ShippingInput>) {
+    this.shipping.update((value) => {
+      const next = { ...value, ...change };
+      if (next.shippingPricingMethod !== 'PER_KG') delete next.volumetricDivisor;
+      return next;
+    });
+    this.error.set('');
   }
 
   private validateInformation() {

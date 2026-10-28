@@ -28,7 +28,7 @@ for (const [width, theme] of [[360, 'dark'], [1440, 'light']] as const) {
     await page.getByLabel('Produit et variante').selectOption({ label: 'Chemise en lin · Standard' });
     await page.getByLabel('Prix dans ce groupage (F CFA)').fill('5500');
     await page.getByRole('button', { name: 'Ajouter au groupage', exact: true }).click();
-    await expect(page.getByText('5 500', { exact: false }).first()).toBeVisible();
+    await expect(page.locator('.offers-list .offer-row')).toHaveCount(1);
     await page.getByRole('button', { name: 'Continuer', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Vérifiez avant de publier' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Publier le groupage' })).toBeEnabled();

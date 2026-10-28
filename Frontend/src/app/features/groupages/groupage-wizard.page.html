@@ -37,7 +37,7 @@
           <div class="wizard-fields">
             <div class="wizard-field">
               <label for="group-title">Nom du groupage <span class="required">*</span></label>
-              <input gInput id="group-title" [(ngModel)]="title" required maxlength="160"
+              <input gInput id="group-title" aria-label="Titre" [(ngModel)]="title" required maxlength="160"
                 placeholder="Ex. Arrivage de novembre · Chine → Dakar" autocomplete="off" />
               <small>Un nom précis, pas trop long. Maximum 160 caractères.</small>
             </div>
@@ -70,7 +70,81 @@
             <p>Choisissez la règle de transport et de facturation. Le montant du transport est distinct du prix des articles.</p>
           </header>
           <div class="separator"></div>
-          <g-shipping-fields [(value)]="shipping" />
+          <h3 class="shipping-subheading">Mode de transport</h3>
+          <div class="transport-grid" role="group" aria-label="Mode de transport">
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'AIR'"
+              [attr.aria-pressed]="shipping().transportMode === 'AIR'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'AIR' })"><span aria-hidden="true">✈</span> Avion</button>
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'SEA'"
+              [attr.aria-pressed]="shipping().transportMode === 'SEA'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'SEA' })"><span aria-hidden="true">⚓</span> Bateau</button>
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'ROAD'"
+              [attr.aria-pressed]="shipping().transportMode === 'ROAD'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'ROAD' })"><span aria-hidden="true">▤</span> Route</button>
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'OTHER'"
+              [attr.aria-pressed]="shipping().transportMode === 'OTHER'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'OTHER' })"><span aria-hidden="true">◇</span> Autre</button>
+          </div>
+          <div class="separator"></div>
+          <div class="shipping-grid">
+            <div class="wizard-field">
+              <label for="shipping-pricing">Tarification de la livraison</label>
+              <select gInput id="shipping-pricing" [disabled]="saving()"
+                [ngModel]="shipping().shippingPricingMethod"
+                (ngModelChange)="patchShipping({ shippingPricingMethod: $event })">
+                @for (option of pricingOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="wizard-field">
+              <label for="shipping-rate">Tarif de livraison (F CFA)</label>
+              <input gInput id="shipping-rate" type="number" inputmode="decimal" required
+                [min]="shipping().shippingPricingMethod === 'FIXED' ? 0 : 0.000001"
+                [step]="shipping().shippingPricingMethod === 'FIXED' ? 1 : 'any'"
+                [disabled]="saving()" [ngModel]="shipping().shippingRate"
+                (ngModelChange)="patchShipping({ shippingRate: $event })" />
+              <small>Montant par unité de tarification. Le forfait peut être gratuit.</small>
+            </div>
+          </div>
+          @if (shipping().shippingPricingMethod === 'PER_KG') {
+            <div class="wizard-field divisor-field">
+              <label for="shipping-divisor">Diviseur volumétrique convenu <span class="optional">(facultatif)</span></label>
+              <input gInput id="shipping-divisor" type="number" min="0.000001" max="1000000"
+                step="0.000001" [disabled]="saving()" [ngModel]="shipping().volumetricDivisor"
+                (ngModelChange)="patchShipping({ volumetricDivisor: $event ?? undefined })"
+                placeholder="Laisser vide si non convenu" />
+              <small>À renseigner uniquement si le poids volumétrique est prévu dans votre accord de transport.</small>
+            </div>
+          }
+          <div class="separator"></div>
+          <h3 class="shipping-subheading">Quand demander les frais de transport ?</h3>
+          <div class="collection-grid" role="group" aria-label="Collecte des frais">
+            <button type="button" class="collection-option"
+              [class.chosen]="shipping().shippingCollectionMode === 'AFTER_FINAL_ASSESSMENT'"
+              [attr.aria-pressed]="shipping().shippingCollectionMode === 'AFTER_FINAL_ASSESSMENT'"
+              [disabled]="saving()" (click)="patchShipping({ shippingCollectionMode: 'AFTER_FINAL_ASSESSMENT' })">
+              <span class="collection-circle"></span>
+              <span><strong>Après évaluation finale</strong><small>La gérante détermine le montant définitif après l'évaluation du transport.</small></span>
+            </button>
+            <button type="button" class="collection-option"
+              [class.chosen]="shipping().shippingCollectionMode === 'ESTIMATED_AT_CHECKOUT'"
+              [attr.aria-pressed]="shipping().shippingCollectionMode === 'ESTIMATED_AT_CHECKOUT'"
+              [disabled]="saving()" (click)="patchShipping({ shippingCollectionMode: 'ESTIMATED_AT_CHECKOUT' })">
+              <span class="collection-circle"></span>
+              <span><strong>Estimation à la commande</strong><small>Le transport est estimé lorsque la cliente passe commande.</small></span>
+            </button>
+          </div>
+          <div class="hint-box">
+            <g-icon name="info" />
+            <div><strong>Une règle claire pour éviter les surprises.</strong>
+              @if (shipping().shippingCollectionMode === 'ESTIMATED_AT_CHECKOUT') {
+                <p>Pour les tarifs au kg ou au m³, les variantes doivent disposer d'une estimation de poids ou de volume.</p>
+              } @else {
+                <p>En collecte finale, les frais seront évalués séparément du prix des articles.</p>
+              }
+            </div>
+          </div>
         </div>
       }
 
@@ -200,7 +274,7 @@
           } @else {
             <button gButton type="button" variant="secondary"
               [disabled]="saving() || store.stale()" [loading]="saving()"
-              (click)="save(false)">Enregistrer un brouillon</button>
+              (click)="save(false)">Enregistrer comme brouillon</button>
             <button gButton type="button" [disabled]="saving() || store.stale() || !lines().length"
               [loading]="saving()" (click)="save(true)">
               Publier le groupage <g-icon name="arrow" />

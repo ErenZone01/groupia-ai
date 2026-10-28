@@ -156,7 +156,7 @@
             <p>Choisissez vos variantes actives, puis fixez le <strong>prix propre à ce groupage</strong>. Vous pouvez ajouter plusieurs articles.</p>
           </header>
           @if (context.selectedId(); as organizationId) {
-            <g-product-picker [organizationId]="organizationId" [excluded]="excluded()"
+            <g-product-picker mode="wizard" [organizationId]="organizationId" [excluded]="excluded()"
               [disabled]="saving()" (added)="add($event)" />
           }
           <div class="separator"></div>

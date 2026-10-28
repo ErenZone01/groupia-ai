@@ -275,6 +275,9 @@ export class ProductPicker {
       this.selected.set('');
       this.pickedProductId.set('');
       this.search.set('');
+      this.error.set('');
+      this.price = null;
+      this.label = '';
       void this.store.load(id);
     });
     effect(() => {

@@ -158,6 +158,9 @@
           @if (context.selectedId(); as organizationId) {
             <g-product-picker mode="wizard" [organizationId]="organizationId" [excluded]="excluded()"
               [disabled]="saving()" (added)="add($event)" />
+            <a routerLink="/app/products" class="catalog-shortcut">
+              <g-icon name="box" /> Ouvrir le catalogue pour gérer les produits et variantes
+            </a>
           }
           <div class="separator"></div>
           <div class="offers-heading">

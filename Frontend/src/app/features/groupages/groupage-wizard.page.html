@@ -11,18 +11,8 @@
     <span class="publication-badge"><span aria-hidden="true" class="status-dot"></span> Non publié</span>
   </header>
 
-  <nav class="stepper" aria-label="Étapes de création du groupage">
-    @for (item of steps; track item.title; let i = $index) {
-      <button type="button" class="step-button" [class.active]="step() === i + 1"
-        [class.visited]="visited() > i + 1" [disabled]="saving() || i + 1 > visited()"
-        [attr.aria-current]="step() === i + 1 ? 'step' : null"
-        [attr.aria-label]="'Étape ' + (i + 1) + ' : ' + item.title"
-        (click)="navigateTo(i + 1)">
-        <span class="step-number">{{ i + 1 }}</span>
-        <span class="step-copy"><strong>{{ item.title }}</strong><small>{{ item.hint }}</small></span>
-      </button>
-    }
-  </nav>
+  <g-groupage-wizard-stepper [step]="step()" [visited]="visited()"
+    [saving]="saving()" [steps]="steps" (selected)="navigateTo($event)" />
 
   <div class="wizard-layout">
     <section class="wizard-panel" aria-label="Création du groupage">
@@ -287,32 +277,9 @@
       </footer>
     </section>
 
-    <aside class="summary-panel" [class.is-open]="summaryExpanded()" aria-label="Aperçu du groupage">
-      <button type="button" class="summary-toggle" [attr.aria-expanded]="summaryExpanded()"
-        aria-controls="groupage-summary" (click)="summaryExpanded.update((value) => !value)">
-        <span><strong>Aperçu en direct</strong><small>Votre campagne prend forme.</small></span>
-        <g-icon name="chevron" />
-      </button>
-      <div class="summary-body" id="groupage-summary">
-        <div class="preview-cover">
-          <div>
-            <strong>{{ previewTitle() }}</strong>
-            <span>Groupage · non publié</span>
-          </div>
-          <span class="preview-symbol"><g-icon name="box" /></span>
-        </div>
-        <div class="preview-progress" role="progressbar" [attr.aria-valuenow]="progress()"
-          aria-valuemin="0" aria-valuemax="100" aria-label="Progression de la création">
-          <span [style.width.%]="progress()"></span>
-        </div>
-        <dl class="summary-list">
-          <div><dt>Clôture</dt><dd>{{ closesAt ? dateLabel(date()) : 'À définir' }}</dd></div>
-          <div><dt>Transport</dt><dd>{{ optionLabel(transportOptions, shipping().transportMode) }}</dd></div>
-          <div><dt>Tarification</dt><dd>{{ rateLabel() }}</dd></div>
-          <div><dt>Variantes</dt><dd>{{ lines().length }} sélectionnée{{ lines().length === 1 ? '' : 's' }}</dd></div>
-        </dl>
-        <p class="summary-note">Aucun lien client n'est créé avant la publication réelle du groupage.</p>
-      </div>
-    </aside>
+    <g-groupage-wizard-summary [title]="previewTitle()"
+      [closingLabel]="closesAt ? dateLabel(date()) : 'À définir'"
+      [transportLabel]="optionLabel(transportOptions, shipping().transportMode)"
+      [rateLabel]="rateLabel()" [count]="lines().length" [progress]="progress()" />
   </div>
 </div>

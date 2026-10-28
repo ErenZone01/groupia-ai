@@ -1,0 +1,43 @@
+:host { display: block; min-width: 0; align-self: start; position: sticky; top: calc(var(--topbar-height) + 14px); }
+.summary-panel {
+  border: 1px solid var(--wizard-line); background: var(--wizard-surface);
+  border-radius: var(--wizard-radius); min-width: 0; overflow: hidden;
+}
+.summary-toggle {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  padding: 17px 18px; background: transparent; border: 0; color: var(--text);
+  text-align: left; cursor: default;
+}
+.summary-toggle strong { display: block; font-size: 14px; }
+.summary-toggle small { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.summary-toggle > g-icon { display: none; }
+.summary-body { border-top: 1px solid var(--border); padding: 16px 18px; }
+.preview-cover {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 79px; border-radius: 12px; padding: 14px;
+  background: linear-gradient(110deg, var(--primary-strong), var(--primary-soft));
+  color: var(--hero-text); overflow-wrap: anywhere;
+}
+.preview-cover strong { display: block; font-size: 12px; }
+.preview-cover span:not(.preview-symbol) { display: block; font-size: 11px; margin-top: 4px; }
+.preview-symbol { display: grid; place-items: center; flex: none;
+  width: 42px; height: 42px; background: #ffffff20; border-radius: 11px; }
+.preview-progress { height: 5px; margin: 14px 0 8px; background: var(--border); border-radius: 20px; overflow: hidden; }
+.preview-progress span { display: block; height: 100%; background: var(--primary); transition: width .16s; }
+.summary-list { margin: 0; }
+.summary-list > div {
+  display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+  padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 11px;
+}
+.summary-list dt { color: var(--muted); }
+.summary-list dd { margin: 0; font-weight: 650; text-align: right; }
+.summary-note { margin-top: 13px; padding: 10px; background: var(--surface-alt);
+  border-radius: 9px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+@media (max-width: 1120px) {
+  :host { position: static; }
+  .summary-toggle { cursor: pointer; }
+  .summary-toggle > g-icon { display: block; transform: rotate(90deg); }
+  .summary-body { display: none; }
+  .summary-panel.is-open .summary-body { display: block; }
+  .summary-panel.is-open .summary-toggle > g-icon { transform: rotate(-90deg); }
+}

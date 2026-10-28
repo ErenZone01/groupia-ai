@@ -329,9 +329,7 @@ class CatalogIntegrationTests {
         var originalVariantId = variantId(created, 0);
         var archived =
                 body(
-                        perform(
-                                        post(base() + "/" + id(created) + "/archive"),
-                                        version(created))
+                        perform(post(base() + "/" + id(created) + "/archive"), version(created))
                                 .andExpect(status().isOk())
                                 .andReturn());
         perform(post(base() + "/" + id(created) + "/restore"), version(created))
@@ -339,9 +337,7 @@ class CatalogIntegrationTests {
                 .andExpect(jsonPath("$.code").value("PRODUCT_VERSION_CONFLICT"));
         var restored =
                 body(
-                        perform(
-                                        post(base() + "/" + id(created) + "/restore"),
-                                        version(archived))
+                        perform(post(base() + "/" + id(created) + "/restore"), version(archived))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                                 .andReturn());

@@ -7,6 +7,8 @@ import { ShippingInput } from '../../api/generated/models';
 import { GroupageStore, GroupageLine } from './groupage.store';
 import { defaultShipping, validShipping } from './shipping-fields';
 import { ProductPicker } from './product-picker';
+import { GroupageWizardStepper } from './groupage-wizard-stepper';
+import { GroupageWizardSummary } from './groupage-wizard-summary';
 import { Button } from '../../shared/ui/button';
 import { Icon } from '../../shared/ui/icon';
 import { Input } from '../../shared/forms/input';
@@ -22,7 +24,7 @@ import {
 @Component({
   selector: 'g-groupage-wizard',
   providers: [GroupageStore],
-  imports: [FormsModule, RouterLink, Button, Input, Icon, ProductPicker],
+  imports: [FormsModule, RouterLink, Button, Input, Icon, ProductPicker, GroupageWizardStepper, GroupageWizardSummary],
   templateUrl: './groupage-wizard.page.html',
   styleUrl: './groupage-wizard.page.scss',
 })
@@ -34,7 +36,6 @@ export class GroupageWizardPage {
 
   readonly step = signal(1);
   readonly visited = signal(1);
-  readonly summaryExpanded = signal(false);
   readonly steps = [
     { title: 'Informations', hint: 'Nom et échéance' },
     { title: 'Livraison', hint: 'Transport et frais' },

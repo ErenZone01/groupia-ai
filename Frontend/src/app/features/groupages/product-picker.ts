@@ -202,6 +202,7 @@ import { safePrice, variantLabel } from '../../shared/utils/display';
     }
     }
   `,
+  styleUrl: './product-picker.scss',
   styles: `
     .chosen-product { display:flex; align-items:center; gap:var(--s2); margin:var(--s2) 0; min-width:0; }
     .chosen-product img,.chosen-placeholder { width:48px; height:48px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:var(--surface-alt); }
@@ -291,6 +292,8 @@ export class ProductPicker {
     });
   }
   load(page = 0) {
+    this.pickedProductId.set('');
+    this.selected.set('');
     void this.store.load(this.organizationId(), page);
   }
   add() {

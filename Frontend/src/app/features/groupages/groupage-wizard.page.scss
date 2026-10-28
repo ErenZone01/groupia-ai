@@ -233,3 +233,10 @@
   .shipping-grid { grid-template-columns: minmax(0,1fr); }
   .transport-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+
+.catalog-shortcut {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+  font-size: 12px; font-weight: 600; min-height: 42px;
+}
+.catalog-shortcut g-icon { width: 17px; height: 17px; }
+.catalog-shortcut:hover { text-decoration: underline; }

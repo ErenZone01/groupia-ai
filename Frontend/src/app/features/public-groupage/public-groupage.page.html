@@ -1,156 +1,231 @@
-<header>
-  <g-brand /><select
-    gSelect
-    aria-label="Thème"
-    [value]="theme.preference()"
-    (change)="theme.setPreference($any($event.target).value)"
-  >
-    <option value="light">Clair</option>
-    <option value="dark">Sombre</option>
-    <option value="system">Système</option>
-  </select>
+<header class="store-header">
+  <a class="brand-link" routerLink="/" aria-label="Groupia · accueil"><g-brand /></a>
+  <div class="header-actions">
+    <span class="header-caption">Vos commandes, à plusieurs</span>
+    <label class="theme-label">
+      <span class="sr-only">Thème d'affichage</span>
+      <select gSelect aria-label="Thème" [value]="theme.preference()"
+        (change)="theme.setPreference($any($event.target).value)">
+        <option value="light">Clair</option>
+        <option value="dark">Sombre</option>
+        <option value="system">Système</option>
+      </select>
+    </label>
+  </div>
 </header>
-<main>
+
+<main class="store-main">
   @if (loading()) {
-    <g-skeleton /><g-skeleton />
+    <section class="loading-state" aria-label="Chargement du groupage">
+      <g-skeleton /><g-skeleton /><g-skeleton />
+    </section>
   }
   @if (error()) {
-    <g-empty-state title="Ce groupage n’est pas accessible" [description]="error()"
-      ><button gButton (click)="load()">Réessayer</button></g-empty-state
-    >
+    <section class="load-error">
+      <g-empty-state title="Ce groupage n’est pas accessible" [description]="error()">
+        <button gButton type="button" (click)="load()">Réessayer</button>
+      </g-empty-state>
+    </section>
   }
   @if (data(); as group) {
-    <section class="intro">
-      <p class="eyebrow">À plusieurs, c’est encore mieux</p>
-      <h1>{{ group.title }}</h1>
-      <p class="preserve">{{ group.description }}</p>
-      <p class="muted">{{ dateLabel(group.closesAt) }}</p>
-      <g-badge [tone]="group.orderable ? 'positive' : 'warning'">{{
-        group.orderable ? 'Ouvert aux commandes' : 'Indisponible'
-      }}</g-badge>
+    <section class="campaign-hero" aria-labelledby="campaign-title">
+      <div class="hero-content">
+        <p class="eyebrow">Boutique de groupage</p>
+        <h1 id="campaign-title">{{ group.title || 'Groupage' }}</h1>
+        @if (group.description) {
+          <p class="hero-description preserve">{{ group.description }}</p>
+        }
+        <div class="hero-facts">
+          <div class="hero-fact">
+            <g-icon name="calendar" />
+            <span><small>Clôture des commandes</small>
+              <strong>{{ group.closesAt ? dateLabel(group.closesAt) : 'Non renseignée' }}</strong></span>
+          </div>
+          <div class="hero-fact">
+            <g-icon name="box" />
+            <span><small>Mode de transport</small>
+              <strong>{{ publicTransportLabel(group) }}</strong></span>
+          </div>
+          <g-badge [tone]="group.orderable ? 'positive' : 'warning'">
+            {{ group.orderable ? 'Ouvert aux commandes' : 'Commandes indisponibles' }}
+          </g-badge>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-orbit orbit-outer"></div>
+        <div class="hero-orbit orbit-inner"></div>
+        <div class="hero-icon"><g-icon name="group" /></div>
+        <span class="hero-visual-label">Ensemble, c'est plus simple.</span>
+      </div>
     </section>
+
     @if (!group.orderable) {
-      <p class="notice" role="status">{{ reason() }}</p>
+      <div class="closed-notice" role="status">
+        <g-icon name="info" />
+        <p>{{ reason() }} Vous pouvez consulter les articles, mais pas en ajouter au panier.</p>
+      </div>
     }
-    <div class="products">
-      @for (offer of group.offers; track offer.offerId) {
-        <g-card>
-          <div class="product-media">
-            @if (activeImageFor(offer); as activeImage) {
-              <div class="product-media-main">
-                <img
-                  [src]="activeImage.thumbnailUrl || activeImage.displayUrl"
-                  [alt]="productLabel(offer)"
-                  loading="lazy"
-                  decoding="async"
-                  [attr.width]="activeImage.width || null"
-                  [attr.height]="activeImage.height || null"
-                />
+
+    <section class="customer-info" aria-label="À savoir avant de commander">
+      <div class="info-item">
+        <g-icon name="bag" />
+        <div><strong>Prix des articles</strong><p>Chaque prix affiché correspond à une variante de ce groupage.</p></div>
+      </div>
+      <div class="info-item">
+        <g-icon name="info" />
+        <div><strong>Transport et frais</strong><p>{{ publicShippingMessage(group) }}</p></div>
+      </div>
+      <div class="info-item">
+        <g-icon name="orders" />
+        <div><strong>Commande sans compte</strong><p>Choisissez vos articles, puis indiquez vos coordonnées.</p></div>
+      </div>
+    </section>
+
+    <div class="shop-layout">
+      <section class="products-section" aria-labelledby="products-heading">
+        <div class="products-topline">
+          <div><h2 id="products-heading">Nos produits</h2>
+            <p>Découvrez les articles proposés dans ce groupage.</p></div>
+          <span class="products-count">{{ visibleOffers().length }} produit{{ visibleOffers().length === 1 ? '' : 's' }}</span>
+        </div>
+
+        <label class="product-search">
+          <g-icon name="search" />
+          <span class="sr-only">Rechercher un produit</span>
+          <input type="search" aria-label="Rechercher un produit"
+            placeholder="Rechercher dans les produits…" [value]="query()"
+            (input)="query.set($any($event.target).value)" />
+        </label>
+
+        <div class="products" aria-label="Produits du groupage">
+          @for (offer of visibleOffers(); track offer.offerId ?? offer.productVariantId) {
+            <article class="product-card">
+              <div class="product-media">
+                @if (activeImageFor(offer); as activeImage) {
+                  <div class="product-media-main">
+                    <img [src]="activeImage.displayUrl || activeImage.thumbnailUrl"
+                      [alt]="productLabel(offer)" loading="lazy" decoding="async"
+                      [attr.width]="activeImage.width || null"
+                      [attr.height]="activeImage.height || null" />
+                  </div>
+                  @if ((offer.images?.length ?? 0) > 1) {
+                    <div class="product-thumbnails" role="group"
+                      [attr.aria-label]="'Photos de ' + productLabel(offer)">
+                      @for (image of offer.images; track image.displayUrl ?? image.thumbnailUrl; let i = $index) {
+                        <button type="button" class="product-thumb"
+                          [attr.aria-label]="'Afficher la photo ' + (i + 1) + ' de ' + productLabel(offer)"
+                          [attr.aria-pressed]="activeImageFor(offer) === image"
+                          (click)="selectImage(offer, i)">
+                          <img [src]="image.thumbnailUrl || image.displayUrl" alt=""
+                            loading="lazy" decoding="async" />
+                        </button>
+                      }
+                    </div>
+                  }
+                } @else {
+                  <div class="product-media-placeholder" role="img"
+                    [attr.aria-label]="'Aucune photo disponible pour ' + productLabel(offer)">
+                    <g-icon name="box" /><span>Photo à venir</span>
+                  </div>
+                }
               </div>
-              @if ((offer.images?.length ?? 0) > 1) {
-                <div
-                  class="product-thumbnails"
-                  role="group"
-                  [attr.aria-label]="'Photos de ' + productLabel(offer)"
-                >
-                  @for (image of offer.images; track image.displayUrl; let i = $index) {
-                    <button
-                      type="button"
-                      class="product-thumb"
-                      [attr.aria-label]="
-                        'Afficher la photo ' + (i + 1) + ' de ' + productLabel(offer)
-                      "
-                      [attr.aria-pressed]="activeImageFor(offer) === image"
-                      (click)="selectImage(offer, i)"
-                    >
-                      <img
-                        [src]="image.thumbnailUrl || image.displayUrl"
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </button>
+              <div class="product-detail">
+                <div class="product-state">
+                  <g-badge [tone]="canAdd(group, offer) ? 'positive' : 'neutral'">
+                    {{ canAdd(group, offer) ? 'Disponible' : 'Indisponible' }}
+                  </g-badge>
+                  @if (selectedQuantity(offer.offerId)) {
+                    <span class="selected-tag">{{ selectedQuantity(offer.offerId) }} dans ma sélection</span>
                   }
                 </div>
-              }
-            } @else {
-              <div
-                class="product-media-placeholder"
-                role="img"
-                [attr.aria-label]="'Aucune photo disponible pour ' + productLabel(offer)"
-              >
-                <span>Photo à venir</span>
+                <h3>{{ productLabel(offer) }}</h3>
+                <p class="variant">{{ variantLabel(offer.catalog?.attributes) }}</p>
+                <p class="price">{{ money(offer.unitPrice, offer.currency || group.currency) }}</p>
+                @if (offer.catalog?.productDescription) {
+                  <p class="product-description">{{ offer.catalog?.productDescription }}</p>
+                }
+                <button gButton type="button" class="add-product"
+                  [disabled]="!canAdd(group, offer) || selectedQuantity(offer.offerId) >= 1000000"
+                  (click)="increase(group, offer)">
+                  <g-icon name="plus" /> Ajouter à ma sélection
+                </button>
               </div>
+            </article>
+          } @empty {
+            @if (query().trim()) {
+              <div class="no-results">
+                <h3>Aucun produit trouvé</h3>
+                <p>Essayez un autre nom ou une autre variante.</p>
+                <button gButton type="button" variant="secondary" (click)="query.set('')">Effacer la recherche</button>
+              </div>
+            } @else {
+              <g-empty-state title="Aucun produit disponible"
+                description="La sélection de ce groupage n’est pas encore disponible." icon="box" />
             }
-          </div>
-          <g-badge
-            [tone]="
-              offer.active && offer.catalog?.usable && group.orderable ? 'positive' : 'neutral'
-            "
-            >{{
-              offer.active && offer.catalog?.usable && group.orderable
-                ? 'Disponible'
-                : 'Indisponible'
-            }}</g-badge
-          >
-          <h2>{{ offer.commercialLabel || offer.catalog?.productName || 'Produit' }}</h2>
-          <p class="muted">{{ variantLabel(offer.catalog?.attributes) }}</p>
-          <p class="preserve">{{ offer.catalog?.productDescription }}</p>
-          <p class="price">{{ money(offer.unitPrice, offer.currency) }}</p>
-          <button
-            gButton
-            [disabled]="!group.orderable || !offer.active || !offer.catalog?.usable"
-            (click)="selection.add(group, offer)"
-          >
-            Ajouter à ma sélection
-          </button>
-        </g-card>
-      } @empty {
-        <g-empty-state
-          title="Aucun produit disponible"
-          description="La sélection de ce groupage n’est pas encore disponible."
-          icon="box"
-        />
-      }
-    </div>
-    <section class="selection" aria-label="Ma sélection">
-      <h2>
-        Ma sélection <span aria-live="polite">({{ selection.count() }})</span>
-      </h2>
-      @if (selection.count()) {
-        <ul>
-          @for (item of selection.items(); track item.offer.offerId) {
-            <li>
-              <span
-                >{{ item.offer.commercialLabel || item.offer.catalog?.productName }} ×
-                {{ item.quantity }}</span
-              ><button
-                gButton
-                variant="ghost"
-                [attr.aria-label]="
-                  'Retirer une unité de ' +
-                  (item.offer.commercialLabel || item.offer.catalog?.productName)
-                "
-                (click)="selection.remove(item.offer.offerId!)"
-              >
-                Retirer
-              </button>
-            </li>
           }
-        </ul>
-      } @else {
-        <p class="muted">Choisissez les produits qui vous plaisent.</p>
-      }
-    </section>
+        </div>
+      </section>
+
+      <section class="selection" aria-label="Ma sélection">
+        <div class="selection-heading">
+          <h2>Ma sélection <span aria-live="polite">({{ selection.count() }})</span></h2>
+          <g-icon name="bag" />
+        </div>
+        @if (selection.count()) {
+          <ul class="selection-items">
+            @for (item of selection.items(); track item.offer.offerId) {
+              <li class="selection-item">
+                @if (item.offer.images?.[0]; as photo) {
+                  <img class="selection-thumb" [src]="photo.thumbnailUrl || photo.displayUrl" alt=""
+                    loading="lazy" decoding="async" />
+                } @else {
+                  <span class="selection-thumb no-photo"><g-icon name="box" /></span>
+                }
+                <div class="selection-copy">
+                  <strong>{{ productLabel(item.offer) }}</strong>
+                  <small>{{ variantLabel(item.offer.catalog?.attributes) }}</small>
+                  <span>{{ money(item.offer.unitPrice, item.offer.currency || group.currency) }}</span>
+                  <div class="selection-controls">
+                    <button type="button" [attr.aria-label]="'Retirer une unité de ' + productLabel(item.offer)"
+                      (click)="selection.remove(item.offer.offerId!)">−</button>
+                    <span aria-live="polite">{{ item.quantity }}</span>
+                    <button type="button" [attr.aria-label]="'Ajouter une unité de ' + productLabel(item.offer)"
+                      [disabled]="!canAdd(group, item.offer) || item.quantity >= 1000000"
+                      (click)="increase(group, item.offer)">+</button>
+                    <button type="button" class="delete-item"
+                      [attr.aria-label]="'Supprimer ' + productLabel(item.offer)"
+                      (click)="selection.delete(item.offer.offerId!)">Supprimer</button>
+                  </div>
+                </div>
+              </li>
+            }
+          </ul>
+          <div class="selection-subtotal">
+            <span>Sous-total articles</span>
+            <strong>{{ money(selection.subtotal(), group.currency) }}</strong>
+          </div>
+          <p class="selection-note">Hors frais éventuels de transport et de service.</p>
+          <a gButton class="cart-cta"
+            [routerLink]="['/public/groupages', group.publicIdentifier || selection.publicIdentifier(), 'cart']">
+            Voir mon panier <g-icon name="arrow" />
+          </a>
+        } @else {
+          <div class="selection-empty">
+            <g-icon name="bag" />
+            <p>Choisissez vos produits pour préparer votre commande.</p>
+          </div>
+        }
+      </section>
+    </div>
+
     @if (selection.count()) {
       <aside class="cart-bar" aria-label="Panier">
-        <strong
-          >{{ selection.count() }} articles ·
-          {{ money(selection.subtotal(), group.currency) }}</strong
-        >
-        <a gButton [routerLink]="['/public/groupages', group.publicIdentifier, 'cart']"
-          >Voir mon panier</a
-        >
+        <div><strong>{{ selection.count() }} article{{ selection.count() === 1 ? '' : 's' }} ·
+          {{ money(selection.subtotal(), group.currency) }}</strong>
+          <small>Hors frais supplémentaires</small></div>
+        <a gButton [routerLink]="['/public/groupages', group.publicIdentifier || selection.publicIdentifier(), 'cart']">
+          Voir mon panier <g-icon name="arrow" />
+        </a>
       </aside>
     }
   }

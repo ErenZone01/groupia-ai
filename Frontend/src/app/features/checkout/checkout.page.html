@@ -1,0 +1,164 @@
+<g-public-shell [wide]="true">
+  <div class="checkout-page">
+    <a class="back-link" [routerLink]="['/public/groupages', id, 'cart']">
+      <g-icon name="arrow" /> Retour au panier
+    </a>
+    <header class="checkout-header">
+      <p class="eyebrow">Étape 2 sur 3 · Ma commande</p>
+      <h1>Vos coordonnées</h1>
+      <p>Complétez vos informations sans créer de compte. Votre localisation nous aidera
+        à organiser la remise de vos articles.</p>
+    </header>
+
+    @if (store.cart.count()) {
+      <div class="checkout-layout">
+        <div class="checkout-form-panel">
+          <form #form="ngForm" (ngSubmit)="form.valid && submit()" class="checkout-form" novalidate>
+            <fieldset [disabled]="store.busy()">
+              <section class="form-section">
+                <div class="section-title">
+                  <span class="section-number">01</span>
+                  <div><h2>Informations personnelles</h2>
+                    <p>Pour identifier votre commande et vous contacter.</p></div>
+                </div>
+                <div class="field-grid">
+                  <label>Prénom *
+                    <input gInput name="firstName" autocomplete="given-name" required
+                      maxlength="100" pattern=".*\S.*" [(ngModel)]="contact.firstName"
+                      #first="ngModel" placeholder="Ex. Awa" />
+                    @if (first.invalid && first.touched) {
+                      <span class="field-error">Indiquez votre prénom.</span>
+                    }
+                  </label>
+                  <label>Nom *
+                    <input gInput name="lastName" autocomplete="family-name" required
+                      maxlength="100" pattern=".*\S.*" [(ngModel)]="contact.lastName"
+                      #last="ngModel" placeholder="Ex. Diop" />
+                    @if (last.invalid && last.touched) {
+                      <span class="field-error">Indiquez votre nom.</span>
+                    }
+                  </label>
+                </div>
+                <label>Téléphone *
+                  <input gInput name="phone" type="tel" autocomplete="tel" required maxlength="30"
+                    pattern="\+?[0-9\(\) .\-]{7,30}" [(ngModel)]="contact.phone"
+                    #phone="ngModel" aria-describedby="phone-help" placeholder="+221 77 123 45 67" />
+                  @if (phone.invalid && phone.touched) {
+                    <span class="field-error">Vérifiez votre numéro et son indicatif.</span>
+                  }
+                </label>
+                <p id="phone-help" class="field-help">Indiquez l'indicatif du pays, par exemple +221.</p>
+                <label>Email <span class="optional">(facultatif)</span>
+                  <input gInput name="email" type="email" email autocomplete="email" maxlength="254"
+                    [(ngModel)]="contact.email" placeholder="exemple@email.com" />
+                </label>
+              </section>
+
+              <section class="form-section">
+                <div class="section-title">
+                  <span class="section-number">02</span>
+                  <div><h2>Votre localisation</h2>
+                    <p>Pour préparer la remise ou une livraison éventuelle, selon la gérante.</p></div>
+                </div>
+                <div class="location-explainer">
+                  <g-icon name="info" />
+                  <p>Ces informations ne garantissent pas la livraison à domicile.
+                    La gérante vous précisera les modalités de retrait ou de livraison.</p>
+                </div>
+                <div class="field-grid">
+                  <label>Région *
+                    <select gSelect name="region" required [ngModel]="location.region"
+                      (ngModelChange)="changeRegion($event)">
+                      <option value="">Choisir une région</option>
+                      @for (item of regions; track item.name) {
+                        <option [value]="item.name">{{ item.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label>Ville / département *
+                    <select gSelect name="cityChoice" required [disabled]="!location.region"
+                      [ngModel]="cityChoice" (ngModelChange)="changeCity($event)">
+                      <option value="">Choisir une ville ou zone</option>
+                      @for (city of cities; track city) { <option [value]="city">{{ city }}</option> }
+                      <option [value]="other">Ma ville n'est pas dans la liste</option>
+                    </select>
+                  </label>
+                </div>
+                @if (cityChoice === other) {
+                  <label>Préciser votre ville *
+                    <input gInput name="cityManual" required maxlength="100"
+                      [(ngModel)]="location.city" placeholder="Nom de votre ville" />
+                  </label>
+                }
+                <div class="field-grid">
+                  <label>Commune *
+                    <select gSelect name="communeChoice" required [disabled]="!location.region || !location.city"
+                      [ngModel]="communeChoice" (ngModelChange)="changeCommune($event)">
+                      <option value="">Choisir une commune</option>
+                      @for (commune of communes; track commune) {
+                        <option [value]="commune">{{ commune }}</option>
+                      }
+                      <option [value]="other">Ma commune n'est pas dans la liste</option>
+                    </select>
+                  </label>
+                  <label>Quartier <span class="optional">(facultatif)</span>
+                    <input gInput name="neighborhood" maxlength="160" [(ngModel)]="location.neighborhood"
+                      placeholder="Ex. Liberté 6, Parcelles…" />
+                  </label>
+                </div>
+                @if (communeChoice === other) {
+                  <label>Préciser votre commune *
+                    <input gInput name="communeManual" required maxlength="120"
+                      [(ngModel)]="location.commune" placeholder="Nom de votre commune" />
+                  </label>
+                }
+                <p class="field-help">La liste des communes dépend de la région sélectionnée.
+                  Si vous ne trouvez pas votre localité, choisissez « Ma commune n'est pas dans la liste ».</p>
+                <label>Adresse détaillée / point de repère *
+                  <textarea gInput name="addressDetails" required maxlength="500" rows="3"
+                    [(ngModel)]="location.details"
+                    placeholder="Rue, numéro de maison, près de…, indication utile pour vous retrouver"></textarea>
+                </label>
+              </section>
+            </fieldset>
+
+            @if (store.error()) {
+              <div class="checkout-error" role="alert">{{ store.error() }}
+                <a [routerLink]="['/public/groupages', id, 'cart']">Vérifier mon panier</a>
+              </div>
+            }
+            <footer class="form-footer">
+              <p>En continuant, vous créez votre commande. Aucun paiement n'est prélevé à cette étape.</p>
+              <button gButton type="submit" [disabled]="form.invalid || store.busy() || !store.cart.ready()"
+                [loading]="store.busy()">Continuer vers le paiement <g-icon name="arrow" /></button>
+            </footer>
+          </form>
+        </div>
+        <aside class="checkout-summary" aria-label="Résumé de la commande">
+          <h2>Votre commande</h2>
+          <div class="summary-row"><span>Articles</span>
+            <strong>{{ store.cart.count() }}</strong></div>
+          <div class="summary-row"><span>Sous-total articles</span>
+            <strong>{{ money(store.cart.subtotal(), store.cart.group()?.currency) }}</strong></div>
+          <div class="shipping-caption">
+            <g-icon name="info" />
+            <p>{{ publicShippingMessage(store.cart.group()) }}</p>
+          </div>
+          <p class="total-notice">Les frais de service et, selon le groupage, les frais de transport seront détaillés
+            après la création de la commande, avant tout paiement.</p>
+          <div class="checkout-stages">
+            <div><g-icon name="check" /><span>Panier</span></div>
+            <div class="current"><span class="step-dot">2</span><strong>Coordonnées</strong></div>
+            <div><span class="step-dot">3</span><span>Paiement et suivi</span></div>
+          </div>
+        </aside>
+      </div>
+    } @else {
+      <div class="empty-checkout">
+        <g-icon name="bag" />
+        <p>Votre panier est vide. Ajoutez des produits avant de commander.</p>
+        <a gButton [routerLink]="['/public/groupages', id]">Retourner aux produits</a>
+      </div>
+    }
+  </div>
+</g-public-shell>

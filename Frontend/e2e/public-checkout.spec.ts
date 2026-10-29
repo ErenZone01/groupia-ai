@@ -226,7 +226,24 @@ test('adresse après rechargement : le formulaire reste utilisable et le serveur
   const state = await publicApi(page);
   await select(page);
   await page.getByRole('link', { name: 'Continuer vers mes coordonnées' }).click();
+  // Angular navigates asynchronously. Wait until the checkout form is mounted
+  // before reloading, otherwise Playwright may reload the cart URL instead.
+  await expect(page).toHaveURL(base + '/checkout');
+  await expect(page.getByLabel('Prénom *')).toBeVisible();
+  const savedCart = await page.evaluate(
+    (id) => JSON.parse(sessionStorage.getItem('groupia.carts') ?? '{}')[id],
+    publicId,
+  );
+  expect(savedCart).toHaveLength(1);
+
   await page.reload();
+  await expect(page).toHaveURL(base + '/checkout');
+  await expect(page.getByLabel('Prénom *')).toBeVisible();
+  const restoredCart = await page.evaluate(
+    (id) => JSON.parse(sessionStorage.getItem('groupia.carts') ?? '{}')[id],
+    publicId,
+  );
+  expect(restoredCart).toHaveLength(1);
   await page.getByLabel('Prénom *').fill('Awa');
   await page.getByLabel('Nom *', { exact: true }).fill('Diop');
   await page.getByLabel('Téléphone *').fill('+221771234567');

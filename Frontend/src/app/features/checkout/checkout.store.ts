@@ -7,12 +7,32 @@ import { CartStore } from './cart.store';
 import { PublicOrderApi } from './public-order-api';
 import { PublicOrderSessionService } from './public-order-session.service';
 import { publicMessage } from './public-messages';
-export function normalizeContact(c: Contact): Contact {
+export interface CustomerLocation {
+  country: string;
+  region: string;
+  city: string;
+  commune: string;
+  neighborhood?: string;
+  details: string;
+}
+
+export type CheckoutContact = Contact & { deliveryAddress?: CustomerLocation };
+
+export function normalizeContact(c: CheckoutContact): CheckoutContact {
   return {
     firstName: c.firstName?.trim(),
     lastName: c.lastName?.trim(),
     phone: c.phone?.replace(/[\s().-]/g, ''),
     ...(c.email?.trim() ? { email: c.email.trim().toLowerCase() } : {}),
+    ...(c.deliveryAddress ? { deliveryAddress: {
+      country: c.deliveryAddress.country.trim(),
+      region: c.deliveryAddress.region.trim(),
+      city: c.deliveryAddress.city.trim(),
+      commune: c.deliveryAddress.commune.trim(),
+      ...(c.deliveryAddress.neighborhood?.trim()
+        ? { neighborhood: c.deliveryAddress.neighborhood.trim() } : {}),
+      details: c.deliveryAddress.details.trim(),
+    } } : {}),
   };
 }
 @Injectable({ providedIn: 'root' })
@@ -23,7 +43,7 @@ export class CheckoutStore {
   readonly session = inject(PublicOrderSessionService);
   readonly busy = signal(false);
   readonly error = signal('');
-  async submit(contact: Contact): Promise<boolean> {
+  async submit(contact: CheckoutContact): Promise<boolean> {
     if (this.busy()) return false;
     this.busy.set(true);
     this.error.set('');

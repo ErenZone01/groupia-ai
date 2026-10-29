@@ -121,6 +121,10 @@ async function contact(page: Page) {
   await page.getByLabel('Prénom *').fill('Awa');
   await page.getByLabel('Nom *', { exact: true }).fill('Diop');
   await page.getByLabel('Téléphone *').fill('+221771234567');
+  await page.getByLabel('Région *').selectOption('Dakar');
+  await page.getByLabel('Ville / département *').selectOption('Dakar');
+  await page.getByLabel('Commune *').selectOption('Biscuiterie');
+  await page.getByLabel('Adresse détaillée / point de repère *').fill('Rue 12, près de la mairie');
 }
 async function checkout(page: Page) {
   await page.getByRole('button', { name: 'Continuer vers le paiement' }).click();

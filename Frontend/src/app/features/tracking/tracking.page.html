@@ -1,0 +1,116 @@
+<g-public-shell [wide]="true">
+  <div class="tracking-page">
+    @if (!store.session.current()?.trackingToken || store.unavailable()) {
+      <section class="tracking-unavailable">
+        <g-icon name="info" />
+        <h1>Votre suivi</h1>
+        <p>Le suivi de cette commande n’est plus disponible sur cet appareil.</p>
+        <p>Le lien privé est conservé uniquement pour cette session navigateur.
+          <a routerLink="/suivi">Retrouver mes commandes avec mon numéro</a>.</p>
+      </section>
+    } @else {
+      <header class="tracking-header">
+        <p class="eyebrow">Votre commande Groupia</p>
+        @if (store.order(); as order) {
+          <h1 aria-live="polite">{{ statusLabel(order.status) }}</h1>
+          <p>Commande {{ order.orderNumber }} · Suivez les étapes après votre achat.</p>
+        } @else {
+          <h1>Vérification de votre commande</h1>
+          <p>Nous récupérons les informations de votre commande.</p>
+        }
+      </header>
+
+      @if (store.order()?.status === 'CONFIRMED') {
+        <div class="payment-confirmed" role="status">
+          <span class="state-icon"><g-icon name="check" /></span>
+          <div><strong>✓ Votre commande est confirmée.</strong>
+            <p>Le paiement est confirmé par notre système. Vous pouvez suivre son traitement ci-dessous.</p></div>
+        </div>
+      }
+
+      <div class="tracking-layout">
+        <section class="tracking-primary">
+          @if (store.order(); as order) {
+            @if (order.status === 'PENDING_PAYMENT') {
+              <div class="payment-card">
+                <div class="payment-card-heading">
+                  <span class="payment-icon"><g-icon name="card" /></span>
+                  <div><p class="card-kicker">Étape 3 sur 3</p>
+                    <h2>Finaliser mon paiement</h2></div>
+                </div>
+                <p class="payment-help">Votre commande a été créée mais n'est pas encore payée.
+                  Le montant exact est indiqué dans le récapitulatif.</p>
+                @if (store.session.current()?.payment; as payment) {
+                  @if (payment.reconciliationRequired) {
+                    <p class="payment-note" role="status">
+                      Nous vérifions votre paiement. Ne recommencez pas le paiement.
+                    </p>
+                  } @else if (store.checkoutUrl(); as url) {
+                    <p class="payment-help">Terminez votre paiement sur la page sécurisée du prestataire,
+                      puis revenez ici vérifier le statut.</p>
+                    <a gButton class="payment-cta" [href]="url" target="_blank"
+                      rel="noopener noreferrer" referrerpolicy="no-referrer">
+                      Payer avec Wave / Orange Money <g-icon name="arrow" />
+                    </a>
+                    <p class="payment-footnote">Le paiement s'ouvre dans un nouvel onglet.
+                      Vous pourrez rouvrir ce même lien tant qu'il reste valable.</p>
+                  } @else {
+                    <p class="payment-note">Le lien de paiement n’est pas disponible.
+                      Nous conservons votre tentative ; actualisez le suivi sans recommencer le paiement.</p>
+                  }
+                } @else {
+                  <button gButton class="payment-cta" [loading]="store.busy()" [disabled]="store.busy()"
+                    (click)="store.initiate()">
+                    Préparer mon paiement sécurisé <g-icon name="arrow" />
+                  </button>
+                }
+              </div>
+            }
+            <div class="tracking-timeline">
+              <g-order-timeline [order]="order" />
+            </div>
+            <g-shipping-settlement [value]="order.shippingSettlement" />
+            @if (order.shippingSettlement?.status === 'BALANCE_DUE') {
+              <p class="shipping-balance"><a routerLink="/suivi">
+                Retrouver ma commande pour payer le transport</a></p>
+            }
+            <p class="fulfillment">Retrait : <strong>{{ fulfillment(order.fulfillmentStatus) }}</strong></p>
+          } @else {
+            <div class="tracking-loading"><g-skeleton /><g-skeleton /></div>
+          }
+        </section>
+
+        <aside class="tracking-sidebar">
+          <g-order-summary
+            [receipt]="store.order() ?? store.session.current()?.receipt ?? null"
+            [shippingLater]="!!store.session.current()?.shippingLater && !store.order()?.shippingFinal"
+            [confirmed]="store.order()?.status === 'CONFIRMED'" />
+          <div class="tracking-guidance">
+            <g-icon name="info" />
+            <p>Le paiement n'est confirmé qu'après vérification de son statut réel.
+              N'effectuez pas un second paiement pendant une vérification en cours.</p>
+          </div>
+        </aside>
+      </div>
+
+      @if (store.error()) {
+        <p class="tracking-error" role="alert">{{ store.error() }}</p>
+      }
+      <footer class="tracking-footer">
+        <p class="muted" role="status">
+          @if (store.polling()) {
+            Le suivi est actualisé automatiquement pendant trois minutes au maximum.
+          } @else {
+            Vous pouvez actualiser le suivi à tout moment.
+          }
+        </p>
+        <div class="tracking-actions">
+          <button gButton variant="secondary" [loading]="store.loading()"
+            (click)="store.refresh()">Actualiser le suivi</button>
+          <a [routerLink]="['/public/groupages', store.session.current()?.publicIdentifier]">
+            Revenir au groupage</a>
+        </div>
+      </footer>
+    }
+  </div>
+</g-public-shell>

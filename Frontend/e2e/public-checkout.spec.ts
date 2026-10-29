@@ -222,6 +222,23 @@ test('adresse Sénégal : changer de région réinitialise la commune et autoris
   await noOverflow(page);
 });
 
+test('adresse après rechargement : le formulaire reste utilisable et le serveur revalide le panier', async ({ page }) => {
+  const state = await publicApi(page);
+  await select(page);
+  await page.getByRole('link', { name: 'Continuer vers mes coordonnées' }).click();
+  await page.reload();
+  await page.getByLabel('Prénom *').fill('Awa');
+  await page.getByLabel('Nom *', { exact: true }).fill('Diop');
+  await page.getByLabel('Téléphone *').fill('+221771234567');
+  await page.getByLabel('Région *').selectOption('Dakar');
+  await page.getByLabel('Ville / département *').selectOption('Dakar');
+  await page.getByLabel('Commune *').selectOption('Biscuiterie');
+  await page.getByLabel('Adresse détaillée / point de repère *').fill('Rue 12');
+  await expect(page.getByRole('button', { name: 'Continuer vers le paiement' })).toBeEnabled();
+  await checkout(page);
+  expect(state.checkouts).toHaveLength(1);
+});
+
 test('double-clic checkout ne crée qu’une tentative', async ({ page }) => {
   const state = await publicApi(page);
   await select(page);

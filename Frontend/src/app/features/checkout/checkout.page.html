@@ -129,7 +129,7 @@
             }
             <footer class="form-footer">
               <p>En continuant, vous créez votre commande. Aucun paiement n'est prélevé à cette étape.</p>
-              <button gButton type="submit" [disabled]="form.invalid || store.busy() || !store.cart.ready()"
+              <button gButton type="submit" [disabled]="form.invalid || store.busy()"
                 [loading]="store.busy()">Continuer vers le paiement <g-icon name="arrow" /></button>
             </footer>
           </form>

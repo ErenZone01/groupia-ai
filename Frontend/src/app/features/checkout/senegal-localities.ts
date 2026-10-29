@@ -616,7 +616,7 @@ export const SENEGAL_REGIONS: SenegalRegion[] = [
     ]
   },
   {
-    "name": "Thies",
+    "name": "Thiès",
     "departments": [
       "M'bour",
       "Thiès",

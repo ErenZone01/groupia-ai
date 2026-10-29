@@ -2,7 +2,7 @@ import { Component, DestroyRef, computed, effect, inject, signal, untracked } fr
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
-import { OrganizerOrderView, ProductMediaSummary } from '../../api/generated/models';
+import { CustomerContact, OrganizerOrderView, ProductMediaSummary } from '../../api/generated/models';
 import type { CustomerLocation } from '../checkout/checkout.store';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
@@ -56,7 +56,7 @@ export class OrderDetailPage {
   });
   readonly customerLocation = computed(() => {
     const contact = this.data()?.customerContactSnapshot as
-      | ({ deliveryAddress?: CustomerLocation })
+      | (CustomerContact & { deliveryAddress?: CustomerLocation })
       | undefined;
     return contact?.deliveryAddress ?? null;
   });

@@ -117,56 +117,7 @@
         </div>
       </section>
 
-      <section class="selection" aria-label="Ma sélection">
-        <div class="selection-heading">
-          <h2>Ma sélection <span aria-live="polite">({{ selection.count() }})</span></h2>
-          <g-icon name="bag" />
-        </div>
-        @if (selection.count()) {
-          <ul class="selection-items">
-            @for (item of selection.items(); track item.offer.offerId) {
-              <li class="selection-item">
-                @if (item.offer.images?.[0]; as photo) {
-                  <img class="selection-thumb" [src]="photo.thumbnailUrl || photo.displayUrl" alt=""
-                    loading="lazy" decoding="async" />
-                } @else {
-                  <span class="selection-thumb no-photo"><g-icon name="box" /></span>
-                }
-                <div class="selection-copy">
-                  <strong>{{ productLabel(item.offer) }}</strong>
-                  <small>{{ variantLabel(item.offer.catalog?.attributes) }}</small>
-                  <span>{{ money(item.offer.unitPrice, item.offer.currency || group.currency) }}</span>
-                  <div class="selection-controls">
-                    <button type="button" [attr.aria-label]="'Retirer une unité de ' + productLabel(item.offer)"
-                      (click)="selection.remove(item.offer.offerId!)">−</button>
-                    <span aria-live="polite">{{ item.quantity }}</span>
-                    <button type="button" [attr.aria-label]="'Ajouter une unité de ' + productLabel(item.offer)"
-                      [disabled]="!canAdd(group, item.offer) || item.quantity >= 1000000"
-                      (click)="increase(group, item.offer)">+</button>
-                    <button type="button" class="delete-item"
-                      [attr.aria-label]="'Supprimer ' + productLabel(item.offer)"
-                      (click)="selection.delete(item.offer.offerId!)">Supprimer</button>
-                  </div>
-                </div>
-              </li>
-            }
-          </ul>
-          <div class="selection-subtotal">
-            <span>Sous-total articles</span>
-            <strong>{{ money(selection.subtotal(), group.currency) }}</strong>
-          </div>
-          <p class="selection-note">Hors frais éventuels de transport et de service.</p>
-          <a gButton class="cart-cta"
-            [routerLink]="['/public/groupages', group.publicIdentifier || selection.publicIdentifier(), 'cart']">
-            Voir mon panier <g-icon name="arrow" />
-          </a>
-        } @else {
-          <div class="selection-empty">
-            <g-icon name="bag" />
-            <p>Choisissez vos produits pour préparer votre commande.</p>
-          </div>
-        }
-      </section>
+      <g-public-selection-panel [group]="group" />
     </div>
 
     @if (selection.count()) {

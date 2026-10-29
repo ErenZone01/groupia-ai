@@ -1,0 +1,24 @@
+:host { display:block; min-width:0; align-self:start; position:sticky; top:20px; }
+.selection { overflow:hidden; border:1px solid var(--border); border-radius:17px; background:var(--surface); padding:17px; min-width:0; }
+.selection-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+.selection-heading h2 { font-size:15px; }
+.selection-heading g-icon { color:var(--primary); }
+.selection-items { list-style:none; padding:0; margin:0; }
+.selection-item { display:grid; grid-template-columns:54px minmax(0,1fr); gap:10px; padding:14px 0; border-bottom:1px solid var(--border); }
+.selection-thumb { width:54px; height:58px; background:var(--surface-alt); border:1px solid var(--border); border-radius:9px; object-fit:contain; display:grid; place-items:center; }
+.selection-copy { min-width:0; display:grid; gap:5px; }
+.selection-copy strong { font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.selection-copy small { font-size:10px; color:var(--muted); }
+.selection-copy > span { font-size:12px; font-weight:650; }
+.selection-controls { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:4px; }
+.selection-controls button { min-width:32px; min-height:32px; border:1px solid var(--border); border-radius:8px; background:var(--surface-alt); color:var(--text); }
+.selection-controls span { font-size:12px; font-weight:600; }
+.selection-controls .delete-item { padding:0 6px; color:var(--danger-text); font-size:10px; }
+.selection-subtotal { display:flex; justify-content:space-between; gap:10px; margin-top:16px; font-size:12px; }
+.selection-subtotal strong { text-align:right; }
+.selection-note { color:var(--muted); font-size:11px; line-height:1.6; margin:9px 0 15px; }
+.cart-cta.g-button { width:100%; justify-content:space-between; font-size:12px; }
+.cart-cta g-icon { width:16px; height:16px; }
+.selection-empty { display:grid; justify-items:center; gap:9px; padding:30px 12px; text-align:center; color:var(--muted); font-size:12px; }
+.selection-empty g-icon { color:var(--primary); width:30px; height:30px; }
+@media (max-width:850px) { :host { position:static; } }

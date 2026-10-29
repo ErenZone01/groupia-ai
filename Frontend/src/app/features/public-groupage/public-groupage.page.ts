@@ -4,7 +4,6 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   PublicGroupingView,
   PublicOfferView,
-  PublicProductImageView,
 } from '../../api/generated/models';
 import { GroupiaApi } from '../../api/groupia-api';
 import { apiMessage } from '../../core/http/api-error';
@@ -18,11 +17,12 @@ import { Skeleton } from '../../shared/feedback/skeleton';
 import { EmptyState } from '../../shared/feedback/empty-state';
 import { money, dateLabel, variantLabel } from '../../shared/utils/display';
 import { PublicSelectionService } from './public-selection.service';
+import { PublicOfferCard } from './public-offer-card';
 import { publicShippingMessage, publicTransportLabel } from './public-order-info';
 
 @Component({
   selector: 'g-public-groupage-page',
-  imports: [RouterLink, Brand, Badge, Button, Icon, Select, Skeleton, EmptyState],
+  imports: [RouterLink, Brand, Badge, Button, Icon, Select, Skeleton, EmptyState, PublicOfferCard],
   templateUrl: './public-groupage.page.html',
   styleUrl: './public-groupage.page.scss',
 })
@@ -36,7 +36,6 @@ export class PublicGroupagePage {
   readonly loading = signal(true);
   readonly error = signal('');
   readonly query = signal('');
-  readonly activeImages = signal<Record<string, number>>({});
   readonly money = money;
   readonly dateLabel = dateLabel;
   readonly variantLabel = variantLabel;
@@ -68,7 +67,6 @@ export class PublicGroupagePage {
           '',
       );
       this.query.set('');
-      this.activeImages.set({});
       void this.load();
     });
     const focus = () => void this.load(false);
@@ -105,21 +103,6 @@ export class PublicGroupagePage {
     } finally {
       if (seq === this.request) this.loading.set(false);
     }
-  }
-
-  activeImageFor(offer: PublicOfferView): PublicProductImageView | null {
-    const images = offer.images ?? [];
-    if (!images.length) return null;
-    const key = offer.offerId ?? offer.productVariantId ?? '';
-    const index = Math.min(this.activeImages()[key] ?? 0, images.length - 1);
-    return images[index] ?? images[0] ?? null;
-  }
-
-  selectImage(offer: PublicOfferView, index: number) {
-    const images = offer.images ?? [];
-    if (index < 0 || index >= images.length) return;
-    const key = offer.offerId ?? offer.productVariantId ?? '';
-    this.activeImages.update((current) => ({ ...current, [key]: index }));
   }
 
   productLabel(offer: PublicOfferView): string {

@@ -18,11 +18,12 @@ import { EmptyState } from '../../shared/feedback/empty-state';
 import { money, dateLabel, variantLabel } from '../../shared/utils/display';
 import { PublicSelectionService } from './public-selection.service';
 import { PublicOfferCard } from './public-offer-card';
+import { PublicSelectionPanel } from './public-selection-panel';
 import { publicShippingMessage, publicTransportLabel } from './public-order-info';
 
 @Component({
   selector: 'g-public-groupage-page',
-  imports: [RouterLink, Brand, Badge, Button, Icon, Select, Skeleton, EmptyState, PublicOfferCard],
+  imports: [RouterLink, Brand, Badge, Button, Icon, Select, Skeleton, EmptyState, PublicOfferCard, PublicSelectionPanel],
   templateUrl: './public-groupage.page.html',
   styleUrl: './public-groupage.page.scss',
 })

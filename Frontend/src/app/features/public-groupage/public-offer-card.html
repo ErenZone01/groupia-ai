@@ -1,0 +1,48 @@
+<article class="product-card">
+  <div class="product-media">
+    @if (activeImage(); as image) {
+      <div class="product-media-main">
+        <img [src]="image.displayUrl || image.thumbnailUrl" [alt]="label()"
+          [attr.width]="image.width || null" [attr.height]="image.height || null"
+          loading="lazy" decoding="async" />
+      </div>
+      @if ((offer().images?.length ?? 0) > 1) {
+        <div class="product-thumbnails" role="group" [attr.aria-label]="'Photos de ' + label()">
+          @for (image of offer().images; track image.displayUrl ?? image.thumbnailUrl; let i = $index) {
+            <button type="button" class="product-thumb"
+              [attr.aria-label]="'Afficher la photo ' + (i + 1) + ' de ' + label()"
+              [attr.aria-pressed]="activeImage() === image" (click)="selectImage(i)">
+              <img [src]="image.thumbnailUrl || image.displayUrl" alt=""
+                loading="lazy" decoding="async" />
+            </button>
+          }
+        </div>
+      }
+    } @else {
+      <div class="product-media-placeholder" role="img"
+        [attr.aria-label]="'Aucune photo disponible pour ' + label()">
+        <g-icon name="box" /><span>Photo à venir</span>
+      </div>
+    }
+  </div>
+  <div class="product-detail">
+    <div class="product-state">
+      <g-badge [tone]="canAdd() ? 'positive' : 'neutral'">
+        {{ canAdd() ? 'Disponible' : 'Indisponible' }}
+      </g-badge>
+      @if (selectedQuantity()) {
+        <span class="selected-tag">{{ selectedQuantity() }} dans ma sélection</span>
+      }
+    </div>
+    <h3>{{ label() }}</h3>
+    <p class="variant">{{ variantLabel(offer().catalog?.attributes) }}</p>
+    <p class="price">{{ money(offer().unitPrice, offer().currency || group().currency) }}</p>
+    @if (offer().catalog?.productDescription) {
+      <p class="product-description">{{ offer().catalog?.productDescription }}</p>
+    }
+    <button gButton type="button" class="add-product"
+      [disabled]="!canAdd() || selectedQuantity() >= 1000000" (click)="added.emit()">
+      <g-icon name="plus" /> Ajouter à ma sélection
+    </button>
+  </div>
+</article>

@@ -21,4 +21,7 @@
 .cart-cta g-icon { width:16px; height:16px; }
 .selection-empty { display:grid; justify-items:center; gap:9px; padding:30px 12px; text-align:center; color:var(--muted); font-size:12px; }
 .selection-empty g-icon { color:var(--primary); width:30px; height:30px; }
-@media (max-width:850px) { :host { position:static; } }
+@media (max-width:850px) {
+  :host { position:static; }
+  .cart-cta.g-button { display:none; }
+}

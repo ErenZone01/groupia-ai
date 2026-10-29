@@ -1,0 +1,70 @@
+<g-public-shell [wide]="true">
+  <div class="cart-page">
+    <a class="back-link" [routerLink]="['/public/groupages', id]">
+      <g-icon name="arrow" /> Continuer ma sélection
+    </a>
+    <header class="cart-header">
+      <p class="eyebrow">Votre commande groupée</p>
+      <h1>Mon panier</h1>
+      <p>Vérifiez vos articles et quantités avant de renseigner vos coordonnées.</p>
+    </header>
+
+    @if (loading()) {
+      <div class="cart-loading" aria-label="Chargement du panier">
+        <g-skeleton /><g-skeleton />
+      </div>
+    }
+    @if (error()) {
+      <div class="cart-error">
+        <p role="alert" class="form-error">{{ error() }}</p>
+        <button gButton type="button" variant="secondary" (click)="load()">Réessayer</button>
+      </div>
+    }
+
+    <div class="cart-layout">
+      <section class="cart-content" aria-label="Articles de mon panier">
+        @if (cart.count()) {
+          <div class="cart-content-heading">
+            <div><h2>Vos articles sélectionnés</h2>
+              <p>Vous pouvez ajuster les quantités et retirer les articles.</p></div>
+            <span>{{ cart.count() }} article{{ cart.count() === 1 ? '' : 's' }}</span>
+          </div>
+          <g-cart-lines />
+        } @else if (!loading()) {
+          <div class="cart-empty">
+            <g-icon name="bag" />
+            <h2>Votre panier est vide</h2>
+            <p>Ajoutez des articles au groupage pour poursuivre votre commande.</p>
+            <a gButton [routerLink]="['/public/groupages', id]">Découvrir les produits</a>
+          </div>
+        }
+      </section>
+
+      <aside class="cart-summary" aria-label="Résumé de ma commande">
+        <h2>Résumé de ma commande</h2>
+        <div class="summary-count"><span>{{ cart.count() }} article{{ cart.count() === 1 ? '' : 's' }}</span>
+          <strong>{{ money(cart.subtotal(), cart.group()?.currency) }}</strong></div>
+        <div class="summary-subtotal"><span>Sous-total articles</span>
+          <strong>{{ money(cart.subtotal(), cart.group()?.currency) }}</strong></div>
+        <p class="summary-caption">Sous-total hors frais de transport et de service éventuels.</p>
+        <div class="shipping-info">
+          <g-icon name="info" />
+          <p>{{ publicShippingMessage(cart.group()) }}</p>
+        </div>
+        @if (!loading() && cart.group() && !cart.group()?.orderable) {
+          <p class="cart-closed" role="alert">Ce groupage ne reçoit plus de commandes.</p>
+        }
+        @if (cart.count() && cart.changes().length) {
+          <p class="cart-closed" role="status">Certains articles ont changé. Vérifiez les messages dans votre panier avant de continuer.</p>
+        }
+        @if (cart.count()) {
+          <a gButton class="checkout-cta" [disabled]="loading() || !!error() || !cart.ready()"
+            [routerLink]="['/public/groupages', id, 'checkout']">
+            Continuer vers mes coordonnées <g-icon name="arrow" />
+          </a>
+        }
+        <p class="summary-footer">Les montants et la disponibilité sont vérifiés avant la création de votre commande. Aucun paiement n'est effectué ici.</p>
+      </aside>
+    </div>
+  </div>
+</g-public-shell>

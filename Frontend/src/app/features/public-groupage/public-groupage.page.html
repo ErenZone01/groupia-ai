@@ -99,58 +99,9 @@
 
         <div class="products" aria-label="Produits du groupage">
           @for (offer of visibleOffers(); track offer.offerId ?? offer.productVariantId) {
-            <article class="product-card">
-              <div class="product-media">
-                @if (activeImageFor(offer); as activeImage) {
-                  <div class="product-media-main">
-                    <img [src]="activeImage.displayUrl || activeImage.thumbnailUrl"
-                      [alt]="productLabel(offer)" loading="lazy" decoding="async"
-                      [attr.width]="activeImage.width || null"
-                      [attr.height]="activeImage.height || null" />
-                  </div>
-                  @if ((offer.images?.length ?? 0) > 1) {
-                    <div class="product-thumbnails" role="group"
-                      [attr.aria-label]="'Photos de ' + productLabel(offer)">
-                      @for (image of offer.images; track image.displayUrl ?? image.thumbnailUrl; let i = $index) {
-                        <button type="button" class="product-thumb"
-                          [attr.aria-label]="'Afficher la photo ' + (i + 1) + ' de ' + productLabel(offer)"
-                          [attr.aria-pressed]="activeImageFor(offer) === image"
-                          (click)="selectImage(offer, i)">
-                          <img [src]="image.thumbnailUrl || image.displayUrl" alt=""
-                            loading="lazy" decoding="async" />
-                        </button>
-                      }
-                    </div>
-                  }
-                } @else {
-                  <div class="product-media-placeholder" role="img"
-                    [attr.aria-label]="'Aucune photo disponible pour ' + productLabel(offer)">
-                    <g-icon name="box" /><span>Photo à venir</span>
-                  </div>
-                }
-              </div>
-              <div class="product-detail">
-                <div class="product-state">
-                  <g-badge [tone]="canAdd(group, offer) ? 'positive' : 'neutral'">
-                    {{ canAdd(group, offer) ? 'Disponible' : 'Indisponible' }}
-                  </g-badge>
-                  @if (selectedQuantity(offer.offerId)) {
-                    <span class="selected-tag">{{ selectedQuantity(offer.offerId) }} dans ma sélection</span>
-                  }
-                </div>
-                <h3>{{ productLabel(offer) }}</h3>
-                <p class="variant">{{ variantLabel(offer.catalog?.attributes) }}</p>
-                <p class="price">{{ money(offer.unitPrice, offer.currency || group.currency) }}</p>
-                @if (offer.catalog?.productDescription) {
-                  <p class="product-description">{{ offer.catalog?.productDescription }}</p>
-                }
-                <button gButton type="button" class="add-product"
-                  [disabled]="!canAdd(group, offer) || selectedQuantity(offer.offerId) >= 1000000"
-                  (click)="increase(group, offer)">
-                  <g-icon name="plus" /> Ajouter à ma sélection
-                </button>
-              </div>
-            </article>
+            <g-public-offer-card [group]="group" [offer]="offer"
+              [selectedQuantity]="selectedQuantity(offer.offerId)"
+              (added)="increase(group, offer)" />
           } @empty {
             @if (query().trim()) {
               <div class="no-results">

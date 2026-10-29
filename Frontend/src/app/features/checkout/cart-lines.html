@@ -1,0 +1,53 @@
+@for (item of cart.items(); track item.offer.offerId) {
+  <article class="cart-line">
+    <div class="line-head">
+      @if (item.offer.images?.[0]; as image) {
+        <img class="cart-image" [src]="image.thumbnailUrl || image.displayUrl"
+          [alt]="item.offer.commercialLabel || item.offer.catalog?.productName || 'Produit'"
+          loading="lazy" decoding="async" />
+      } @else {
+        <div class="cart-image cart-image--placeholder" aria-label="Photo non disponible">
+          Photo à venir
+        </div>
+      }
+      <div class="line-copy">
+        <h2>{{ item.offer.commercialLabel || item.offer.catalog?.productName || 'Produit' }}</h2>
+        <p class="variant">{{ variantLabel(item.offer.catalog?.attributes) }}</p>
+        <p class="unit-price">{{ money(item.offer.unitPrice, item.offer.currency) }} <small>/ unité</small></p>
+      </div>
+      <div class="line-actions">
+        <button gButton variant="ghost" class="delete-line"
+          [attr.aria-label]="'Supprimer ' + (item.offer.catalog?.productName || 'ce produit')"
+          (click)="cart.delete(item.offer.offerId!)">Supprimer</button>
+        <div class="quantity" role="group"
+          [attr.aria-label]="'Quantité de ' + (item.offer.catalog?.productName || 'ce produit')">
+          <button gButton variant="secondary"
+            [attr.aria-label]="'Diminuer la quantité de ' + (item.offer.catalog?.productName || 'ce produit')"
+            (click)="cart.remove(item.offer.offerId!)">−</button>
+          <span aria-live="polite">Quantité : {{ item.quantity }}</span>
+          <button gButton variant="secondary" [disabled]="item.quantity >= 1000000"
+            [attr.aria-label]="'Augmenter la quantité de ' + (item.offer.catalog?.productName || 'ce produit')"
+            (click)="cart.quantity(item.offer.offerId!, item.quantity + 1)">+</button>
+        </div>
+        <strong class="line-total">{{ money(item.quantity * item.offer.unitPrice!, item.offer.currency) }}</strong>
+      </div>
+    </div>
+    @if (cart.changes().includes(item)) {
+      <div class="cart-change" role="alert">
+        @if (cart.currentOffer(item.offer.offerId!); as next) {
+          @if (next.active && next.catalog?.usable) {
+            <p>Le prix a changé. Nouveau prix :
+              <strong>{{ money(next.unitPrice, next.currency) }}</strong>.</p>
+            <button gButton variant="secondary" (click)="cart.acceptPrice(item.offer.offerId!)">
+              Accepter le nouveau prix
+            </button>
+          } @else {
+            <p>Ce produit n’est plus disponible. Retirez-le du panier.</p>
+          }
+        } @else {
+          <p>Ce produit n’est plus proposé. Retirez-le du panier.</p>
+        }
+      </div>
+    }
+  </article>
+}

@@ -31,7 +31,7 @@
 
         <form #form="ngForm" (ngSubmit)="form.valid && submit()" class="auth-form" novalidate>
           <div class="auth-field">
-            <label for="auth-phone">Numéro de téléphone <span class="required">*</span></label>
+            <label for="auth-phone">Numéro de téléphone <span aria-hidden="true" class="required">*</span></label>
             <div class="field-control">
               <g-icon name="phone" />
               <input gInput id="auth-phone" name="phone" type="tel" inputmode="tel"
@@ -63,7 +63,7 @@
           }
 
           <div class="auth-field">
-            <label for="auth-password">Mot de passe <span class="required">*</span></label>
+            <label for="auth-password">Mot de passe <span aria-hidden="true" class="required">*</span></label>
             <div class="field-control">
               <g-icon name="lock" />
               <input gInput id="auth-password" name="password" required
@@ -94,7 +94,7 @@
 
           @if (registerMode) {
             <div class="auth-field">
-              <label for="auth-confirm">Confirmer le mot de passe <span class="required">*</span></label>
+              <label for="auth-confirm">Confirmer le mot de passe <span aria-hidden="true" class="required">*</span></label>
               <div class="field-control">
                 <g-icon name="lock" />
                 <input gInput id="auth-confirm" name="passwordConfirmation" required

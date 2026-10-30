@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -8,14 +8,16 @@ import { BoutiqueContextService } from '../../core/boutique/boutique-context.ser
 import { HomeStore, priorityLabel } from './home.store';
 
 describe('Accueil : requêtes bornées et contexte', () => {
-  const selectedId = signal<string | null>('a'),
-    signedIn = signal(true),
-    generation = signal(1);
+  let selectedId: WritableSignal<string | null>;
+  let signedIn: WritableSignal<boolean>;
+  let generation: WritableSignal<number>;
   let store: HomeStore, http: HttpTestingController;
   beforeEach(() => {
-    selectedId.set('a');
-    signedIn.set(true);
-    generation.set(1);
+    // Fresh signals for every test: a failed HTTP expectation must not leave
+    // an effect from a previous HomeStore linked to a subsequent TestBed.
+    selectedId = signal<string | null>('a');
+    signedIn = signal(true);
+    generation = signal(1);
     TestBed.configureTestingModule({
       providers: [
         HomeStore,
@@ -32,7 +34,13 @@ describe('Accueil : requêtes bornées et contexte', () => {
     // The personalized greeting loads independently of the active boutique.
     http.expectOne('/api/auth/me').flush({ firstName: 'Awa', lastName: 'Diop' });
   });
-  afterEach(() => http.verify());
+  afterEach(() => {
+    try {
+      http.verify();
+    } finally {
+      TestBed.resetTestingModule();
+    }
+  });
   const groupRequest = (org = 'a') =>
     http.expectOne(`/api/organizations/${org}/grouping-campaigns?page=0&size=20`);
   const ordersRequest = (org = 'a') =>

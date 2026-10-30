@@ -43,12 +43,23 @@ class RefreshSessionMigrationTests {
                     UUID.randomUUID(),
                     new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12)
                             .encode(UUID.randomUUID().toString()));
-            var accounts = j.queryForList("select * from user_accounts");
+            // Compare the original columns explicitly: a newer migration can add
+            // nullable profile columns without modifying any existing account data.
+            var originalAccountColumns =
+                    "id, phone_number, email, password_hash, status, created_at, updated_at, version";
+            var accounts = j.queryForList("select " + originalAccountColumns + " from user_accounts");
             var checksums = MigrationHistoryAssertions.snapshot(j);
             try (var resource = new ClassLoaderResourceAccessor()) {
                 migrations.migrate(db, resource);
             }
-            assertThat(j.queryForList("select * from user_accounts")).isEqualTo(accounts);
+            assertThat(j.queryForList("select " + originalAccountColumns + " from user_accounts"))
+                    .isEqualTo(accounts);
+            // An account created before V3 must not acquire fabricated personal data.
+            assertThat(j.queryForMap(
+                            "select first_name, last_name, birth_date from user_accounts"))
+                    .containsEntry("first_name", null)
+                    .containsEntry("last_name", null)
+                    .containsEntry("birth_date", null);
             MigrationHistoryAssertions.assertPreserved(j, checksums);
             assertThat(j.queryForObject("select count(*) from auth_sessions", Integer.class))
                     .isZero();

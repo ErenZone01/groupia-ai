@@ -1,7 +1,6 @@
 import { computed, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { Observable, timeout } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../core/config/environment';
+import { AuthControllerService } from '../../api/generated/services/auth-controller.service';
 import { CatalogControllerService, GroupingControllerService } from '../../api/generated/services';
 import { CampaignSummary } from '../../api/generated/models';
 import { AuthService } from '../../core/auth/auth.service';
@@ -61,7 +60,7 @@ const activeStatuses = new Set([
 export class HomeStore {
   private readonly context = inject(BoutiqueContextService);
   private readonly auth = inject(AuthService);
-  private readonly http = inject(HttpClient);
+  private readonly profileApi = inject(AuthControllerService);
   private readonly grouping = inject(GroupingControllerService);
   private readonly catalog = inject(CatalogControllerService);
   private readonly ordersApi = inject(OrdersApi);
@@ -74,8 +73,7 @@ export class HomeStore {
   // The server never returns birthDate in this endpoint.
   readonly profile = resource(
     () => this.auth.signedIn() ? String(this.auth.generation()) : '',
-    () => this.http.get<{ firstName: string | null; lastName: string | null }>(
-      environment.apiBaseUrl + '/auth/me'),
+    () => this.profileApi.me(),
   );
   readonly groups = resource(this.key, () =>
     this.grouping.list2({ organizationId: this.context.selectedId()!, page: 0, size: 20 }),

@@ -66,7 +66,7 @@
             <label for="auth-password">Mot de passe <span aria-hidden="true" class="required">*</span></label>
             <div class="field-control">
               <g-icon name="lock" />
-              <input gInput id="auth-password" name="password" required
+              <input gInput id="auth-password" name="password" aria-label="Mot de passe" required
                 [type]="showPassword() ? 'text' : 'password'"
                 [autocomplete]="registerMode ? 'new-password' : 'current-password'"
                 [disabled]="busy()" [(ngModel)]="password"
@@ -97,7 +97,7 @@
               <label for="auth-confirm">Confirmer le mot de passe <span aria-hidden="true" class="required">*</span></label>
               <div class="field-control">
                 <g-icon name="lock" />
-                <input gInput id="auth-confirm" name="passwordConfirmation" required
+                <input gInput id="auth-confirm" name="passwordConfirmation" aria-label="Confirmer le mot de passe" required
                   [type]="showConfirmation() ? 'text' : 'password'"
                   autocomplete="new-password" [disabled]="busy()"
                   [(ngModel)]="passwordConfirmation" #confirmField="ngModel"

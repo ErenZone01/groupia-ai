@@ -49,6 +49,9 @@ test('auth UX V2 — inscription : confirmation du mot de passe et contrat exist
   await expect(page.getByText("Le nom et les informations de votre boutique se configurent après l\u0027inscription.")).toBeVisible();
   await expect(page.getByRole('button', { name: 'Créer mon compte' })).toBeDisabled();
 
+  await page.getByLabel('Prénom', { exact: true }).fill('Awa');
+  await page.getByLabel('Nom', { exact: true }).fill('Diop');
+  await page.getByLabel('Date de naissance').fill('1995-04-12');
   await page.getByLabel('Numéro de téléphone').fill('+221771234567');
   await page.getByLabel('Adresse email').fill('awa@example.test');
   await page.getByLabel('Mot de passe', { exact: true }).fill('une-phrase-secrete-longue');
@@ -63,6 +66,9 @@ test('auth UX V2 — inscription : confirmation du mot de passe et contrat exist
   const register = state.calls.find((call) => call.path === '/api/auth/register');
   expect(register?.body).toEqual({
     phoneNumber: '+221771234567',
+    firstName: 'Awa',
+    lastName: 'Diop',
+    birthDate: '1995-04-12',
     email: 'awa@example.test',
     password: 'une-phrase-secrete-longue',
   });
@@ -71,6 +77,9 @@ test('auth UX V2 — inscription : confirmation du mot de passe et contrat exist
 test('auth UX V2 — inscription : email facultatif et longueur UTF-8', async ({ page }) => {
   const state = await mockApi(page);
   await page.goto('/inscription');
+  await page.getByLabel('Prénom', { exact: true }).fill('Awa');
+  await page.getByLabel('Nom', { exact: true }).fill('Diop');
+  await page.getByLabel('Date de naissance').fill('1995-04-12');
   await page.getByLabel('Numéro de téléphone').fill('+221771234567');
   await page.getByLabel('Mot de passe', { exact: true }).fill('phrase-trop-courte');
   await page.getByLabel('Confirmer le mot de passe').fill('phrase-trop-courte');
@@ -88,6 +97,9 @@ test('auth UX V2 — inscription : email facultatif et longueur UTF-8', async ({
   const register = state.calls.find((call) => call.path === '/api/auth/register');
   expect(register?.body).toEqual({
     phoneNumber: '+221771234567',
+    firstName: 'Awa',
+    lastName: 'Diop',
+    birthDate: '1995-04-12',
     password: 'mot-de-passe-assez-long',
   });
 });

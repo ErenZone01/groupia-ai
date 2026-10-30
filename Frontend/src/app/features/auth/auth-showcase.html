@@ -1,37 +1,79 @@
-<div class="showcase">
-  <div class="showcase-copy">
-    <span class="showcase-eyebrow"><g-icon name="spark" /> Votre commerce, plus simple</span>
-    @if (registerMode()) {
-      <h2>Votre boutique, <em>vos opportunités.</em></h2>
-      <p>Présentez vos produits, organisez vos groupages et gardez le fil de vos commandes depuis un seul espace.</p>
-    } @else {
-      <h2>Le commerce avance <em>ensemble.</em></h2>
-      <p>Retrouvez vos produits, vos commandes et vos groupages au même endroit.</p>
-    }
-  </div>
-  <div class="artwork" aria-hidden="true">
-    <div class="art-circle outer"></div>
-    <div class="art-circle inner"></div>
-    <div class="floating-label left"><g-icon name="group" /><span>Mes groupages</span></div>
-    <div class="floating-label right"><g-icon name="orders" /><span>Mes commandes</span></div>
-    <div class="device">
-      <div class="device-top"><span class="device-dot"></span><span>Groupia</span><span class="device-mini-dot"></span></div>
-      <div class="device-content">
-        <div class="device-heading"><g-icon name="store" /><span>Ma boutique</span></div>
-        <div class="device-badges"><i></i><i></i><i></i></div>
-        <div class="device-product">
-          <div class="device-product-art"><g-icon name="bag" /></div>
-          <div class="device-product-lines"><i></i><i></i><i></i></div>
-        </div>
-        <div class="device-bottom"><span></span><span></span><span></span></div>
-      </div>
+<div class="showcase" role="region" aria-roledescription="carrousel"
+  aria-label="Découvrir les possibilités de Groupia"
+  (mouseenter)="setPaused(true)" (mouseleave)="setPaused(false)"
+  (focusin)="setPaused(true)" (focusout)="setPaused(false)">
+  <header class="slide-heading">
+    <span class="slide-count">{{ active() + 1 }} / {{ slides.length }}</span>
+    <span class="slide-kicker">{{ slides[active()].kicker }}</span>
+    <div class="slide-arrows">
+      <button type="button" aria-label="Slide précédent" (click)="previous()"><g-icon name="chevron" /></button>
+      <button type="button" aria-label="Slide suivant" (click)="next()"><g-icon name="chevron" /></button>
     </div>
-    <div class="parcel parcel-back"><g-icon name="box" /></div>
-    <div class="parcel parcel-front"><g-icon name="bag" /></div>
+  </header>
+  <div class="slide-content" aria-live="off">
+    <div class="slide-copy">
+      <h2>{{ slides[active()].title }}</h2>
+      <p>{{ slides[active()].description }}</p>
+      @if (active() === 1) {
+        <span class="slide-status">Fonctionnalité prévue prochainement</span>
+      }
+    </div>
+    <div class="slide-art" aria-hidden="true">
+      <div class="art-ring"></div>
+      <div class="art-phone">
+        <div class="phone-top"><span class="phone-notch"></span><strong>Groupia</strong><g-icon name="bag" /></div>
+        @switch (active()) {
+          @case (0) {
+            <div class="phone-badge">Groupage ouvert</div>
+            <div class="phone-illustration"><g-icon name="group" /></div>
+            <div class="phone-line wide"></div><div class="phone-line short"></div>
+            <div class="phone-amount">Mes offres</div>
+            <div class="phone-button">Voir le groupage</div>
+          }
+          @case (1) {
+            <div class="phone-badge">À venir</div>
+            <div class="phone-illustration"><g-icon name="store" /></div>
+            <div class="phone-line wide"></div><div class="phone-line short"></div>
+            <div class="phone-amount">Mes produits</div>
+            <div class="phone-button">Vente directe</div>
+          }
+          @default {
+            <div class="phone-badge">Lien public</div>
+            <div class="phone-illustration"><g-icon name="link" /></div>
+            <div class="phone-line wide"></div><div class="phone-line short"></div>
+            <div class="phone-amount">Choisissez vos articles</div>
+            <div class="phone-button">Commander</div>
+          }
+        }
+      </div>
+      <div class="float-card float-left">
+        <g-icon [name]="slides[active()].icon" />
+        <span>{{ slides[active()].label }}</span>
+      </div>
+      <div class="float-card float-right">
+        <g-icon name="check" />
+        <span>{{ active() === 2 ? 'Sans compte client' : active() === 1 ? 'À venir' : 'Lien partageable' }}</span>
+      </div>
+      <div class="art-box one"><g-icon name="box" /></div>
+      <div class="art-box two"><g-icon name="bag" /></div>
+    </div>
   </div>
-  <div class="showcase-benefits">
-    <div><g-icon name="store" /><span>Une boutique organisée</span></div>
-    <div><g-icon name="shield" /><span>Un accès protégé</span></div>
-    <div><g-icon name="orders" /><span>Des commandes suivies</span></div>
-  </div>
+  <footer class="slide-footer">
+    <div class="slide-progress" aria-label="Choisir une fonctionnalité">
+      @for (slide of slides; track slide.kicker; let i = $index) {
+        <button type="button" class="slide-tab" [class.active]="active() === i"
+          [attr.aria-current]="active() === i ? 'true' : null"
+          [attr.aria-label]="slide.label + ' (' + (i + 1) + ' sur 3)'"
+          (click)="goTo(i)">
+          <g-icon [name]="slide.icon" />
+          <span>{{ slide.label }}</span>
+        </button>
+      }
+    </div>
+    <div class="slide-dots" aria-hidden="true">
+      @for (slide of slides; track slide.kicker; let i = $index) {
+        <span [class.active]="active() === i"></span>
+      }
+    </div>
+  </footer>
 </div>

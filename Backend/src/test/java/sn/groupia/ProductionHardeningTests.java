@@ -71,17 +71,20 @@ class ProductionHardeningTests {
     }
 
     ResultActions auth(String operation, String phone, String password) throws Exception {
+        var body = new java.util.LinkedHashMap<String, Object>();
+        body.put("phoneNumber", phone);
+        body.put("password", password);
+        if (operation.equals("register")) {
+            body.put("firstName", "Awa");
+            body.put("lastName", "Diop");
+            body.put("birthDate", "1995-04-12");
+        }
         return mvc.perform(
                 post("/api/auth/" + operation)
                         .header("Origin", "https://groupia.test")
                         .header("X-Groupia-Auth", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(
-                                "{\"phoneNumber\":\""
-                                        + phone
-                                        + "\",\"password\":\""
-                                        + password
-                                        + "\"}"));
+                        .content(new tools.jackson.databind.ObjectMapper().writeValueAsString(body)));
     }
 
     @Test

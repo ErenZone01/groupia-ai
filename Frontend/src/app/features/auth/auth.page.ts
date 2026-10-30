@@ -30,6 +30,9 @@ export class AuthPage {
   readonly error = signal('');
   readonly showPassword = signal(false);
   readonly showConfirmation = signal(false);
+  firstName = '';
+  lastName = '';
+  birthDate = '';
   phoneNumber = '';
   password = '';
   passwordConfirmation = '';
@@ -45,6 +48,13 @@ export class AuthPage {
     );
   }
 
+  birthDateIsValid(): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.birthDate)) return false;
+    const parsed = new Date(this.birthDate + 'T00:00:00Z');
+    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().startsWith(this.birthDate)
+      && this.birthDate >= '1900-01-01' && this.birthDate < new Date().toISOString().slice(0, 10);
+  }
+
   passwordsMatch(): boolean {
     return this.password.length > 0 && this.password === this.passwordConfirmation;
   }
@@ -52,6 +62,10 @@ export class AuthPage {
   async submit() {
     if (this.busy() || !this.phoneNumber.trim() || !this.password) return;
     if (this.registerMode) {
+      if (!this.firstName.trim() || !this.lastName.trim() || !this.birthDateIsValid()) {
+        this.error.set('Renseignez votre prénom, votre nom et une date de naissance valide.');
+        return;
+      }
       if (!this.passwordIsValid()) {
         this.error.set('Choisissez au moins 15 caractères, dans la limite de 72 octets UTF-8.');
         return;
@@ -68,6 +82,9 @@ export class AuthPage {
       if (this.registerMode) {
         await this.auth.register({
           phoneNumber: this.phoneNumber.trim(),
+          firstName: this.firstName.trim(),
+          lastName: this.lastName.trim(),
+          birthDate: this.birthDate,
           password: this.password,
           ...(this.email.trim() ? { email: this.email.trim() } : {}),
         });

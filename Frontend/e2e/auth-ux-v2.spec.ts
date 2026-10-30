@@ -46,7 +46,7 @@ test('auth UX V2 — inscription : confirmation du mot de passe et contrat exist
   const state = await mockApi(page);
   await page.goto('/inscription');
   await expect(page.getByRole('heading', { name: 'Créer votre compte' })).toBeVisible();
-  await expect(page.getByText('Le nom et les informations de votre boutique se configurent après l’inscription.')).toBeVisible();
+  await expect(page.getByText("Le nom et les informations de votre boutique se configurent après l\u0027inscription.")).toBeVisible();
   await expect(page.getByRole('button', { name: 'Créer mon compte' })).toBeDisabled();
 
   await page.getByLabel('Numéro de téléphone').fill('+221771234567');

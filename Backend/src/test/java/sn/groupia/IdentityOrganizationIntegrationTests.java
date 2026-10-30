@@ -106,11 +106,11 @@ class IdentityOrganizationIntegrationTests {
             throws Exception {
         register(PHONE, PASSWORD, null).andExpect(status().isAccepted());
         assertThat(jdbc.queryForMap(
-                "select first_name, last_name, birth_date from user_accounts where phone_number=?",
+                "select first_name, last_name, birth_date::text as birth_date from user_accounts where phone_number=?",
                 PHONE))
                 .containsEntry("first_name", "Awa")
                 .containsEntry("last_name", "Diop")
-                .containsEntry("birth_date", java.time.LocalDate.of(1995, 4, 12));
+                .containsEntry("birth_date", "1995-04-12");
         mvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/auth/me").header("Authorization", bearer(token(PHONE))))

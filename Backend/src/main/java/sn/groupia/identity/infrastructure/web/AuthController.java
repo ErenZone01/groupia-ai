@@ -9,10 +9,10 @@ import java.time.LocalDate;
 import java.util.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import sn.groupia.identity.api.CurrentUser;
 import sn.groupia.identity.application.service.AccessTokens;
 import sn.groupia.identity.application.service.AuthenticationService;
 import sn.groupia.identity.application.service.RefreshSessions;
-import sn.groupia.identity.api.CurrentUser;
 import sn.groupia.identity.domain.repository.UserAccounts;
 import sn.groupia.identity.infrastructure.security.SessionSettings;
 import sn.groupia.shared.api.ApiException;
@@ -51,8 +51,13 @@ class AuthController {
     ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         limits.subject("register", request.phoneNumber());
         try {
-            authentication.register(request.phoneNumber(), request.password(), request.email(),
-                    request.firstName(), request.lastName(), request.birthDate());
+            authentication.register(
+                    request.phoneNumber(),
+                    request.password(),
+                    request.email(),
+                    request.firstName(),
+                    request.lastName(),
+                    request.birthDate());
         } catch (sn.groupia.shared.api.ApiException ex) {
             if (!ex.code().equals("PHONE_ALREADY_REGISTERED")) throw ex;
         }
@@ -62,8 +67,14 @@ class AuthController {
     @GetMapping("/me")
     ResponseEntity<MeProfile> me() {
         var id = currentUser.requireActiveUserId();
-        var account = accounts.findById(id).orElseThrow(() ->
-                new ApiException(401, "AUTHENTICATION_REQUIRED", "Une authentification valide est requise."));
+        var account =
+                accounts.findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                401,
+                                                "AUTHENTICATION_REQUIRED",
+                                                "Une authentification valide est requise."));
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(new MeProfile(account.getFirstName(), account.getLastName()));

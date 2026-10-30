@@ -73,14 +73,17 @@ class SharedProxyAuthRateLimitTests {
                 post("/api/auth/" + operation)
                         .header("Origin", "https://groupia.test")
                         .header("X-Groupia-Auth", "1")
-                        .with(request -> {
-                            request.setRemoteAddr("192.0.2.10");
-                            return request;
-                        })
+                        .with(
+                                request -> {
+                                    request.setRemoteAddr("192.0.2.10");
+                                    return request;
+                                })
                         .header("X-Forwarded-For", "198.51.100." + forwarded)
                         .header("Forwarded", "for=198.51.100." + forwarded)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(new tools.jackson.databind.ObjectMapper().writeValueAsString(body)));
+                        .content(
+                                new tools.jackson.databind.ObjectMapper()
+                                        .writeValueAsString(body)));
     }
 
     private void assertOnlySubjects(int count) {

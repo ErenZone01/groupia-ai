@@ -84,7 +84,9 @@ class ProductionHardeningTests {
                         .header("Origin", "https://groupia.test")
                         .header("X-Groupia-Auth", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(new tools.jackson.databind.ObjectMapper().writeValueAsString(body)));
+                        .content(
+                                new tools.jackson.databind.ObjectMapper()
+                                        .writeValueAsString(body)));
     }
 
     @Test

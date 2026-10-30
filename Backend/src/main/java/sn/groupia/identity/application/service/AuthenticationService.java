@@ -48,14 +48,21 @@ public class AuthenticationService {
     }
 
     @Transactional
-    public UserAccountView register(String phoneNumber, String password, String email,
-            String firstName, String lastName, LocalDate birthDate) {
+    public UserAccountView register(
+            String phoneNumber,
+            String password,
+            String email,
+            String firstName,
+            String lastName,
+            LocalDate birthDate) {
         String phone = phones.normalize(phoneNumber);
         passwords.validateRegistration(password);
         // Existing internal test fixtures may have a legacy null profile. The public
         // register controller always validates the three fields before entering here.
         if (firstName != null || lastName != null || birthDate != null) {
-            if (firstName == null || lastName == null || birthDate == null
+            if (firstName == null
+                    || lastName == null
+                    || birthDate == null
                     || birthDate.isBefore(LocalDate.of(1900, 1, 1))
                     || !birthDate.isBefore(LocalDate.now(clock))) {
                 throw new sn.groupia.shared.api.ApiException(
@@ -71,7 +78,10 @@ public class AuthenticationService {
                                 phone,
                                 email == null ? null : email.strip(),
                                 encoder.encode(password),
-                                clock.instant(), firstName, lastName, birthDate));
+                                clock.instant(),
+                                firstName,
+                                lastName,
+                                birthDate));
         events.publishEvent(
                 new UserAccountCreated(UUID.randomUUID(), clock.instant(), account.getId()));
         return new UserAccountView(
@@ -84,7 +94,8 @@ public class AuthenticationService {
 
     private String cleanName(String value) {
         String name = value.strip();
-        if (name.isEmpty() || name.length() > 80
+        if (name.isEmpty()
+                || name.length() > 80
                 || name.codePoints().anyMatch(Character::isISOControl)) {
             throw new sn.groupia.shared.api.ApiException(
                     400, "INVALID_PROFILE", "Vérifiez vos informations personnelles.");

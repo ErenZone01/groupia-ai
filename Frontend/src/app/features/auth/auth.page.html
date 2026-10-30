@@ -101,7 +101,7 @@
                   [type]="showConfirmation() ? 'text' : 'password'"
                   autocomplete="new-password" [disabled]="busy()"
                   [(ngModel)]="passwordConfirmation" #confirmField="ngModel"
-                  [attr.aria-invalid]="confirmField.touched && !!passwordConfirmation && !passwordsMatch()"
+                  [attr.aria-invalid]="(confirmField.touched || confirmField.dirty) && !!passwordConfirmation && !passwordsMatch()"
                   aria-describedby="confirm-hint" placeholder="Répétez le mot de passe" />
                 <button type="button" class="visibility-toggle" [disabled]="busy()"
                   [attr.aria-pressed]="showConfirmation()"
@@ -111,7 +111,7 @@
                 </button>
               </div>
               <p id="confirm-hint" class="field-help">Les deux mots de passe doivent être identiques.</p>
-              @if (confirmField.touched && !!passwordConfirmation && !passwordsMatch()) {
+              @if ((confirmField.touched || confirmField.dirty) && !!passwordConfirmation && !passwordsMatch()) {
                 <p class="field-error">Les mots de passe ne correspondent pas.</p>
               }
             </div>

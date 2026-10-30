@@ -42,7 +42,7 @@ export class AuthShowcase {
 
   constructor() {
     const timer = this.win?.setInterval(() => {
-      if (this.paused || this.doc.hidden || this.win?.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      if (this.paused || this.doc.hidden || this.win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
       this.next();
     }, 6500);
     inject(DestroyRef).onDestroy(() => {

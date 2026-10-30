@@ -1,0 +1,37 @@
+<div class="showcase">
+  <div class="showcase-copy">
+    <span class="showcase-eyebrow"><g-icon name="spark" /> Votre commerce, plus simple</span>
+    @if (registerMode()) {
+      <h2>Votre boutique, <em>vos opportunités.</em></h2>
+      <p>Présentez vos produits, organisez vos groupages et gardez le fil de vos commandes depuis un seul espace.</p>
+    } @else {
+      <h2>Le commerce avance <em>ensemble.</em></h2>
+      <p>Retrouvez vos produits, vos commandes et vos groupages au même endroit.</p>
+    }
+  </div>
+  <div class="artwork" aria-hidden="true">
+    <div class="art-circle outer"></div>
+    <div class="art-circle inner"></div>
+    <div class="floating-label left"><g-icon name="group" /><span>Mes groupages</span></div>
+    <div class="floating-label right"><g-icon name="orders" /><span>Mes commandes</span></div>
+    <div class="device">
+      <div class="device-top"><span class="device-dot"></span><span>Groupia</span><span class="device-mini-dot"></span></div>
+      <div class="device-content">
+        <div class="device-heading"><g-icon name="store" /><span>Ma boutique</span></div>
+        <div class="device-badges"><i></i><i></i><i></i></div>
+        <div class="device-product">
+          <div class="device-product-art"><g-icon name="bag" /></div>
+          <div class="device-product-lines"><i></i><i></i><i></i></div>
+        </div>
+        <div class="device-bottom"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <div class="parcel parcel-back"><g-icon name="box" /></div>
+    <div class="parcel parcel-front"><g-icon name="bag" /></div>
+  </div>
+  <div class="showcase-benefits">
+    <div><g-icon name="store" /><span>Une boutique organisée</span></div>
+    <div><g-icon name="shield" /><span>Un accès protégé</span></div>
+    <div><g-icon name="orders" /><span>Des commandes suivies</span></div>
+  </div>
+</div>

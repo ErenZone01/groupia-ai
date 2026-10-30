@@ -123,6 +123,24 @@ class IdentityOrganizationIntegrationTests {
     }
 
     @Test
+    void legacyAccountsWithoutProfileRemainAbleToLoginAndHaveNoInventedPersonalData()
+            throws Exception {
+        var legacyId = UUID.randomUUID();
+        jdbc.update(
+                "insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at,version)"
+                        + " values (?,?,?,'ACTIVE',now(),now(),0)",
+                legacyId,
+                PHONE,
+                passwords.encode(PASSWORD));
+        login(PHONE, PASSWORD).andExpect(status().isOk());
+        mvc.perform(get("/api/auth/me").header("Authorization", bearer(token(PHONE))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value(nullValue()))
+                .andExpect(jsonPath("$.lastName").value(nullValue()))
+                .andExpect(jsonPath("$.birthDate").doesNotExist());
+    }
+
+    @Test
     void publicRegistrationRejectsMissingAndFutureProfileDataWithoutCreatingAnAccount()
             throws Exception {
         for (var invalid : List.of(

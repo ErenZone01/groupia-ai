@@ -30,6 +30,30 @@
         }
 
         <form #form="ngForm" (ngSubmit)="form.valid && submit()" class="auth-form" novalidate>
+          @if (registerMode) {
+            <div class="auth-name-grid">
+              <div class="auth-field">
+                <label for="auth-firstname">Prénom <span aria-hidden="true" class="required">*</span></label>
+                <div class="field-control">
+                  <g-icon name="user" />
+                  <input gInput id="auth-firstname" name="firstName" aria-label="Prénom" required
+                    autocomplete="given-name" maxlength="80" [disabled]="busy()"
+                    [(ngModel)]="firstName" #first="ngModel" placeholder="Votre prénom" />
+                </div>
+                @if (first.invalid && first.touched) { <p class="field-error">Renseignez votre prénom.</p> }
+              </div>
+              <div class="auth-field">
+                <label for="auth-lastname">Nom <span aria-hidden="true" class="required">*</span></label>
+                <div class="field-control">
+                  <g-icon name="user" />
+                  <input gInput id="auth-lastname" name="lastName" aria-label="Nom" required
+                    autocomplete="family-name" maxlength="80" [disabled]="busy()"
+                    [(ngModel)]="lastName" #last="ngModel" placeholder="Votre nom" />
+                </div>
+                @if (last.invalid && last.touched) { <p class="field-error">Renseignez votre nom.</p> }
+              </div>
+            </div>
+          }
           <div class="auth-field">
             <label for="auth-phone">Numéro de téléphone <span aria-hidden="true" class="required">*</span></label>
             <div class="field-control">
@@ -62,6 +86,24 @@
             </div>
           }
 
+          @if (registerMode) {
+            <div class="auth-field">
+              <label for="auth-birthdate">Date de naissance <span aria-hidden="true" class="required">*</span></label>
+              <div class="field-control">
+                <g-icon name="calendar" />
+                <input gInput id="auth-birthdate" name="birthDate" aria-label="Date de naissance"
+                  type="date" required min="1900-01-01" autocomplete="bday"
+                  [disabled]="busy()" [(ngModel)]="birthDate" #birth="ngModel"
+                  aria-describedby="auth-birthdate-help" />
+              </div>
+              <p id="auth-birthdate-help" class="field-help">Votre date de naissance n'apparaîtra pas publiquement.</p>
+              @if (birthDate && !birthDateIsValid()) {
+                <p class="field-error">Choisissez une date de naissance passée et valide.</p>
+              } @else if (birth.invalid && birth.touched) {
+                <p class="field-error">La date de naissance est obligatoire.</p>
+              }
+            </div>
+          }
           <div class="auth-field">
             <label for="auth-password">Mot de passe <span aria-hidden="true" class="required">*</span></label>
             <div class="field-control">
@@ -122,7 +164,7 @@
           }
 
           <button gButton type="submit" class="auth-submit" [loading]="busy()"
-            [disabled]="form.invalid || busy() || !phoneNumber.trim() || (registerMode && (!passwordIsValid() || !passwordsMatch()))">
+            [disabled]="form.invalid || busy() || !phoneNumber.trim() || (registerMode && (!firstName.trim() || !lastName.trim() || !birthDateIsValid() || !passwordIsValid() || !passwordsMatch()))">
             {{ registerMode ? 'Créer mon compte' : 'Se connecter' }}
             <g-icon name="arrow" />
           </button>

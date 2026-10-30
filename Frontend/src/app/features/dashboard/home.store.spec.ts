@@ -44,6 +44,20 @@ describe('Accueil : requêtes bornées et contexte', () => {
     });
     ordersRequest().flush({ items: [{ id: 'order' }] });
   };
+  it('affiche le profil du compte sans le répéter lors du changement de boutique', () => {
+    expect(store.profile.value()?.firstName).toBe('Awa');
+    populate();
+    selectedId.set('b');
+    TestBed.tick();
+    groupRequest('b').flush({ totalElements: 0, items: [] });
+    ordersRequest('b').flush({ items: [] });
+    TestBed.tick();
+    http.expectOne('/api/organizations/b/products?page=0&size=1')
+      .flush({ totalElements: 0, items: [] });
+    expect(store.profile.value()?.firstName).toBe('Awa');
+    http.expectNone('/api/auth/me');
+  });
+
   it('borne les listes, sans catalogue complet ni comptage par statut', () => {
     populate();
     TestBed.tick();

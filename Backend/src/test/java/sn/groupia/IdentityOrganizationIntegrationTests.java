@@ -102,6 +102,48 @@ class IdentityOrganizationIntegrationTests {
     }
 
     @Test
+    void requiredProfileIsPersistedAndOnlyTheAuthenticatedUserCanReadTheirName()
+            throws Exception {
+        register(PHONE, PASSWORD, null).andExpect(status().isAccepted());
+        assertThat(jdbc.queryForMap(
+                "select first_name, last_name, birth_date from user_accounts where phone_number=?",
+                PHONE))
+                .containsEntry("first_name", "Awa")
+                .containsEntry("last_name", "Diop")
+                .containsEntry("birth_date", java.time.LocalDate.of(1995, 4, 12));
+        mvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").header("Authorization", bearer(token(PHONE))))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("no-store")))
+                .andExpect(jsonPath("$.firstName").value("Awa"))
+                .andExpect(jsonPath("$.lastName").value("Diop"))
+                .andExpect(jsonPath("$.birthDate").doesNotExist())
+                .andExpect(jsonPath("$.email").doesNotExist());
+    }
+
+    @Test
+    void publicRegistrationRejectsMissingAndFutureProfileDataWithoutCreatingAnAccount()
+            throws Exception {
+        for (var invalid : List.of(
+                Map.of("firstName", "Awa", "lastName", "Diop"),
+                Map.of("firstName", " ", "lastName", "Diop", "birthDate", "1995-04-12"),
+                Map.of("firstName", "Awa", "lastName", "Diop", "birthDate", "2999-01-01"))) {
+            var payload = new LinkedHashMap<String, Object>();
+            payload.put("phoneNumber", PHONE);
+            payload.put("password", PASSWORD);
+            payload.putAll(invalid);
+            mvc.perform(post("/api/auth/register")
+                    .header("Origin", "https://groupia.test")
+                    .header("X-Groupia-Auth", "1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json.writeValueAsString(payload)))
+                    .andExpect(status().isBadRequest());
+        }
+        assertThat(count("user_accounts")).isZero();
+    }
+
+    @Test
     void duplicateNormalizedPhoneDoesNotRevealAccountExistence() throws Exception {
         register(PHONE, PASSWORD, null).andExpect(status().isAccepted());
         register("00221 77 123 45 67", PASSWORD, null)
@@ -481,6 +523,9 @@ class IdentityOrganizationIntegrationTests {
         var request = new LinkedHashMap<String, Object>();
         request.put("phoneNumber", phone);
         request.put("password", password);
+        request.put("firstName", "Awa");
+        request.put("lastName", "Diop");
+        request.put("birthDate", "1995-04-12");
         if (email != null) {
             request.put("email", email);
         }

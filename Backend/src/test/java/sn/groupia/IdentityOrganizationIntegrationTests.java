@@ -104,14 +104,14 @@ class IdentityOrganizationIntegrationTests {
     @Test
     void requiredProfileIsPersistedAndOnlyTheAuthenticatedUserCanReadTheirName() throws Exception {
         register(PHONE, PASSWORD, null).andExpect(status().isAccepted());
-        assertThat(
-                        jdbc.queryForMap(
-                                "select first_name, last_name, birth_date from user_accounts where phone_number=?",
-                                PHONE))
+        assertThat(jdbc.queryForMap(
+                "select first_name, last_name, birth_date::text as birth_date from user_accounts where phone_number=?",
+                PHONE))
                 .containsEntry("first_name", "Awa")
                 .containsEntry("last_name", "Diop")
-                .containsEntry("birth_date", java.time.LocalDate.of(1995, 4, 12));
-        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+                .containsEntry("birth_date", "1995-04-12");
+        mvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/auth/me").header("Authorization", bearer(token(PHONE))))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("no-store")))
@@ -119,6 +119,24 @@ class IdentityOrganizationIntegrationTests {
                 .andExpect(jsonPath("$.lastName").value("Diop"))
                 .andExpect(jsonPath("$.birthDate").doesNotExist())
                 .andExpect(jsonPath("$.email").doesNotExist());
+    }
+
+    @Test
+    void legacyAccountsWithoutProfileRemainAbleToLoginAndHaveNoInventedPersonalData()
+            throws Exception {
+        var legacyId = UUID.randomUUID();
+        jdbc.update(
+                "insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at,version)"
+                        + " values (?,?,?,'ACTIVE',now(),now(),0)",
+                legacyId,
+                PHONE,
+                passwords.encode(PASSWORD));
+        login(PHONE, PASSWORD).andExpect(status().isOk());
+        mvc.perform(get("/api/auth/me").header("Authorization", bearer(token(PHONE))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value(nullValue()))
+                .andExpect(jsonPath("$.lastName").value(nullValue()))
+                .andExpect(jsonPath("$.birthDate").doesNotExist());
     }
 
     @Test

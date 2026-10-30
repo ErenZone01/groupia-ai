@@ -95,6 +95,8 @@ class OpenApiConfiguration {
                                                         boolean organizer =
                                                                 path.startsWith(
                                                                         "/api/organizations");
+                                                        boolean privateProfile =
+                                                                path.equals("/api/auth/me");
                                                         boolean tracking =
                                                                 path.startsWith(
                                                                         "/api/public/orders");
@@ -102,7 +104,7 @@ class OpenApiConfiguration {
                                                                 path.startsWith(
                                                                         "/api/payment/webhooks/");
                                                         operation.setSecurity(
-                                                                organizer
+                                                                (organizer || privateProfile)
                                                                         ? List.of(
                                                                                 new SecurityRequirement()
                                                                                         .addList(
@@ -178,6 +180,7 @@ class OpenApiConfiguration {
                                                                 "500",
                                                                 "Internal failure without sensitive details");
                                                         if (organizer
+                                                                || privateProfile
                                                                 || webhook
                                                                 || path.endsWith("/login")) {
                                                             errors.put(

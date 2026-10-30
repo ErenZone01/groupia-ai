@@ -29,6 +29,8 @@ describe('Accueil : requêtes bornées et contexte', () => {
     store = TestBed.inject(HomeStore);
     http = TestBed.inject(HttpTestingController);
     TestBed.tick();
+    // The personalized greeting loads independently of the active boutique.
+    http.expectOne('/api/auth/me').flush({ firstName: 'Awa', lastName: 'Diop' });
   });
   afterEach(() => http.verify());
   const groupRequest = (org = 'a') =>
@@ -126,6 +128,7 @@ describe('Accueil : requêtes bornées et contexte', () => {
     expect(oldGroup.cancelled).toBe(true);
     expect(oldOrders.cancelled).toBe(true);
     if (action === 'generation') {
+      http.expectOne('/api/auth/me').flush({ firstName: 'Awa', lastName: 'Diop' });
       groupRequest().flush({ totalElements: 1, items: [] });
       ordersRequest().flush({ items: [] });
     } else http.expectNone(() => true);

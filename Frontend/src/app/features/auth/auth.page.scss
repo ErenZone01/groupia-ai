@@ -67,9 +67,8 @@
 .auth-submit.g-button {
   display:flex; justify-content:center; min-height:49px; width:100%;
   border-radius:11px; font-size:13px; margin-top:4px;
-  background:var(--primary-strong); color:#ffffff;
+  background:var(--primary); color:var(--on-primary);
 }
-:root[data-theme='dark'] .auth-submit.g-button { background:var(--primary); color:var(--on-primary); }
 .auth-submit.g-button:hover:not(:disabled) { filter:brightness(1.08); }
 .auth-submit g-icon { width:17px; height:17px; }
 .auth-switch { display:flex; align-items:center; justify-content:center; gap:7px; flex-wrap:wrap;

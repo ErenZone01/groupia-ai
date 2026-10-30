@@ -2,6 +2,9 @@
   <div class="welcome-copy">
     <p class="welcome-eyebrow">Votre espace de travail <span aria-hidden="true">·</span> Groupia</p>
     <h1>Accueil <span class="welcome-wave" aria-hidden="true">👋</span></h1>
+    @if (store.profile.value()?.firstName; as firstName) {
+      <p class="personal-greeting">Bonjour {{ firstName }} !</p>
+    }
     <p class="welcome-message">Retrouvez vos priorités et vos groupages en un coup d’œil.</p>
     <p class="shop-name"><g-icon name="store" />{{ context.selected()?.name || 'Votre boutique' }}</p>
   </div>

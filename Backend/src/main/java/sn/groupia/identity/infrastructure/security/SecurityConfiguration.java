@@ -163,6 +163,7 @@ class SecurityConfiguration {
                                             HttpMethod.POST,
                                             "/api/public/groupings/*/checkout",
                                             "/api/public/direct-stores/*/quote",
+                                            "/api/public/direct-stores/*/checkout",
                                             "/api/public/orders/*/payments",
                                             "/api/payment/webhooks/*")
                                     .permitAll()

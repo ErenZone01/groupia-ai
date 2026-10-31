@@ -27,8 +27,8 @@ import sn.groupia.subscription.api.SubscriptionEntitlements;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Separate, payment-disabled direct-order foundation. Never uses the GROUPING order
- * aggregate, and never creates a Bictorys payment request.
+ * Separate, payment-disabled direct-order foundation. Never uses the GROUPING order aggregate, and
+ * never creates a Bictorys payment request.
  */
 @Service
 public class DirectCheckoutService {
@@ -112,7 +112,9 @@ public class DirectCheckoutService {
         // The public checkout is never activated by the frontend in this tranche.
         if (!enabled) {
             throw new ApiException(
-                    503, "DIRECT_CHECKOUT_DISABLED", "La commande directe n'est pas encore activée.");
+                    503,
+                    "DIRECT_CHECKOUT_DISABLED",
+                    "La commande directe n'est pas encore activée.");
         }
         String key = validateKey(rawKey);
         List<Line> lines = validateLines(command);
@@ -120,46 +122,62 @@ public class DirectCheckoutService {
 
         // Lock serializes direct checkout against offer publication/price updates, which
         // also lock the storefront row. It also protects the idempotent insert race.
-        var stores = jdbc.query(
-                "select id,organization_id from direct_storefronts"
-                        + " where public_identifier=? for update",
-                (rs, row) -> new Store(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("organization_id", UUID.class)),
-                publicIdentifier);
+        var stores =
+                jdbc.query(
+                        "select id,organization_id from direct_storefronts"
+                                + " where public_identifier=? for update",
+                        (rs, row) ->
+                                new Store(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("organization_id", UUID.class)),
+                        publicIdentifier);
         if (stores.isEmpty() || !organizations.isActive(stores.getFirst().organizationId())) {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
         }
         var store = stores.getFirst();
-        var contact = validateContact(command.contact(), organizations.countryCode(store.organizationId()));
+        var contact =
+                validateContact(
+                        command.contact(), organizations.countryCode(store.organizationId()));
         Address delivery = validateAddress(command.contact().deliveryAddress(), method);
-        var fingerprint = sha256(json.writeValueAsString(Arrays.asList(
-                "direct-checkout-v1", publicIdentifier, contact, method, delivery, lines)));
+        var fingerprint =
+                sha256(
+                        json.writeValueAsString(
+                                Arrays.asList(
+                                        "direct-checkout-v1",
+                                        publicIdentifier,
+                                        contact,
+                                        method,
+                                        delivery,
+                                        lines)));
 
-        var existing = jdbc.query(
-                "select order_number,checkout_request_fingerprint,status,fulfillment_method,"
-                        + "goods_subtotal_xof,platform_fee_xof,amount_before_shipping_xof,"
-                        + "shipping_quoted from direct_orders"
-                        + " where organization_id=? and checkout_idempotency_key=?",
-                (rs, row) -> new Object[] {
-                    rs.getString("checkout_request_fingerprint"),
-                    new Receipt(
-                            rs.getString("order_number"),
-                            rs.getString("status"),
-                            "XOF",
-                            rs.getString("fulfillment_method"),
-                            rs.getLong("goods_subtotal_xof"),
-                            rs.getLong("platform_fee_xof"),
-                            rs.getLong("amount_before_shipping_xof"),
-                            rs.getBoolean("shipping_quoted"),
-                            false)
-                },
-                store.organizationId(),
-                key);
+        var existing =
+                jdbc.query(
+                        "select order_number,checkout_request_fingerprint,status,fulfillment_method,"
+                                + "goods_subtotal_xof,platform_fee_xof,amount_before_shipping_xof,"
+                                + "shipping_quoted from direct_orders"
+                                + " where organization_id=? and checkout_idempotency_key=?",
+                        (rs, row) ->
+                                new Object[] {
+                                    rs.getString("checkout_request_fingerprint"),
+                                    new Receipt(
+                                            rs.getString("order_number"),
+                                            rs.getString("status"),
+                                            "XOF",
+                                            rs.getString("fulfillment_method"),
+                                            rs.getLong("goods_subtotal_xof"),
+                                            rs.getLong("platform_fee_xof"),
+                                            rs.getLong("amount_before_shipping_xof"),
+                                            rs.getBoolean("shipping_quoted"),
+                                            false)
+                                },
+                        store.organizationId(),
+                        key);
         if (!existing.isEmpty()) {
             Object[] saved = existing.getFirst();
             if (!fingerprint.equals(saved[0])) {
-                throw new ApiException(409, "IDEMPOTENCY_KEY_REUSED",
+                throw new ApiException(
+                        409,
+                        "IDEMPOTENCY_KEY_REUSED",
                         "Cette clé a déjà servi à une autre commande.");
             }
             return new Result(false, (Receipt) saved[1]);
@@ -167,18 +185,27 @@ public class DirectCheckoutService {
 
         // Existing idempotent receipts remain readable even if subscriptions later expire.
         entitlements.requireNewBusinessAllowed(store.organizationId());
-        var selections = lines.stream()
-                .map(line -> new DirectCartQuoteService.RequestedLine(line.offerId(), line.quantity()))
-                .toList();
+        var selections =
+                lines.stream()
+                        .map(
+                                line ->
+                                        new DirectCartQuoteService.RequestedLine(
+                                                line.offerId(), line.quantity()))
+                        .toList();
         var quote = carts.quote(publicIdentifier, selections);
-        Map<UUID, DirectCartQuoteService.QuotedLine> actual = quote.lines().stream()
-                .collect(Collectors.toMap(DirectCartQuoteService.QuotedLine::offerId, item -> item));
+        Map<UUID, DirectCartQuoteService.QuotedLine> actual =
+                quote.lines().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        DirectCartQuoteService.QuotedLine::offerId, item -> item));
         for (var line : lines) {
             var found = actual.get(line.offerId());
             if (found == null
                     || found.unitPriceXof() != line.expectedUnitPriceXof()
                     || found.priceRevision() != line.expectedPriceRevision()) {
-                throw new ApiException(409, "DIRECT_PRICE_CHANGED",
+                throw new ApiException(
+                        409,
+                        "DIRECT_PRICE_CHANGED",
                         "Le prix ou la disponibilité a changé. Actualisez votre panier.");
             }
         }
@@ -191,23 +218,31 @@ public class DirectCheckoutService {
         if (amount > 99999999999999L) {
             throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant trop élevé.");
         }
-        var snapshots = catalog.commercialSnapshots(
-                store.organizationId(),
-                quote.lines().stream()
-                        .map(DirectCartQuoteService.QuotedLine::variantId)
-                        .collect(Collectors.toSet()));
+        var snapshots =
+                catalog.commercialSnapshots(
+                        store.organizationId(),
+                        quote.lines().stream()
+                                .map(DirectCartQuoteService.QuotedLine::variantId)
+                                .collect(Collectors.toSet()));
         if (snapshots.size() != quote.lines().size()) {
             throw new ApiException(409, "DIRECT_CART_CHANGED", "Le catalogue a changé.");
         }
 
         UUID orderId = UUID.randomUUID();
         Instant now = clock.instant();
-        Long sequence = jdbc.queryForObject(
-                "select nextval('direct_order_number_seq')", Long.class);
+        Long sequence =
+                jdbc.queryForObject("select nextval('direct_order_number_seq')", Long.class);
         String number = String.format(Locale.ROOT, "DIR-%012d", sequence);
-        var feeRule = Map.of(
-                "type", "FIXED", "currency", "XOF",
-                "amount", Long.toString(platformFeeXof), "version", "1");
+        var feeRule =
+                Map.of(
+                        "type",
+                        "FIXED",
+                        "currency",
+                        "XOF",
+                        "amount",
+                        Long.toString(platformFeeXof),
+                        "version",
+                        "1");
         boolean pickup = method.equals("PICKUP");
         jdbc.update(
                 "insert into direct_orders"
@@ -286,17 +321,24 @@ public class DirectCheckoutService {
     }
 
     private List<Line> validateLines(Command command) {
-        if (command == null || command.lines() == null
-                || command.lines().isEmpty() || command.lines().size() > 20) {
+        if (command == null
+                || command.lines() == null
+                || command.lines().isEmpty()
+                || command.lines().size() > 20) {
             throw new ApiException(400, "INVALID_DIRECT_CART", "Panier invalide.");
         }
         var ids = new java.util.HashSet<UUID>();
         var sorted = new ArrayList<Line>();
         for (var line : command.lines()) {
-            if (line == null || line.offerId() == null
-                    || line.quantity() == null || line.quantity() < 1 || line.quantity() > 100
-                    || line.expectedUnitPriceXof() == null || line.expectedUnitPriceXof() < 1
-                    || line.expectedPriceRevision() == null || line.expectedPriceRevision() < 0
+            if (line == null
+                    || line.offerId() == null
+                    || line.quantity() == null
+                    || line.quantity() < 1
+                    || line.quantity() > 100
+                    || line.expectedUnitPriceXof() == null
+                    || line.expectedUnitPriceXof() < 1
+                    || line.expectedPriceRevision() == null
+                    || line.expectedPriceRevision() < 0
                     || !ids.add(line.offerId())) {
                 throw new ApiException(400, "INVALID_DIRECT_CART", "Lignes du panier invalides.");
             }
@@ -319,16 +361,18 @@ public class DirectCheckoutService {
         }
         String first = required(contact.firstName(), 100);
         String last = required(contact.lastName(), 100);
-        String email = contact.email() == null || contact.email().isBlank()
-                ? null : contact.email().strip().toLowerCase(Locale.ROOT);
-        if (email != null && (email.length() > 254
-                || !email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
-                || email.codePoints().anyMatch(Character::isISOControl))) {
+        String email =
+                contact.email() == null || contact.email().isBlank()
+                        ? null
+                        : contact.email().strip().toLowerCase(Locale.ROOT);
+        if (email != null
+                && (email.length() > 254
+                        || !email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
+                        || email.codePoints().anyMatch(Character::isISOControl))) {
             throw invalidContact();
         }
         String phone = contact.phone();
-        if (phone == null || phone.length() > 40
-                || !phone.matches("\\+?[0-9() .-]+")) {
+        if (phone == null || phone.length() > 40 || !phone.matches("\\+?[0-9() .-]+")) {
             throw invalidContact();
         }
         try {
@@ -338,8 +382,10 @@ public class DirectCheckoutService {
                 throw invalidContact();
             }
             return new NormalizedContact(
-                    first, last,
-                    util.format(parsed, PhoneNumberUtil.PhoneNumberFormat.E164), email);
+                    first,
+                    last,
+                    util.format(parsed, PhoneNumberUtil.PhoneNumberFormat.E164),
+                    email);
         } catch (NumberParseException ex) {
             throw invalidContact();
         }
@@ -364,8 +410,7 @@ public class DirectCheckoutService {
 
     private String required(String raw, int max) {
         String s = raw == null ? "" : raw.strip();
-        if (s.isBlank() || s.length() > max
-                || s.codePoints().anyMatch(Character::isISOControl)) {
+        if (s.isBlank() || s.length() > max || s.codePoints().anyMatch(Character::isISOControl)) {
             throw invalidContact();
         }
         return s;
@@ -382,9 +427,10 @@ public class DirectCheckoutService {
 
     private String sha256(String input) {
         try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256")
-                            .digest(input.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(input.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 unavailable", ex);
         }

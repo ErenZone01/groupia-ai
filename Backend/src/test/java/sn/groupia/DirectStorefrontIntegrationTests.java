@@ -371,8 +371,11 @@ class DirectStorefrontIntegrationTests {
                         authorized(
                                         put(path())
                                                 .contentType(MediaType.APPLICATION_JSON)
-                                                .content(json.writeValueAsString(
-                                                        Map.of("displayName", "Boutique Directe"))))
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "displayName",
+                                                                        "Boutique Directe"))))
                                 .andExpect(status().isOk())
                                 .andReturn());
         String publicIdentifier = store.path("publicIdentifier").asText();
@@ -381,46 +384,67 @@ class DirectStorefrontIntegrationTests {
                         authorized(
                                         post(path() + "/offers")
                                                 .contentType(MediaType.APPLICATION_JSON)
-                                                .content(json.writeValueAsString(
-                                                        Map.of("variantId", variantId, "priceXof", 8500))))
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "variantId",
+                                                                        variantId,
+                                                                        "priceXof",
+                                                                        8500))))
                                 .andExpect(status().isOk())
                                 .andReturn());
         String offerId = added.at("/offers/0/id").asText();
         authorized(
                         put(path() + "/offers/" + offerId)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("version", 0, "priceXof", 8500, "published", true))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        0,
+                                                        "priceXof",
+                                                        8500,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isOk());
 
         String key = "direct-create-test-0001";
-        var command = Map.of(
-                "contact", Map.of(
-                        "firstName", "Awa",
-                        "lastName", "Diop",
-                        "phone", "+221771234567"),
-                "fulfillmentMethod", "PICKUP",
-                "lines", List.of(Map.of(
-                        "offerId", offerId,
-                        "quantity", 2,
-                        "expectedUnitPriceXof", 8500,
-                        "expectedPriceRevision", 1)));
+        var command =
+                Map.of(
+                        "contact",
+                                Map.of(
+                                        "firstName", "Awa",
+                                        "lastName", "Diop",
+                                        "phone", "+221771234567"),
+                        "fulfillmentMethod", "PICKUP",
+                        "lines",
+                                List.of(
+                                        Map.of(
+                                                "offerId", offerId,
+                                                "quantity", 2,
+                                                "expectedUnitPriceXof", 8500,
+                                                "expectedPriceRevision", 1)));
         String endpoint = publicPath(publicIdentifier) + "/checkout";
-        var created = body(
-                mvc.perform(
-                                post(endpoint)
-                                        .header("Idempotency-Key", key)
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(json.writeValueAsString(command)))
-                        .andExpect(status().isCreated())
-                        .andExpect(header().string(
-                                "Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
-                        .andExpect(jsonPath("$.goodsSubtotalXof").value(17000))
-                        .andExpect(jsonPath("$.platformFeeXof").value(300))
-                        .andExpect(jsonPath("$.amountBeforeShippingXof").value(17300))
-                        .andExpect(jsonPath("$.paymentAvailable").value(false))
-                        .andExpect(jsonPath("$.status").value("PENDING_PAYMENT_INTEGRATION"))
-                        .andReturn());
+        var created =
+                body(
+                        mvc.perform(
+                                        post(endpoint)
+                                                .header("Idempotency-Key", key)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(json.writeValueAsString(command)))
+                                .andExpect(status().isCreated())
+                                .andExpect(
+                                        header().string(
+                                                        "Cache-Control",
+                                                        org.hamcrest.Matchers.containsString(
+                                                                "no-store")))
+                                .andExpect(jsonPath("$.goodsSubtotalXof").value(17000))
+                                .andExpect(jsonPath("$.platformFeeXof").value(300))
+                                .andExpect(jsonPath("$.amountBeforeShippingXof").value(17300))
+                                .andExpect(jsonPath("$.paymentAvailable").value(false))
+                                .andExpect(
+                                        jsonPath("$.status").value("PENDING_PAYMENT_INTEGRATION"))
+                                .andReturn());
         assertThat(created.path("orderNumber").asText()).startsWith("DIR-");
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
@@ -428,8 +452,7 @@ class DirectStorefrontIntegrationTests {
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from grouping_campaigns", Long.class))
                 .isZero();
-        assertThat(jdbc.queryForObject("select count(*) from orders", Long.class))
-                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from orders", Long.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from payment_requests", Long.class))
                 .isZero();
 
@@ -443,12 +466,21 @@ class DirectStorefrontIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
 
-        var changed = Map.of(
-                "contact", command.get("contact"),
-                "fulfillmentMethod", "PICKUP",
-                "lines", List.of(Map.of(
-                        "offerId", offerId, "quantity", 1,
-                        "expectedUnitPriceXof", 8500, "expectedPriceRevision", 1)));
+        var changed =
+                Map.of(
+                        "contact", command.get("contact"),
+                        "fulfillmentMethod", "PICKUP",
+                        "lines",
+                                List.of(
+                                        Map.of(
+                                                "offerId",
+                                                offerId,
+                                                "quantity",
+                                                1,
+                                                "expectedUnitPriceXof",
+                                                8500,
+                                                "expectedPriceRevision",
+                                                1)));
         mvc.perform(
                         post(endpoint)
                                 .header("Idempotency-Key", key)
@@ -459,8 +491,15 @@ class DirectStorefrontIntegrationTests {
         authorized(
                         put(path() + "/offers/" + offerId)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("version", 1, "priceXof", 9200, "published", true))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        1,
+                                                        "priceXof",
+                                                        9200,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isOk());
         mvc.perform(
                         post(endpoint)
@@ -468,8 +507,7 @@ class DirectStorefrontIntegrationTests {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(json.writeValueAsString(command)))
                 .andExpect(status().isConflict());
-        assertThat(jdbc.queryForObject(
-                        "select unit_price_xof from direct_order_items", Long.class))
+        assertThat(jdbc.queryForObject("select unit_price_xof from direct_order_items", Long.class))
                 .isEqualTo(8500L);
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
@@ -479,63 +517,106 @@ class DirectStorefrontIntegrationTests {
     void directCheckoutValidatesDeliveryContactAndDoesNotUseGroupingOrders() throws Exception {
         var product = product(organizationId, bearer, "Robe directe");
         String variantId = product.at("/variants/0/id").asText();
-        var store = body(
-                authorized(
-                                put(path())
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(json.writeValueAsString(Map.of("displayName", "Atelier"))))
-                        .andExpect(status().isOk()).andReturn());
-        var offers = body(
-                authorized(
-                                post(path() + "/offers")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(json.writeValueAsString(
-                                                Map.of("variantId", variantId, "priceXof", 2000))))
-                        .andExpect(status().isOk()).andReturn());
+        var store =
+                body(
+                        authorized(
+                                        put(path())
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of("displayName", "Atelier"))))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        var offers =
+                body(
+                        authorized(
+                                        post(path() + "/offers")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "variantId",
+                                                                        variantId,
+                                                                        "priceXof",
+                                                                        2000))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         String offerId = offers.at("/offers/0/id").asText();
         authorized(
                         put(path() + "/offers/" + offerId)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("version", 0, "priceXof", 2000, "published", true))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        0,
+                                                        "priceXof",
+                                                        2000,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isOk());
 
         String endpoint = publicPath(store.path("publicIdentifier").asText()) + "/checkout";
-        var lines = List.of(Map.of(
-                "offerId", offerId, "quantity", 1,
-                "expectedUnitPriceXof", 2000, "expectedPriceRevision", 1));
+        var lines =
+                List.of(
+                        Map.of(
+                                "offerId",
+                                offerId,
+                                "quantity",
+                                1,
+                                "expectedUnitPriceXof",
+                                2000,
+                                "expectedPriceRevision",
+                                1));
         var contact = Map.of("firstName", "Awa", "lastName", "Ndiaye", "phone", "+221771234567");
         mvc.perform(
                         post(endpoint)
                                 .header("Idempotency-Key", "direct-invalid-address-0001")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("contact", contact, "fulfillmentMethod", "DELIVERY",
-                                                "lines", lines))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        contact,
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "lines",
+                                                        lines))))
                 .andExpect(status().isBadRequest());
         mvc.perform(
                         post(endpoint)
                                 .header("Idempotency-Key", "direct-valid-address-0001")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of(
-                                                "contact", Map.of(
-                                                        "firstName", "Awa",
-                                                        "lastName", "Ndiaye",
-                                                        "phone", "+221771234567",
-                                                        "deliveryAddress", Map.of(
-                                                                "country", "SN", "region", "Dakar",
-                                                                "city", "Dakar", "commune", "Yoff",
-                                                                "details", "Près du marché")),
-                                                "fulfillmentMethod", "DELIVERY",
-                                                "lines", lines))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        Map.of(
+                                                                "firstName", "Awa",
+                                                                "lastName", "Ndiaye",
+                                                                "phone", "+221771234567",
+                                                                "deliveryAddress",
+                                                                        Map.of(
+                                                                                "country",
+                                                                                "SN",
+                                                                                "region",
+                                                                                "Dakar",
+                                                                                "city",
+                                                                                "Dakar",
+                                                                                "commune",
+                                                                                "Yoff",
+                                                                                "details",
+                                                                                "Près du marché")),
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "lines",
+                                                        lines))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.shippingQuoted").value(false))
                 .andExpect(jsonPath("$.paymentAvailable").value(false));
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
-        assertThat(jdbc.queryForObject("select count(*) from orders", Long.class))
-                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from orders", Long.class)).isZero();
     }
 
     private JsonNode product(UUID organization, String authorization, String name)

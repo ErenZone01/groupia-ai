@@ -22,9 +22,7 @@ class DirectCheckoutDisabledIntegrationTests {
     @Test
     void directCheckoutRemainsClosedUntilExplicitlyEnabled() throws Exception {
         mvc.perform(
-                        post("/api/public/direct-stores/"
-                                        + UUID.randomUUID()
-                                        + "/checkout")
+                        post("/api/public/direct-stores/" + UUID.randomUUID() + "/checkout")
                                 .header("Idempotency-Key", "direct-disabled-test-0001")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{}"))

@@ -60,6 +60,7 @@ export class DirectSalesPage {
         this.name = '';
         this.selectedVariant = '';
         this.priceXof = null;
+        this.busy.set(false);
         this.error.set('');
         this.notice.set('');
         const seq = ++this.request;
@@ -154,6 +155,10 @@ export class DirectSalesPage {
       this.priceXof! < 1 || this.priceXof! > 999999999999) return;
     const variant = this.selectedVariant, price = this.priceXof!;
     await this.mutate((id) => this.api.add(id, variant, price), 'Offre ajoutée en brouillon.');
+  }
+
+  setPrice(id: string, value: string) {
+    this.prices.update((previous) => ({ ...previous, [id]: Number(value) }));
   }
 
   async update(offer: DirectOffer, published: boolean) {

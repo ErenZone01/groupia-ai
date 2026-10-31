@@ -67,10 +67,10 @@ test('vente directe : publication, prix fixe et lien stable dans le contexte de 
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(store) });
   });
   await page.goto('/app/vente-directe');
-  await expect(page.getByRole('heading', { name: 'Vente directe' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vente directe', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).first().click();
   await expect(page.getByLabel('Lien permanent de votre boutique')).toHaveValue(
-    'http://127.0.0.1:4201/v/' + publicIdentifier,
+    new URL('/v/' + publicIdentifier, page.url()).href,
   );
   await page.getByLabel('Produit et variante').selectOption(variantId);
   await page.getByLabel('Prix fixe en F CFA').fill('8500');

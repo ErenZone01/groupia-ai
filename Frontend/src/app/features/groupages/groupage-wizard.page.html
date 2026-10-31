@@ -1,128 +1,285 @@
-<div class="page-heading">
-  <div>
-    <p class="eyebrow">Une nouvelle opportunité</p>
-    <h1>Créer un groupage</h1>
-  </div>
-  <a routerLink="/app/groupages">Retour aux groupages</a>
-</div>
-<ol class="steps" aria-label="Étapes de création">
-  @for (label of steps; track label; let i = $index) {
-    <li [attr.aria-current]="step() === i + 1 ? 'step' : null">{{ i + 1 }}. {{ label }}</li>
-  }
-</ol>
-<g-card>
-  @if (step() === 1) {
-    <div class="form-stack">
-      <h2>Parlons de votre groupage</h2>
-      <label for="group-title">Titre</label
-      ><input gInput id="group-title" [(ngModel)]="title" required maxlength="160" /><label
-        for="group-description"
-        >Description (facultative)</label
-      ><textarea
-        gInput
-        id="group-description"
-        [(ngModel)]="description"
-        rows="4"
-        maxlength="5000"
-      ></textarea
-      ><label for="group-close">Date de clôture (facultative)</label
-      ><input gInput id="group-close" type="datetime-local" [(ngModel)]="closesAt" />
-      <p class="muted">Les dates sont affichées dans le fuseau horaire de votre appareil.</p>
-    </div>
-  }
-  @if (step() === 2) {
-    <h2>Comment arrivent vos produits ?</h2>
-    <g-shipping-fields [(value)]="shipping" />
-  }
-  @if (step() === 3) {
-    <h2>Votre sélection</h2>
-    <ul class="lines">
-      @for (line of lines(); track line.productVariantId) {
-        <li>
-          <div>
-            <strong>{{ line.name }}</strong
-            ><small>{{ line.variant }}</small>
-          </div>
-          <strong>{{ money(line.unitPrice) }}</strong
-          ><button gButton variant="ghost" type="button" (click)="remove(line.productVariantId)">
-            Retirer
-          </button>
-        </li>
-      }
-    </ul>
-    @if (context.selectedId()) {
-      <g-product-picker
-        [organizationId]="context.selectedId()!"
-        [excluded]="excluded()"
-        (added)="add($event)"
-      />
-    }
-    <a class="text-link" routerLink="/app/products">Ouvrir le catalogue</a>
-  }
-  @if (step() === 4) {
-    <div class="review">
-      <h2>Tout est prêt ?</h2>
-      <h3>{{ title }}</h3>
-      <p class="preserve">{{ description }}</p>
-      <p>{{ dateLabel(date()) }}</p>
-      <p>
-        {{ optionLabel(transportOptions, shipping().transportMode) }} ·
-        {{ optionLabel(pricingOptions, shipping().shippingPricingMethod) }} ·
-        {{ money(shipping().shippingRate) }}
+<div class="wizard-page">
+  <header class="wizard-header">
+    <div class="wizard-heading">
+      <a class="back-link" routerLink="/app/groupages"><g-icon name="arrow" /> Retour aux groupages</a>
+      <p class="eyebrow">Lancer une campagne</p>
+      <h1>Créer un groupage</h1>
+      <p class="heading-subtitle">
+        Préparez votre campagne en quatre étapes. Rien n'est publié avant votre confirmation.
       </p>
-      <p>{{ optionLabel(collectionOptions, shipping().shippingCollectionMode) }}</p>
-      <ul class="lines">
-        @for (line of lines(); track line.productVariantId) {
-          <li>
-            <div>
-              <strong>{{ line.commercialLabel || line.name }}</strong
-              ><small>{{ line.variant }}</small>
-            </div>
-            <strong>{{ money(line.unitPrice) }}</strong>
-          </li>
-        } @empty {
-          <li>Aucun produit. Vous pouvez enregistrer un brouillon.</li>
-        }
-      </ul>
     </div>
-  }
-  @if (error()) {
-    <p role="alert" class="form-error">{{ error() }}</p>
-  }
-  @if (store.current()) {
-    <p class="notice">Le brouillon a été enregistré. Les produits déjà ajoutés sont conservés.</p>
-    <a [routerLink]="['/app/groupages', store.current()?.id]">Ouvrir le brouillon pour continuer</a>
-  }
-  <div class="actions">
-    @if (step() > 1) {
-      <button
-        gButton
-        variant="ghost"
-        [disabled]="saving() || !!store.current()"
-        (click)="step.set(step() - 1)"
-      >
-        Précédent
-      </button>
-    }
-    @if (step() < 4) {
-      <button gButton (click)="next()">Continuer</button>
-    } @else {
-      <button
-        gButton
-        variant="secondary"
-        [loading]="saving()"
-        [disabled]="store.stale()"
-        (click)="save(false)"
-      >
-        Enregistrer comme brouillon</button
-      ><button
-        gButton
-        [loading]="saving()"
-        [disabled]="!lines().length || store.stale()"
-        (click)="save(true)"
-      >
-        Publier le groupage
-      </button>
-    }
-  </div></g-card
->
+    <span class="publication-badge"><span aria-hidden="true" class="status-dot"></span> Non publié</span>
+  </header>
+
+  <g-groupage-wizard-stepper [step]="step()" [visited]="visited()"
+    [saving]="saving()" [steps]="steps" (selected)="navigateTo($event)" />
+
+  <div class="wizard-layout">
+    <section class="wizard-panel" aria-label="Création du groupage">
+      @if (step() === 1) {
+        <div class="step-content">
+          <header class="step-heading">
+            <p class="step-kicker">Étape 01 / 04</p>
+            <h2>Commençons par l'essentiel</h2>
+            <p>Donnez un nom facile à reconnaître : c'est celui que vos clientes verront lorsqu'elles ouvriront le lien du groupage.</p>
+          </header>
+          <div class="separator"></div>
+          <div class="wizard-fields">
+            <div class="wizard-field">
+              <label for="group-title">Nom du groupage <span class="required">*</span></label>
+              <input gInput id="group-title" aria-label="Titre" [(ngModel)]="title" required maxlength="160"
+                placeholder="Ex. Arrivage de novembre · Chine → Dakar" autocomplete="off" />
+              <small>Un nom précis, pas trop long. Maximum 160 caractères.</small>
+            </div>
+            <div class="wizard-field">
+              <label for="group-description">Description <span class="optional">(facultative)</span></label>
+              <textarea gInput id="group-description" [(ngModel)]="description" rows="4"
+                maxlength="5000" placeholder="Expliquez les articles et les modalités utiles pour vos clientes…"></textarea>
+              <small>Évitez de promettre une date d'arrivée qui n'est pas confirmée.</small>
+            </div>
+            <div class="wizard-field">
+              <label for="group-close">Clôture des commandes <span class="optional">(facultative)</span></label>
+              <input gInput id="group-close" type="datetime-local" [(ngModel)]="closesAt" />
+              <small>Laissez vide si elle n'est pas encore décidée. Sinon, choisissez une date future (heure de votre appareil).</small>
+            </div>
+          </div>
+          <div class="hint-box">
+            <g-icon name="info" />
+            <div><strong>Le groupage restera invisible tant qu'il n'est pas publié.</strong>
+              <p>Vous pourrez enregistrer un brouillon même si aucun article n'a encore été sélectionné.</p>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (step() === 2) {
+        <div class="step-content">
+          <header class="step-heading">
+            <p class="step-kicker">Étape 02 / 04</p>
+            <h2>Comment seront transportés les articles ?</h2>
+            <p>Choisissez la règle de transport et de facturation. Le montant du transport est distinct du prix des articles.</p>
+          </header>
+          <div class="separator"></div>
+          <h3 class="shipping-subheading">Mode de transport</h3>
+          <div class="transport-grid" role="group" aria-label="Mode de transport">
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'AIR'"
+              [attr.aria-pressed]="shipping().transportMode === 'AIR'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'AIR' })"><span aria-hidden="true">✈</span> Avion</button>
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'SEA'"
+              [attr.aria-pressed]="shipping().transportMode === 'SEA'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'SEA' })"><span aria-hidden="true">⚓</span> Bateau</button>
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'ROAD'"
+              [attr.aria-pressed]="shipping().transportMode === 'ROAD'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'ROAD' })"><span aria-hidden="true">▤</span> Route</button>
+            <button type="button" class="transport-option" [class.chosen]="shipping().transportMode === 'OTHER'"
+              [attr.aria-pressed]="shipping().transportMode === 'OTHER'" [disabled]="saving()"
+              (click)="patchShipping({ transportMode: 'OTHER' })"><span aria-hidden="true">◇</span> Autre</button>
+          </div>
+          <div class="separator"></div>
+          <div class="shipping-grid">
+            <div class="wizard-field">
+              <label for="shipping-pricing">Tarification de la livraison</label>
+              <select gInput id="shipping-pricing" [disabled]="saving()"
+                [ngModel]="shipping().shippingPricingMethod"
+                (ngModelChange)="patchShipping({ shippingPricingMethod: $event })">
+                @for (option of pricingOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="wizard-field">
+              <label for="shipping-rate">Tarif de livraison (F CFA)</label>
+              <input gInput id="shipping-rate" type="number" inputmode="decimal" required
+                [min]="shipping().shippingPricingMethod === 'FIXED' ? 0 : 0.000001"
+                [step]="shipping().shippingPricingMethod === 'FIXED' ? 1 : 'any'"
+                [disabled]="saving()" [ngModel]="shipping().shippingRate"
+                (ngModelChange)="patchShipping({ shippingRate: $event })" />
+              <small>Montant par unité de tarification. Le forfait peut être gratuit.</small>
+            </div>
+          </div>
+          @if (shipping().shippingPricingMethod === 'PER_KG') {
+            <div class="wizard-field divisor-field">
+              <label for="shipping-divisor">Diviseur volumétrique convenu <span class="optional">(facultatif)</span></label>
+              <input gInput id="shipping-divisor" type="number" min="0.000001" max="1000000"
+                step="0.000001" [disabled]="saving()" [ngModel]="shipping().volumetricDivisor"
+                (ngModelChange)="patchShipping({ volumetricDivisor: $event ?? undefined })"
+                placeholder="Laisser vide si non convenu" />
+              <small>À renseigner uniquement si le poids volumétrique est prévu dans votre accord de transport.</small>
+            </div>
+          }
+          <div class="separator"></div>
+          <h3 class="shipping-subheading">Quand demander les frais de transport ?</h3>
+          <div class="collection-grid" role="group" aria-label="Collecte des frais">
+            <button type="button" class="collection-option"
+              [class.chosen]="shipping().shippingCollectionMode === 'AFTER_FINAL_ASSESSMENT'"
+              [attr.aria-pressed]="shipping().shippingCollectionMode === 'AFTER_FINAL_ASSESSMENT'"
+              [disabled]="saving()" (click)="patchShipping({ shippingCollectionMode: 'AFTER_FINAL_ASSESSMENT' })">
+              <span class="collection-circle"></span>
+              <span><strong>Après évaluation finale</strong><small>La gérante détermine le montant définitif après l'évaluation du transport.</small></span>
+            </button>
+            <button type="button" class="collection-option"
+              [class.chosen]="shipping().shippingCollectionMode === 'ESTIMATED_AT_CHECKOUT'"
+              [attr.aria-pressed]="shipping().shippingCollectionMode === 'ESTIMATED_AT_CHECKOUT'"
+              [disabled]="saving()" (click)="patchShipping({ shippingCollectionMode: 'ESTIMATED_AT_CHECKOUT' })">
+              <span class="collection-circle"></span>
+              <span><strong>Estimation à la commande</strong><small>Le transport est estimé lorsque la cliente passe commande.</small></span>
+            </button>
+          </div>
+          <div class="hint-box">
+            <g-icon name="info" />
+            <div><strong>Une règle claire pour éviter les surprises.</strong>
+              @if (shipping().shippingCollectionMode === 'ESTIMATED_AT_CHECKOUT') {
+                <p>Pour les tarifs au kg ou au m³, les variantes doivent disposer d'une estimation de poids ou de volume.</p>
+              } @else {
+                <p>En collecte finale, les frais seront évalués séparément du prix des articles.</p>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (step() === 3) {
+        <div class="step-content">
+          <header class="step-heading">
+            <p class="step-kicker">Étape 03 / 04</p>
+            <h2>Quels produits proposer ?</h2>
+            <p>Choisissez vos variantes actives, puis fixez le <strong>prix propre à ce groupage</strong>. Vous pouvez ajouter plusieurs articles.</p>
+          </header>
+          @if (context.selectedId(); as organizationId) {
+            <g-product-picker mode="wizard" [organizationId]="organizationId" [excluded]="excluded()"
+              [disabled]="saving()" (added)="add($event)" />
+            <a routerLink="/app/products" class="catalog-shortcut">
+              <g-icon name="box" /> Ouvrir le catalogue pour gérer les produits et variantes
+            </a>
+          }
+          <div class="separator"></div>
+          <div class="offers-heading">
+            <h3>Produits sélectionnés</h3>
+            <span class="offer-counter">{{ lines().length }} variante{{ lines().length === 1 ? '' : 's' }}</span>
+          </div>
+          @if (lines().length) {
+            <ul class="offers-list">
+              @for (line of lines(); track line.productVariantId) {
+                <li class="offer-row">
+                  <div>
+                    <strong>{{ line.commercialLabel || line.name }}</strong>
+                    <small>{{ line.variant }}</small>
+                  </div>
+                  <strong class="offer-price">{{ money(line.unitPrice) }}</strong>
+                  <button gButton type="button" variant="ghost" [disabled]="saving()"
+                    [attr.aria-label]="'Retirer ' + line.name + ' · ' + line.variant"
+                    (click)="remove(line.productVariantId)">Retirer</button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="no-offers"><g-icon name="box" /><p>Aucune variante sélectionnée pour le moment.</p></div>
+          }
+          <div class="hint-box">
+            <g-icon name="info" />
+            <div>Un groupage sans produit peut être enregistré en <strong>brouillon</strong>,
+              mais il ne peut pas être publié.</div>
+          </div>
+        </div>
+      }
+
+      @if (step() === 4) {
+        <div class="step-content">
+          <header class="step-heading">
+            <p class="step-kicker">Étape 04 / 04</p>
+            <h2>Vérifiez avant de publier</h2>
+            <p>Relisez particulièrement les prix, la date de clôture et les conditions de transport.</p>
+          </header>
+          <div class="review-block">
+            <div class="review-heading">
+              <h3>Informations</h3>
+              <button gButton type="button" variant="secondary" [disabled]="saving()"
+                (click)="navigateTo(1)">Modifier</button>
+            </div>
+            <dl class="review-details">
+              <div><dt>Nom</dt><dd>{{ title.trim() }}</dd></div>
+              <div><dt>Description</dt><dd class="preserve">{{ description.trim() || 'Non renseignée' }}</dd></div>
+              <div><dt>Clôture</dt><dd>{{ closesAt ? dateLabel(date()) : 'Non définie' }}</dd></div>
+            </dl>
+          </div>
+          <div class="review-block">
+            <div class="review-heading">
+              <h3>Transport et frais</h3>
+              <button gButton type="button" variant="secondary" [disabled]="saving()"
+                (click)="navigateTo(2)">Modifier</button>
+            </div>
+            <dl class="review-details">
+              <div><dt>Transport</dt><dd>{{ optionLabel(transportOptions, shipping().transportMode) }}</dd></div>
+              <div><dt>Tarification</dt><dd>{{ optionLabel(pricingOptions, shipping().shippingPricingMethod) }} · {{ rateLabel() }}</dd></div>
+              <div><dt>Collecte</dt><dd>{{ optionLabel(collectionOptions, shipping().shippingCollectionMode) }}</dd></div>
+            </dl>
+          </div>
+          <div class="review-block">
+            <div class="review-heading">
+              <h3>Produits et prix du groupage</h3>
+              <button gButton type="button" variant="secondary" [disabled]="saving()"
+                (click)="navigateTo(3)">Modifier</button>
+            </div>
+            @if (lines().length) {
+              <ul class="offers-list review-offers">
+                @for (line of lines(); track line.productVariantId) {
+                  <li class="offer-row">
+                    <div><strong>{{ line.commercialLabel || line.name }}</strong><small>{{ line.variant }}</small></div>
+                    <strong class="offer-price">{{ money(line.unitPrice) }}</strong>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="muted">Aucun produit. Vous pouvez toujours enregistrer un brouillon.</p>
+            }
+          </div>
+          <div class="hint-box">
+            <g-icon name="info" />
+            <div><strong>Brouillon ou publication ?</strong>
+              <p>Le brouillon reste privé. La publication ouvre le groupage aux commandes lorsque les conditions métier sont remplies.</p>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (error()) {
+        <p class="wizard-error" role="alert">{{ error() }}</p>
+      }
+      @if (store.current()) {
+        <div class="saved-draft" role="status">
+          Le brouillon existe déjà. Les offres enregistrées sont conservées.
+          <a [routerLink]="['/app/groupages', store.current()?.id]">Ouvrir le brouillon</a>
+        </div>
+      }
+      <footer class="wizard-footer">
+        <span class="step-count">Étape {{ step() }} sur 4</span>
+        <div class="footer-actions">
+          @if (step() > 1) {
+            <button gButton type="button" variant="secondary"
+              [disabled]="saving() || !!store.current()" (click)="navigateTo(step() - 1)">
+              Précédent
+            </button>
+          }
+          @if (step() < 4) {
+            <button gButton type="button" [disabled]="saving()" (click)="next()">
+              Continuer <g-icon name="arrow" />
+            </button>
+          } @else {
+            <button gButton type="button" variant="secondary"
+              [disabled]="saving() || store.stale()" [loading]="saving()"
+              (click)="save(false)">Enregistrer comme brouillon</button>
+            <button gButton type="button" [disabled]="saving() || store.stale() || !lines().length"
+              [loading]="saving()" (click)="save(true)">
+              Publier le groupage <g-icon name="arrow" />
+            </button>
+          }
+        </div>
+      </footer>
+    </section>
+
+    <g-groupage-wizard-summary [title]="previewTitle()"
+      [closingLabel]="closesAt ? dateLabel(date()) : 'À définir'"
+      [transportLabel]="optionLabel(transportOptions, shipping().transportMode)"
+      [rateLabel]="rateLabel()" [count]="lines().length" [progress]="progress()" />
+  </div>
+</div>

@@ -1,0 +1,12 @@
+<nav class="stepper" aria-label="Étapes de création du groupage">
+  @for (item of steps(); track item.title; let i = $index) {
+    <button type="button" class="step-button" [class.active]="step() === i + 1"
+      [class.visited]="visited() > i + 1" [disabled]="saving() || i + 1 > visited()"
+      [attr.aria-current]="step() === i + 1 ? 'step' : null"
+      [attr.aria-label]="'Étape ' + (i + 1) + ' : ' + item.title"
+      (click)="selected.emit(i + 1)">
+      <span class="step-number">{{ i + 1 }}</span>
+      <span class="step-copy"><strong>{{ item.title }}</strong><small>{{ item.hint }}</small></span>
+    </button>
+  }
+</nav>

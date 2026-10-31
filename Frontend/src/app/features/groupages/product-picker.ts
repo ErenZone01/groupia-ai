@@ -16,6 +16,110 @@ import { safePrice, variantLabel } from '../../shared/utils/display';
   providers: [CatalogStore],
   imports: [FormsModule, Button, Icon, Input, Select, Skeleton, EmptyState],
   template: `
+
+    @if (mode() === 'wizard') {
+      <section class="wizard-product-picker" aria-label="Catalogue de la boutique">
+        <div class="picker-toolbar">
+          <h3>Catalogue de la boutique</h3>
+          <label class="picker-search">
+            <g-icon name="search" />
+            <input type="search" aria-label="Rechercher un produit sur cette page"
+              placeholder="Chercher un produit…" [ngModel]="search()"
+              (ngModelChange)="search.set($event)" />
+          </label>
+        </div>
+        <p class="picker-scope">Recherche limitée à la page de catalogue chargée.</p>
+        @if (store.loading()) {
+          <g-skeleton /><g-skeleton />
+        } @else if (store.error()) {
+          <p role="alert" class="form-error">{{ store.error() }}</p>
+          <button gButton type="button" variant="secondary" (click)="load()">Réessayer</button>
+        } @else if (!choices().length) {
+          <g-empty-state title="Aucune variante disponible sur cette page"
+            description="Ajoutez un produit ou une variante active dans votre catalogue, ou passez à la page suivante."
+            icon="box" />
+        } @else {
+          <div class="product-tiles">
+            @for (product of filteredProducts(); track product.id) {
+              <button type="button" class="product-tile"
+                [class.active]="chosenProductId() === product.id"
+                [attr.aria-pressed]="chosenProductId() === product.id"
+                [disabled]="disabled()" (click)="pickProduct(product.id!)">
+                <span class="tile-photo">
+                  @if (media()[product.id!]?.primaryThumbnailUrl; as url) {
+                    <img [src]="url" [alt]="product.name ?? 'Produit'"
+                      (error)="imageFailed(product.id!)" loading="lazy" decoding="async" />
+                  } @else {
+                    <g-icon name="box" />
+                  }
+                </span>
+                <span class="tile-text">
+                  <strong>{{ product.name }}</strong>
+                  <small>{{ availableCount(product.id!) }} variante(s) disponible(s)</small>
+                </span>
+                <g-icon name="chevron" />
+              </button>
+            } @empty {
+              <p class="picker-no-results">Aucun produit correspondant sur cette page.</p>
+            }
+          </div>
+          <div class="variant-editor">
+            <h4>Choisir une variante et son prix</h4>
+            <label class="picker-label">Produit et variante
+              <select gSelect aria-label="Produit et variante" [ngModel]="selected()"
+                (ngModelChange)="chooseVariant($event)" [disabled]="disabled()">
+                <option value="">Choisir un produit</option>
+                @for (choice of choices(); track choice.variant.id) {
+                  <option [value]="choice.variant.id">
+                    {{ choice.name }} · {{ variantLabel(choice.variant.attributes) }}
+                  </option>
+                }
+              </select>
+            </label>
+            @if (availableVariants().length) {
+              <div class="chips-label">Variantes du produit sélectionné</div>
+              <div class="variant-chips" role="group" aria-label="Variantes disponibles">
+                @for (choice of availableVariants(); track choice.variant.id) {
+                  <button type="button" class="variant-chip"
+                    [class.active]="selected() === choice.variant.id"
+                    [attr.aria-pressed]="selected() === choice.variant.id"
+                    [disabled]="disabled()" (click)="chooseVariant(choice.variant.id!)">
+                    {{ variantLabel(choice.variant.attributes) }}
+                  </button>
+                }
+              </div>
+            }
+            <div class="offer-editor-fields">
+              <label>Nom commercial (facultatif)
+                <input gInput type="text" maxlength="160" [(ngModel)]="label" [disabled]="disabled()"
+                  placeholder="Par défaut : nom du produit" />
+              </label>
+              <label>Prix dans ce groupage (F CFA)
+                <input gInput type="number" min="0" step="1" [(ngModel)]="price" [disabled]="disabled()"
+                  placeholder="Ex. 12500" />
+              </label>
+            </div>
+            <p class="picker-hint">Ce prix s'applique à ce groupage, indépendamment du catalogue.</p>
+            @if (error()) { <p role="alert" class="form-error">{{ error() }}</p> }
+            <div class="picker-submit">
+              <button gButton type="button" [disabled]="disabled() || !selected()" (click)="add()">
+                <g-icon name="plus" /> Ajouter au groupage
+              </button>
+            </div>
+          </div>
+        }
+        @if (store.totalPages() > 1) {
+          <nav class="picker-pagination" aria-label="Pages des produits">
+            <button gButton type="button" variant="secondary"
+              [disabled]="store.page() === 0 || store.loading()" (click)="load(store.page() - 1)">Précédent</button>
+            <span>Page {{ store.page() + 1 }} / {{ store.totalPages() }}</span>
+            <button gButton type="button" variant="secondary"
+              [disabled]="store.page() + 1 >= store.totalPages() || store.loading()"
+              (click)="load(store.page() + 1)">Suivant</button>
+          </nav>
+        }
+      </section>
+    } @else {
     @if (store.loading()) {
       <g-skeleton />
     } @else if (store.error()) {
@@ -96,7 +200,9 @@ import { safePrice, variantLabel } from '../../shared/utils/display';
         </button>
       </nav>
     }
+    }
   `,
+  styleUrl: './product-picker.scss',
   styles: `
     .chosen-product { display:flex; align-items:center; gap:var(--s2); margin:var(--s2) 0; min-width:0; }
     .chosen-product img,.chosen-placeholder { width:48px; height:48px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:var(--surface-alt); }
@@ -106,6 +212,9 @@ import { safePrice, variantLabel } from '../../shared/utils/display';
 })
 export class ProductPicker {
   readonly organizationId = input.required<string>();
+  readonly mode = input<'compact' | 'wizard'>('compact');
+  readonly search = signal('');
+  readonly pickedProductId = signal('');
   readonly excluded = input<string[]>([]);
   readonly disabled = input(false);
   readonly added = output<GroupageLine>();
@@ -128,7 +237,34 @@ export class ProductPicker {
           .map((variant) => ({ name: p.name ?? 'Produit', productId: p.id!, variant })),
       ),
   );
+  readonly filteredProducts = computed(() => {
+    const query = this.search().trim().toLocaleLowerCase('fr');
+    const ids = new Set(this.choices().map((choice) => choice.productId));
+    return this.store.products().filter((product) =>
+      product.status === 'ACTIVE' &&
+      !!product.id && ids.has(product.id) &&
+      (!query || (product.name ?? '').toLocaleLowerCase('fr').includes(query)),
+    );
+  });
   readonly selectedChoice = computed(() => this.choices().find((c) => c.variant.id === this.selected()));
+  readonly chosenProductId = computed(() => this.selectedChoice()?.productId ?? this.pickedProductId());
+  readonly availableVariants = computed(() =>
+    this.choices().filter((choice) => choice.productId === this.chosenProductId()),
+  );
+  availableCount(productId: string) {
+    return this.choices().filter((choice) => choice.productId === productId).length;
+  }
+  pickProduct(productId: string) {
+    this.pickedProductId.set(productId);
+    if (this.selectedChoice()?.productId !== productId) this.selected.set('');
+    this.error.set('');
+  }
+  chooseVariant(id: string) {
+    this.selected.set(id);
+    const choice = this.choices().find((c) => c.variant.id === id);
+    if (choice) this.pickedProductId.set(choice.productId);
+    this.error.set('');
+  }
   readonly thumbnail = computed(() => this.media()[this.selectedChoice()?.productId ?? '']?.primaryThumbnailUrl ?? '');
   imageFailed(id: string) {
     this.media.update((items) => ({ ...items, [id]: { ...items[id], primaryThumbnailUrl: undefined } }));
@@ -137,6 +273,11 @@ export class ProductPicker {
     effect(() => {
       const id = this.organizationId();
       this.selected.set('');
+      this.pickedProductId.set('');
+      this.search.set('');
+      this.error.set('');
+      this.price = null;
+      this.label = '';
       void this.store.load(id);
     });
     effect(() => {
@@ -154,6 +295,8 @@ export class ProductPicker {
     });
   }
   load(page = 0) {
+    this.pickedProductId.set('');
+    this.selected.set('');
     void this.store.load(this.organizationId(), page);
   }
   add() {
@@ -176,5 +319,6 @@ export class ProductPicker {
     this.price = null;
     this.label = '';
     this.selected.set('');
+    this.pickedProductId.set('');
   }
 }

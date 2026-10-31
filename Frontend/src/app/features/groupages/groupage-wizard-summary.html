@@ -1,0 +1,27 @@
+<aside class="summary-panel" [class.is-open]="expanded()" aria-label="Aperçu du groupage">
+  <button type="button" class="summary-toggle" [attr.aria-expanded]="expanded()"
+    aria-controls="groupage-summary" (click)="expanded.update((value) => !value)">
+    <span><strong>Aperçu en direct</strong><small>Votre campagne prend forme.</small></span>
+    <g-icon name="chevron" />
+  </button>
+  <div class="summary-body" id="groupage-summary">
+    <div class="preview-cover">
+      <div>
+        <strong>{{ title() }}</strong>
+        <span>Groupage · non publié</span>
+      </div>
+      <span class="preview-symbol"><g-icon name="box" /></span>
+    </div>
+    <div class="preview-progress" role="progressbar" [attr.aria-valuenow]="progress()"
+      aria-valuemin="0" aria-valuemax="100" aria-label="Progression de la création">
+      <span [style.width.%]="progress()"></span>
+    </div>
+    <dl class="summary-list">
+      <div><dt>Clôture</dt><dd>{{ closingLabel() }}</dd></div>
+      <div><dt>Transport</dt><dd>{{ transportLabel() }}</dd></div>
+      <div><dt>Tarification</dt><dd>{{ rateLabel() }}</dd></div>
+      <div><dt>Variantes</dt><dd>{{ count() }} sélectionnée{{ count() === 1 ? '' : 's' }}</dd></div>
+    </dl>
+    <p class="summary-note">Aucun lien client n'est créé avant la publication réelle du groupage.</p>
+  </div>
+</aside>

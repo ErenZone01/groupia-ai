@@ -6,8 +6,8 @@ import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import sn.groupia.directsales.application.DirectStorefrontService;
 import sn.groupia.directsales.application.DirectCartQuoteService;
+import sn.groupia.directsales.application.DirectStorefrontService;
 
 @RestController
 class DirectStorefrontController {

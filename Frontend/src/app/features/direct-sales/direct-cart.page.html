@@ -1,0 +1,64 @@
+<g-public-shell>
+  <nav class="back"><a [routerLink]="['/v', publicId()]">Retour à la boutique</a></nav>
+  <header class="heading">
+    <p class="eyebrow">Groupia · Vente directe</p>
+    <h1>Mon panier</h1>
+    <p>Prix vérifiés auprès de la boutique. Aucune commande ni paiement n'est créé.</p>
+  </header>
+
+  @if (!cart.items().length) {
+    <section class="empty" role="status">
+      <h2>Votre panier est vide</h2>
+      <p>Parcourez les articles de la boutique pour préparer une sélection.</p>
+      <a class="go-back" [routerLink]="['/v', publicId()]">Voir les articles</a>
+    </section>
+  } @else {
+    @if (loading()) {
+      <p role="status" class="notice">Actualisation des prix…</p>
+    }
+    @if (error()) {
+      <div class="notice problem" role="alert">
+        <p>Impossible de vérifier le prix actuel : {{ error() }}</p>
+        <p>Un article a peut-être été retiré ou modifié. Retirez-le ou réessayez.</p>
+        <button type="button" (click)="refresh()">Réessayer</button>
+        <button type="button" (click)="clear()">Vider le panier</button>
+      </div>
+    }
+    @if (quote(); as preview) {
+      <h2 class="shop-name">{{ preview.displayName }}</h2>
+      <section class="lines" aria-label="Votre sélection">
+        @for (line of preview.lines; track line.offerId) {
+          <article class="line">
+            <div class="line-details">
+              <strong>{{ line.productName }}</strong>
+              <span class="muted">{{ variantLabel(line.attributes) }}</span>
+              <span class="unit">{{ money(line.unitPriceXof, preview.currency) }} l'unité</span>
+            </div>
+            <div class="line-actions">
+              <label [for]="'qty-' + line.offerId">Quantité</label>
+              <input [id]="'qty-' + line.offerId" type="number" min="1" max="100" step="1"
+                [value]="line.quantity" (change)="quantity(line.offerId, $any($event.target).value)" />
+              <button type="button" (click)="remove(line.offerId)">Retirer</button>
+            </div>
+            <strong class="total">{{ money(line.lineTotalXof, preview.currency) }}</strong>
+          </article>
+        }
+      </section>
+      <section class="summary">
+        <div class="subtotal"><span>Sous-total des articles</span>
+          <strong>{{ money(preview.goodsSubtotalXof, preview.currency) }}</strong></div>
+        <p>Les éventuels frais de plateforme et de livraison ne sont pas inclus.
+          Le montant final sera présenté avant toute commande lorsque le checkout sera disponible.</p>
+      </section>
+    }
+    <aside class="notice" role="note">
+      <strong>Prochaine étape : finalisation des commandes</strong>
+      <p>Le panier est un aperçu, pas une réservation. Les prix seront revérifiés lors du futur checkout.
+        Le paiement Bictorys n'est pas encore activé pour les ventes directes.</p>
+    </aside>
+    <div class="footer-actions">
+      <a class="go-back" [routerLink]="['/v', publicId()]">Continuer mes achats</a>
+      <button type="button" (click)="clear()">Vider le panier</button>
+    </div>
+  }
+</g-public-shell>

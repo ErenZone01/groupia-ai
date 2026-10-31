@@ -153,3 +153,5 @@ g-icon { flex-shrink:0; }
 @media (max-width:380px) {
   .snapshot-card .snapshot-icon { display:none; }
 }
+
+.personal-greeting { font-size:14px; font-weight:700; margin:4px 0 7px; color:var(--primary); overflow-wrap:anywhere; }

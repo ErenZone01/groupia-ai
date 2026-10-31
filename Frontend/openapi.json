@@ -10883,6 +10883,91 @@
           }
         ]
       }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "auth-controller"
+        ],
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Authentication attempt quota exceeded; Retry-After header indicates when to retry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -14004,6 +14089,9 @@
       },
       "RegisterRequest": {
         "required": [
+          "birthDate",
+          "firstName",
+          "lastName",
           "password",
           "phoneNumber"
         ],
@@ -14025,6 +14113,20 @@
             "pattern": ".*\\S.*",
             "type": "string",
             "format": "email"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -15233,6 +15335,17 @@
           "details": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      },
+      "MeProfile": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
           }
         }
       }

@@ -26,8 +26,9 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         headers: request.headers.delete('Authorization'),
       }),
     );
-  const anonymous =
-    target.pathname.startsWith(path + '/auth/') || target.pathname.startsWith(path + '/public/');
+  // /auth/me is private; only the explicit register/login/refresh/logout
+  // paths above are anonymous. Never strip its Bearer header.
+  const anonymous = authPath || target.pathname.startsWith(path + '/public/');
   const token = owned && !anonymous ? auth.token() : null,
     generation = auth.generation(),
     knownSession = owned && !anonymous && auth.hasSession();

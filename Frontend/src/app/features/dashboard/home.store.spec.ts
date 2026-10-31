@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -8,14 +8,16 @@ import { BoutiqueContextService } from '../../core/boutique/boutique-context.ser
 import { HomeStore, priorityLabel } from './home.store';
 
 describe('Accueil : requêtes bornées et contexte', () => {
-  const selectedId = signal<string | null>('a'),
-    signedIn = signal(true),
-    generation = signal(1);
+  let selectedId: WritableSignal<string | null>;
+  let signedIn: WritableSignal<boolean>;
+  let generation: WritableSignal<number>;
   let store: HomeStore, http: HttpTestingController;
   beforeEach(() => {
-    selectedId.set('a');
-    signedIn.set(true);
-    generation.set(1);
+    // Fresh signals for every test: a failed HTTP expectation must not leave
+    // an effect from a previous HomeStore linked to a subsequent TestBed.
+    selectedId = signal<string | null>('a');
+    signedIn = signal(true);
+    generation = signal(1);
     TestBed.configureTestingModule({
       providers: [
         HomeStore,
@@ -29,8 +31,16 @@ describe('Accueil : requêtes bornées et contexte', () => {
     store = TestBed.inject(HomeStore);
     http = TestBed.inject(HttpTestingController);
     TestBed.tick();
+    // The personalized greeting loads independently of the active boutique.
+    http.expectOne('/api/auth/me').flush({ firstName: 'Awa', lastName: 'Diop' });
   });
-  afterEach(() => http.verify());
+  afterEach(() => {
+    try {
+      http.verify();
+    } finally {
+      TestBed.resetTestingModule();
+    }
+  });
   const groupRequest = (org = 'a') =>
     http.expectOne(`/api/organizations/${org}/grouping-campaigns?page=0&size=20`);
   const ordersRequest = (org = 'a') =>
@@ -42,6 +52,20 @@ describe('Accueil : requêtes bornées et contexte', () => {
     });
     ordersRequest().flush({ items: [{ id: 'order' }] });
   };
+  it('affiche le profil du compte sans le répéter lors du changement de boutique', () => {
+    expect(store.profile.value()?.firstName).toBe('Awa');
+    populate();
+    selectedId.set('b');
+    TestBed.tick();
+    groupRequest('b').flush({ totalElements: 0, items: [] });
+    ordersRequest('b').flush({ items: [] });
+    TestBed.tick();
+    http.expectOne('/api/organizations/b/products?page=0&size=1')
+      .flush({ totalElements: 0, items: [] });
+    expect(store.profile.value()?.firstName).toBe('Awa');
+    http.expectNone('/api/auth/me');
+  });
+
   it('borne les listes, sans catalogue complet ni comptage par statut', () => {
     populate();
     TestBed.tick();
@@ -126,6 +150,7 @@ describe('Accueil : requêtes bornées et contexte', () => {
     expect(oldGroup.cancelled).toBe(true);
     expect(oldOrders.cancelled).toBe(true);
     if (action === 'generation') {
+      http.expectOne('/api/auth/me').flush({ firstName: 'Awa', lastName: 'Diop' });
       groupRequest().flush({ totalElements: 1, items: [] });
       ordersRequest().flush({ items: [] });
     } else http.expectNone(() => true);

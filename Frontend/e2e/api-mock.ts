@@ -191,6 +191,8 @@ export async function mockApi(
       });
     }
     expect(req.headers()['authorization']).toBe('Bearer e2e-only-token');
+    if (path === '/api/auth/me' && method === 'GET')
+      return reply({ firstName: 'Awa', lastName: 'Diop' });
     if (path === '/api/organizations') {
       if (method === 'GET') return reply(state.shops);
       if (method === 'POST') {

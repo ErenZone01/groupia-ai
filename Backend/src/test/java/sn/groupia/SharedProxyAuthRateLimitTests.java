@@ -61,6 +61,14 @@ class SharedProxyAuthRateLimitTests {
     }
 
     private ResultActions auth(String operation, String phone, int forwarded) throws Exception {
+        var body = new java.util.LinkedHashMap<String, Object>();
+        body.put("phoneNumber", phone);
+        body.put("password", "Proxy test phrase 2026!");
+        if (operation.equals("register")) {
+            body.put("firstName", "Awa");
+            body.put("lastName", "Diop");
+            body.put("birthDate", "1995-04-12");
+        }
         return mvc.perform(
                 post("/api/auth/" + operation)
                         .header("Origin", "https://groupia.test")
@@ -74,9 +82,8 @@ class SharedProxyAuthRateLimitTests {
                         .header("Forwarded", "for=198.51.100." + forwarded)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
-                                "{\"phoneNumber\":\""
-                                        + phone
-                                        + "\",\"password\":\"Proxy test phrase 2026!\"}"));
+                                new tools.jackson.databind.ObjectMapper()
+                                        .writeValueAsString(body)));
     }
 
     private void assertOnlySubjects(int count) {

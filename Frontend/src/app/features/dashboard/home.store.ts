@@ -1,5 +1,6 @@
 import { computed, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { Observable, timeout } from 'rxjs';
+import { AuthControllerService } from '../../api/generated/services/auth-controller.service';
 import { CatalogControllerService, GroupingControllerService } from '../../api/generated/services';
 import { CampaignSummary } from '../../api/generated/models';
 import { AuthService } from '../../core/auth/auth.service';
@@ -59,6 +60,7 @@ const activeStatuses = new Set([
 export class HomeStore {
   private readonly context = inject(BoutiqueContextService);
   private readonly auth = inject(AuthService);
+  private readonly profileApi = inject(AuthControllerService);
   private readonly grouping = inject(GroupingControllerService);
   private readonly catalog = inject(CatalogControllerService);
   private readonly ordersApi = inject(OrdersApi);
@@ -66,6 +68,12 @@ export class HomeStore {
     this.auth.signedIn() && this.context.selectedId()
       ? `${this.auth.generation()}:${this.context.selectedId()}`
       : '',
+  );
+  // Personal profile is scoped to the authenticated session only, not the shop.
+  // The server never returns birthDate in this endpoint.
+  readonly profile = resource(
+    () => this.auth.signedIn() ? String(this.auth.generation()) : '',
+    () => this.profileApi.me(),
   );
   readonly groups = resource(this.key, () =>
     this.grouping.list2({ organizationId: this.context.selectedId()!, page: 0, size: 20 }),

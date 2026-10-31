@@ -11,6 +11,9 @@ import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
 import { AccessToken } from '../models/access-token';
+import { MeProfile } from '../models/me-profile';
+import { me } from '../fn/auth-controller/me';
+import { Me$Params } from '../fn/auth-controller/me';
 import { login } from '../fn/auth-controller/login';
 import { Login$Params } from '../fn/auth-controller/login';
 import { logout } from '../fn/auth-controller/logout';
@@ -24,6 +27,24 @@ import { Register$Params } from '../fn/auth-controller/register';
 export class AuthControllerService extends BaseService {
   constructor(config: ApiConfiguration, http: HttpClient) {
     super(config, http);
+  }
+
+  /** Path part for operation `me()` */
+  static readonly MePath = '/api/auth/me';
+
+  /**
+   * This method provides access to the full `HttpResponse`.
+   */
+  me$Response(params?: Me$Params, context?: HttpContext): Observable<StrictHttpResponse<MeProfile>> {
+    return me(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Returns the minimal authenticated current-user profile.
+   */
+  me(params?: Me$Params, context?: HttpContext): Observable<MeProfile> {
+    const resp = this.me$Response(params, context);
+    return resp.pipe(map((r: StrictHttpResponse<MeProfile>): MeProfile => r.body));
   }
 
   /** Path part for operation `register()` */

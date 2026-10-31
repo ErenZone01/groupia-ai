@@ -45,6 +45,9 @@ describe('Authentification réelle via le client généré', () => {
   it('inscrit sans inventer un jeton de session', async () => {
     const pending = auth.register({
       phoneNumber: '+221771234567',
+      firstName: 'Awa',
+      lastName: 'Diop',
+      birthDate: '1995-04-12',
       password: 'phrase suffisamment longue',
     });
     const req = http.expectOne('/api/auth/register');

@@ -5,12 +5,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import sn.groupia.identity.api.CurrentUser;
 import sn.groupia.identity.application.service.AccessTokens;
 import sn.groupia.identity.application.service.AuthenticationService;
 import sn.groupia.identity.application.service.RefreshSessions;
+import sn.groupia.identity.domain.repository.UserAccounts;
 import sn.groupia.identity.infrastructure.security.SessionSettings;
 import sn.groupia.shared.api.ApiException;
 
@@ -23,13 +26,19 @@ class AuthController {
     private final RefreshSessions sessions;
     private final SessionSettings settings;
     private final Clock clock;
+    private final CurrentUser currentUser;
+    private final UserAccounts accounts;
 
     AuthController(
             AuthenticationService authentication,
             sn.groupia.identity.infrastructure.hardening.AuthRateLimits limits,
             RefreshSessions sessions,
             SessionSettings settings,
-            Clock clock) {
+            Clock clock,
+            CurrentUser currentUser,
+            UserAccounts accounts) {
+        this.currentUser = currentUser;
+        this.accounts = accounts;
         this.sessions = sessions;
         this.settings = settings;
         this.clock = clock;
@@ -42,12 +51,36 @@ class AuthController {
     ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         limits.subject("register", request.phoneNumber());
         try {
-            authentication.register(request.phoneNumber(), request.password(), request.email());
+            authentication.register(
+                    request.phoneNumber(),
+                    request.password(),
+                    request.email(),
+                    request.firstName(),
+                    request.lastName(),
+                    request.birthDate());
         } catch (sn.groupia.shared.api.ApiException ex) {
             if (!ex.code().equals("PHONE_ALREADY_REGISTERED")) throw ex;
         }
         return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();
     }
+
+    @GetMapping("/me")
+    ResponseEntity<MeProfile> me() {
+        var id = currentUser.requireActiveUserId();
+        var account =
+                accounts.findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                401,
+                                                "AUTHENTICATION_REQUIRED",
+                                                "Une authentification valide est requise."));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(new MeProfile(account.getFirstName(), account.getLastName()));
+    }
+
+    record MeProfile(String firstName, String lastName) {}
 
     @PostMapping("/login")
     ResponseEntity<AccessTokens.AccessToken> login(
@@ -138,6 +171,9 @@ class AuthController {
     record RegisterRequest(
             @NotBlank @Size(max = 40) String phoneNumber,
             @NotBlank @Size(max = 72) String password,
+            @NotBlank @Size(max = 80) String firstName,
+            @NotBlank @Size(max = 80) String lastName,
+            @NotNull @Past LocalDate birthDate,
             @Email
                     @Size(max = 254)
                     @Pattern(regexp = ".*\\S.*", message = "doit être renseigné ou absent")

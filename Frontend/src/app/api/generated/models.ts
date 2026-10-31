@@ -55,6 +55,7 @@ export type { MeasurementInput } from './models/measurement-input';
 export type { MediaGalleryView } from './models/media-gallery-view';
 export type { MediaOrder } from './models/media-order';
 export type { MediaType } from './models/media-type';
+export type { MeProfile } from './models/me-profile';
 export type { MediaView } from './models/media-view';
 export type { MerchantBalance } from './models/merchant-balance';
 export type { MerchantPayoutView } from './models/merchant-payout-view';

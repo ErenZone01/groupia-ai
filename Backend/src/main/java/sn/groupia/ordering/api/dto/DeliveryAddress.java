@@ -1,8 +1,8 @@
 package sn.groupia.ordering.api.dto;
 
 /**
- * Indication de localisation pour organiser une remise ou une éventuelle livraison.
- * Ne crée aucune promesse de livraison à domicile ni de tarif de dernier kilomètre.
+ * Indication de localisation pour organiser une remise ou une éventuelle livraison. Ne crée aucune
+ * promesse de livraison à domicile ni de tarif de dernier kilomètre.
  */
 public record DeliveryAddress(
         String country,

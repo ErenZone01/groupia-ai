@@ -71,6 +71,9 @@ test('login refusé sans détails internes', async ({ page }) => {
 test('inscription puis connexion sans session fabriquée', async ({ page }) => {
   const state = await mockApi(page);
   await page.goto('/inscription');
+  await page.getByLabel('Prénom', { exact: true }).fill('Awa');
+  await page.getByLabel('Nom', { exact: true }).fill('Diop');
+  await page.getByLabel('Date de naissance').fill('1995-04-12');
   await page.getByLabel('Numéro de téléphone').fill('+221771234567');
   await page.getByLabel('Mot de passe', { exact: true }).fill('une phrase suffisamment longue');
   await page.getByLabel('Confirmer le mot de passe', { exact: true }).fill('une phrase suffisamment longue');

@@ -1,6 +1,5 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Brand } from '../../shared/ui/brand';
+import { ActivatedRoute } from '@angular/router';
 import { Icon } from '../../shared/ui/icon';
 import { PublicShell } from '../checkout/public-shell';
 import { money, variantLabel } from '../../shared/utils/display';
@@ -9,7 +8,7 @@ import { DirectSalesApi, DirectStorefront } from './direct-sales.api';
 
 @Component({
   selector: 'g-public-direct-page',
-  imports: [Brand, Icon, RouterLink, PublicShell],
+  imports: [Icon, PublicShell],
   templateUrl: './public-direct.page.html',
   styleUrl: './public-direct.page.scss',
 })

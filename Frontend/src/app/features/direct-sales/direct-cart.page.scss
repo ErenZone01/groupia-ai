@@ -1,0 +1,36 @@
+:host { display:block; }
+.back { margin:0 0 16px; font-size:13px; }
+.heading { margin-bottom:24px; }
+.heading h1 { margin:8px 0; font-size:clamp(26px,4vw,34px); letter-spacing:-.03em; }
+.heading p,.summary p,.notice p,.empty p { font-size:13px; color:var(--muted); line-height:1.6; }
+.shop-name { font-size:18px; margin:0 0 12px; }
+.lines,.summary,.empty { border:1px solid var(--border); border-radius:14px; background:var(--surface);
+  padding:18px; margin-bottom:18px; }
+.line { display:flex; flex-wrap:wrap; gap:14px; align-items:center; border-bottom:1px solid var(--border);
+  padding:14px 0; }
+.line:last-child { border-bottom:0; }
+.line-details { display:grid; flex:1 1 170px; gap:6px; min-width:0; }
+.line-details strong { font-size:15px; overflow-wrap:anywhere; }
+.muted,.unit { color:var(--muted); font-size:12px; }
+.line-actions { display:grid; gap:5px; font-size:12px; }
+.line-actions input { width:75px; min-width:0; padding:8px; border-radius:8px;
+  background:var(--surface); color:var(--text); border:1px solid var(--border); }
+.line-actions button,.footer-actions button,.problem button { border:0; background:transparent;
+  color:var(--accent); cursor:pointer; padding:5px 0; font:inherit; font-size:12px; text-align:left; }
+.total { font-size:15px; min-width:105px; text-align:right; }
+.subtotal { display:flex; justify-content:space-between; align-items:center; gap:15px; font-size:15px; }
+.summary p { margin:12px 0 0; }
+.notice { margin:16px 0; border:1px solid var(--border); background:var(--surface-alt);
+  padding:14px; border-radius:12px; }
+.notice strong { font-size:14px; }
+.problem { border-color:var(--danger); }
+.footer-actions { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; }
+.go-back { display:inline-block; padding:10px 15px; border-radius:9px; text-decoration:none;
+  background:#126044; color:white; font-size:13px; font-weight:600; }
+.empty { padding:30px; text-align:center; }
+.empty h2 { font-size:18px; }
+.empty .go-back { margin-top:18px; }
+@media(max-width:550px) {
+  .line { gap:10px; }
+  .total { text-align:left; }
+}

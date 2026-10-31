@@ -1,0 +1,54 @@
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { DirectSalesApi } from './direct-sales.api';
+
+describe('Vente directe : contrats HTTP', () => {
+  let api: DirectSalesApi;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    api = TestBed.inject(DirectSalesApi);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  const org = '11111111-1111-4111-8111-111111111111';
+  const storefront = {
+    publicIdentifier: '22222222-2222-4222-8222-222222222222',
+    displayName: 'Boutique Awa',
+    currency: 'XOF',
+    offers: [],
+  } as const;
+
+  it('lit le magasin dans le contexte de la boutique', async () => {
+    const pending = api.manager(org);
+    const request = http.expectOne(`/api/organizations/${org}/direct-store`);
+    expect(request.request.method).toBe('GET');
+    request.flush(storefront);
+    expect((await pending).displayName).toBe('Boutique Awa');
+  });
+
+  it('conserve le prix fixe et la version dans une publication', async () => {
+    const pending = api.update(org, '33333333-3333-4333-8333-333333333333', 7, 8500, true);
+    const req = http.expectOne(
+      `/api/organizations/${org}/direct-store/offers/33333333-3333-4333-8333-333333333333`,
+    );
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ version: 7, priceXof: 8500, published: true });
+    req.flush(storefront);
+    await expect(pending).resolves.toMatchObject({ publicIdentifier: storefront.publicIdentifier });
+  });
+
+  it('le lien public ne nécessite pas de contexte commerçant', async () => {
+    const pending = api.publicStore(storefront.publicIdentifier);
+    const req = http.expectOne('/api/public/direct-stores/' + storefront.publicIdentifier);
+    expect(req.request.method).toBe('GET');
+    req.flush(storefront);
+    expect((await pending).offers).toEqual([]);
+  });
+});

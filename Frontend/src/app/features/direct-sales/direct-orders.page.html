@@ -1,0 +1,119 @@
+<header class="orders-head">
+  <div>
+    <p class="eyebrow">Vente directe · Espace gérante</p>
+    <h1>Commandes directes</h1>
+    <p>Consultez les brouillons de vente directe de cette boutique, sans mélanger vos groupages.</p>
+  </div>
+  <a class="back" routerLink="/app/vente-directe">← Retour à la boutique</a>
+</header>
+
+<section class="orders-card" aria-label="Liste des commandes directes">
+  <div class="section-head">
+    <h2>Brouillons reçus</h2>
+    <button type="button" (click)="refresh()" [disabled]="loading() || !context.selectedId()">Actualiser</button>
+  </div>
+
+  @if (!context.selectedId()) {
+    <p class="empty">Sélectionnez une boutique pour consulter ses commandes directes.</p>
+  } @else if (loading()) {
+    <p class="empty" role="status">Chargement des commandes directes…</p>
+  } @else if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  } @else if (data(); as page) {
+    @if (page.items.length) {
+      <div class="orders-list">
+        @for (order of page.items; track order.id) {
+          <article class="order">
+            <div class="order-info">
+              <strong>{{ order.orderNumber }}</strong>
+              <span class="meta">{{ order.placedAt | date:'dd/MM/yyyy HH:mm' }} · {{ order.itemCount }} article(s)</span>
+              <span class="status">{{ status(order.status) }}</span>
+              <span class="meta">{{ fulfillment(order.fulfillmentMethod) }}</span>
+            </div>
+            <div class="order-actions">
+              <strong>{{ money(order.amountBeforeShippingXof, 'XOF') }}</strong>
+              <span class="meta">Avant éventuels frais de livraison</span>
+              <button type="button" [disabled]="detailLoading()" (click)="open(order)">Voir le détail</button>
+            </div>
+          </article>
+        }
+      </div>
+      <nav class="pagination" aria-label="Pagination des commandes">
+        <button type="button" (click)="page(currentPage() - 1)" [disabled]="loading() || currentPage() === 0">
+          Précédent
+        </button>
+        <span>Page {{ currentPage() + 1 }} sur {{ totalPages() }} · {{ page.total }} commande(s)</span>
+        <button type="button" (click)="page(currentPage() + 1)" [disabled]="loading() || currentPage() + 1 >= totalPages()">
+          Suivant
+        </button>
+      </nav>
+    } @else {
+      <div class="empty">
+        <h3>Aucune commande directe pour le moment</h3>
+        <p>Le checkout client n'est pas encore activé ; les commandes de groupage restent dans leur espace habituel.</p>
+      </div>
+    }
+  }
+</section>
+
+@if (detailLoading()) {
+  <p class="detail-notice" role="status">Chargement des informations de la commande…</p>
+}
+@if (detailError()) {
+  <p class="error" role="alert">{{ detailError() }}</p>
+}
+@if (detail(); as selected) {
+  <section class="orders-card detail" aria-label="Détail de la commande">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Détail confidentiel · {{ selected.order.orderNumber }}</p>
+        <h2>Informations enregistrées</h2>
+      </div>
+      <button type="button" (click)="close()">Fermer</button>
+    </div>
+    <div class="detail-grid">
+      <div>
+        <h3>Client</h3>
+        <p>{{ selected.contact.firstName }} {{ selected.contact.lastName }}</p>
+        <p>{{ selected.contact.phoneE164 }}</p>
+        @if (selected.contact.email) {
+          <p>{{ selected.contact.email }}</p>
+        }
+      </div>
+      <div>
+        <h3>Remise</h3>
+        <p>{{ fulfillment(selected.order.fulfillmentMethod) }}</p>
+        @if (selected.deliveryAddress; as address) {
+          <p>{{ address.region }} · {{ address.city }} · {{ address.commune }}</p>
+          @if (address.neighborhood) { <p>{{ address.neighborhood }}</p> }
+          <p>{{ address.details }}</p>
+        } @else {
+          <p>Lieu de retrait à convenir avec la cliente.</p>
+        }
+      </div>
+    </div>
+    <h3>Articles et prix historisés</h3>
+    <div class="items">
+      @for (item of selected.items; track item.lineNumber) {
+        <div class="item">
+          <div>
+            <strong>{{ item.productName }}</strong>
+            <span class="meta">{{ variantLabel(item.attributes) }} · Quantité {{ item.quantity }}</span>
+            <span class="meta">{{ money(item.unitPriceXof, 'XOF') }} / unité</span>
+          </div>
+          <strong>{{ money(item.lineTotalXof, 'XOF') }}</strong>
+        </div>
+      }
+    </div>
+    <div class="totals">
+      <div><span>Articles</span><strong>{{ money(selected.order.goodsSubtotalXof, 'XOF') }}</strong></div>
+      <div><span>Frais plateforme</span><strong>{{ money(selected.order.platformFeeXof, 'XOF') }}</strong></div>
+      <div><span>Montant hors livraison</span><strong>{{ money(selected.order.amountBeforeShippingXof, 'XOF') }}</strong></div>
+    </div>
+    <div class="warning">
+      <strong>Pas encore une vente confirmée</strong>
+      <p>Ce brouillon ne prouve aucun paiement. La finalisation Bictorys et le suivi client
+        seront intégrés séparément. Aucun traitement de livraison n'est à déclencher depuis cette page.</p>
+    </div>
+  </section>
+}

@@ -23,7 +23,7 @@ class DirectStorefrontController {
     record UpdateInput(
             @NotNull @Min(0) Long version,
             @NotNull @Min(1) @Max(999999999999L) Long priceXof,
-            boolean published) {}
+            @NotNull Boolean published) {}
 
     @GetMapping("/api/organizations/{organizationId}/direct-store")
     DirectStorefrontService.Storefront manager(@PathVariable UUID organizationId) {

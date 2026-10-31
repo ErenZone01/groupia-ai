@@ -1,0 +1,129 @@
+<header class="ds-header">
+  <div>
+    <p class="eyebrow">Ma boutique · Vente directe</p>
+    <h1>Vente directe</h1>
+    <p>Un prix fixe par variante, un seul lien public pour votre sélection.</p>
+  </div>
+  <a gButton variant="secondary" routerLink="/app/groupages">Mes groupages</a>
+</header>
+
+@if (loading()) {
+  <p role="status">Chargement de votre boutique directe…</p>
+} @else {
+  @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
+  @if (notice()) { <p class="message success" role="status">{{ notice() }}</p> }
+
+  <section class="ds-card" aria-labelledby="direct-shop-heading">
+    <div class="section-head">
+      <div><h2 id="direct-shop-heading">Votre vitrine publique</h2>
+        <p>Son adresse ne change pas lorsque vous ajoutez ou modifiez une offre.</p></div>
+      <span class="counter">{{ publishedCount() }} offre(s) publique(s)</span>
+    </div>
+    <form class="store-name" (ngSubmit)="saveName()">
+      <label for="direct-store-name">Nom affiché aux clientes</label>
+      <div class="inline-form">
+        <input id="direct-store-name" name="name" [(ngModel)]="name" required maxlength="160"
+          [disabled]="busy()" placeholder="Ex. Boutique Awa" />
+        <button gButton type="submit" [disabled]="busy() || !name.trim()">Enregistrer</button>
+      </div>
+    </form>
+    @if (store()?.publicIdentifier) {
+      <label class="store-name" for="public-direct-link">Lien permanent de votre boutique</label>
+      <div class="inline-form">
+        <input id="public-direct-link" [value]="publicLink()" readonly />
+        <button type="button" gButton variant="secondary" [disabled]="busy()" (click)="copyLink()">
+          <g-icon name="link" /> Copier
+        </button>
+        <a gButton variant="secondary" [routerLink]="['/v', store()!.publicIdentifier]"
+          target="_blank" rel="noopener">Aperçu</a>
+      </div>
+      @if (!publishedCount()) {
+        <p class="note">Le lien sera accessible aux clientes après publication de votre première offre active.</p>
+      }
+    }
+  </section>
+
+  <section class="ds-card" aria-labelledby="add-direct-heading">
+    <div class="section-head">
+      <div><h2 id="add-direct-heading">Ajouter un article en vente directe</h2>
+      <p>Choisissez une variante existante. Le prix est indépendant des prix de groupage.</p></div>
+      <a routerLink="/app/products" class="small-link">Gérer les produits</a>
+    </div>
+    @if (!store()?.publicIdentifier) {
+      <p class="note">Enregistrez d'abord le nom de votre boutique pour activer les offres.</p>
+    }
+    <form class="offer-form" (ngSubmit)="add()">
+      <label for="variant-id">Produit et variante</label>
+      <select id="variant-id" name="variant" [(ngModel)]="selectedVariant"
+        [disabled]="busy() || !store()?.publicIdentifier" required>
+        <option value="">Choisir un produit actif</option>
+        @for (variant of variants(); track variant.id) {
+          <option [value]="variant.id">{{ variant.label }}</option>
+        }
+      </select>
+      <label for="direct-price">Prix fixe en F CFA</label>
+      <input id="direct-price" name="price" type="number" min="1" max="999999999999"
+        step="1" [(ngModel)]="priceXof" [disabled]="busy() || !store()?.publicIdentifier"
+        placeholder="Ex. 8500" required />
+      <button gButton type="submit" [disabled]="busy() || !store()?.publicIdentifier || !selectedVariant ||
+        !priceXof || priceXof < 1 || priceXof > 999999999999">Ajouter en brouillon</button>
+    </form>
+    <div class="pagination" aria-label="Parcourir les variantes du catalogue">
+      <button type="button" [disabled]="busy() || page() === 0" (click)="changePage(page()-1)">Précédents</button>
+      <span>Page {{ page() + 1 }} / {{ totalPages() || 1 }} du catalogue</span>
+      <button type="button" [disabled]="busy() || page()+1 >= totalPages()"
+        (click)="changePage(page()+1)">Suivants</button>
+    </div>
+  </section>
+
+  <section class="ds-card" aria-labelledby="offers-direct-heading">
+    <div class="section-head">
+      <div><h2 id="offers-direct-heading">Offres de vente directe</h2>
+        <p>Seules les offres publiées et les variantes actives sont visibles publiquement.</p></div>
+      <span class="counter">{{ store()?.offers?.length ?? 0 }} offre(s)</span>
+    </div>
+    <div class="offer-list">
+      @for (offer of store()?.offers ?? []; track offer.id) {
+        <article class="offer">
+          <div class="visual">
+            @if (offer.imageUrl) {
+              <img [src]="offer.imageUrl" [alt]="offer.productName" loading="lazy" />
+            } @else { <g-icon name="box" /> }
+          </div>
+          <div class="offer-details">
+            <strong>{{ offer.productName }}</strong>
+            <span class="meta">{{ variantLabel(offer.attributes) }}</span>
+            <span class="meta">{{ offer.published ? 'Publiée' : 'Brouillon / masquée' }}
+              @if (!offer.usable) { · Variante indisponible }
+            </span>
+          </div>
+          <div class="price-cell">
+            <label [for]="'direct-offer-price-' + offer.id">Prix (F CFA)</label>
+            <input [id]="'direct-offer-price-' + offer.id" type="number"
+              min="1" max="999999999999" step="1" [disabled]="busy()"
+              [value]="prices()[offer.id]"
+              (input)="setPrice(offer.id, $any($event.target).value)" />
+          </div>
+          <div class="offer-actions">
+            <button type="button" gButton variant="secondary" [disabled]="busy()"
+              (click)="update(offer, offer.published)">Enregistrer</button>
+            <button type="button" gButton [disabled]="busy() || (!offer.published && !offer.usable)"
+              (click)="update(offer, !offer.published)">
+              {{ offer.published ? 'Dépublier' : 'Publier' }}
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty"><g-icon name="store" /><h3>Pas encore d'offres</h3>
+          <p>Ajoutez votre premier article, puis publiez-le pour l'afficher dans votre boutique.</p>
+        </div>
+      }
+    </div>
+  </section>
+
+  <p class="scope-note"><g-icon name="info" />
+    Étape actuelle : catalogue public et publication des prix.
+    La commande et le paiement intégrés en vente directe ne sont pas encore activés.
+    Vos groupages et leurs commandes restent inchangés.
+  </p>
+}

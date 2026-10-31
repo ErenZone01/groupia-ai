@@ -204,12 +204,11 @@ class OpenApiIntegrationTests {
                                 .has("ProviderWebhookSecret"))
                 .isTrue();
         assertThat(paths.path("/api/auth/login").path("post").path("security").size()).isZero();
-        assertThat(paths.path("/api/auth/me").path("get").path("security").get(0)
-                .has("BearerJWT")).isTrue();
-        assertThat(paths.path("/api/auth/me").path("get").path("responses").has("401"))
+        assertThat(paths.path("/api/auth/me").path("get").path("security").get(0).has("BearerJWT"))
                 .isTrue();
-        assertThat(spec().at("/components/schemas/MeProfile/properties/birthDate")
-                .isMissingNode()).isTrue();
+        assertThat(paths.path("/api/auth/me").path("get").path("responses").has("401")).isTrue();
+        assertThat(spec().at("/components/schemas/MeProfile/properties/birthDate").isMissingNode())
+                .isTrue();
         assertThat(
                         paths.path("/api/public/groupings/{publicIdentifier}")
                                 .path("get")

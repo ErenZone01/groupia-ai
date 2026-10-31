@@ -1,0 +1,63 @@
+<g-public-shell [wide]="true">
+  <div class="shop-intro">
+    <p class="eyebrow">Groupia · Vente directe</p>
+    @if (store(); as shop) {
+      <h1>{{ shop.displayName }}</h1>
+      <p>Découvrez les articles proposés à prix fixe par cette boutique.</p>
+    } @else {
+      <h1>La boutique directe</h1>
+    }
+  </div>
+
+  @if (loading()) {
+    <p role="status" class="notice">Chargement des produits…</p>
+  } @else if (error()) {
+    <section class="notice" role="alert">
+      <h2>Boutique indisponible</h2>
+      <p>La sélection publique est peut-être fermée ou momentanément inaccessible.</p>
+    </section>
+  } @else if (store(); as shop) {
+    <section class="info">
+      <div><g-icon name="store" />
+        <span><strong>Prix affichés en F CFA</strong><small>Prix fixes des articles publiés</small></span></div>
+      <div><g-icon name="shield" />
+        <span><strong>Catalogue sans compte</strong><small>Consultez librement les produits</small></span></div>
+    </section>
+    <div class="catalog-heading">
+      <div><h2>Articles disponibles</h2>
+        <p>{{ visible().length }} article(s) dans cette sélection</p></div>
+      <label class="search">
+        <g-icon name="search" />
+        <input type="search" aria-label="Rechercher un article" placeholder="Rechercher…"
+          [value]="search()" (input)="search.set($any($event.target).value)" />
+      </label>
+    </div>
+    <div class="products">
+      @for (offer of visible(); track offer.id) {
+        <article class="product">
+          <div class="photo">
+            @if (offer.imageUrl) {
+              <img [src]="offer.imageUrl" [alt]="offer.productName" loading="lazy" />
+            } @else { <g-icon name="box" /> }
+          </div>
+          <div class="description">
+            <h3>{{ offer.productName }}</h3>
+            <span class="attributes">{{ variantLabel(offer.attributes) }}</span>
+            @if (offer.description) { <p>{{ offer.description }}</p> }
+            <strong class="price">{{ money(offer.priceXof, 'XOF') }}</strong>
+          </div>
+        </article>
+      } @empty {
+        <p class="notice">Aucun article ne correspond à cette recherche.</p>
+      }
+    </div>
+    <aside class="notice">
+      <g-icon name="info" />
+      <div><strong>Commande en ligne prochainement</strong>
+        <p>Cette vitrine permet actuellement de consulter les articles et leurs prix.
+          Le panier, la commande et le paiement en vente directe ne sont pas encore disponibles.
+          Les groupages continuent de fonctionner normalement.</p>
+      </div>
+    </aside>
+  }
+</g-public-shell>

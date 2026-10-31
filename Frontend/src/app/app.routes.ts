@@ -23,6 +23,11 @@ export const routes: Routes = [
       import('./features/customer-access/customer-order.page').then((m) => m.CustomerOrderPage),
   },
   {
+    path: 'v/:publicIdentifier',
+    title: 'Vente directe · Groupia',
+    loadComponent: () => import('./features/direct-sales/public-direct.page').then((m) => m.PublicDirectPage),
+  },
+  {
     path: 'public/groupages/:publicIdentifier/cart',
     title: 'Mon panier · Groupia',
     loadComponent: () => import('./features/checkout/cart.page').then((m) => m.CartPage),
@@ -93,6 +98,11 @@ export const routes: Routes = [
         title: 'Ma boutique · Groupia',
         loadComponent: () =>
           import('./features/boutique/boutique.page').then((m) => m.BoutiquePage),
+      },
+      {
+        path: 'vente-directe',
+        title: 'Vente directe · Groupia',
+        loadComponent: () => import('./features/direct-sales/direct-sales.page').then((m) => m.DirectSalesPage),
       },
       {
         path: 'products',

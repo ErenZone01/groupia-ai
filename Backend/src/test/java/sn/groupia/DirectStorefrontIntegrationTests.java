@@ -446,6 +446,57 @@ class DirectStorefrontIntegrationTests {
                                         jsonPath("$.status").value("PENDING_PAYMENT_INTEGRATION"))
                                 .andReturn());
         assertThat(created.path("orderNumber").asText()).startsWith("DIR-");
+
+        // Merchant-only reads expose immutable snapshots, never another tenant's data.
+        String merchantPath = "/api/organizations/" + organizationId + "/direct-orders";
+        mvc.perform(get(merchantPath)).andExpect(status().isUnauthorized());
+        authorized(get(merchantPath + "?page=-1")).andExpect(status().isBadRequest());
+        var page = body(
+                authorized(get(merchantPath))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string(
+                                "Cache-Control",
+                                org.hamcrest.Matchers.containsString("no-store")))
+                        .andReturn());
+        assertThat(page.path("total").asLong()).isEqualTo(1);
+        assertThat(page.at("/items/0/orderNumber").asText())
+                .isEqualTo(created.path("orderNumber").asText());
+        assertThat(page.at("/items/0/itemCount").asInt()).isEqualTo(1);
+        assertThat(page.toString()).doesNotContain("+221771234567");
+
+        String orderId = page.at("/items/0/id").asText();
+        var detail = body(
+                authorized(get(merchantPath + "/" + orderId))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string(
+                                "Cache-Control",
+                                org.hamcrest.Matchers.containsString("no-store")))
+                        .andReturn());
+        assertThat(detail.at("/contact/firstName").asText()).isEqualTo("Awa");
+        assertThat(detail.at("/contact/phoneE164").asText()).isEqualTo("+221771234567");
+        assertThat(detail.at("/items/0/productName").asText()).isEqualTo("Panier direct");
+        assertThat(detail.at("/items/0/quantity").asInt()).isEqualTo(2);
+        assertThat(detail.at("/items/0/unitPriceXof").asLong()).isEqualTo(8500);
+        assertThat(detail.at("/order/amountBeforeShippingXof").asLong()).isEqualTo(17300);
+        assertThat(detail.at("/platformFeeRule/amount").asText()).isEqualTo("300");
+
+        var secondBearer = token(account("+221781234567"));
+        UUID secondOrg = organization(secondBearer, "Seconde boutique");
+        mvc.perform(get(merchantPath).header("Authorization", "Bearer " + secondBearer))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(merchantPath + "/" + orderId)
+                        .header("Authorization", "Bearer " + secondBearer))
+                .andExpect(status().isForbidden());
+        var secondPage = body(mvc.perform(
+                        get("/api/organizations/" + secondOrg + "/direct-orders")
+                                .header("Authorization", "Bearer " + secondBearer))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(secondPage.path("total").asLong()).isZero();
+        mvc.perform(get("/api/organizations/" + secondOrg + "/direct-orders/" + orderId)
+                        .header("Authorization", "Bearer " + secondBearer))
+                .andExpect(status().isNotFound());
+
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from direct_order_items", Long.class))

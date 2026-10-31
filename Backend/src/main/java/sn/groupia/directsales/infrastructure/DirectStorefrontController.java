@@ -7,13 +7,16 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sn.groupia.directsales.application.DirectStorefrontService;
+import sn.groupia.directsales.application.DirectCartQuoteService;
 
 @RestController
 class DirectStorefrontController {
     private final DirectStorefrontService direct;
+    private final DirectCartQuoteService carts;
 
-    DirectStorefrontController(DirectStorefrontService direct) {
+    DirectStorefrontController(DirectStorefrontService direct, DirectCartQuoteService carts) {
         this.direct = direct;
+        this.carts = carts;
     }
 
     record NameInput(@NotBlank @Size(max = 160) String displayName) {}
@@ -54,6 +57,16 @@ class DirectStorefrontController {
                 request.version(),
                 request.priceXof(),
                 request.published());
+    }
+
+    record QuoteInput(java.util.List<DirectCartQuoteService.RequestedLine> lines) {}
+
+    @PostMapping("/api/public/direct-stores/{publicIdentifier}/quote")
+    ResponseEntity<DirectCartQuoteService.Quote> quote(
+            @PathVariable UUID publicIdentifier, @RequestBody QuoteInput request) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(carts.quote(publicIdentifier, request == null ? null : request.lines()));
     }
 
     @GetMapping("/api/public/direct-stores/{publicIdentifier}")

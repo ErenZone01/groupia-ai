@@ -23,6 +23,10 @@
       <div><g-icon name="shield" />
         <span><strong>Catalogue sans compte</strong><small>Consultez librement les produits</small></span></div>
     </section>
+    @if (notice()) { <p class="notice" role="status">{{ notice() }}</p> }
+    <div class="cart-bar"><strong>{{ cart.count() }} article(s) dans mon panier</strong>
+      <a [routerLink]="['/v', shop.publicIdentifier, 'panier']" class="cart-link">Voir mon panier</a>
+    </div>
     <div class="catalog-heading">
       <div><h2>Articles disponibles</h2>
         <p>{{ visible().length }} article(s) dans cette sélection</p></div>
@@ -45,6 +49,9 @@
             <span class="attributes">{{ variantLabel(offer.attributes) }}</span>
             @if (offer.description) { <p>{{ offer.description }}</p> }
             <strong class="price">{{ money(offer.priceXof, 'XOF') }}</strong>
+            <button type="button" class="add-to-cart" (click)="addToCart(offer.id)" [disabled]="cart.count() >= 2000">
+              Ajouter au panier
+            </button>
           </div>
         </article>
       } @empty {
@@ -53,10 +60,10 @@
     </div>
     <aside class="notice">
       <g-icon name="info" />
-      <div><strong>Commande en ligne prochainement</strong>
-        <p>Cette vitrine permet actuellement de consulter les articles et leurs prix.
-          Le panier, la commande et le paiement en vente directe ne sont pas encore disponibles.
-          Les groupages continuent de fonctionner normalement.</p>
+      <div><strong>Panier et estimation disponibles</strong>
+        <p>Vous pouvez préparer votre sélection et vérifier son prix actuel.
+          Les commandes et les paiements en vente directe ne sont pas encore activés.
+          Aucun paiement ne sera demandé à ce stade.</p>
       </div>
     </aside>
   }

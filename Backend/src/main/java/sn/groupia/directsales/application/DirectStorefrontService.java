@@ -115,7 +115,8 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                         + " values (?,?,?,?,?,?)"
                         + " on conflict (organization_id) do update"
                         + " set display_name = excluded.display_name, updated_at = excluded.updated_at",
-                UUID.randomUUID(), organizationId, UUID.randomUUID(), name, now, now);
+                UUID.randomUUID(), organizationId, UUID.randomUUID(), name,
+                java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
         return manager(organizationId);
     }
 
@@ -141,7 +142,8 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                             + " (id,organization_id,storefront_id,product_variant_id,price_xof,"
                             + " published,version,created_at,updated_at)"
                             + " values (?,?,?,?,?,false,0,?,?)",
-                    UUID.randomUUID(), organizationId, store.id(), variantId, priceXof, now, now);
+                    UUID.randomUUID(), organizationId, store.id(), variantId, priceXof,
+                    java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
         } catch (DuplicateKeyException e) {
             throw new ApiException(409, "DIRECT_OFFER_EXISTS", "Cette variante est déjà proposée.");
         }
@@ -176,7 +178,7 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         int updated = jdbc.update(
                 "update direct_offers set price_xof=?, published=?,version=version+1,"
                         + "updated_at=? where storefront_id=? and id=? and version=?",
-                priceXof, published, clock.instant(), store.id(), offerId, version);
+                priceXof, published, java.sql.Timestamp.from(clock.instant()), store.id(), offerId, version);
         if (updated != 1) {
             throw new ApiException(409, "DIRECT_VERSION_CONFLICT", "Offre modifiée. Rechargez la page.");
         }

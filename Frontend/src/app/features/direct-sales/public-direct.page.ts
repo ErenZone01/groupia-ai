@@ -1,19 +1,22 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Icon } from '../../shared/ui/icon';
 import { PublicShell } from '../checkout/public-shell';
 import { money, variantLabel } from '../../shared/utils/display';
 import { apiMessage } from '../../core/http/api-error';
 import { DirectSalesApi, DirectStorefront } from './direct-sales.api';
+import { DirectCartStore } from './direct-cart.store';
 
 @Component({
   selector: 'g-public-direct-page',
-  imports: [Icon, PublicShell],
+  imports: [Icon, PublicShell, RouterLink],
   templateUrl: './public-direct.page.html',
   styleUrl: './public-direct.page.scss',
 })
 export class PublicDirectPage {
   private readonly api = inject(DirectSalesApi);
+  readonly cart = inject(DirectCartStore);
+  readonly notice = signal('');
   private readonly route = inject(ActivatedRoute);
   readonly store = signal<DirectStorefront | null>(null);
   readonly loading = signal(true);
@@ -39,8 +42,17 @@ export class PublicDirectPage {
     });
   }
 
+  addToCart(offerId: string) {
+    const id = this.store()?.publicIdentifier;
+    if (!id) return;
+    this.cart.add(id, offerId);
+    this.notice.set('Article ajouté au panier.');
+  }
+
   async load(identifier: string) {
     const request = ++this.counter;
+    this.cart.forShop(identifier);
+    this.notice.set('');
     this.loading.set(true);
     this.error.set('');
     this.store.set(null);

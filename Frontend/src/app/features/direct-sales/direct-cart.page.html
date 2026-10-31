@@ -56,6 +56,18 @@
       <p>Le panier est un aperçu, pas une réservation. Les prix seront revérifiés lors du futur checkout.
         Le paiement Bictorys n'est pas encore activé pour les ventes directes.</p>
     </aside>
+    @if (quote() && !loading() && !error()) {
+      <div class="checkout-preview-cta">
+        <div>
+          <strong>Préparer vos coordonnées</strong>
+          <p>Vous pourrez vérifier vos informations avant la future activation de la commande.
+            Aucun paiement ni commande ne sera créé.</p>
+        </div>
+        <a class="go-back" [routerLink]="['/v', publicId(), 'coordonnees']">
+          Préparer mes coordonnées
+        </a>
+      </div>
+    }
     <div class="footer-actions">
       <a class="go-back" [routerLink]="['/v', publicId()]">Continuer mes achats</a>
       <button type="button" (click)="clear()">Vider le panier</button>

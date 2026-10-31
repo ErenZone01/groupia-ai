@@ -1,0 +1,236 @@
+<g-public-shell [wide]="true">
+  <div class="direct-checkout">
+    <nav class="back">
+      <a [routerLink]="['/v', publicId(), 'panier']">← Retour au panier</a>
+    </nav>
+    <header class="heading">
+      <p class="eyebrow">Groupia · Vente directe</p>
+      <h1>Vos coordonnées</h1>
+      <p>Préparez votre commande sans créer de compte. La validation et le paiement seront proposés
+        une fois la vente directe entièrement activée.</p>
+    </header>
+
+    @if (!cart.items().length) {
+      <section class="empty" role="status">
+        <h2>Votre panier est vide</h2>
+        <p>Ajoutez des articles avant de préparer vos coordonnées.</p>
+        <a class="action-link" [routerLink]="['/v', publicId()]">Voir les articles</a>
+      </section>
+    } @else {
+      @if (loading()) {
+        <p class="notice" role="status">Vérification des prix de votre panier…</p>
+      }
+      @if (error()) {
+        <div class="notice problem" role="alert">
+          <strong>Les articles doivent être revérifiés</strong>
+          <p>{{ error() }} Un prix ou une offre a peut-être changé.</p>
+          <button type="button" (click)="refresh()">Réessayer</button>
+          <a [routerLink]="['/v', publicId(), 'panier']">Modifier mon panier</a>
+        </div>
+      }
+
+      <div class="layout">
+        <section class="form-card" aria-label="Vos informations">
+          @if (review()) {
+            <div class="section">
+              <div class="section-title">
+                <span class="step">01</span>
+                <div>
+                  <h2>Vérifiez vos informations</h2>
+                  <p>Ce récapitulatif est visible uniquement ici ; rien n'est transmis à la boutique.</p>
+                </div>
+              </div>
+              <dl class="review-grid">
+                <div><dt>Client</dt><dd>{{ contact.firstName }} {{ contact.lastName }}</dd></div>
+                <div><dt>Téléphone</dt><dd>{{ contact.phone }}</dd></div>
+                @if (contact.email) {
+                  <div><dt>Email</dt><dd>{{ contact.email }}</dd></div>
+                }
+                <div>
+                  <dt>Mode de remise</dt>
+                  <dd>{{ fulfillment === 'PICKUP' ? 'Retrait à convenir' : 'Livraison à organiser' }}</dd>
+                </div>
+                @if (fulfillment === 'DELIVERY') {
+                  <div><dt>Région</dt><dd>{{ location.region }}</dd></div>
+                  <div><dt>Ville / département</dt><dd>{{ location.city }}</dd></div>
+                  <div><dt>Commune</dt><dd>{{ location.commune }}</dd></div>
+                  @if (location.neighborhood) {
+                    <div><dt>Quartier</dt><dd>{{ location.neighborhood }}</dd></div>
+                  }
+                  <div><dt>Indications</dt><dd>{{ location.details }}</dd></div>
+                }
+              </dl>
+              <button type="button" class="action-link" (click)="edit()">Modifier mes coordonnées</button>
+            </div>
+          } @else {
+            <form #form="ngForm" (ngSubmit)="form.valid && showReview()" novalidate>
+              <section class="section">
+                <div class="section-title">
+                  <span class="step">01</span>
+                  <div>
+                    <h2>Informations personnelles</h2>
+                    <p>Pour vous identifier et vous contacter lors de la future commande.</p>
+                  </div>
+                </div>
+                <div class="field-grid">
+                  <label>Prénom *
+                    <input gInput name="firstName" autocomplete="given-name" required maxlength="100"
+                      pattern=".*\S.*" [(ngModel)]="contact.firstName" #first="ngModel"
+                      placeholder="Ex. Awa" />
+                    @if (first.invalid && first.touched) {
+                      <span class="field-error">Indiquez votre prénom.</span>
+                    }
+                  </label>
+                  <label>Nom *
+                    <input gInput name="lastName" autocomplete="family-name" required maxlength="100"
+                      pattern=".*\S.*" [(ngModel)]="contact.lastName" #last="ngModel"
+                      placeholder="Ex. Diop" />
+                    @if (last.invalid && last.touched) {
+                      <span class="field-error">Indiquez votre nom.</span>
+                    }
+                  </label>
+                </div>
+                <label>Téléphone *
+                  <input gInput type="tel" name="phone" autocomplete="tel" required
+                    maxlength="40" pattern="\+?[0-9\(\) .\-]{7,40}"
+                    [(ngModel)]="contact.phone" #phone="ngModel"
+                    placeholder="+221 77 123 45 67" />
+                  @if (phone.invalid && phone.touched) {
+                    <span class="field-error">Vérifiez votre numéro et son indicatif.</span>
+                  }
+                </label>
+                <label>Email <span class="optional">(facultatif)</span>
+                  <input gInput type="email" name="email" email autocomplete="email"
+                    maxlength="254" [(ngModel)]="contact.email" placeholder="exemple@email.com" />
+                </label>
+              </section>
+
+              <section class="section">
+                <div class="section-title">
+                  <span class="step">02</span>
+                  <div>
+                    <h2>Retrait ou livraison</h2>
+                    <p>Le mode de remise sera confirmé par la boutique avant tout paiement.</p>
+                  </div>
+                </div>
+                <div class="fulfillment" role="group" aria-label="Mode de remise">
+                  <label class="mode" [class.selected]="fulfillment === 'PICKUP'">
+                    <input type="radio" name="fulfillment" [ngModel]="fulfillment"
+                      (ngModelChange)="changeFulfillment($event)" value="PICKUP" />
+                    <span><strong>Retrait</strong><small>Lieu et disponibilité à convenir.</small></span>
+                  </label>
+                  <label class="mode" [class.selected]="fulfillment === 'DELIVERY'">
+                    <input type="radio" name="fulfillment" [ngModel]="fulfillment"
+                      (ngModelChange)="changeFulfillment($event)" value="DELIVERY" />
+                    <span><strong>Livraison éventuelle</strong><small>Tarif et faisabilité à confirmer.</small></span>
+                  </label>
+                </div>
+                @if (fulfillment === 'DELIVERY') {
+                  <div class="location-note">
+                    Renseigner une adresse ne garantit pas une livraison à domicile.
+                    Aucun frais de livraison n'est encore calculé.
+                  </div>
+                  <div class="field-grid">
+                    <label>Région *
+                      <select gSelect name="region" required [ngModel]="location.region"
+                        (ngModelChange)="changeRegion($event)">
+                        <option value="">Choisir une région</option>
+                        @for (region of regions; track region.name) {
+                          <option [value]="region.name">{{ region.name }}</option>
+                        }
+                      </select>
+                    </label>
+                    <label>Ville / département *
+                      <select gSelect name="cityChoice" required [disabled]="!location.region"
+                        [ngModel]="cityChoice" (ngModelChange)="changeCity($event)">
+                        <option value="">Choisir une ville ou zone</option>
+                        @for (city of cities; track city) {
+                          <option [value]="city">{{ city }}</option>
+                        }
+                        <option [value]="other">Ma ville n'est pas dans la liste</option>
+                      </select>
+                    </label>
+                  </div>
+                  @if (cityChoice === other) {
+                    <label>Préciser votre ville *
+                      <input gInput name="cityManual" required maxlength="100"
+                        [(ngModel)]="location.city" placeholder="Nom de votre ville" />
+                    </label>
+                  }
+                  <div class="field-grid">
+                    <label>Commune *
+                      <select gSelect name="communeChoice" required
+                        [disabled]="!location.region || !location.city"
+                        [ngModel]="communeChoice" (ngModelChange)="changeCommune($event)">
+                        <option value="">Choisir une commune</option>
+                        @for (commune of communes; track commune) {
+                          <option [value]="commune">{{ commune }}</option>
+                        }
+                        <option [value]="other">Ma commune n'est pas dans la liste</option>
+                      </select>
+                    </label>
+                    <label>Quartier <span class="optional">(facultatif)</span>
+                      <input gInput name="neighborhood" maxlength="160"
+                        [(ngModel)]="location.neighborhood"
+                        placeholder="Ex. Liberté 6, Parcelles…" />
+                    </label>
+                  </div>
+                  @if (communeChoice === other) {
+                    <label>Préciser votre commune *
+                      <input gInput name="communeManual" required maxlength="120"
+                        [(ngModel)]="location.commune" placeholder="Nom de la commune" />
+                    </label>
+                  }
+                  <label>Adresse détaillée / point de repère *
+                    <textarea gInput name="details" rows="3" required maxlength="500"
+                      [(ngModel)]="location.details"
+                      placeholder="Rue, maison, point de repère utile"></textarea>
+                  </label>
+                }
+              </section>
+
+              <div class="form-footer">
+                <p>Vos informations restent dans cette page. Aucune commande ni paiement n'est créé.</p>
+                <button type="submit" [disabled]="!form.valid || !quote() || loading() || !!error()">
+                  Vérifier mon récapitulatif
+                </button>
+              </div>
+            </form>
+          }
+        </section>
+
+        <aside class="summary-card" aria-label="Récapitulatif du panier">
+          <p class="eyebrow">Votre sélection</p>
+          <h2>{{ quote()?.displayName || 'Commande directe' }}</h2>
+          @if (quote(); as q) {
+            <div class="lines">
+              @for (line of q.lines; track line.offerId) {
+                <div class="line">
+                  <div>
+                    <strong>{{ line.productName }}</strong>
+                    <small>{{ variantLabel(line.attributes) }} · Qté {{ line.quantity }}</small>
+                  </div>
+                  <span>{{ money(line.lineTotalXof, q.currency) }}</span>
+                </div>
+              }
+            </div>
+            <div class="subtotal">
+              <span>Sous-total articles</span>
+              <strong>{{ money(q.goodsSubtotalXof, q.currency) }}</strong>
+            </div>
+          }
+          <div class="pending-total">
+            <strong>Ce n'est pas le montant final.</strong>
+            <p>Les frais de plateforme et les éventuels frais de livraison seront
+              précisés avant la mise en service du paiement.</p>
+          </div>
+          <div class="payment-state" role="note">
+            <strong>Finalisation des ventes directes bientôt disponible</strong>
+            <p>Le panier n'est pas réservé. Aucun débit n'est possible depuis cette page.</p>
+          </div>
+          <a class="back-to-cart" [routerLink]="['/v', publicId(), 'panier']">Modifier les articles</a>
+        </aside>
+      </div>
+    }
+  </div>
+</g-public-shell>

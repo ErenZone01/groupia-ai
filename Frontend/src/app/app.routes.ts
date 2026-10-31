@@ -28,6 +28,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/direct-sales/direct-cart.page').then((m) => m.DirectCartPage),
   },
   {
+    path: 'v/:publicIdentifier/coordonnees',
+    title: 'Vos coordonnées · Vente directe · Groupia',
+    loadComponent: () =>
+      import('./features/direct-sales/direct-checkout.page').then((m) => m.DirectCheckoutPage),
+  },
+  {
     path: 'v/:publicIdentifier',
     title: 'Vente directe · Groupia',
     loadComponent: () => import('./features/direct-sales/public-direct.page').then((m) => m.PublicDirectPage),

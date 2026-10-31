@@ -6,12 +6,15 @@ import { apiMessage } from '../../core/http/api-error';
 import { Brand } from '../../shared/ui/brand';
 import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/forms/input';
+import { Icon } from '../../shared/ui/icon';
 import { Select } from '../../shared/forms/select';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ToastService } from '../../shared/feedback/toast.service';
+import { AuthShowcase } from './auth-showcase';
+
 @Component({
   selector: 'g-auth-page',
-  imports: [FormsModule, RouterLink, Brand, Button, Input, Select],
+  imports: [FormsModule, RouterLink, Brand, Button, Input, Icon, Select, AuthShowcase],
   templateUrl: './auth.page.html',
   styleUrl: './auth.page.scss',
 })
@@ -25,18 +28,40 @@ export class AuthPage {
   readonly expired = this.route.snapshot.queryParamMap.has('expired');
   readonly busy = signal(false);
   readonly error = signal('');
+  readonly showPassword = signal(false);
+  readonly showConfirmation = signal(false);
   phoneNumber = '';
   password = '';
+  passwordConfirmation = '';
   email = '';
+
+  readonly minPasswordCharacters = 15;
+  readonly maxPasswordBytes = 72;
+
+  passwordIsValid(): boolean {
+    return (
+      Array.from(this.password).length >= this.minPasswordCharacters &&
+      new TextEncoder().encode(this.password).length <= this.maxPasswordBytes
+    );
+  }
+
+  passwordsMatch(): boolean {
+    return this.password.length > 0 && this.password === this.passwordConfirmation;
+  }
+
   async submit() {
-    if (this.busy()) return;
-    if (
-      this.registerMode &&
-      (Array.from(this.password).length < 15 || new TextEncoder().encode(this.password).length > 72)
-    ) {
-      this.error.set('Choisissez au moins 15 caractères, dans la limite de 72 octets UTF-8.');
-      return;
+    if (this.busy() || !this.phoneNumber.trim() || !this.password) return;
+    if (this.registerMode) {
+      if (!this.passwordIsValid()) {
+        this.error.set('Choisissez au moins 15 caractères, dans la limite de 72 octets UTF-8.');
+        return;
+      }
+      if (!this.passwordsMatch()) {
+        this.error.set('Les deux mots de passe ne correspondent pas.');
+        return;
+      }
     }
+
     this.busy.set(true);
     this.error.set('');
     try {
@@ -47,6 +72,7 @@ export class AuthPage {
           ...(this.email.trim() ? { email: this.email.trim() } : {}),
         });
         this.password = '';
+        this.passwordConfirmation = '';
         this.toast.show('Demande prise en compte. Vous pouvez essayer de vous connecter.');
         await this.router.navigateByUrl('/connexion');
       } else {

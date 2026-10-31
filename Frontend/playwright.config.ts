@@ -13,9 +13,12 @@ export default defineConfig({
       timeout: 120000,
     },
     {
-      command: 'node tools/serve-production.cjs',
+      // Never serve a stale dist/ bundle: a previous npm run build can predate
+      // the branch under test (notably when running a targeted E2E spec).
+      command: 'npm run build && node tools/serve-production.cjs',
       url: 'http://127.0.0.1:4300',
       reuseExistingServer: false,
+      timeout: 180000,
     },
   ],
 });

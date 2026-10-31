@@ -73,6 +73,8 @@ test('inscription puis connexion sans session fabriquée', async ({ page }) => {
   await page.goto('/inscription');
   await page.getByLabel('Numéro de téléphone').fill('+221771234567');
   await page.getByLabel('Mot de passe', { exact: true }).fill('une phrase suffisamment longue');
+  await page.getByLabel('Confirmer le mot de passe', { exact: true }).fill('une phrase suffisamment longue');
+  await expect(page.getByRole('button', { name: 'Créer mon compte' })).toBeEnabled();
   await page.getByRole('button', { name: 'Créer mon compte' }).click();
   await expect(page).toHaveURL(/connexion/);
   expect(await page.evaluate(() => sessionStorage.getItem('groupia.session'))).toBeNull();

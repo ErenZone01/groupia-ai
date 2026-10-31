@@ -1,92 +1,152 @@
-<main>
-  <section class="welcome">
-    <g-brand />
-    <p class="eyebrow">Bienvenue chez vous</p>
-    <h1>Votre boutique.<br />Vos groupages.<br /><em>De belles opportunités.</em></h1>
-    <p>Un espace simple pour rapprocher vos clientes et faire grandir votre activité.</p>
-  </section>
-  <section class="form">
-    <div>
-      <label class="theme"
-        ><span class="sr-only">Thème</span
-        ><select
-          gSelect
-          aria-label="Thème"
-          [value]="theme.preference()"
-          (change)="theme.setPreference($any($event.target).value)"
-        >
+<main class="auth-page">
+  <div class="auth-card">
+    <header class="auth-topbar">
+      <g-brand />
+      <label class="theme-switcher">
+        <span class="sr-only">Thème</span>
+        <select gSelect aria-label="Thème" [value]="theme.preference()"
+          (change)="theme.setPreference($any($event.target).value)">
           <option value="light">Clair</option>
           <option value="dark">Sombre</option>
           <option value="system">Système</option>
-        </select></label
-      >
-      <h2>{{ registerMode ? 'Créer mon compte' : 'Ravie de vous retrouver' }}</h2>
-      <p class="muted">
-        {{
-          registerMode ? 'Ouvrez votre espace Groupia.' : 'Connectez-vous à votre espace Groupia.'
-        }}
-      </p>
-      @if (expired) {
-        <p role="status" class="notice">Votre session a expiré. Connectez-vous à nouveau.</p>
-      }
-      <form #form="ngForm" (ngSubmit)="submit()" class="form-stack">
-        <label for="phone">Numéro de téléphone</label
-        ><input
-          gInput
-          id="phone"
-          name="phone"
-          type="tel"
-          autocomplete="username"
-          required
-          maxlength="40"
-          [(ngModel)]="phoneNumber"
-          placeholder="+221…"
-        />
-        @if (registerMode) {
-          <label for="email">Email <span class="muted">(facultatif)</span></label
-          ><input
-            gInput
-            id="email"
-            name="email"
-            type="email"
-            email
-            maxlength="254"
-            autocomplete="email"
-            [(ngModel)]="email"
-          />
+        </select>
+      </label>
+    </header>
+
+    <section class="auth-form-side" [attr.aria-label]="registerMode ? 'Inscription Groupia' : 'Connexion Groupia'">
+      <div class="auth-form-content">
+        <span class="auth-eyebrow">{{ registerMode ? 'Bienvenue sur Groupia' : 'Votre espace professionnel' }}</span>
+        <h1>{{ registerMode ? 'Créer votre compte' : 'Bon retour 👋' }}</h1>
+        <p class="auth-intro">
+          @if (registerMode) {
+            Créez votre accès Groupia, puis configurez votre boutique et vos produits.
+          } @else {
+            Connectez-vous pour retrouver votre boutique, vos groupages et vos commandes.
+          }
+        </p>
+
+        @if (expired) {
+          <p role="status" class="auth-notice">Votre session a expiré. Connectez-vous à nouveau.</p>
         }
-        <label for="password">Mot de passe</label
-        ><input
-          gInput
-          id="password"
-          name="password"
-          type="password"
-          required
-          maxlength="72"
-          [autocomplete]="registerMode ? 'new-password' : 'current-password'"
-          [(ngModel)]="password"
-          [attr.aria-describedby]="registerMode ? 'password-help' : null"
-        />
+
+        <form #form="ngForm" (ngSubmit)="form.valid && submit()" class="auth-form" novalidate>
+          <div class="auth-field">
+            <label for="auth-phone">Numéro de téléphone <span aria-hidden="true" class="required">*</span></label>
+            <div class="field-control">
+              <g-icon name="phone" />
+              <input gInput id="auth-phone" name="phone" type="tel" inputmode="tel"
+                [autocomplete]="registerMode ? 'tel' : 'username'"
+                required maxlength="40" [disabled]="busy()" [(ngModel)]="phoneNumber"
+                #phone="ngModel" placeholder="Ex. +221 77 123 45 67"
+                aria-describedby="phone-hint" />
+            </div>
+            <p id="phone-hint" class="field-help">Avec l'indicatif de votre pays (ex. +221).</p>
+            @if (phone.invalid && phone.touched) {
+              <p class="field-error">Renseignez votre numéro de téléphone.</p>
+            }
+          </div>
+
+          @if (registerMode) {
+            <div class="auth-field">
+              <label for="auth-email">Adresse email <span class="optional">(facultatif)</span></label>
+              <div class="field-control">
+                <g-icon name="mail" />
+                <input gInput id="auth-email" name="email" type="email" email
+                  autocomplete="email" maxlength="254" [disabled]="busy()"
+                  [(ngModel)]="email" #emailField="ngModel"
+                  placeholder="vous@exemple.com" />
+              </div>
+              @if (emailField.invalid && emailField.touched) {
+                <p class="field-error">Vérifiez le format de votre adresse email.</p>
+              }
+            </div>
+          }
+
+          <div class="auth-field">
+            <label for="auth-password">Mot de passe <span aria-hidden="true" class="required">*</span></label>
+            <div class="field-control">
+              <g-icon name="lock" />
+              <input gInput id="auth-password" name="password" aria-label="Mot de passe" required
+                [type]="showPassword() ? 'text' : 'password'"
+                [autocomplete]="registerMode ? 'new-password' : 'current-password'"
+                [disabled]="busy()" [(ngModel)]="password"
+                #passwordField="ngModel"
+                [attr.aria-describedby]="registerMode ? 'password-hint' : null"
+                placeholder="{{ registerMode ? 'Créez un mot de passe' : 'Votre mot de passe' }}" />
+              <button type="button" class="visibility-toggle"
+                [disabled]="busy()" [attr.aria-pressed]="showPassword()"
+                [attr.aria-label]="showPassword() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                (click)="showPassword.update((value) => !value)">
+                <g-icon [name]="showPassword() ? 'eye-off' : 'eye'" />
+              </button>
+            </div>
+            @if (registerMode) {
+              <p id="password-hint" class="field-help">
+                Au moins 15 caractères, sans dépasser 72 octets UTF-8.
+              </p>
+              @if (password && !passwordIsValid()) {
+                <p class="field-error">Le mot de passe ne respecte pas encore la longueur demandée.</p>
+              }
+            } @else if (passwordField.invalid && passwordField.touched) {
+              <p class="field-error">Saisissez votre mot de passe.</p>
+            }
+          </div>
+
+          @if (registerMode) {
+            <div class="auth-field">
+              <label for="auth-confirm">Confirmer le mot de passe <span aria-hidden="true" class="required">*</span></label>
+              <div class="field-control">
+                <g-icon name="lock" />
+                <input gInput id="auth-confirm" name="passwordConfirmation" aria-label="Confirmer le mot de passe" required
+                  [type]="showConfirmation() ? 'text' : 'password'"
+                  autocomplete="new-password" [disabled]="busy()"
+                  [(ngModel)]="passwordConfirmation" #confirmField="ngModel"
+                  [attr.aria-invalid]="(confirmField.touched || confirmField.dirty) && !!passwordConfirmation && !passwordsMatch()"
+                  aria-describedby="confirm-hint" placeholder="Répétez le mot de passe" />
+                <button type="button" class="visibility-toggle" [disabled]="busy()"
+                  [attr.aria-pressed]="showConfirmation()"
+                  [attr.aria-label]="showConfirmation() ? 'Masquer la confirmation' : 'Afficher la confirmation'"
+                  (click)="showConfirmation.update((value) => !value)">
+                  <g-icon [name]="showConfirmation() ? 'eye-off' : 'eye'" />
+                </button>
+              </div>
+              <p id="confirm-hint" class="field-help">Les deux mots de passe doivent être identiques.</p>
+              @if ((confirmField.touched || confirmField.dirty) && !!passwordConfirmation && !passwordsMatch()) {
+                <p class="field-error">Les mots de passe ne correspondent pas.</p>
+              }
+            </div>
+          }
+
+          @if (error()) {
+            <p role="alert" class="auth-error">{{ error() }}</p>
+          }
+
+          <button gButton type="submit" class="auth-submit" [loading]="busy()"
+            [disabled]="form.invalid || busy() || !phoneNumber.trim() || (registerMode && (!passwordIsValid() || !passwordsMatch()))">
+            {{ registerMode ? 'Créer mon compte' : 'Se connecter' }}
+            <g-icon name="arrow" />
+          </button>
+        </form>
+
+        <div class="auth-switch">
+          @if (registerMode) {
+            <span>Déjà un compte ?</span>
+            <a routerLink="/connexion">Se connecter</a>
+          } @else {
+            <span>Vous découvrez Groupia ?</span>
+            <a routerLink="/inscription">Créer un compte</a>
+          }
+        </div>
         @if (registerMode) {
-          <p id="password-help" class="muted">
-            Au moins 15 caractères. Une phrase longue est idéale. Maximum 72 octets UTF-8.
+          <p class="auth-footnote">
+            Le nom et les informations de votre boutique se configurent après l'inscription.
           </p>
         }
-        @if (error()) {
-          <p role="alert" class="form-error">{{ error() }}</p>
-        }
-        <button
-          gButton
-          type="submit"
-          [loading]="busy()"
-          [disabled]="form.invalid || !phoneNumber.trim()"
-        >
-          {{ registerMode ? 'Créer mon compte' : 'Se connecter' }}
-        </button>
-      </form>
-      <a [routerLink]="registerMode ? '/connexion' : '/inscription'">{{
-        registerMode ? 'J’ai déjà un compte' : 'Créer un compte'
-      }}</a>
-    </div>
-  </section>
+      </div>
+    </section>
+
+    <aside class="auth-promo" aria-label="Découvrir Groupia">
+      <g-auth-showcase [registerMode]="registerMode" />
+    </aside>
+  </div>
 </main>

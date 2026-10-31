@@ -1,0 +1,31 @@
+:host { display:block; min-width:0; }
+.product-card { display:flex; flex-direction:column; min-width:0; height:100%; overflow:hidden; padding:10px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+.product-media { display:grid; gap:8px; min-width:0; }
+.product-media-main,.product-media-placeholder { width:100%; aspect-ratio:4/3; border-radius:11px; overflow:hidden; background:var(--surface-alt); border:1px solid var(--border); }
+.product-media-main img { width:100%; height:100%; object-fit:contain; display:block; }
+.product-media-placeholder { display:grid; place-content:center; justify-items:center; gap:7px; font-size:11px; color:var(--muted); }
+.product-media-placeholder g-icon { width:30px; height:30px; }
+.product-thumbnails { display:flex; gap:6px; max-width:100%; overflow-x:auto; scrollbar-width:thin; }
+.product-thumb { width:38px; height:38px; flex:0 0 38px; border:2px solid transparent; padding:2px; background:var(--surface-alt); border-radius:8px; }
+.product-thumb[aria-pressed='true'] { border-color:var(--primary); }
+.product-thumb img { width:100%; height:100%; object-fit:contain; }
+.product-detail { flex:1; display:flex; flex-direction:column; gap:8px; padding:12px 3px 2px; min-width:0; }
+.product-state { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.selected-tag { color:var(--positive-text); font-size:10px; }
+.product-detail h3 { font-size:13px; line-height:1.45; font-weight:650; overflow-wrap:anywhere; }
+.variant { font-size:11px; color:var(--muted); }
+.price { font-size:16px; font-weight:700; overflow-wrap:anywhere; }
+.product-description { font-size:11px; color:var(--muted); line-height:1.65; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.add-product.g-button { min-height:42px; margin-top:auto; padding:10px 8px; width:100%; font-size:11px; }
+.add-product g-icon { width:16px; height:16px; }
+@media (max-width:590px) {
+  .product-card { display:grid; grid-template-columns:minmax(95px,40%) minmax(0,1fr); gap:10px; padding:9px; }
+  .product-detail { padding:2px 0; gap:6px; }
+  .product-detail h3 { font-size:12px; }
+  .price { font-size:14px; }
+  .product-description { -webkit-line-clamp:2; }
+  .product-media-main,.product-media-placeholder { aspect-ratio:4/5; }
+  .product-thumbnails { gap:4px; }
+  .product-thumb { width:31px; height:31px; flex-basis:31px; }
+  .add-product.g-button { min-height:40px; font-size:10px; }
+}

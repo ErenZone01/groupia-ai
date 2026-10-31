@@ -1,10 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import { Brand } from '../../shared/ui/brand';
 import { Select } from '../../shared/forms/select';
 import { ThemeService } from '../../core/theme/theme.service';
 @Component({
   selector: 'g-public-shell',
-  host: { class: 'public-flow' },
+  host: { class: 'public-flow', '[class.wide]': 'wide()' },
   imports: [Brand, Select],
   template: ` <header>
       <g-brand /><select
@@ -38,8 +38,12 @@ import { ThemeService } from '../../core/theme/theme.service';
       padding: var(--s8) var(--s5) calc(var(--s8) + 80px);
       overflow-wrap: anywhere;
     }
+    :host(.wide) main {
+      max-width: 1320px;
+    }
   `,
 })
 export class PublicShell {
+  readonly wide = input(false);
   readonly theme = inject(ThemeService);
 }

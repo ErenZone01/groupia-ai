@@ -1,0 +1,36 @@
+:host { display:grid; gap:13px; min-width:0; }
+.cart-line { min-width:0; padding:15px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+.line-head { display:grid; grid-template-columns:120px minmax(0,1fr) auto; align-items:center; gap:16px; min-width:0; }
+.cart-image { width:120px; height:130px; display:block; object-fit:contain; background:var(--surface-alt); border:1px solid var(--border); border-radius:12px; }
+.cart-image--placeholder { display:grid; place-items:center; padding:9px; font-size:11px; color:var(--muted); text-align:center; }
+.line-copy { min-width:0; display:grid; gap:7px; }
+.line-copy h2 { font-size:14px; line-height:1.5; overflow-wrap:anywhere; }
+.variant { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+.unit-price { font-size:13px; font-weight:700; }
+.unit-price small { font-size:11px; color:var(--muted); font-weight:400; }
+.line-actions { display:grid; justify-items:end; gap:8px; min-width:0; }
+.delete-line.g-button { min-height:35px; font-size:11px; padding:6px 9px; color:var(--danger-text); }
+.quantity { display:flex; align-items:center; gap:7px; }
+.quantity .g-button { min-width:42px; min-height:42px; padding:7px 10px; }
+.quantity span { font-size:12px; white-space:nowrap; }
+.line-total { font-size:13px; overflow-wrap:anywhere; text-align:right; }
+.cart-change { margin-top:13px; display:grid; justify-items:start; gap:9px; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--warning-soft); color:var(--warning-text); font-size:12px; }
+.cart-change p { margin:0; }
+.cart-change .g-button { font-size:12px; }
+@media (max-width:800px) {
+  .line-head { grid-template-columns:95px minmax(0,1fr); align-items:start; }
+  .cart-image { width:95px; height:105px; }
+  .line-actions { grid-column:2; justify-items:start; grid-template-columns:minmax(0,1fr) auto; align-items:center; width:100%; }
+  .delete-line.g-button { grid-column:2; grid-row:1; }
+  .quantity { grid-column:1/-1; grid-row:2; }
+  .line-total { grid-column:1/-1; grid-row:3; }
+}
+@media (max-width:400px) {
+  .cart-line { padding:11px; }
+  .line-head { grid-template-columns:78px minmax(0,1fr); gap:10px; }
+  .cart-image { width:78px; height:92px; }
+  .line-copy h2 { font-size:12px; }
+  .line-actions { gap:5px; }
+  .quantity .g-button { min-width:40px; min-height:40px; }
+  .quantity span { font-size:11px; }
+}

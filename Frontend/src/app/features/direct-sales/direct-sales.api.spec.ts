@@ -44,6 +44,30 @@ describe('Vente directe : contrats HTTP', () => {
     await expect(pending).resolves.toMatchObject({ publicIdentifier: storefront.publicIdentifier });
   });
 
+  it('cote le panier à partir du serveur sans prix fourni par le client', async () => {
+    const pending = api.quote(storefront.publicIdentifier, [{ offerId: 'offre-1', quantity: 2 }]);
+    const req = http.expectOne('/api/public/direct-stores/' + storefront.publicIdentifier + '/quote');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ lines: [{ offerId: 'offre-1', quantity: 2 }] });
+    req.flush({
+      currency: 'XOF',
+      displayName: 'Boutique Awa',
+      goodsSubtotalXof: 17000,
+      checkoutAvailable: false,
+      lines: [{
+        offerId: 'offre-1',
+        variantId: 'variante-1',
+        quantity: 2,
+        unitPriceXof: 8500,
+        lineTotalXof: 17000,
+        priceRevision: 1,
+        productName: 'Sac en cuir',
+        attributes: {},
+      }],
+    });
+    expect((await pending).goodsSubtotalXof).toBe(17000);
+  });
+
   it('le lien public ne nécessite pas de contexte commerçant', async () => {
     const pending = api.publicStore(storefront.publicIdentifier);
     const req = http.expectOne('/api/public/direct-stores/' + storefront.publicIdentifier);

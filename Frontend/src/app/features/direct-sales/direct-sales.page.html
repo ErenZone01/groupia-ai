@@ -102,7 +102,7 @@
             <input [id]="'direct-offer-price-' + offer.id" type="number"
               min="1" max="999999999999" step="1" [disabled]="busy()"
               [value]="prices()[offer.id]"
-              (input)="prices.update(p => ({...p, [offer.id]: +$any($event.target).value}))" />
+              (input)="setPrice(offer.id, $any($event.target).value)" />
           </div>
           <div class="offer-actions">
             <button type="button" gButton variant="secondary" [disabled]="busy()"

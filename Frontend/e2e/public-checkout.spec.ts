@@ -121,6 +121,10 @@ async function contact(page: Page) {
   await page.getByLabel('Prénom *').fill('Awa');
   await page.getByLabel('Nom *', { exact: true }).fill('Diop');
   await page.getByLabel('Téléphone *').fill('+221771234567');
+  await page.getByLabel('Région *').selectOption('Dakar');
+  await page.getByLabel('Ville / département *').selectOption('Dakar');
+  await page.getByLabel('Commune *').selectOption('Biscuiterie');
+  await page.getByLabel('Adresse détaillée / point de repère *').fill('Rue 12, près de la mairie');
 }
 async function checkout(page: Page) {
   await page.getByRole('button', { name: 'Continuer vers le paiement' }).click();
@@ -172,6 +176,86 @@ for (const [width, theme] of [
     await expect(page.getByRole('heading', { name: 'Ma sélection (0)' })).toBeVisible();
   });
 }
+
+test('adresse Sénégal : les listes dépendantes sont requises et soumises avec la commande', async ({ page }) => {
+  const state = await publicApi(page);
+  await select(page);
+  await page.getByRole('link', { name: 'Continuer vers mes coordonnées' }).click();
+  await page.getByLabel('Prénom *').fill('Awa');
+  await page.getByLabel('Nom *', { exact: true }).fill('Diop');
+  await page.getByLabel('Téléphone *').fill('+221771234567');
+  await expect(page.getByRole('button', { name: 'Continuer vers le paiement' })).toBeDisabled();
+
+  await page.getByLabel('Région *').selectOption('Dakar');
+  await page.getByLabel('Ville / département *').selectOption('Dakar');
+  await page.getByLabel('Commune *').selectOption('Biscuiterie');
+  await page.getByLabel('Adresse détaillée / point de repère *').fill('Rue 12, près de la mairie');
+  await expect(page.getByRole('button', { name: 'Continuer vers le paiement' })).toBeEnabled();
+
+  await checkout(page);
+  expect(state.checkouts[0].body.contact.deliveryAddress).toEqual({
+    country: 'SN',
+    region: 'Dakar',
+    city: 'Dakar',
+    commune: 'Biscuiterie',
+    details: 'Rue 12, près de la mairie',
+  });
+  await noOverflow(page);
+});
+
+test('adresse Sénégal : changer de région réinitialise la commune et autorise la saisie libre', async ({ page }) => {
+  await publicApi(page);
+  await select(page);
+  await page.getByRole('link', { name: 'Continuer vers mes coordonnées' }).click();
+  await page.getByLabel('Région *').selectOption('Dakar');
+  await page.getByLabel('Ville / département *').selectOption('Dakar');
+  await page.getByLabel('Commune *').selectOption('Biscuiterie');
+  await page.getByLabel('Région *').selectOption('Thiès');
+  await expect(page.getByLabel('Ville / département *')).toHaveValue('');
+  await expect(page.getByLabel('Commune *')).toHaveValue('');
+
+  await page.getByLabel('Ville / département *').selectOption('__OTHER__');
+  await page.getByLabel('Préciser votre ville *').fill('Ma localité');
+  await page.getByLabel('Commune *').selectOption('__OTHER__');
+  await page.getByLabel('Préciser votre commune *').fill('Ma commune');
+  await expect(page.getByLabel('Préciser votre ville *')).toHaveValue('Ma localité');
+  await noOverflow(page);
+});
+
+test('adresse après rechargement : le formulaire reste utilisable et le serveur revalide le panier', async ({ page }) => {
+  const state = await publicApi(page);
+  await select(page);
+  await page.getByRole('link', { name: 'Continuer vers mes coordonnées' }).click();
+  // Angular navigates asynchronously. Wait until the checkout form is mounted
+  // before reloading, otherwise Playwright may reload the cart URL instead.
+  await expect(page).toHaveURL(base + '/checkout');
+  await expect(page.getByLabel('Prénom *')).toBeVisible();
+  const savedCart = await page.evaluate(
+    (id) => JSON.parse(sessionStorage.getItem('groupia.carts') ?? '{}')[id],
+    publicId,
+  );
+  expect(savedCart).toHaveLength(1);
+
+  await page.reload();
+  await expect(page).toHaveURL(base + '/checkout');
+  await expect(page.getByLabel('Prénom *')).toBeVisible();
+  const restoredCart = await page.evaluate(
+    (id) => JSON.parse(sessionStorage.getItem('groupia.carts') ?? '{}')[id],
+    publicId,
+  );
+  expect(restoredCart).toHaveLength(1);
+  await page.getByLabel('Prénom *').fill('Awa');
+  await page.getByLabel('Nom *', { exact: true }).fill('Diop');
+  await page.getByLabel('Téléphone *').fill('+221771234567');
+  await page.getByLabel('Région *').selectOption('Dakar');
+  await page.getByLabel('Ville / département *').selectOption('Dakar');
+  await page.getByLabel('Commune *').selectOption('Biscuiterie');
+  await page.getByLabel('Adresse détaillée / point de repère *').fill('Rue 12');
+  await expect(page.getByRole('button', { name: 'Continuer vers le paiement' })).toBeEnabled();
+  await checkout(page);
+  expect(state.checkouts).toHaveLength(1);
+});
+
 test('double-clic checkout ne crée qu’une tentative', async ({ page }) => {
   const state = await publicApi(page);
   await select(page);

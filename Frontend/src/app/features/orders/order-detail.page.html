@@ -107,6 +107,17 @@
             } @else {
               <p class="muted">Téléphone non renseigné</p>
             }
+            @if (customerLocation(); as address) {
+              <div class="customer-location">
+                <strong>Localisation déclarée</strong>
+                <p>{{ address.region }} · {{ address.city }} · {{ address.commune }}</p>
+                @if (address.neighborhood) {
+                  <p>Quartier : {{ address.neighborhood }}</p>
+                }
+                <p class="preserve">{{ address.details }}</p>
+                <small>À utiliser pour organiser le retrait ou une livraison convenue avec la cliente.</small>
+              </div>
+            }
             @if (contact.email) {
               <details class="secondary-details">
                 <summary>Afficher l’adresse e-mail</summary>

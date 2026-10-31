@@ -21,7 +21,15 @@ class CheckoutSecrets {
         // Fixed, versioned positional encoding; normalized/sorted input, never current prices/configuration.
         var canonicalLines = lines.stream().map(l -> List.of(l.offerId().toString(), Integer.toString(l.quantity()),
                 l.expectedUnitPrice().toPlainString(), Long.toString(l.expectedPriceRevision()))).toList();
-        return hash(json.writeValueAsString(List.of("checkout-v1", publicId.toString(),
-                Arrays.asList(contact.firstName(), contact.lastName(), contact.phoneE164(), contact.email()), canonicalLines)));
+        var base = Arrays.asList(contact.firstName(), contact.lastName(), contact.phoneE164(), contact.email());
+        if (contact.deliveryAddress() == null) {
+            // Preserve fingerprints of pre-address checkouts and in-flight retries.
+            return hash(json.writeValueAsString(List.of("checkout-v1", publicId.toString(), base, canonicalLines)));
+        }
+        var address = contact.deliveryAddress();
+        var location = Arrays.asList(address.country(), address.region(), address.city(),
+                address.commune(), address.neighborhood(), address.details());
+        return hash(json.writeValueAsString(List.of("checkout-v2-address", publicId.toString(),
+                base, location, canonicalLines)));
     }
 }

@@ -4,6 +4,7 @@ import com.google.i18n.phonenumbers.*;
 import org.springframework.stereotype.Component;
 import sn.groupia.grouping.api.dto.CheckoutSelection;
 import sn.groupia.ordering.api.dto.CustomerContact;
+import sn.groupia.ordering.api.dto.DeliveryAddress;
 import sn.groupia.ordering.application.command.CheckoutCommand;
 import sn.groupia.shared.api.ApiException;
 
@@ -29,9 +30,34 @@ class CheckoutInput {
         try {
             var parsed = util.parse(phone, country);
             if (parsed.hasExtension() || !util.isValidNumber(parsed)) { throw invalidContact(); }
-            return new CustomerContact(first, last, util.format(parsed, PhoneNumberUtil.PhoneNumberFormat.E164), email);
+            return new CustomerContact(first, last, util.format(parsed, PhoneNumberUtil.PhoneNumberFormat.E164), email,
+                    deliveryAddress(input.deliveryAddress()));
         } catch (NumberParseException ex) { throw invalidContact(); }
     }
+    private DeliveryAddress deliveryAddress(DeliveryAddress input) {
+        // Legacy public checkouts may not include this field. New clients validate
+        // the location in their form, and any supplied address is validated server-side.
+        if (input == null) return null;
+        String country = text(input.country(), 2, true);
+        if (!"SN".equals(country)) throw invalidContact();
+        return new DeliveryAddress(
+                country,
+                text(input.region(), 100, true),
+                text(input.city(), 100, true),
+                text(input.commune(), 120, true),
+                text(input.neighborhood(), 160, false),
+                text(input.details(), 500, true));
+    }
+
+    private String text(String value, int max, boolean required) {
+        String cleaned = value == null ? "" : value.strip();
+        if (cleaned.length() > max || (required && cleaned.isBlank())
+                || cleaned.codePoints().anyMatch(Character::isISOControl)) {
+            throw invalidContact();
+        }
+        return cleaned.isEmpty() ? null : cleaned;
+    }
+
     List<CheckoutSelection> lines(CheckoutCommand command) {
         if (command == null || command.lines() == null || command.lines().isEmpty() || command.lines().size() > 100) {
             throw new ApiException(400, "INVALID_ORDER_LINES", "Une commande contient entre 1 et 100 offres.");

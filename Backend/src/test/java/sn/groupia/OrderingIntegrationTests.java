@@ -146,6 +146,72 @@ class OrderingIntegrationTests {
     }
 
     @Test
+    void storesDeliveryLocationInImmutableOrderContactSnapshotAndBindsIdempotency()
+            throws Exception {
+        var delivery = Map.of(
+                "country", "SN",
+                "region", "Dakar",
+                "city", "Dakar",
+                "commune", "Biscuiterie",
+                "neighborhood", "Liberté 6",
+                "details", "Rue 12, près de la mairie");
+        var request = input();
+        request.put("contact", Map.of(
+                "firstName", "Awa",
+                "lastName", "Diop",
+                "phone", "+221771234567",
+                "email", "awa@example.test",
+                "deliveryAddress", delivery));
+
+        checkout(key, request)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.deliveryAddress").doesNotExist());
+
+        assertThat(jdbc.queryForObject(
+                "select customer_contact_snapshot #>> '{deliveryAddress,region}' from orders",
+                String.class)).isEqualTo("Dakar");
+        assertThat(jdbc.queryForObject(
+                "select customer_contact_snapshot #>> '{deliveryAddress,commune}' from orders",
+                String.class)).isEqualTo("Biscuiterie");
+
+        checkout(key, request)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.replayed").value(true));
+
+        var changed = new LinkedHashMap<String, Object>(delivery);
+        changed.put("details", "Rue 13, autre porte");
+        request.put("contact", Map.of(
+                "firstName", "Awa",
+                "lastName", "Diop",
+                "phone", "+221771234567",
+                "email", "awa@example.test",
+                "deliveryAddress", changed));
+        checkout(key, request)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+        assertThat(count("orders")).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsIncompleteDeliveryLocationWithoutCreatingAnOrder() throws Exception {
+        var request = input();
+        request.put("contact", Map.of(
+                "firstName", "Awa",
+                "lastName", "Diop",
+                "phone", "+221771234567",
+                "deliveryAddress", Map.of(
+                        "country", "SN",
+                        "region", "Dakar",
+                        "city", "Dakar",
+                        "commune", " ",
+                        "details", "Rue 12")));
+        checkout(key, request)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_CUSTOMER_CONTACT"));
+        assertThat(count("orders")).isZero();
+    }
+
+    @Test
     void openCampaignCheckoutRemainsAvailableAfterTheOrganizationTrialExpires() throws Exception {
         jdbc.update(
                 """

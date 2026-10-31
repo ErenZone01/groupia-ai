@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sn.groupia.catalog.api.CatalogVariants;
 import sn.groupia.organization.api.OrganizationAvailability;
 import sn.groupia.shared.api.ApiException;
+import sn.groupia.subscription.api.SubscriptionEntitlements;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -77,6 +78,7 @@ public class DirectCheckoutService {
     private final DirectCartQuoteService carts;
     private final CatalogVariants catalog;
     private final OrganizationAvailability organizations;
+    private final SubscriptionEntitlements entitlements;
     private final ObjectMapper json;
     private final Clock clock;
     private final boolean enabled;
@@ -87,6 +89,7 @@ public class DirectCheckoutService {
             DirectCartQuoteService carts,
             CatalogVariants catalog,
             OrganizationAvailability organizations,
+            SubscriptionEntitlements entitlements,
             ObjectMapper json,
             Clock clock,
             @Value("${groupia.direct-sales.checkout.enabled:false}") boolean enabled,
@@ -98,6 +101,7 @@ public class DirectCheckoutService {
         this.carts = carts;
         this.catalog = catalog;
         this.organizations = organizations;
+        this.entitlements = entitlements;
         this.json = json;
         this.clock = clock;
         this.enabled = enabled;
@@ -128,6 +132,7 @@ public class DirectCheckoutService {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
         }
         var store = stores.getFirst();
+        entitlements.requireNewBusinessAllowed(store.organizationId());
         var contact = validateContact(command.contact(), organizations.countryCode(store.organizationId()));
         Address delivery = validateAddress(command.contact().deliveryAddress(), method);
         var fingerprint = sha256(json.writeValueAsString(Arrays.asList(
@@ -233,7 +238,7 @@ public class DirectCheckoutService {
         int position = 0;
         for (var line : quote.lines()) {
             var snapshot = snapshots.get(line.variantId());
-            if (snapshot == null || !snapshot.variant().usable()) {
+            if (snapshot == null || snapshot.variant() == null || !snapshot.variant().usable()) {
                 throw new ApiException(409, "DIRECT_CART_CHANGED", "Le catalogue a changé.");
             }
             jdbc.update(

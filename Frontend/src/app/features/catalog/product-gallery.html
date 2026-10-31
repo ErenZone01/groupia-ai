@@ -1,0 +1,168 @@
+<section class="gallery-manager" aria-label="Images du produit" [attr.aria-busy]="store.busy()">
+  <header class="gallery-header">
+    <div class="gallery-titles">
+      <p class="eyebrow">Photos du produit</p>
+      <h2 #heading tabindex="-1">{{ productName() }}</h2>
+      <p class="gallery-subtitle">Choisissez la photo à afficher, puis gérez sa position.</p>
+    </div>
+    <button gButton variant="secondary" class="close-gallery" (click)="closed.emit()">Fermer</button>
+  </header>
+
+  @if (store.loading()) {
+    <p role="status" class="loading-gallery">Chargement des images…</p>
+  }
+  @if (store.error()) {
+    <p class="form-error" role="alert">{{ store.error() }}</p>
+  }
+  @if (store.notice()) {
+    <p class="notice" role="status">{{ store.notice() }}</p>
+  }
+  @if (store.gallery(); as gallery) {
+    <div class="gallery-count">
+      <strong>{{ gallery.items?.length ?? 0 }} / 5 photos</strong>
+      @if (gallery.reservedCount) {
+        <span>{{ gallery.reservedCount }} emplacement(s) réservé(s)</span>
+      }
+    </div>
+
+    <div class="photo-stage" [class.zoomed]="zoomed()" aria-label="Aperçu de la photo sélectionnée">
+      @if (selectedPhoto(); as photo) {
+        @if ((photo.displayUrl || photo.thumbnailUrl) && failedPhoto() !== photo.id) {
+          <div #photoViewport class="photo-viewport"
+            [attr.tabindex]="zoomed() ? 0 : -1"
+            [attr.aria-label]="zoomed()
+              ? 'Photo agrandie. Faites défiler pour explorer l’image.'
+              : 'Photo complète adaptée à la fenêtre.'">
+            <div class="photo-canvas">
+              <img class="hero-photo" [src]="photo.displayUrl || photo.thumbnailUrl"
+                [alt]="productName() + ' — image ' + (selectedIndex() + 1)"
+                (error)="failedPhoto.set(photo.id ?? null)" />
+            </div>
+          </div>
+          <button type="button" class="photo-zoom-control"
+            [attr.aria-pressed]="zoomed()"
+            [attr.aria-label]="zoomed() ? 'Afficher toute la photo' : 'Zoomer sur la photo'"
+            (click)="toggleZoom()">
+            <g-icon [name]="zoomed() ? 'minus' : 'plus'" />
+            {{ zoomed() ? 'Voir en entier' : 'Zoomer' }}
+          </button>
+        } @else {
+          <div class="empty-photo"><g-icon name="box" />Aperçu indisponible</div>
+        }
+        <span class="photo-indicator">
+          {{ selectedIndex() === 0 ? 'Photo principale' : 'Photo ' + (selectedIndex() + 1) }}
+        </span>
+      } @else {
+        <div class="empty-photo">
+          <g-icon name="box" />
+          <strong>Aucune photo pour ce produit</strong>
+          <span>Ajoutez une première image pour illustrer votre catalogue.</span>
+        </div>
+      }
+    </div>
+
+    <ol class="gallery" aria-label="Choisir une photo">
+      @for (item of gallery.items; track item.id; let i = $index) {
+        <li>
+          <button type="button" class="photo-choice"
+            [class.selected]="selectedIndex() === i"
+            [disabled]="store.busy()"
+            [attr.aria-pressed]="selectedIndex() === i"
+            [attr.aria-label]="'Sélectionner l’image ' + (i + 1)"
+            (click)="selectPhoto(item.id)">
+            <g-product-thumbnail [src]="item.thumbnailUrl || item.displayUrl || ''"
+              [alt]="'Image ' + (i + 1) + ' du produit'" [size]="72" />
+            <span class="photo-choice-label">{{ i === 0 ? 'Principale' : 'Photo ' + (i + 1) }}</span>
+          </button>
+        </li>
+      }
+      @if (gallery.enabled && gallery.canManage && !archived()) {
+        <li>
+          <label class="add-photo" [class.disabled]="store.busy() ||
+            (gallery.items?.length ?? 0) + (gallery.reservedCount ?? 0) >= 5">
+            <g-icon name="plus" />
+            <span>Ajouter</span>
+            <input type="file" multiple aria-label="Ajouter des images"
+              accept="image/jpeg,image/png,image/webp"
+              [disabled]="store.busy() ||
+                (gallery.items?.length ?? 0) + (gallery.reservedCount ?? 0) >= 5"
+              (change)="select($event)" />
+          </label>
+        </li>
+      }
+    </ol>
+
+    @if (!gallery.enabled) {
+      <p class="muted">Les images ne sont pas encore disponibles pour cette boutique.</p>
+    }
+    @if (archived()) {
+      <p class="muted">Produit archivé : les photos peuvent être consultées ou supprimées selon vos droits.</p>
+    }
+    @if (gallery.enabled && gallery.canManage && selectedPhoto(); as photo) {
+      <section class="manage-photo" aria-label="Organiser la photo sélectionnée">
+        <div class="manage-heading">
+          <h3>Organiser la galerie</h3>
+          <p>Photo {{ selectedIndex() + 1 }} sur {{ gallery.items?.length ?? 0 }}</p>
+        </div>
+        <div class="actions">
+          @if (!archived()) {
+            <button gButton variant="secondary"
+              [disabled]="store.busy() || selectedIndex() === 0"
+              (click)="move(selectedIndex(), 0)">
+              Définir comme principale
+            </button>
+            <button gButton variant="secondary"
+              [attr.aria-label]="'Monter l’image ' + (selectedIndex() + 1)"
+              [disabled]="store.busy() || selectedIndex() === 0"
+              (click)="move(selectedIndex(), selectedIndex() - 1)">Monter</button>
+            <button gButton variant="secondary"
+              [attr.aria-label]="'Descendre l’image ' + (selectedIndex() + 1)"
+              [disabled]="store.busy() || selectedIndex() === (gallery.items?.length ?? 0) - 1"
+              (click)="move(selectedIndex(), selectedIndex() + 1)">Descendre</button>
+          }
+          <button gButton variant="secondary"
+            [attr.aria-label]="'Supprimer l’image ' + (selectedIndex() + 1)"
+            [disabled]="store.busy()"
+            (click)="confirm.set(photo.id ?? null)">Supprimer</button>
+        </div>
+        @if (confirm() === photo.id && confirm() !== null) {
+          <div class="delete-confirm" role="group" aria-label="Confirmer la suppression">
+            <p>Supprimer définitivement cette photo ? Cette action est irréversible.</p>
+            <div class="actions">
+              <button gButton [disabled]="store.busy()" (click)="remove(photo.id!)">
+                Confirmer la suppression
+              </button>
+              <button gButton variant="secondary" [disabled]="store.busy()"
+                (click)="confirm.set(null)">Annuler</button>
+            </div>
+          </div>
+        }
+      </section>
+    }
+    @if (gallery.enabled && gallery.canManage && !archived()) {
+      <p class="gallery-hint">JPEG, PNG ou WebP statique · 8 Mo maximum par image · 5 photos maximum.</p>
+    }
+  }
+
+  @if (store.queue().length) {
+    <section class="upload-section" aria-label="Photos à envoyer">
+      <h3>Images sélectionnées</h3>
+      <ul class="uploads">
+        @for (item of store.queue(); track item.key; let i = $index) {
+          <li>
+            @if (item.preview) {
+              <img [src]="item.preview" [alt]="'Aperçu de ' + productName()"
+                width="64" height="64" />
+            }
+            <span aria-live="polite">Image {{ i + 1 }} — {{ item.message }}</span>
+            <button gButton variant="secondary" [disabled]="store.busy()"
+              (click)="store.discard(item)">Retirer l’aperçu</button>
+          </li>
+        }
+      </ul>
+      <button gButton [disabled]="store.busy()" (click)="send()">
+        {{ store.busy() ? 'Envoi en cours…' : 'Envoyer / réessayer' }}
+      </button>
+    </section>
+  }
+</section>

@@ -1,0 +1,271 @@
+<header class="catalog-header">
+  <div class="heading-copy">
+    <p class="eyebrow">Catalogue de la boutique</p>
+    <h1>Vos produits</h1>
+    <p class="heading-subtitle">Organisez votre catalogue. Retrouvez chaque produit en quelques secondes.</p>
+  </div>
+  <button gButton class="create-product" (click)="openCreate()">
+    <g-icon name="plus" /> Ajouter un produit
+  </button>
+</header>
+
+@if (helpVisible()) {
+  <aside class="catalog-help" aria-label="À propos du catalogue">
+    <g-icon name="info" />
+    <div>
+      <strong>Un produit, plusieurs groupages</strong>
+      <p>Les variantes et photos appartiennent au catalogue. Le prix de vente se définit dans chaque offre de groupage.</p>
+    </div>
+    <button type="button" class="dismiss" aria-label="Masquer le conseil" (click)="helpVisible.set(false)">×</button>
+  </aside>
+}
+
+@if (mediaError()) {
+  <p role="status" class="muted">{{ mediaError() }}</p>
+  <button gButton variant="secondary" (click)="loadMedia()">Recharger les images</button>
+}
+
+@if (store.loading()) {
+  <div class="catalog-loading" aria-label="Chargement des produits">
+    <g-skeleton /><g-skeleton />
+  </div>
+} @else if (store.error()) {
+  <p role="alert" class="form-error">{{ store.error() }}</p>
+  <button gButton (click)="load()">Réessayer</button>
+} @else if (!store.products().length) {
+  <g-empty-state title="Votre catalogue commence ici"
+    description="Ajoutez votre premier produit pour préparer un groupage." icon="box" />
+} @else {
+  <section class="catalog-content" aria-label="Parcourir les produits">
+    <div class="catalog-stats" aria-label="Résumé des produits sur cette page">
+      <div class="catalog-stat"><span>Produits</span><strong>{{ counts().all }}</strong></div>
+      <div class="catalog-stat"><span>Actifs</span><strong>{{ counts().active }}</strong></div>
+      <div class="catalog-stat"><span>Archivés</span><strong>{{ counts().archived }}</strong></div>
+    </div>
+
+    <div class="catalog-toolbar">
+      <div class="catalog-search-wrap">
+        <g-icon name="search" />
+        <label class="sr-only" for="catalog-search">Rechercher un produit sur cette page</label>
+        <input id="catalog-search" type="search" autocomplete="off"
+          placeholder="Rechercher un produit…" [value]="search()"
+          (input)="search.set($any($event.target).value); showAll.set(false)" />
+      </div>
+      <label class="catalog-sort-label">
+        <span class="sr-only">Trier les produits de cette page</span>
+        <select aria-label="Trier les produits de cette page"
+          [value]="sort()" (change)="changeSort($any($event.target).value)">
+          <option value="recent">Plus récents</option>
+          <option value="oldest">Plus anciens</option>
+          <option value="name">Nom A à Z</option>
+          <option value="variants">Plus de variantes</option>
+        </select>
+      </label>
+    </div>
+
+    <nav class="status-filters" aria-label="Filtrer les produits de cette page">
+      <button type="button" [class.active]="filter() === 'all'"
+        [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')">
+        Tous <span>{{ counts().all }}</span>
+      </button>
+      <button type="button" [class.active]="filter() === 'active'"
+        [attr.aria-pressed]="filter() === 'active'" (click)="setFilter('active')">
+        Actifs <span>{{ counts().active }}</span>
+      </button>
+      <button type="button" [class.active]="filter() === 'archived'"
+        [attr.aria-pressed]="filter() === 'archived'" (click)="setFilter('archived')">
+        Archivés <span>{{ counts().archived }}</span>
+      </button>
+    </nav>
+    <p class="filter-scope">Recherche, filtres et tri sur les produits de la page affichée.</p>
+
+    <div class="catalog-list-heading">
+      <div>
+        <h2>Parcourir le catalogue</h2>
+        <p>Miniatures, variantes et gestion des photos</p>
+      </div>
+      <span>{{ visibleProducts().length }} sur {{ matchingProducts().length }} produit(s) de cette page</span>
+    </div>
+
+    @if (matchingProducts().length) {
+      <div class="catalog-product-grid">
+        @for (product of visibleProducts(); track product.id) {
+          <article class="catalog-product">
+            <div class="product-core">
+              <g-product-thumbnail class="product-photo"
+                [src]="media()[product.id!]?.primaryThumbnailUrl ?? ''"
+                [alt]="product.name ?? 'Produit'"
+                [size]="78"
+                [attr.aria-label]="media()[product.id!]?.primaryThumbnailUrl ? null : 'Produit sans image'" />
+              <div class="product-copy">
+                <div class="product-heading">
+                  <h3 [title]="product.name || 'Produit'">{{ product.name || 'Produit sans nom' }}</h3>
+                  <g-badge [tone]="product.status === 'ACTIVE' ? 'positive' : 'neutral'">
+                    {{ statusLabel(product.status) }}
+                  </g-badge>
+                </div>
+                <p class="product-meta">
+                  {{ product.variants?.length ?? 0 }} variante(s) ·
+                  {{ media()[product.id!]?.imageCount ?? 0 }} photo(s)
+                </p>
+                <div class="product-actions">
+                  <button gButton variant="secondary" (click)="openGallery(product)">Voir les images</button>
+                  @if (product.status === 'ACTIVE') {
+                    <button gButton variant="secondary" (click)="openEdit(product)">Modifier</button>
+                    <button gButton variant="ghost" (click)="openArchive(product)">Archiver</button>
+                  }
+                  @if (product.status === 'ARCHIVED') {
+                    <button gButton variant="secondary" (click)="openRestore(product)">
+                      Restaurer
+                    </button>
+                  }
+                  <button gButton variant="secondary"
+                    [attr.aria-expanded]="expandedVariants().has(product.id!)"
+                    [attr.aria-controls]="'variants-' + product.id"
+                    (click)="toggleVariants(product.id!)">
+                    Variantes <span class="chevron" aria-hidden="true">⌄</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            @if (expandedVariants().has(product.id!)) {
+              <div class="product-expansion" [id]="'variants-' + product.id">
+                <h4>Variantes du produit</h4>
+                @if (product.variants?.length) {
+                  <ul class="variant-list">
+                    @for (variant of product.variants; track variant.id) {
+                      <li>
+                        <span>{{ variantLabel(variant.attributes) }}</span>
+                        <g-badge [tone]="variant.active ? 'positive' : 'neutral'">
+                          {{ variant.active ? 'Disponible' : 'Inactive' }}
+                        </g-badge>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="muted">Aucune variante renseignée.</p>
+                }
+                @if (product.description) {
+                  <details class="product-description">
+                    <summary>Voir la description</summary>
+                    <p class="preserve">{{ product.description }}</p>
+                  </details>
+                }
+              </div>
+            }
+          </article>
+        }
+      </div>
+      @if (matchingProducts().length > 6) {
+        <button gButton variant="secondary" class="show-products"
+          [attr.aria-expanded]="showAll()"
+          (click)="showAll.set(!showAll())">
+          {{ showAll() ? 'Réduire la liste' : 'Voir les autres produits (' + (matchingProducts().length - 6) + ')' }}
+          <span aria-hidden="true">{{ showAll() ? '⌃' : '⌄' }}</span>
+        </button>
+      }
+    } @else {
+      <div class="catalog-no-results">
+        <h3>Aucun produit correspondant sur cette page</h3>
+        <p>Essayez un autre nom ou changez de filtre.</p>
+        <button gButton variant="secondary" (click)="resetFilters()">Effacer les filtres</button>
+      </div>
+    }
+  </section>
+}
+@if (store.totalPages() > 1) {
+  <nav class="catalog-pagination" aria-label="Pages du catalogue">
+    <button gButton variant="secondary"
+      [disabled]="store.page() === 0 || store.loading()"
+      (click)="load(store.page() - 1)">Précédent</button>
+    <span>Page {{ store.page() + 1 }} sur {{ store.totalPages() }}</span>
+    <button gButton variant="secondary"
+      [disabled]="store.page() + 1 >= store.totalPages() || store.loading()"
+      (click)="load(store.page() + 1)">Suivant</button>
+  </nav>
+}
+
+<dialog #createDialog class="catalog-dialog create-dialog" aria-label="Ajouter un produit"
+  (close)="creating.set(false)" (cancel)="onCreateDialogCancel($event)">
+  @if (creating() && context.selectedId(); as org) {
+    <g-product-form [organizationId]="org"
+      (saved)="created($event)" (cancelled)="closeCreate()" />
+  }
+</dialog>
+
+<dialog #imageDialog class="catalog-dialog image-dialog" aria-label="Gestion des images du produit"
+  (close)="selectedProduct.set(null)" (cancel)="onGalleryDialogCancel($event)">
+  @if (selectedProduct(); as selected) {
+    @if (context.selectedId(); as org) {
+      <g-product-gallery [organizationId]="org" [productId]="selected.id!"
+        [productName]="selected.name ?? 'Produit'" [archived]="selected.status === 'ARCHIVED'"
+        (closed)="closeGallery()" (changed)="loadMedia()" />
+    }
+  }
+</dialog>
+
+<dialog #editDialog class="catalog-dialog edit-dialog" aria-label="Modifier un produit"
+  (close)="editingProduct.set(null)" (cancel)="onEditDialogCancel($event)">
+  @if (editingProduct(); as selected) {
+    @if (context.selectedId(); as org) {
+      <g-product-edit-form [organizationId]="org" [product]="selected"
+        (saved)="edited($event)" (variantAdded)="variantAdded($event)"
+        (cancelled)="closeEdit()" />
+    }
+  }
+</dialog>
+
+<dialog #archiveDialog class="catalog-dialog archive-dialog" aria-label="Archiver un produit"
+  (close)="archivingProduct.set(null)" (cancel)="onArchiveDialogCancel($event)">
+  @if (archivingProduct(); as selected) {
+    <section class="archive-confirm">
+      <p class="eyebrow">Retirer un produit du catalogue actif</p>
+      <h2>Archiver ce produit ?</h2>
+      <p class="archive-product-name">{{ selected.name }}</p>
+      <p>L’archivage retire ce produit des nouvelles offres de groupage.
+        Il reste consultable dans « Archivés », et les commandes historiques sont conservées.</p>
+      <p class="archive-warning"><strong>Important :</strong> ce produit peut être
+        restauré ultérieurement. Aucune suppression définitive n’est effectuée.</p>
+      @if (archiveError()) {
+        <p class="form-error" role="alert">{{ archiveError() }}</p>
+        <button gButton variant="secondary" type="button"
+          [disabled]="archiveBusy()" (click)="refreshArchiveProduct()">
+          Actualiser les informations
+        </button>
+      }
+      <div class="archive-actions">
+        <button gButton type="button" [disabled]="archiveBusy()"
+          [loading]="archiveBusy()" (click)="archiveProduct()">Confirmer l’archivage</button>
+        <button gButton variant="secondary" type="button"
+          [disabled]="archiveBusy()" (click)="closeArchive()">Annuler</button>
+      </div>
+    </section>
+  }
+</dialog>
+
+<dialog #restoreDialog class="catalog-dialog archive-dialog" aria-label="Restaurer un produit"
+  (close)="restoringProduct.set(null)" (cancel)="onRestoreDialogCancel($event)">
+  @if (restoringProduct(); as item) {
+    <section class="archive-confirm">
+      <p class="eyebrow">Catalogue / Archives</p>
+      <h2>Restaurer le produit ?</h2>
+      <p class="archive-product-name">{{ item.name }}</p>
+      <p>Le produit et ses variantes encore actives redeviendront disponibles dans le catalogue.
+        Les données et commandes passées sont conservées.</p>
+      <p class="archive-warning"><strong>Attention :</strong> les anciennes offres encore
+        actives dans des groupages ouverts peuvent redevenir visibles aux clientes.
+        Vérifiez les groupages concernés après la restauration.</p>
+      @if (restoreError()) {
+        <p class="form-error" role="alert">{{ restoreError() }}</p>
+        <button gButton variant="secondary" type="button" [disabled]="restoreBusy()"
+          (click)="refreshRestoreProduct()">Actualiser les informations</button>
+      }
+      <div class="archive-actions">
+        <button gButton type="button" [disabled]="restoreBusy()" [loading]="restoreBusy()"
+          (click)="restoreProduct()">Confirmer la restauration</button>
+        <button gButton variant="secondary" type="button" [disabled]="restoreBusy()"
+          (click)="closeRestore()">Annuler</button>
+      </div>
+    </section>
+  }
+</dialog>

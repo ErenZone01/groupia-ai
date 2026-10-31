@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, timeout } from 'rxjs';
 import {
   CatalogControllerService,
@@ -11,6 +12,8 @@ import {
   CreateCampaign,
   CreateProduct,
   ProductView,
+  UpdateProduct,
+  VariantInput,
   UpdateCampaign,
   UpdateOffer,
 } from './generated/models';
@@ -18,6 +21,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class GroupiaApi {
   private readonly catalog = inject(CatalogControllerService);
+  private readonly http = inject(HttpClient);
   private readonly grouping = inject(GroupingControllerService);
   private readonly publicApi = inject(PublicGroupingControllerService);
   products(organizationId: string, page = 0, size = 20) {
@@ -28,6 +32,24 @@ export class GroupiaApi {
   }
   createProduct(organizationId: string, body: CreateProduct) {
     return firstValueFrom(this.catalog.create1({ organizationId, body }));
+  }
+  updateProduct(organizationId: string, productId: string, body: UpdateProduct) {
+    return firstValueFrom(this.catalog.update({ organizationId, productId, body }));
+  }
+  archiveProduct(organizationId: string, productId: string, version: number) {
+    return firstValueFrom(this.catalog.archive({ organizationId, productId, body: { version } }));
+  }
+  // New backend endpoint: keep the generated files untouched until OpenAPI regeneration.
+  restoreProduct(organizationId: string, productId: string, version: number) {
+    return firstValueFrom(this.http.post<ProductView>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/restore`,
+      { version },
+    ));
+  }
+  addProductVariant(organizationId: string, productId: string, version: number, variant: VariantInput) {
+    return firstValueFrom(this.catalog.addVariant({
+      organizationId, productId, body: { version, variant },
+    }));
   }
   campaigns(organizationId: string, page = 0) {
     return firstValueFrom(this.grouping.list2({ organizationId, page, size: 20 }));

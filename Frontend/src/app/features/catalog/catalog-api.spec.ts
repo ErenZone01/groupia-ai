@@ -37,4 +37,51 @@ describe('Catalogue réel', () => {
     req.flush({ id: 'product' });
     await pending;
   });
+  it('modifie uniquement le nom/description avec la version courante', async () => {
+    const pending = api.updateProduct('shop', 'product', {
+      version: 3, name: 'Nouveau nom', description: 'Nouveau descriptif',
+    });
+    const req = http.expectOne('/api/organizations/shop/products/product');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({
+      version: 3, name: 'Nouveau nom', description: 'Nouveau descriptif',
+    });
+    req.flush({ id: 'product', name: 'Nouveau nom', version: 4, status: 'ACTIVE' });
+    expect((await pending).version).toBe(4);
+  });
+  it('archive de manière non destructive, avec une version explicite', async () => {
+    const pending = api.archiveProduct('shop', 'product', 4);
+    const req = http.expectOne('/api/organizations/shop/products/product/archive');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ version: 4 });
+    req.flush({ id: 'product', name: 'Chemise', version: 5, status: 'ARCHIVED' });
+    expect((await pending).status).toBe('ARCHIVED');
+  });
+
+  it('ajoute une variante sans remplacer celles existantes', async () => {
+    const pending = api.addProductVariant('shop', 'product', 5, {
+      attributes: { color: 'Vert' },
+      sku: 'SKU-VERTE',
+      estimatedUnitWeightKg: 0.2,
+    });
+    const req = http.expectOne('/api/organizations/shop/products/product/variants');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      version: 5,
+      variant: { attributes: { color: 'Vert' }, sku: 'SKU-VERTE',
+        estimatedUnitWeightKg: 0.2 },
+    });
+    req.flush({ id: 'product', version: 6, status: 'ACTIVE',
+      variants: [{ id: 'existing' }, { id: 'new' }] });
+    expect((await pending).variants).toHaveLength(2);
+  });
+  it('restaure la fiche archivée avec la version, sans appel DELETE', async () => {
+    const pending = api.restoreProduct('shop', 'product', 7);
+    const req = http.expectOne('/api/organizations/shop/products/product/restore');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ version: 7 });
+    req.flush({ id: 'product', status: 'ACTIVE', version: 8 });
+    expect((await pending).status).toBe('ACTIVE');
+  });
+
 });

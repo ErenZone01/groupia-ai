@@ -1,4 +1,4 @@
-import { Component, model } from '@angular/core';
+import { Component, input, model } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Input } from '../../shared/forms/input';
 import { Select } from '../../shared/forms/select';
@@ -103,7 +103,7 @@ export function newVariant(): VariantDraft {
       gButton
       variant="secondary"
       type="button"
-      [disabled]="variants().length >= 100"
+      [disabled]="variants().length >= maxVariants()"
       (click)="add()"
     >
       Ajouter une variante
@@ -139,6 +139,7 @@ export function newVariant(): VariantDraft {
 })
 export class VariantEditor {
   readonly variants = model.required<VariantDraft[]>();
+  readonly maxVariants = input(100);
   patch(index: number, value: Partial<VariantDraft>) {
     this.variants.update((list) => list.map((v, i) => (i === index ? { ...v, ...value } : v)));
   }

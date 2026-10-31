@@ -1,11 +1,11 @@
-import { Component, effect, inject, signal, untracked } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ProductView, ProductMediaSummary } from '../../api/generated/models';
 import { AuthService } from '../../core/auth/auth.service';
 import { Icon } from '../../shared/ui/icon';
+import { ProductThumbnail } from '../../shared/ui/product-thumbnail';
 import { ProductGallery } from './product-gallery';
 import { ProductMediaApi } from './product-media.api';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
-import { Card } from '../../shared/ui/card';
 import { Button } from '../../shared/ui/button';
 import { Badge } from '../../shared/ui/badge';
 import { EmptyState } from '../../shared/feedback/empty-state';
@@ -13,188 +13,112 @@ import { Skeleton } from '../../shared/feedback/skeleton';
 import { CatalogStore } from './catalog.store';
 import { ProductForm } from './product-form';
 import { ToastService } from '../../shared/feedback/toast.service';
+import { GroupiaApi } from '../../api/groupia-api';
+import { apiMessage } from '../../core/http/api-error';
+import { ProductEditForm } from './product-edit-form';
 import { statusLabel, variantLabel } from '../../shared/utils/display';
+
+type CatalogFilter = 'all' | 'active' | 'archived';
+type CatalogSort = 'recent' | 'oldest' | 'name' | 'variants';
+
 @Component({
   selector: 'g-catalog-page',
   providers: [CatalogStore],
-  imports: [Card, Button, Badge, EmptyState, Skeleton, ProductForm, Icon, ProductGallery],
-  template: `
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Votre catalogue</p>
-        <h1>Produits</h1>
-        <p>Des produits réutilisables dans tous vos groupages.</p>
-      </div>
-      <button gButton (click)="creating.set(true)">Créer un produit</button>
-    </div>
-    @if (creating() && context.selectedId()) {
-      <g-card
-        ><g-product-form
-          [organizationId]="context.selectedId()!"
-          (saved)="created($event)"
-          (cancelled)="creating.set(false)"
-      /></g-card>
-    }
-    @if (selectedProduct(); as selected) {
-      @if (context.selectedId(); as org) {
-        <g-card
-          ><g-product-gallery
-            [organizationId]="org"
-            [productId]="selected.id!"
-            [productName]="selected.name ?? 'Produit'"
-            [archived]="selected.status === 'ARCHIVED'"
-            (closed)="selectedProduct.set(null)"
-            (changed)="loadMedia()"
-        /></g-card>
-      }
-    }
-    @if (mediaError()) {
-      <p role="status">{{ mediaError() }}</p>
-      <button gButton variant="secondary" (click)="loadMedia()">Recharger les images</button>
-    }
-    @if (store.loading()) {
-      <g-skeleton /><g-skeleton />
-    } @else if (store.error()) {
-      <p role="alert" class="form-error">{{ store.error() }}</p>
-      <button gButton (click)="load()">Réessayer</button>
-    } @else if (!store.products().length) {
-      <g-empty-state
-        title="Votre catalogue commence ici"
-        description="Ajoutez votre premier produit pour préparer un groupage."
-        icon="box"
-      />
-    } @else {
-      <div class="product-grid">
-        @for (product of store.products(); track product.id) {
-          <g-card>
-            @if (media()[product.id!]?.primaryThumbnailUrl; as thumbnail) {
-              <img
-                class="product-photo"
-                [src]="thumbnail"
-                [alt]="product.name ?? 'Produit'"
-                width="300"
-                height="180"
-                loading="lazy"
-                (error)="imageFailed(product.id!)"
-              />
-            } @else {
-              <div class="product-photo placeholder" aria-label="Produit sans image">
-                <g-icon name="box" /><span>Aucune image</span>
-              </div>
-            }
-            <div class="section-heading">
-              <h2>{{ product.name }}</h2>
-              <g-badge>{{ statusLabel(product.status) }}</g-badge>
-            </div>
-            <p class="description">{{ product.description || 'Aucune description' }}</p>
-            <h3>Variantes</h3>
-            <ul class="variant-list">
-              @for (variant of product.variants; track variant.id) {
-                <li>
-                  <span>{{ variantLabel(variant.attributes) }}</span
-                  ><g-badge [tone]="variant.active ? 'positive' : 'neutral'">{{
-                    variant.active ? 'Disponible' : 'Inactive'
-                  }}</g-badge>
-                </li>
-              }
-            </ul>
-            <button gButton variant="secondary" (click)="selectedProduct.set(product)">
-              Voir les images
-            </button></g-card
-          >
-        }
-      </div>
-    }
-    @if (store.totalPages() > 1) {
-      <nav class="actions" aria-label="Pages du catalogue">
-        <button
-          gButton
-          variant="secondary"
-          [disabled]="store.page() === 0 || store.loading()"
-          (click)="load(store.page() - 1)"
-        >
-          Précédent</button
-        ><span>Page {{ store.page() + 1 }} / {{ store.totalPages() }}</span
-        ><button
-          gButton
-          variant="secondary"
-          [disabled]="store.page() + 1 >= store.totalPages() || store.loading()"
-          (click)="load(store.page() + 1)"
-        >
-          Suivant
-        </button>
-      </nav>
-    }
-  `,
-  styles: `
-    g-card {
-      display: block;
-      margin-bottom: var(--s5);
-    }
-    .product-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-      gap: var(--s5);
-    }
-    .product-photo {
-      width: 100%;
-      height: 180px;
-      object-fit: contain;
-      background: var(--surface-alt);
-      margin-bottom: var(--s3);
-    }
-    .placeholder {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--s2);
-      color: var(--muted);
-    }
-    .description {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      color: var(--muted);
-      margin: var(--s3) 0 var(--s5);
-    }
-    .variant-list {
-      list-style: none;
-      padding: 0;
-      margin: var(--s3) 0 0;
-    }
-    .variant-list li {
-      display: flex;
-      justify-content: space-between;
-      gap: var(--s3);
-      padding: var(--s3) 0;
-      border-top: 1px solid var(--border);
-    }
-    .variant-list span {
-      overflow-wrap: anywhere;
-    }
-  `,
+  imports: [Button, Badge, EmptyState, Skeleton, ProductForm, ProductEditForm, Icon, ProductGallery, ProductThumbnail],
+  templateUrl: './catalog.page.html',
+  styleUrl: './catalog.page.scss',
 })
 export class CatalogPage {
   readonly context = inject(BoutiqueContextService);
   readonly store = inject(CatalogStore);
   readonly creating = signal(false);
   readonly selectedProduct = signal<ProductView | null>(null);
+  readonly editingProduct = signal<ProductView | null>(null);
+  readonly archivingProduct = signal<ProductView | null>(null);
+  readonly restoringProduct = signal<ProductView | null>(null);
+  readonly restoreBusy = signal(false);
+  readonly restoreError = signal('');
+  readonly archiveBusy = signal(false);
+  readonly archiveError = signal('');
   readonly media = signal<Record<string, ProductMediaSummary>>({});
   readonly mediaError = signal('');
+  readonly search = signal('');
+  readonly filter = signal<CatalogFilter>('all');
+  readonly sort = signal<CatalogSort>('recent');
+  readonly showAll = signal(false);
+  readonly helpVisible = signal(true);
+  readonly expandedVariants = signal<ReadonlySet<string>>(new Set<string>());
+  private readonly createDialog = viewChild<ElementRef<HTMLDialogElement>>('createDialog');
+  private readonly imageDialog = viewChild<ElementRef<HTMLDialogElement>>('imageDialog');
+  private readonly editDialog = viewChild<ElementRef<HTMLDialogElement>>('editDialog');
+  private readonly archiveDialog = viewChild<ElementRef<HTMLDialogElement>>('archiveDialog');
+  private readonly restoreDialog = viewChild<ElementRef<HTMLDialogElement>>('restoreDialog');
+  private readonly api = inject(GroupiaApi);
   private readonly mediaApi = inject(ProductMediaApi);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
   private mediaRequest = 0;
+
   readonly statusLabel = statusLabel;
   readonly variantLabel = variantLabel;
-  private readonly toast = inject(ToastService);
+
+  // Counts, search, filters and sorting concern only the loaded backend page.
+  // Don't imply a global catalog filter without a server-side endpoint.
+  readonly counts = computed(() => {
+    const items = this.store.products();
+    return {
+      all: items.length,
+      active: items.filter((item) => item.status === 'ACTIVE').length,
+      archived: items.filter((item) => item.status === 'ARCHIVED').length,
+    };
+  });
+  readonly matchingProducts = computed(() => {
+    const query = this.search().trim().toLocaleLowerCase('fr');
+    const selection = this.filter();
+    const sort = this.sort();
+    const products = this.store.products().filter((item) => {
+      if (selection === 'active' && item.status !== 'ACTIVE') return false;
+      if (selection === 'archived' && item.status !== 'ARCHIVED') return false;
+      return !query ||
+        (item.name ?? '').toLocaleLowerCase('fr').includes(query) ||
+        (item.description ?? '').toLocaleLowerCase('fr').includes(query) ||
+        (item.variants ?? []).some((variant) => [
+          variant.sku ?? '',
+          ...Object.values(variant.attributes ?? {}),
+        ].some((value) => value.toLocaleLowerCase('fr').includes(query)));
+    });
+    return [...products].sort((a, b) => {
+      if (sort === 'name') return (a.name ?? '').localeCompare(b.name ?? '', 'fr');
+      if (sort === 'variants') return (b.variants?.length ?? 0) - (a.variants?.length ?? 0);
+      const time = (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+      return sort === 'oldest' ? time : -time;
+    });
+  });
+  readonly visibleProducts = computed(() =>
+    this.showAll() ? this.matchingProducts() : this.matchingProducts().slice(0, 6),
+  );
+
   constructor() {
     effect(() => {
       const id = this.context.selectedId();
       this.auth.generation();
-      this.creating.set(false);
-      this.selectedProduct.set(null);
-      this.media.set({});
-      if (id) void this.store.load(id);
-      else this.store.clear();
+      // The dialog view queries are signals too. Don't reload the catalog when
+      // they first become available, only when the boutique or session changes.
+      untracked(() => {
+        this.closeCreate();
+        this.closeGallery();
+        this.closeEdit();
+        this.closeArchive(true);
+        this.closeRestore(true);
+        this.media.set({});
+        this.search.set('');
+        this.filter.set('all');
+        this.sort.set('recent');
+        this.showAll.set(false);
+        this.expandedVariants.set(new Set());
+        if (id) void this.store.load(id);
+        else this.store.clear();
+      });
     });
     effect(() => {
       this.store.products();
@@ -203,45 +127,262 @@ export class CatalogPage {
       untracked(() => void this.loadMedia());
     });
   }
+
+  setFilter(next: CatalogFilter) {
+    this.filter.set(next);
+    this.showAll.set(false);
+  }
+  changeSort(next: string) {
+    if (['recent', 'oldest', 'name', 'variants'].includes(next)) {
+      this.sort.set(next as CatalogSort);
+      this.showAll.set(false);
+    }
+  }
+  resetFilters() {
+    this.search.set('');
+    this.filter.set('all');
+    this.sort.set('recent');
+    this.showAll.set(false);
+  }
+  toggleVariants(id: string) {
+    this.expandedVariants.update((ids) => {
+      const next = new Set(ids);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   load(page = 0) {
     const id = this.context.selectedId();
-    if (id) void this.store.load(id, page);
+    if (id) {
+      this.showAll.set(false);
+      this.expandedVariants.set(new Set());
+      void this.store.load(id, page);
+    }
   }
-  created(product: ProductView) {
+  openCreate() {
+    this.creating.set(true);
+    this.createDialog()?.nativeElement.showModal();
+  }
+  closeCreate() {
     this.creating.set(false);
+    const dialog = this.createDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+
+  onCreateDialogCancel(event: Event) {
+    // A file input's native "cancel" event bubbles through its ancestor dialog.
+    // Only the dialog's own Escape event should close the dialog.
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeCreate();
+  }
+
+  onGalleryDialogCancel(event: Event) {
+    // Canceling the OS file picker is not a request to close the product gallery.
+    // Otherwise Angular clears selectedProduct while the dialog remains open,
+    // leaving an empty/white modal covering the catalog.
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeGallery();
+  }
+
+  openGallery(product: ProductView) {
+    if (!product.id) return;
     this.selectedProduct.set(product);
+    this.imageDialog()?.nativeElement.showModal();
+  }
+  closeGallery() {
+    this.selectedProduct.set(null);
+    const dialog = this.imageDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+  openEdit(product: ProductView) {
+    if (!product.id || product.status !== 'ACTIVE') return;
+    this.editingProduct.set(product);
+    this.editDialog()?.nativeElement.showModal();
+  }
+  closeEdit() {
+    this.editingProduct.set(null);
+    const dialog = this.editDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+  onEditDialogCancel(event: Event) {
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeEdit();
+  }
+  edited(product: ProductView) {
+    this.closeEdit();
+    this.toast.show('Produit modifié.');
+    this.store.products.update((items) => items.map((item) =>
+      item.id === product.id ? product : item));
+    this.load(this.store.page());
+  }
+  openArchive(product: ProductView) {
+    if (!product.id || product.status !== 'ACTIVE') return;
+    this.archiveError.set('');
+    this.archivingProduct.set(product);
+    this.archiveDialog()?.nativeElement.showModal();
+  }
+  closeArchive(force = false) {
+    if (this.archiveBusy() && !force) return;
+    if (force) this.archiveBusy.set(false);
+    this.archivingProduct.set(null);
+    this.archiveError.set('');
+    const dialog = this.archiveDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+  onArchiveDialogCancel(event: Event) {
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeArchive();
+  }
+  async archiveProduct() {
+    const product = this.archivingProduct();
+    const org = this.context.selectedId();
+    if (!org || !product?.id || product.version === undefined || this.archiveBusy()) return;
+    const generation = this.auth.generation();
+    this.archiveBusy.set(true);
+    this.archiveError.set('');
+    try {
+      await this.api.archiveProduct(org, product.id, product.version);
+      if (generation !== this.auth.generation() || org !== this.context.selectedId()) return;
+      this.archiveBusy.set(false);
+      this.closeArchive();
+      this.toast.show('Produit archivé. Il reste consultable dans les archives.');
+      this.load(this.store.page());
+    } catch (error) {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.archiveError.set(apiMessage(error));
+    } finally {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.archiveBusy.set(false);
+    }
+  }
+  async refreshArchiveProduct() {
+    const product = this.archivingProduct();
+    const org = this.context.selectedId();
+    if (!product?.id || !org || this.archiveBusy()) return;
+    const generation = this.auth.generation();
+    this.archiveBusy.set(true);
+    try {
+      const fresh = await this.api.product(org, product.id);
+      if (generation !== this.auth.generation() || org !== this.context.selectedId()) return;
+      if (fresh.status !== 'ACTIVE') {
+        this.archiveBusy.set(false);
+        this.closeArchive();
+        this.toast.show('Ce produit est déjà archivé.');
+        this.load(this.store.page());
+        return;
+      }
+      this.archivingProduct.set(fresh);
+      this.archiveError.set('');
+    } catch (error) {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.archiveError.set(apiMessage(error));
+    } finally {
+      this.archiveBusy.set(false);
+    }
+  }
+
+  variantAdded(product: ProductView) {
+    this.store.products.update(items => items.map(item => item.id === product.id ? product : item));
+    this.toast.show('Nouvelle variante enregistrée.');
+  }
+  openRestore(product: ProductView) {
+    if (!product.id || product.status !== 'ARCHIVED') return;
+    this.restoreError.set('');
+    this.restoringProduct.set(product);
+    this.restoreDialog()?.nativeElement.showModal();
+  }
+  closeRestore(force = false) {
+    if (this.restoreBusy() && !force) return;
+    if (force) this.restoreBusy.set(false);
+    this.restoringProduct.set(null);
+    this.restoreError.set('');
+    const dialog = this.restoreDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+  }
+  onRestoreDialogCancel(event: Event) {
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    this.closeRestore();
+  }
+  async restoreProduct() {
+    const item = this.restoringProduct();
+    const org = this.context.selectedId();
+    if (!org || !item?.id || item.version === undefined || this.restoreBusy()) return;
+    const generation = this.auth.generation();
+    this.restoreBusy.set(true);
+    this.restoreError.set('');
+    try {
+      await this.api.restoreProduct(org, item.id, item.version);
+      if (generation !== this.auth.generation() || org !== this.context.selectedId()) return;
+      this.restoreBusy.set(false);
+      this.closeRestore();
+      this.toast.show('Produit restauré dans le catalogue actif.');
+      this.load(this.store.page());
+    } catch (error) {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.restoreError.set(apiMessage(error));
+    } finally {
+      if (generation === this.auth.generation() && org === this.context.selectedId())
+        this.restoreBusy.set(false);
+    }
+  }
+  async refreshRestoreProduct() {
+    const item = this.restoringProduct();
+    const org = this.context.selectedId();
+    if (!item?.id || !org || this.restoreBusy()) return;
+    this.restoreBusy.set(true);
+    try {
+      const fresh = await this.api.product(org, item.id);
+      if (org !== this.context.selectedId()) return;
+      if (fresh.status !== 'ARCHIVED') {
+        this.restoreBusy.set(false);
+        this.closeRestore();
+        this.toast.show('Ce produit est déjà actif.');
+        this.load(this.store.page());
+        return;
+      }
+      this.restoringProduct.set(fresh);
+      this.restoreError.set('');
+    } catch (error) {
+      if (org === this.context.selectedId()) this.restoreError.set(apiMessage(error));
+    } finally {
+      this.restoreBusy.set(false);
+    }
+  }
+
+  created(product: ProductView) {
+    this.closeCreate();
     this.toast.show('Produit créé.');
     this.load();
+    this.openGallery(product);
   }
+
   async loadMedia() {
-    const request = ++this.mediaRequest,
-      org = this.context.selectedId(),
-      generation = this.auth.generation();
-    const ids = this.store
-      .products()
-      .map((p) => p.id!)
-      .filter(Boolean);
+    const request = ++this.mediaRequest;
+    const org = this.context.selectedId();
+    const generation = this.auth.generation();
+    const ids = this.store.products().map((p) => p.id).filter((id): id is string => !!id);
     this.mediaError.set('');
-    if (!org || !ids.length) {
-      this.media.set({});
-      return;
-    }
+    this.media.set({});
+    if (!org || !ids.length) return;
     const current = () =>
       request === this.mediaRequest &&
       org === this.context.selectedId() &&
       generation === this.auth.generation();
     try {
       const response = await this.mediaApi.batch(org, ids);
-      if (current())
-        this.media.set(Object.fromEntries(response.map((item) => [item.productId!, item])));
+      if (current()) this.media.set(Object.fromEntries(
+        response.filter((item) => !!item.productId && ids.includes(item.productId))
+          .map((item) => [item.productId!, item]),
+      ));
     } catch {
       if (current()) this.mediaError.set('Les images ne peuvent pas être chargées pour le moment.');
     }
-  }
-  imageFailed(id: string) {
-    this.media.update((items) => ({
-      ...items,
-      [id]: { ...items[id], primaryThumbnailUrl: undefined },
-    }));
   }
 }

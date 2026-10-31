@@ -13,6 +13,7 @@ Préfixe commun : /api/organizations/{organizationId}/products.
 | GET | /{productId} | Détail avec variantes actives et désactivées ; 200 |
 | PUT | /{productId} | Remplacer nom/description éditables ; 200 + détail |
 | POST | /{productId}/archive | Archiver ; 200 + détail |
+| POST | /{productId}/restore | Restaurer un produit archivé ; 200 + détail |
 | POST | /{productId}/variants | Ajouter une variante active ; 200 + détail du produit |
 | PUT | /{productId}/variants/{variantId} | Remplacer les données éditables d'une variante ; 200 + détail |
 | POST | /{productId}/variants/{variantId}/deactivate | Désactiver ; 200 + détail |
@@ -77,7 +78,7 @@ Archivage ou désactivation :
 
 PUT remplace l'ensemble des informations éditables : un champ facultatif omis est effacé. Mettre à jour une variante désactivée ne la réactive pas. L'UUID et les dates de création restent stables. La dernière variante active ne peut pas être désactivée. Les attributs/SKU désactivés restent soumis à l'unicité.
 
-Un produit archivé reste consultable mais toutes ses éditions sont refusées. Archiver de nouveau avec la version courante conserve ARCHIVED et incrémente la version comme toute commande acceptée. Il n'existe pas de suppression physique via l'application.
+Un produit archivé reste consultable, mais toutes ses éditions sont refusées jusqu'à sa restauration. Restaurer avec la version courante remet le statut ACTIVE, incrémente la version et conserve exactement l'identité du produit, les variantes, les photos associées et l'historique. Restaurer un produit déjà actif retourne 409 PRODUCT_NOT_ARCHIVED. Une version périmée retourne 409 PRODUCT_VERSION_CONFLICT. Les offres des groupages ne sont pas modifiées ni publiées par l'endpoint de restauration lui-même ; leur visibilité suit les règles des campagnes et de disponibilité des variantes, si bien qu'une offre préexistante encore active dans un groupage ouvert peut redevenir visible. L'interface doit prévenir de ce point. Archiver de nouveau avec la version courante conserve ARCHIVED et incrémente la version comme toute commande acceptée. Il n'existe pas de suppression physique via l'application.
 
 ## Liste et réponses
 
@@ -111,6 +112,7 @@ Même ProblemDetail avec code stable que la première tranche :
 | 404 | PRODUCT_NOT_FOUND / VARIANT_NOT_FOUND | ressource absente du périmètre autorisé |
 | 404 | ORGANIZATION_NOT_FOUND | organisation archivée après contrôle d'autorisation |
 | 409 | PRODUCT_ARCHIVED | édition/ajout sur produit archivé |
+| 409 | PRODUCT_NOT_ARCHIVED | tentative de restaurer un produit déjà actif |
 | 409 | DUPLICATE_VARIANT | combinaison déjà présente, même désactivée |
 | 409 | SKU_ALREADY_EXISTS | SKU déjà présent dans cette organisation |
 | 409 | INVALID_PRODUCT_STATE | désactivation de la dernière variante active |

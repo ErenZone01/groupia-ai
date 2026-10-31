@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.groupia.catalog.api.CatalogVariants;
+import sn.groupia.directsales.api.DirectSalesAvailability;
 import sn.groupia.media.api.PublicProductMediaQueries;
 import sn.groupia.organization.api.OrganizationAccess;
 import sn.groupia.organization.api.OrganizationAvailability;
@@ -18,7 +19,7 @@ import sn.groupia.subscription.api.SubscriptionEntitlements;
 /** Direct sales are independent of groupings: no pseudo-campaign or implicit checkout. */
 @Service
 @Transactional(readOnly = true)
-public class DirectStorefrontService {
+public class DirectStorefrontService implements DirectSalesAvailability {
     private final JdbcTemplate jdbc;
     private final CatalogVariants catalog;
     private final PublicProductMediaQueries media;
@@ -86,6 +87,13 @@ public class DirectStorefrontService {
                 "select id, organization_id, public_identifier, display_name"
                         + " from direct_storefronts where organization_id = ?",
                 storeMapper, organizationId);
+    }
+
+    @Override
+    public boolean hasPublishedOffers(UUID organizationId) {
+        var stores = findByOrganization(organizationId);
+        return !stores.isEmpty() && organizations.isActive(organizationId)
+                && !project(stores.getFirst(), true).offers().isEmpty();
     }
 
     public Storefront manager(UUID organizationId) {

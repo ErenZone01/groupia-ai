@@ -99,21 +99,22 @@ export class DirectOrdersPage {
     const id = this.context.selectedId();
     if (!id || this.loading()) return;
     const seq = ++this.detailRequest;
+    const listSeq = this.request;
     const generation = this.auth.generation();
     this.detail.set(null);
     this.detailError.set('');
     this.detailLoading.set(true);
     try {
       const result = await this.api.get(id, order.id);
-      if (this.current(id, this.request, generation) && seq === this.detailRequest) {
+      if (this.current(id, listSeq, generation) && seq === this.detailRequest) {
         this.detail.set(result);
       }
     } catch (error) {
-      if (this.current(id, this.request, generation) && seq === this.detailRequest) {
+      if (this.current(id, listSeq, generation) && seq === this.detailRequest) {
         this.detailError.set(apiMessage(error));
       }
     } finally {
-      if (this.current(id, this.request, generation) && seq === this.detailRequest) {
+      if (this.current(id, listSeq, generation) && seq === this.detailRequest) {
         this.detailLoading.set(false);
       }
     }

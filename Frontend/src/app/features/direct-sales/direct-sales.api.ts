@@ -16,6 +16,25 @@ export interface DirectOffer {
   imageUrl: string | null;
 }
 
+export interface DirectQuoteLine {
+  offerId: string;
+  variantId: string;
+  quantity: number;
+  unitPriceXof: number;
+  lineTotalXof: number;
+  priceRevision: number;
+  productName: string;
+  attributes: Record<string, string>;
+}
+
+export interface DirectCartQuote {
+  currency: 'XOF';
+  displayName: string;
+  goodsSubtotalXof: number;
+  lines: DirectQuoteLine[];
+  checkoutAvailable: boolean;
+}
+
 export interface DirectStorefront {
   publicIdentifier: string | null;
   displayName: string | null;
@@ -53,6 +72,14 @@ export class DirectSalesApi {
         this.privatePath(organizationId) + '/offers/' + encodeURIComponent(id),
         { version, priceXof, published },
       ),
+    );
+  }
+  quote(publicIdentifier: string, lines: { offerId: string; quantity: number }[]) {
+    return firstValueFrom(
+      this.http.post<DirectCartQuote>(
+        '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/quote',
+        { lines },
+      ).pipe(timeout(15000)),
     );
   }
   publicStore(publicIdentifier: string) {

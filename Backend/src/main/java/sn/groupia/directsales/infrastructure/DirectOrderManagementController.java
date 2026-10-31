@@ -21,6 +21,7 @@ class DirectOrderManagementController {
     }
 
     @GetMapping
+    @io.swagger.v3.oas.annotations.Operation(operationId = "listDirectOrders")
     ResponseEntity<DirectOrderQueries.Page> list(
             @PathVariable UUID organizationId,
             @RequestParam(defaultValue = "0") int page,
@@ -31,6 +32,7 @@ class DirectOrderManagementController {
     }
 
     @GetMapping("/{orderId}")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "getDirectOrder")
     ResponseEntity<DirectOrderQueries.Detail> get(
             @PathVariable UUID organizationId, @PathVariable UUID orderId) {
         return ResponseEntity.ok()

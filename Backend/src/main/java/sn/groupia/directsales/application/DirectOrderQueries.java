@@ -2,6 +2,8 @@ package sn.groupia.directsales.application;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -51,7 +53,7 @@ public class DirectOrderQueries {
             UUID productIdSnapshot,
             UUID variantIdSnapshot,
             String productName,
-            JsonNode attributes,
+            Map<String, String> attributes,
             String sku,
             String saleUnit,
             int quantity,
@@ -63,7 +65,7 @@ public class DirectOrderQueries {
             Summary order,
             Contact contact,
             Address deliveryAddress,
-            JsonNode platformFeeRule,
+            Map<String, String> platformFeeRule,
             List<Item> items) {}
 
     private final JdbcTemplate jdbc;
@@ -148,7 +150,7 @@ public class DirectOrderQueries {
                                     value(address, "commune"),
                                     value(address, "neighborhood"),
                                     value(address, "details")),
-                            json.readTree(rs.getString("fee_json")),
+                            map(json.readTree(rs.getString("fee_json"))),
                             List.of());
                 },
                 organizationId, orderId);
@@ -170,7 +172,7 @@ public class DirectOrderQueries {
                         rs.getObject("product_id_snapshot", UUID.class),
                         rs.getObject("product_variant_id_snapshot", UUID.class),
                         rs.getString("product_name_snapshot"),
-                        json.readTree(rs.getString("attributes_json")),
+                        map(json.readTree(rs.getString("attributes_json"))),
                         rs.getString("sku_snapshot"),
                         rs.getString("sale_unit_snapshot"),
                         rs.getInt("quantity"),
@@ -188,6 +190,12 @@ public class DirectOrderQueries {
             long goods, long fee, long amount, boolean shippingQuoted, Instant placedAt, int count) {
         return new Summary(id, number, status, fulfillment, currency,
                 goods, fee, amount, shippingQuoted, placedAt, count);
+    }
+
+    private static Map<String, String> map(JsonNode object) {
+        var values = new HashMap<String, String>();
+        object.properties().forEach(entry -> values.put(entry.getKey(), entry.getValue().asText()));
+        return Map.copyOf(values);
     }
 
     private static String value(JsonNode node, String property) {

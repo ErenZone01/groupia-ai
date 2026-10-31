@@ -9,8 +9,8 @@ import sn.groupia.organization.api.OrganizationAvailability;
 import sn.groupia.shared.api.ApiException;
 
 /**
- * Anonymous direct-cart price check. This quote is an instant snapshot, not an order,
- * reservation or guaranteed price. A future checkout must revalidate under its own lock.
+ * Anonymous direct-cart price check. This quote is an instant snapshot, not an order, reservation
+ * or guaranteed price. A future checkout must revalidate under its own lock.
  */
 @Service
 @Transactional(readOnly = true)
@@ -64,13 +64,15 @@ public class DirectCartQuoteService {
                 throw invalid();
             }
         }
-        var stores = jdbc.query(
-                "select id,organization_id,display_name from direct_storefronts where public_identifier=?",
-                (rs, rowNum) -> new Shop(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("organization_id", UUID.class),
-                        rs.getString("display_name")),
-                publicIdentifier);
+        var stores =
+                jdbc.query(
+                        "select id,organization_id,display_name from direct_storefronts where public_identifier=?",
+                        (rs, rowNum) ->
+                                new Shop(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("organization_id", UUID.class),
+                                        rs.getString("display_name")),
+                        publicIdentifier);
         if (stores.isEmpty() || !organizations.isActive(stores.getFirst().organizationId())) {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
         }
@@ -79,15 +81,19 @@ public class DirectCartQuoteService {
         var params = new ArrayList<Object>();
         params.add(store.id());
         params.addAll(quantities.keySet());
-        var offers = jdbc.query(
-                "select id,product_variant_id,price_xof,version from direct_offers"
-                        + " where storefront_id=? and published=true and id in (" + placeholders + ")",
-                (rs, rowNum) -> new Offer(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("product_variant_id", UUID.class),
-                        rs.getLong("price_xof"),
-                        rs.getLong("version")),
-                params.toArray());
+        var offers =
+                jdbc.query(
+                        "select id,product_variant_id,price_xof,version from direct_offers"
+                                + " where storefront_id=? and published=true and id in ("
+                                + placeholders
+                                + ")",
+                        (rs, rowNum) ->
+                                new Offer(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("product_variant_id", UUID.class),
+                                        rs.getLong("price_xof"),
+                                        rs.getLong("version")),
+                        params.toArray());
         if (offers.size() != quantities.size()) {
             throw stale();
         }
@@ -112,15 +118,16 @@ public class DirectCartQuoteService {
                 throw invalid();
             }
             if (total > 99999999999999L) throw invalid();
-            quoteLines.add(new QuotedLine(
-                    offer.id(),
-                    offer.variantId(),
-                    selection.getValue(),
-                    offer.priceXof(),
-                    lineTotal,
-                    offer.revision(),
-                    variant.productName(),
-                    variant.attributes()));
+            quoteLines.add(
+                    new QuotedLine(
+                            offer.id(),
+                            offer.variantId(),
+                            selection.getValue(),
+                            offer.priceXof(),
+                            lineTotal,
+                            offer.revision(),
+                            variant.productName(),
+                            variant.attributes()));
         }
         // No checkout operation exists in this tranche: a quote never requests money.
         return new Quote("XOF", store.displayName(), total, List.copyOf(quoteLines), false);
@@ -128,11 +135,15 @@ public class DirectCartQuoteService {
 
     private ApiException invalid() {
         return new ApiException(
-                400, "INVALID_DIRECT_CART", "Le panier doit contenir de 1 à 20 offres, avec des quantités de 1 à 100.");
+                400,
+                "INVALID_DIRECT_CART",
+                "Le panier doit contenir de 1 à 20 offres, avec des quantités de 1 à 100.");
     }
 
     private ApiException stale() {
         return new ApiException(
-                409, "DIRECT_CART_CHANGED", "Une offre est devenue indisponible. Actualisez votre panier.");
+                409,
+                "DIRECT_CART_CHANGED",
+                "Une offre est devenue indisponible. Actualisez votre panier.");
     }
 }

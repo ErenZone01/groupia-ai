@@ -162,6 +162,7 @@ class SecurityConfiguration {
                                     .requestMatchers(
                                             HttpMethod.POST,
                                             "/api/public/groupings/*/checkout",
+                                            "/api/public/direct-stores/*/quote",
                                             "/api/public/orders/*/payments",
                                             "/api/payment/webhooks/*")
                                     .permitAll()

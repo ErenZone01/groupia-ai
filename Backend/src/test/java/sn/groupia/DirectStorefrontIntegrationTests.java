@@ -116,6 +116,45 @@ class DirectStorefrontIntegrationTests {
                 .andExpect(jsonPath("$.offers[0].priceXof").value(8500))
                 .andExpect(jsonPath("$.offers[0].published").value(true));
 
+        // Direct-cart quote uses only current published prices, no authentication, no order.
+        mvc.perform(
+                        post(publicPath(link) + "/quote")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "lines",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "offerId",
+                                                                        offerId,
+                                                                        "quantity",
+                                                                        2))))))
+                .andExpect(status().isOk())
+                .andExpect(
+                        header().string(
+                                        "Cache-Control",
+                                        org.hamcrest.Matchers.containsString("no-store")))
+                .andExpect(jsonPath("$.currency").value("XOF"))
+                .andExpect(jsonPath("$.goodsSubtotalXof").value(17000))
+                .andExpect(jsonPath("$.lines[0].unitPriceXof").value(8500))
+                .andExpect(jsonPath("$.lines[0].priceRevision").value(1))
+                .andExpect(jsonPath("$.checkoutAvailable").value(false));
+        mvc.perform(
+                        post(publicPath(link) + "/quote")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "lines",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "offerId",
+                                                                        offerId,
+                                                                        "quantity",
+                                                                        101))))))
+                .andExpect(status().isBadRequest());
+
         // Published storefront does not create an implicit campaign or order.
         assertThat(jdbc.queryForObject("select count(*) from grouping_campaigns", Long.class))
                 .isZero();
@@ -152,6 +191,20 @@ class DirectStorefrontIntegrationTests {
                                                         false))))
                 .andExpect(status().isOk());
         mvc.perform(get(publicPath(link))).andExpect(status().isNotFound());
+        mvc.perform(
+                        post(publicPath(link) + "/quote")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "lines",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "offerId",
+                                                                        offerId,
+                                                                        "quantity",
+                                                                        1))))))
+                .andExpect(status().isConflict());
     }
 
     @Test

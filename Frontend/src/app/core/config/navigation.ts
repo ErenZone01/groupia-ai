@@ -20,6 +20,15 @@ export const navigation = [
     mobileOrder: 1,
   },
   {
+    path: '/app/vente-directe',
+    label: 'Vente directe',
+    shortLabel: 'Vente directe',
+    icon: 'store',
+    section: 'work',
+    mobile: 'secondary',
+    mobileOrder: 6,
+  },
+  {
     path: '/app/orders',
     label: 'Commandes',
     shortLabel: 'Commandes',

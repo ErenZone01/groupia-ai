@@ -23,6 +23,11 @@ export const routes: Routes = [
       import('./features/customer-access/customer-order.page').then((m) => m.CustomerOrderPage),
   },
   {
+    path: 'v/:publicIdentifier/panier',
+    title: 'Mon panier · Vente directe · Groupia',
+    loadComponent: () => import('./features/direct-sales/direct-cart.page').then((m) => m.DirectCartPage),
+  },
+  {
     path: 'v/:publicIdentifier',
     title: 'Vente directe · Groupia',
     loadComponent: () => import('./features/direct-sales/public-direct.page').then((m) => m.PublicDirectPage),

@@ -102,7 +102,7 @@ describe('MobileBottomNav V6', () => {
     expect(dialog.getAttribute('aria-labelledby')).toBe('mobile-menu-title');
     expect(el.querySelector('#mobile-menu-title')?.textContent).toBe('Menu Groupia');
     expect([...dialog.querySelectorAll('nav a')].map((a) => a.textContent?.trim())).toEqual([
-      'Paiements', 'Versements', 'Statistiques', 'Ma boutique', 'Abonnement',
+      'Vente directe', 'Paiements', 'Versements', 'Statistiques', 'Ma boutique', 'Abonnement',
     ]);
     expect(dialog.querySelector('select')?.getAttribute('id')).toBe('mobile-theme');
     expect(document.documentElement.style.overflow).toBe('hidden');

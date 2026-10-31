@@ -26,13 +26,36 @@ test('vente directe : vitrine anonyme, photo complète et aucun faux checkout', 
       }),
     });
   });
+  await page.route('**/api/public/direct-stores/*/quote', (route) => {
+    const request = route.request();
+    expect(request.headers()['authorization']).toBeUndefined();
+    expect(request.postDataJSON()).toEqual({ lines: [{ offerId, quantity: 1 }] });
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        currency: 'XOF', displayName: 'Boutique Awa', goodsSubtotalXof: 8500,
+        checkoutAvailable: false,
+        lines: [{
+          offerId, variantId, quantity: 1, unitPriceXof: 8500,
+          lineTotalXof: 8500, priceRevision: 1, productName: 'Sac en cuir',
+          attributes: { color: 'Noir' },
+        }],
+      }),
+    });
+  });
   await page.goto('/v/' + publicIdentifier);
   await expect(page.getByRole('heading', { name: 'Boutique Awa' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sac en cuir' })).toBeVisible();
   await expect(page.getByText(/8\s?500/)).toBeVisible();
-  await expect(page.getByText(/Commande en ligne prochainement/)).toBeVisible();
+  await expect(page.getByText(/Panier et estimation disponibles/)).toBeVisible();
   await expect(page.getByRole('button', { name: /acheter|commander|payer/i })).toHaveCount(0);
   expect(authHeader).toBeUndefined();
+  await page.getByRole('button', { name: 'Ajouter au panier' }).click();
+  await expect(page.getByText('1 article(s) dans mon panier')).toBeVisible();
+  await page.getByRole('link', { name: 'Voir mon panier' }).click();
+  await expect(page.getByRole('heading', { name: 'Mon panier' })).toBeVisible();
+  await expect(page.getByText('Sous-total des articles')).toBeVisible();
+  await expect(page.getByText('Aucune commande ni paiement')).toBeVisible();
   await noOverflow(page);
 });
 

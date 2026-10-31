@@ -131,7 +131,6 @@ public class DirectCheckoutService {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
         }
         var store = stores.getFirst();
-        entitlements.requireNewBusinessAllowed(store.organizationId());
         var contact = validateContact(command.contact(), organizations.countryCode(store.organizationId()));
         Address delivery = validateAddress(command.contact().deliveryAddress(), method);
         var fingerprint = sha256(json.writeValueAsString(Arrays.asList(
@@ -166,6 +165,8 @@ public class DirectCheckoutService {
             return new Result(false, (Receipt) saved[1]);
         }
 
+        // Existing idempotent receipts remain readable even if subscriptions later expire.
+        entitlements.requireNewBusinessAllowed(store.organizationId());
         var selections = lines.stream()
                 .map(line -> new DirectCartQuoteService.RequestedLine(line.offerId(), line.quantity()))
                 .toList();

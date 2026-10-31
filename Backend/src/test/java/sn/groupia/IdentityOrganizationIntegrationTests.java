@@ -104,14 +104,14 @@ class IdentityOrganizationIntegrationTests {
     @Test
     void requiredProfileIsPersistedAndOnlyTheAuthenticatedUserCanReadTheirName() throws Exception {
         register(PHONE, PASSWORD, null).andExpect(status().isAccepted());
-        assertThat(jdbc.queryForMap(
-                "select first_name, last_name, birth_date::text as birth_date from user_accounts where phone_number=?",
-                PHONE))
+        assertThat(
+                        jdbc.queryForMap(
+                                "select first_name, last_name, birth_date::text as birth_date from user_accounts where phone_number=?",
+                                PHONE))
                 .containsEntry("first_name", "Awa")
                 .containsEntry("last_name", "Diop")
                 .containsEntry("birth_date", "1995-04-12");
-        mvc.perform(get("/api/auth/me"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/auth/me").header("Authorization", bearer(token(PHONE))))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("no-store")))

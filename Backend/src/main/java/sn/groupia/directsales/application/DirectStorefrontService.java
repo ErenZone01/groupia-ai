@@ -86,20 +86,23 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         return jdbc.query(
                 "select id, organization_id, public_identifier, display_name"
                         + " from direct_storefronts where organization_id = ?",
-                storeMapper, organizationId);
+                storeMapper,
+                organizationId);
     }
 
     @Override
     public boolean hasPublishedOffers(UUID organizationId) {
         var stores = findByOrganization(organizationId);
-        return !stores.isEmpty() && organizations.isActive(organizationId)
+        return !stores.isEmpty()
+                && organizations.isActive(organizationId)
                 && !project(stores.getFirst(), true).offers().isEmpty();
     }
 
     public Storefront manager(UUID organizationId) {
         access.requirePermission(organizationId, OrganizationPermission.VIEW_CATALOG);
         var stores = findByOrganization(organizationId);
-        return stores.isEmpty() ? new Storefront(null, null, "XOF", List.of())
+        return stores.isEmpty()
+                ? new Storefront(null, null, "XOF", List.of())
                 : project(stores.getFirst(), false);
     }
 
@@ -115,8 +118,12 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                         + " values (?,?,?,?,?,?)"
                         + " on conflict (organization_id) do update"
                         + " set display_name = excluded.display_name, updated_at = excluded.updated_at",
-                UUID.randomUUID(), organizationId, UUID.randomUUID(), name,
-                java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
+                UUID.randomUUID(),
+                organizationId,
+                UUID.randomUUID(),
+                name,
+                java.sql.Timestamp.from(now),
+                java.sql.Timestamp.from(now));
         return manager(organizationId);
     }
 
@@ -127,13 +134,18 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         var store = requireStore(organizationId, true);
         var variant = catalog.findByIds(organizationId, Set.of(variantId)).get(variantId);
         if (variant == null || !variant.usable()) {
-            throw new ApiException(409, "DIRECT_PRODUCT_UNAVAILABLE", "Cette variante n'est pas disponible.");
+            throw new ApiException(
+                    409, "DIRECT_PRODUCT_UNAVAILABLE", "Cette variante n'est pas disponible.");
         }
         // Serialize creations for a given store; cap and uniqueness stay correct concurrently.
-        var count = jdbc.queryForObject(
-                "select count(*) from direct_offers where storefront_id = ?", Integer.class, store.id());
+        var count =
+                jdbc.queryForObject(
+                        "select count(*) from direct_offers where storefront_id = ?",
+                        Integer.class,
+                        store.id());
         if (count != null && count >= 100) {
-            throw new ApiException(409, "DIRECT_LIMIT_REACHED", "Maximum 100 offres de vente directe.");
+            throw new ApiException(
+                    409, "DIRECT_LIMIT_REACHED", "Maximum 100 offres de vente directe.");
         }
         var now = clock.instant();
         try {
@@ -142,8 +154,13 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                             + " (id,organization_id,storefront_id,product_variant_id,price_xof,"
                             + " published,version,created_at,updated_at)"
                             + " values (?,?,?,?,?,false,0,?,?)",
-                    UUID.randomUUID(), organizationId, store.id(), variantId, priceXof,
-                    java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
+                    UUID.randomUUID(),
+                    organizationId,
+                    store.id(),
+                    variantId,
+                    priceXof,
+                    java.sql.Timestamp.from(now),
+                    java.sql.Timestamp.from(now));
         } catch (DuplicateKeyException e) {
             throw new ApiException(409, "DIRECT_OFFER_EXISTS", "Cette variante est déjà proposée.");
         }
@@ -156,10 +173,13 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         access.requirePermission(organizationId, OrganizationPermission.MANAGE_CATALOG);
         requirePrice(priceXof);
         var store = requireStore(organizationId, true);
-        var existing = jdbc.query(
-                "select id,product_variant_id,price_xof,published,version"
-                        + " from direct_offers where storefront_id = ? and id = ?",
-                offerMapper, store.id(), offerId);
+        var existing =
+                jdbc.query(
+                        "select id,product_variant_id,price_xof,published,version"
+                                + " from direct_offers where storefront_id = ? and id = ?",
+                        offerMapper,
+                        store.id(),
+                        offerId);
         if (existing.isEmpty()) {
             throw new ApiException(404, "DIRECT_OFFER_NOT_FOUND", "Offre introuvable.");
         }
@@ -175,21 +195,30 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                 throw new ApiException(409, "DIRECT_PRODUCT_UNAVAILABLE", "Produit non publiable.");
             }
         }
-        int updated = jdbc.update(
-                "update direct_offers set price_xof=?, published=?,version=version+1,"
-                        + "updated_at=? where storefront_id=? and id=? and version=?",
-                priceXof, published, java.sql.Timestamp.from(clock.instant()), store.id(), offerId, version);
+        int updated =
+                jdbc.update(
+                        "update direct_offers set price_xof=?, published=?,version=version+1,"
+                                + "updated_at=? where storefront_id=? and id=? and version=?",
+                        priceXof,
+                        published,
+                        java.sql.Timestamp.from(clock.instant()),
+                        store.id(),
+                        offerId,
+                        version);
         if (updated != 1) {
-            throw new ApiException(409, "DIRECT_VERSION_CONFLICT", "Offre modifiée. Rechargez la page.");
+            throw new ApiException(
+                    409, "DIRECT_VERSION_CONFLICT", "Offre modifiée. Rechargez la page.");
         }
         return manager(organizationId);
     }
 
     public Storefront publicStore(UUID identifier) {
-        var stores = jdbc.query(
-                "select id,organization_id,public_identifier,display_name"
-                        + " from direct_storefronts where public_identifier = ?",
-                storeMapper, identifier);
+        var stores =
+                jdbc.query(
+                        "select id,organization_id,public_identifier,display_name"
+                                + " from direct_storefronts where public_identifier = ?",
+                        storeMapper,
+                        identifier);
         if (stores.isEmpty() || !organizations.isActive(stores.getFirst().organizationId())) {
             throw unavailable();
         }
@@ -199,33 +228,39 @@ public class DirectStorefrontService implements DirectSalesAvailability {
     }
 
     private Storefront project(Store store, boolean publicOnly) {
-        var all = jdbc.query(
-                "select id,product_variant_id,price_xof,published,version"
-                        + " from direct_offers where storefront_id = ?"
-                        + (publicOnly ? " and published = true" : "")
-                        + " order by created_at desc, id limit 100",
-                offerMapper, store.id());
+        var all =
+                jdbc.query(
+                        "select id,product_variant_id,price_xof,published,version"
+                                + " from direct_offers where storefront_id = ?"
+                                + (publicOnly ? " and published = true" : "")
+                                + " order by created_at desc, id limit 100",
+                        offerMapper,
+                        store.id());
         var ids = new HashSet<UUID>();
         all.forEach(o -> ids.add(o.variantId()));
         Map<UUID, sn.groupia.catalog.api.dto.CatalogCommercialSnapshot> snapshots =
-                ids.isEmpty() ? Map.of()
-                        : catalog.commercialSnapshots(store.organizationId(), ids);
+                ids.isEmpty() ? Map.of() : catalog.commercialSnapshots(store.organizationId(), ids);
         var products = new HashSet<UUID>();
         snapshots.values().forEach(snapshot -> products.add(snapshot.productId()));
         Map<UUID, List<sn.groupia.media.api.dto.PublicProductImage>> images =
-                products.isEmpty() ? Map.of()
-                        : media.readyImages(store.organizationId(), products);
+                products.isEmpty() ? Map.of() : media.readyImages(store.organizationId(), products);
         var views = new ArrayList<Offer>();
         for (var row : all) {
             var snapshot = snapshots.get(row.variantId());
             var variant = snapshot == null ? null : snapshot.variant();
             if (publicOnly && (variant == null || !variant.usable())) continue;
-            var productImages = snapshot == null ? List.<sn.groupia.media.api.dto.PublicProductImage>of()
-                    : images.getOrDefault(snapshot.productId(), List.of());
+            var productImages =
+                    snapshot == null
+                            ? List.<sn.groupia.media.api.dto.PublicProductImage>of()
+                            : images.getOrDefault(snapshot.productId(), List.of());
             String image = productImages.isEmpty() ? null : productImages.getFirst().displayUrl();
             views.add(
                     new Offer(
-                            row.id(), row.variantId(), row.price(), row.published(), row.version(),
+                            row.id(),
+                            row.variantId(),
+                            row.price(),
+                            row.published(),
+                            row.version(),
                             variant == null ? "Produit indisponible" : variant.productName(),
                             variant == null ? null : variant.productDescription(),
                             variant == null ? Map.of() : variant.attributes(),
@@ -237,13 +272,16 @@ public class DirectStorefrontService implements DirectSalesAvailability {
     }
 
     private Store requireStore(UUID organizationId, boolean lock) {
-        var stores = jdbc.query(
-                "select id,organization_id,public_identifier,display_name"
-                        + " from direct_storefronts where organization_id = ?"
-                        + (lock ? " for update" : ""),
-                storeMapper, organizationId);
+        var stores =
+                jdbc.query(
+                        "select id,organization_id,public_identifier,display_name"
+                                + " from direct_storefronts where organization_id = ?"
+                                + (lock ? " for update" : ""),
+                        storeMapper,
+                        organizationId);
         if (stores.isEmpty()) {
-            throw new ApiException(409, "DIRECT_STORE_REQUIRED", "Créez d'abord votre boutique directe.");
+            throw new ApiException(
+                    409, "DIRECT_STORE_REQUIRED", "Créez d'abord votre boutique directe.");
         }
         return stores.getFirst();
     }

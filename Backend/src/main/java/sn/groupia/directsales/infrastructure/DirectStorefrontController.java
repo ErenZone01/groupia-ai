@@ -18,7 +18,8 @@ class DirectStorefrontController {
 
     record NameInput(@NotBlank @Size(max = 160) String displayName) {}
 
-    record OfferInput(@NotNull UUID variantId, @NotNull @Min(1) @Max(999999999999L) Long priceXof) {}
+    record OfferInput(
+            @NotNull UUID variantId, @NotNull @Min(1) @Max(999999999999L) Long priceXof) {}
 
     record UpdateInput(
             @NotNull @Min(0) Long version,
@@ -48,11 +49,16 @@ class DirectStorefrontController {
             @PathVariable UUID offerId,
             @Valid @RequestBody UpdateInput request) {
         return direct.update(
-                organizationId, offerId, request.version(), request.priceXof(), request.published());
+                organizationId,
+                offerId,
+                request.version(),
+                request.priceXof(),
+                request.published());
     }
 
     @GetMapping("/api/public/direct-stores/{publicIdentifier}")
-    ResponseEntity<DirectStorefrontService.Storefront> publicStore(@PathVariable UUID publicIdentifier) {
+    ResponseEntity<DirectStorefrontService.Storefront> publicStore(
+            @PathVariable UUID publicIdentifier) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(direct.publicStore(publicIdentifier));

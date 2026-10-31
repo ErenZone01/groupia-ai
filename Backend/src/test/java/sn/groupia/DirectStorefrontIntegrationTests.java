@@ -55,47 +55,101 @@ class DirectStorefrontIntegrationTests {
         var product = product(organizationId, bearer, "Sac en cuir");
         var variantId = product.at("/variants/0/id").asText();
 
-        var draftStore = body(authorized(put(path()).contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("displayName", "Boutique Awa"))))
-                .andExpect(status().isOk()).andReturn());
+        var draftStore =
+                body(
+                        authorized(
+                                        put(path())
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "displayName",
+                                                                        "Boutique Awa"))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         String link = draftStore.path("publicIdentifier").asText();
         assertThat(link).isNotBlank();
 
-        var draft = body(authorized(post(path() + "/offers").contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("variantId", variantId, "priceXof", 8500))))
-                .andExpect(status().isOk()).andReturn());
+        var draft =
+                body(
+                        authorized(
+                                        post(path() + "/offers")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "variantId",
+                                                                        variantId,
+                                                                        "priceXof",
+                                                                        8500))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         String offerId = draft.at("/offers/0/id").asText();
         assertThat(draft.at("/offers/0/published").asBoolean()).isFalse();
 
         mvc.perform(get(publicPath(link))).andExpect(status().isNotFound());
-        var published = body(authorized(put(path() + "/offers/" + offerId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(
-                                Map.of("version", 0, "priceXof", 8500, "published", true))))
-                .andExpect(status().isOk()).andReturn());
+        var published =
+                body(
+                        authorized(
+                                        put(path() + "/offers/" + offerId)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "version",
+                                                                        0,
+                                                                        "priceXof",
+                                                                        8500,
+                                                                        "published",
+                                                                        true))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         assertThat(published.at("/offers/0/version").asLong()).isEqualTo(1);
 
         mvc.perform(get(publicPath(link)))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
+                .andExpect(
+                        header().string(
+                                        "Cache-Control",
+                                        org.hamcrest.Matchers.containsString("no-store")))
                 .andExpect(jsonPath("$.offers[0].productName").value("Sac en cuir"))
                 .andExpect(jsonPath("$.offers[0].priceXof").value(8500))
                 .andExpect(jsonPath("$.offers[0].published").value(true));
 
         // Published storefront does not create an implicit campaign or order.
-        assertThat(jdbc.queryForObject("select count(*) from grouping_campaigns", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from grouping_campaigns", Long.class))
+                .isZero();
         assertThat(jdbc.queryForObject("select count(*) from orders", Long.class)).isZero();
 
-        var renamed = body(authorized(put(path()).contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("displayName", "Boutique renommée"))))
-                .andExpect(status().isOk()).andReturn());
+        var renamed =
+                body(
+                        authorized(
+                                        put(path())
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "displayName",
+                                                                        "Boutique renommée"))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         assertThat(renamed.path("publicIdentifier").asText()).isEqualTo(link);
         mvc.perform(get(publicPath(link)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("Boutique renommée"));
 
-        authorized(put(path() + "/offers/" + offerId).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("version", 1, "priceXof", 8500, "published", false))))
+        authorized(
+                        put(path() + "/offers/" + offerId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        1,
+                                                        "priceXof",
+                                                        8500,
+                                                        "published",
+                                                        false))))
                 .andExpect(status().isOk());
         mvc.perform(get(publicPath(link))).andExpect(status().isNotFound());
     }
@@ -106,77 +160,165 @@ class DirectStorefrontIntegrationTests {
         String variant = product.at("/variants/0/id").asText();
 
         // No merchant endpoint is anonymous.
-        mvc.perform(put(path()).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("displayName", "Vol"))))
+        mvc.perform(
+                        put(path())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("displayName", "Vol"))))
                 .andExpect(status().isUnauthorized());
         var second = token(account("+221781234567"));
         UUID other = organization(second, "Autre boutique");
         mvc.perform(get(path()).header("Authorization", "Bearer " + second))
                 .andExpect(status().isForbidden());
 
-        authorized(put(path()).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("displayName", "Boutique Awa"))))
+        authorized(
+                        put(path())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("displayName", "Boutique Awa"))))
                 .andExpect(status().isOk());
-        authorized(post(path() + "/offers").contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("variantId", variant, "priceXof", 1000))))
+        authorized(
+                        post(path() + "/offers")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("variantId", variant, "priceXof", 1000))))
                 .andExpect(status().isOk());
-        authorized(post(path() + "/offers").contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("variantId", variant, "priceXof", 1000))))
+        authorized(
+                        post(path() + "/offers")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("variantId", variant, "priceXof", 1000))))
                 .andExpect(status().isConflict());
 
         // Tenant B cannot publish tenant A's variant, even if the UUID is known.
-        mvc.perform(put("/api/organizations/" + other + "/direct-store")
-                .header("Authorization", "Bearer " + second)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("displayName", "Boutique B"))))
+        mvc.perform(
+                        put("/api/organizations/" + other + "/direct-store")
+                                .header("Authorization", "Bearer " + second)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("displayName", "Boutique B"))))
                 .andExpect(status().isOk());
-        mvc.perform(post("/api/organizations/" + other + "/direct-store/offers")
-                .header("Authorization", "Bearer " + second)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("variantId", variant, "priceXof", 1000))))
+        mvc.perform(
+                        post("/api/organizations/" + other + "/direct-store/offers")
+                                .header("Authorization", "Bearer " + second)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("variantId", variant, "priceXof", 1000))))
                 .andExpect(status().isConflict());
-        assertThat(jdbc.queryForObject("select count(*) from direct_offers", Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from direct_offers", Long.class))
+                .isEqualTo(1);
     }
 
     @Test
     void rejectsPriceConflictAndArchivedProducts() throws Exception {
         var product = product(organizationId, bearer, "Robe");
         String variant = product.at("/variants/0/id").asText();
-        authorized(put(path()).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("displayName", "Boutique Awa"))))
+        authorized(
+                        put(path())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("displayName", "Boutique Awa"))))
                 .andExpect(status().isOk());
-        var store = body(authorized(post(path() + "/offers").contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("variantId", variant, "priceXof", 4500))))
-                .andExpect(status().isOk()).andReturn());
+        var store =
+                body(
+                        authorized(
+                                        post(path() + "/offers")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "variantId",
+                                                                        variant,
+                                                                        "priceXof",
+                                                                        4500))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         String offerId = store.at("/offers/0/id").asText();
         var id = store.path("publicIdentifier").asText();
-        authorized(put(path() + "/offers/" + offerId).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("version", 0, "priceXof", 4500, "published", true))))
+        authorized(
+                        put(path() + "/offers/" + offerId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        0,
+                                                        "priceXof",
+                                                        4500,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isOk());
-        authorized(put(path() + "/offers/" + offerId).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("version", 0, "priceXof", 3000, "published", true))))
+        authorized(
+                        put(path() + "/offers/" + offerId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        0,
+                                                        "priceXof",
+                                                        3000,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isConflict());
-        authorized(put(path() + "/offers/" + offerId).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("version", 1, "priceXof", 0, "published", true))))
+        authorized(
+                        put(path() + "/offers/" + offerId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        1,
+                                                        "priceXof",
+                                                        0,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isBadRequest());
 
-        authorized(post("/api/organizations/" + organizationId + "/products/"
-                        + product.path("id").asText() + "/archive")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("version", product.path("version").asLong()))))
+        authorized(
+                        post("/api/organizations/"
+                                        + organizationId
+                                        + "/products/"
+                                        + product.path("id").asText()
+                                        + "/archive")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        product.path("version").asLong()))))
                 .andExpect(status().isOk());
         mvc.perform(get(publicPath(id))).andExpect(status().isNotFound());
-        authorized(put(path() + "/offers/" + offerId).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("version", 1, "priceXof", 4500, "published", true))))
+        authorized(
+                        put(path() + "/offers/" + offerId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        1,
+                                                        "priceXof",
+                                                        4500,
+                                                        "published",
+                                                        true))))
                 .andExpect(status().isConflict());
     }
 
-    private JsonNode product(UUID organization, String authorization, String name) throws Exception {
-        return body(mvc.perform(post("/api/organizations/" + organization + "/products")
-                .header("Authorization", "Bearer " + authorization)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("name", name))))
-                .andExpect(status().isCreated()).andReturn());
+    private JsonNode product(UUID organization, String authorization, String name)
+            throws Exception {
+        return body(
+                mvc.perform(
+                                post("/api/organizations/" + organization + "/products")
+                                        .header("Authorization", "Bearer " + authorization)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(json.writeValueAsString(Map.of("name", name))))
+                        .andExpect(status().isCreated())
+                        .andReturn());
     }
 
     private String path() {
@@ -187,7 +329,8 @@ class DirectStorefrontIntegrationTests {
         return "/api/public/direct-stores/" + id;
     }
 
-    private ResultActions authorized(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req)
+    private ResultActions authorized(
+            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req)
             throws Exception {
         return mvc.perform(req.header("Authorization", "Bearer " + bearer));
     }
@@ -201,28 +344,40 @@ class DirectStorefrontIntegrationTests {
         jdbc.update(
                 "insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at)"
                         + " values (?,?,?,'ACTIVE',current_timestamp,current_timestamp)",
-                id, phone, passwords.encode("Long fixture password 2026"));
+                id,
+                phone,
+                passwords.encode("Long fixture password 2026"));
         return id;
     }
 
     private String token(UUID userId) {
-        var claims = JwtClaimsSet.builder()
-                .claim("sid", UUID.randomUUID().toString())
-                .issuer("https://groupia.test")
-                .audience(List.of("groupia-api-test"))
-                .subject(userId.toString())
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(600))
-                .build();
-        return encoder.encode(JwtEncoderParameters.from(
-                JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+        var claims =
+                JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
+                        .issuer("https://groupia.test")
+                        .audience(List.of("groupia-api-test"))
+                        .subject(userId.toString())
+                        .issuedAt(Instant.now())
+                        .expiresAt(Instant.now().plusSeconds(600))
+                        .build();
+        return encoder.encode(
+                        JwtEncoderParameters.from(
+                                JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                .getTokenValue();
     }
 
     private UUID organization(String jwt, String name) throws Exception {
-        return UUID.fromString(body(mvc.perform(post("/api/organizations")
-                        .header("Authorization", "Bearer " + jwt)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("name", name))))
-                .andExpect(status().isCreated()).andReturn()).get("id").asText());
+        return UUID.fromString(
+                body(mvc.perform(
+                                        post("/api/organizations")
+                                                .header("Authorization", "Bearer " + jwt)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of("name", name))))
+                                .andExpect(status().isCreated())
+                                .andReturn())
+                        .get("id")
+                        .asText());
     }
 }

@@ -207,10 +207,14 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                 offerMapper, store.id());
         var ids = new HashSet<UUID>();
         all.forEach(o -> ids.add(o.variantId()));
-        var snapshots = catalog.commercialSnapshots(store.organizationId(), ids);
+        Map<UUID, sn.groupia.catalog.api.dto.CatalogCommercialSnapshot> snapshots =
+                ids.isEmpty() ? Map.of()
+                        : catalog.commercialSnapshots(store.organizationId(), ids);
         var products = new HashSet<UUID>();
-        snapshots.values().forEach(s -> products.add(s.productId()));
-        var images = media.readyImages(store.organizationId(), products);
+        snapshots.values().forEach(snapshot -> products.add(snapshot.productId()));
+        Map<UUID, List<sn.groupia.media.api.dto.PublicProductImage>> images =
+                products.isEmpty() ? Map.of()
+                        : media.readyImages(store.organizationId(), products);
         var views = new ArrayList<Offer>();
         for (var row : all) {
             var snapshot = snapshots.get(row.variantId());

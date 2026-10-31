@@ -44,7 +44,7 @@ CREATE TABLE direct_orders (
             AND jsonb_typeof(delivery_address_snapshot) = 'object')),
     CONSTRAINT ck_direct_orders_contact CHECK (
         jsonb_typeof(customer_contact_snapshot) = 'object'
-        AND customer_contact_snapshot ?& array['firstName','lastName','phoneE164']
+        AND jsonb_exists_all(customer_contact_snapshot, array['firstName','lastName','phoneE164'])
         AND jsonb_typeof(platform_fee_rule_snapshot) = 'object'),
     CONSTRAINT ck_direct_orders_key CHECK (
         checkout_idempotency_key ~ '^[A-Za-z0-9._:-]{16,128}$'

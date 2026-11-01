@@ -79,7 +79,6 @@ export class DirectLocationMap implements AfterViewInit {
         center: center && validDirectGeoPoint(center)
           ? [center.longitude, center.latitude] : [-17.4677, 14.7167],
         zoom: center ? 15 : 11,
-        attributionControl: true,
       });
       this.map.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right');
       this.map.on('click', (event) => {

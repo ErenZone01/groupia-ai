@@ -5,7 +5,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
 import { money, variantLabel } from '../../shared/utils/display';
-import { DirectOrderDetail, DirectOrderSummary, DirectOrdersApi, DirectOrdersPage } from './direct-orders.api';
+import { DirectOrderDetail, DirectOrderSummary, DirectOrdersApi, DirectOrdersPage as DirectOrdersResponse } from './direct-orders.api';
 
 @Component({
   selector: 'g-direct-orders-page',
@@ -17,7 +17,7 @@ export class DirectOrdersPage {
   private readonly api = inject(DirectOrdersApi);
   private readonly auth = inject(AuthService);
   readonly context = inject(BoutiqueContextService);
-  readonly data = signal<DirectOrdersPage | null>(null);
+  readonly data = signal<DirectOrdersResponse | null>(null);
   readonly detail = signal<DirectOrderDetail | null>(null);
   readonly loading = signal(false);
   readonly detailLoading = signal(false);

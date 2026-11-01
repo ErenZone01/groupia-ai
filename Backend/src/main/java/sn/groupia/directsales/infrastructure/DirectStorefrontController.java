@@ -7,16 +7,20 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sn.groupia.directsales.application.DirectCartQuoteService;
+import sn.groupia.directsales.application.DirectDeliveryPolicyService;
 import sn.groupia.directsales.application.DirectStorefrontService;
 
 @RestController
 class DirectStorefrontController {
     private final DirectStorefrontService direct;
     private final DirectCartQuoteService carts;
+    private final DirectDeliveryPolicyService delivery;
 
-    DirectStorefrontController(DirectStorefrontService direct, DirectCartQuoteService carts) {
+    DirectStorefrontController(DirectStorefrontService direct, DirectCartQuoteService carts,
+            DirectDeliveryPolicyService delivery) {
         this.direct = direct;
         this.carts = carts;
+        this.delivery = delivery;
     }
 
     record NameInput(@NotBlank @Size(max = 160) String displayName) {}
@@ -57,6 +61,31 @@ class DirectStorefrontController {
                 request.version(),
                 request.priceXof(),
                 request.published());
+    }
+
+    @GetMapping("/api/organizations/{organizationId}/direct-store/delivery-policy")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "getDirectDeliveryPolicy")
+    ResponseEntity<DirectDeliveryPolicyService.Policy> deliveryPolicy(
+            @PathVariable UUID organizationId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(delivery.manager(organizationId));
+    }
+
+    @PutMapping("/api/organizations/{organizationId}/direct-store/delivery-policy")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "updateDirectDeliveryPolicy")
+    ResponseEntity<DirectDeliveryPolicyService.Policy> updateDeliveryPolicy(
+            @PathVariable UUID organizationId,
+            @RequestBody DirectDeliveryPolicyService.Policy request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(delivery.save(organizationId, request));
+    }
+
+    @GetMapping("/api/public/direct-stores/{publicIdentifier}/delivery-policy")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "getPublicDirectDeliveryPolicy")
+    ResponseEntity<DirectDeliveryPolicyService.Policy> publicDeliveryPolicy(
+            @PathVariable UUID publicIdentifier) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(delivery.publicPolicy(publicIdentifier));
     }
 
     record QuoteInput(java.util.List<DirectCartQuoteService.RequestedLine> lines) {}

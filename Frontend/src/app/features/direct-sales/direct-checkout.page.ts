@@ -171,6 +171,10 @@ export class DirectCheckoutPage {
     const point = this.candidatePoint();
     if (!point || !validDirectGeoPoint(point) || !this.deliveryAvailable) return;
     this.confirmedPoint.set(point);
+    // A previously entered manual address must not be mistaken for this new map point.
+    this.location = this.blankLocation();
+    this.cityChoice = '';
+    this.communeChoice = '';
     this.locationMode.set('CONFIRMED');
     this.locationError.set('');
     this.review.set(false);

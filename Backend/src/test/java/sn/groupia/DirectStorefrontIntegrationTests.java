@@ -634,6 +634,39 @@ class DirectStorefrontIntegrationTests {
                                                         "lines",
                                                         lines))))
                 .andExpect(status().isBadRequest());
+        String policyPath = path() + "/delivery-policy";
+        var defaultPolicy = body(
+                authorized(get(policyPath)).andExpect(status().isOk()).andReturn());
+        assertThat(defaultPolicy.path("mode").asText()).isEqualTo("ALL");
+        assertThat(defaultPolicy.path("version").asLong()).isZero();
+        var limitedPolicy = body(
+                authorized(put(policyPath)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(
+                                Map.of("mode", "SELECTED", "allowedRegions", List.of("Dakar"),
+                                        "version", 0))))
+                        .andExpect(status().isOk()).andReturn());
+        assertThat(limitedPolicy.path("version").asLong()).isEqualTo(1);
+        assertThat(limitedPolicy.at("/allowedRegions/0").asText()).isEqualTo("Dakar");
+        mvc.perform(get(publicPath(store.path("publicIdentifier").asText()) + "/delivery-policy"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode").value("SELECTED"));
+
+        var outside = Map.of(
+                "contact", Map.of("firstName", "Awa", "lastName", "Ndiaye",
+                        "phone", "+221771234567",
+                        "deliveryAddress", Map.of("country", "SN", "region", "Thiès",
+                                "city", "Thiès", "commune", "Thiès",
+                                "details", "Près du marché")),
+                "fulfillmentMethod", "DELIVERY", "lines", lines);
+        mvc.perform(post(endpoint)
+                        .header("Idempotency-Key", "direct-outside-region-0001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(outside)))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
+                .isZero();
+
         mvc.perform(
                         post(endpoint)
                                 .header("Idempotency-Key", "direct-valid-address-0001")
@@ -668,6 +701,33 @@ class DirectStorefrontIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from orders", Long.class)).isZero();
+        authorized(put(policyPath)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(
+                                Map.of("mode", "DISABLED", "allowedRegions", List.of(),
+                                        "version", 1))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2));
+        mvc.perform(post(endpoint)
+                        .header("Idempotency-Key", "direct-disabled-region-0001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(outside)))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
+                .isEqualTo(1);
+        mvc.perform(get(policyPath)).andExpect(status().isUnauthorized());
+        var second = token(account("+221781234567"));
+        UUID otherOrg = organization(second, "Autre boutique");
+        mvc.perform(get(policyPath).header("Authorization", "Bearer " + second))
+                .andExpect(status().isForbidden());
+        mvc.perform(put(policyPath).header("Authorization", "Bearer " + second)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(
+                                Map.of("mode", "ALL", "allowedRegions", List.of(),
+                                        "version", 2))))
+                .andExpect(status().isForbidden());
+        assertThat(otherOrg).isNotEqualTo(organizationId);
+
     }
 
     private JsonNode product(UUID organization, String authorization, String name)

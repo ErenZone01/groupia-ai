@@ -180,7 +180,7 @@ export class DirectCheckoutPage {
     this.review.set(false);
   }
 
-  async locateMe() {
+  locateMe() {
     if (this.fulfillment !== 'DELIVERY' || !this.deliveryAvailable || this.locating()) return;
     const geolocation = this.browser?.navigator.geolocation;
     if (!geolocation) {

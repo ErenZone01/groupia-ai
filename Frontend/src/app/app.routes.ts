@@ -116,6 +116,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/direct-sales/direct-sales.page').then((m) => m.DirectSalesPage),
       },
       {
+        path: 'vente-directe/commandes',
+        title: 'Commandes directes · Groupia',
+        loadComponent: () =>
+          import('./features/direct-sales/direct-orders.page').then((m) => m.DirectOrdersPage),
+      },
+      {
         path: 'products',
         title: 'Produits · Groupia',
         loadComponent: () => import('./features/catalog/catalog.page').then((m) => m.CatalogPage),

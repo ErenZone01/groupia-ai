@@ -13,6 +13,19 @@
   @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
   @if (notice()) { <p class="message success" role="status">{{ notice() }}</p> }
 
+  <section class="ds-card" aria-labelledby="direct-orders-heading">
+    <div class="section-head">
+      <div>
+        <h2 id="direct-orders-heading">Commandes directes</h2>
+        <p>Retrouvez les brouillons de commande et leurs coordonnées, indépendamment des groupages.
+          Aucun paiement direct n'est encore activé.</p>
+      </div>
+      <a gButton variant="secondary" routerLink="/app/vente-directe/commandes">
+        Consulter les commandes
+      </a>
+    </div>
+  </section>
+
   <section class="ds-card" aria-labelledby="direct-shop-heading">
     <div class="section-head">
       <div><h2 id="direct-shop-heading">Votre vitrine publique</h2>

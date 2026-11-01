@@ -75,6 +75,7 @@ public class DirectCheckoutService {
 
     private final JdbcTemplate jdbc;
     private final DirectCartQuoteService carts;
+    private final DirectDeliveryPolicyService deliveryPolicy;
     private final CatalogVariants catalog;
     private final OrganizationAvailability organizations;
     private final SubscriptionEntitlements entitlements;
@@ -86,6 +87,7 @@ public class DirectCheckoutService {
     DirectCheckoutService(
             JdbcTemplate jdbc,
             DirectCartQuoteService carts,
+            DirectDeliveryPolicyService deliveryPolicy,
             CatalogVariants catalog,
             OrganizationAvailability organizations,
             SubscriptionEntitlements entitlements,
@@ -98,6 +100,7 @@ public class DirectCheckoutService {
         }
         this.jdbc = jdbc;
         this.carts = carts;
+        this.deliveryPolicy = deliveryPolicy;
         this.catalog = catalog;
         this.organizations = organizations;
         this.entitlements = entitlements;
@@ -183,6 +186,12 @@ public class DirectCheckoutService {
             return new Result(false, (Receipt) saved[1]);
         }
 
+        // Only new drafts consult the latest delivery rules. An idempotent replay
+        // above remains stable even if the merchant later changes coverage.
+        if (method.equals("DELIVERY")) {
+            deliveryPolicy.requireDeliveryAllowed(
+                    store.organizationId(), store.id(), delivery.region());
+        }
         // Existing idempotent receipts remain readable even if subscriptions later expire.
         entitlements.requireNewBusinessAllowed(store.organizationId());
         var selections =

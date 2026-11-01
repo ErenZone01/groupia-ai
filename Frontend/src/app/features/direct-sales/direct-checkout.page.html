@@ -252,7 +252,9 @@
                   </label>
                   }
                 }
-       <div class="form-footer">
+              </section>
+
+              <div class="form-footer">
                 <p>Vos informations restent dans cette page. Aucune commande ni paiement n'est créé.</p>
                 <button type="submit" [disabled]="!form.valid || !quote() || loading() || !!error() || !locationReady">
                   Vérifier mon récapitulatif

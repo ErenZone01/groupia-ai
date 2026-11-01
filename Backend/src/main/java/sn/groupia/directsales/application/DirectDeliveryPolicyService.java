@@ -164,7 +164,7 @@ public class DirectDeliveryPolicyService {
                         + " where organization_id=? and storefront_id=?",
                 (rs, row) -> {
                     var regions = new ArrayList<String>();
-                    var nodes = json.readTree(rs.getString("regions")).elements();
+                    var nodes = json.readTree(rs.getString("regions")).iterator();
                     while (nodes.hasNext()) regions.add(nodes.next().asText());
                     return new Policy(
                             rs.getString("mode"), List.copyOf(regions), rs.getLong("version"));

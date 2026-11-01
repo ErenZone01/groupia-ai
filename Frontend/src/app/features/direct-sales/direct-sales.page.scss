@@ -58,3 +58,18 @@ input:focus-visible,select:focus-visible { outline:2px solid var(--accent); outl
   .offer-actions { width:100%; }
   .offer-actions button { flex:1; }
 }
+
+.delivery-settings { display:grid; gap:12px; margin-top:18px; }
+.delivery-option { display:flex; align-items:flex-start; gap:12px; padding:13px 15px;
+  border:1px solid var(--border); border-radius:12px; cursor:pointer; }
+.delivery-option input { width:18px; height:18px; flex:none; margin-top:2px; accent-color:var(--primary); }
+.delivery-option span { display:grid; gap:5px; }
+.delivery-option strong { font-size:14px; }
+.delivery-option small { font-size:12px; color:var(--muted); }
+.delivery-region-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
+  gap:12px; padding:16px; border:1px solid var(--border); border-radius:12px; }
+.delivery-region-list legend { padding:0 7px; color:var(--muted); font-size:13px; }
+.delivery-region-list label { display:flex; gap:9px; align-items:center; font-size:13px; cursor:pointer; }
+.delivery-region-list input { width:17px; height:17px; accent-color:var(--primary); }
+.delivery-settings > button { justify-self:start; }
+@media (max-width:550px) { .delivery-settings > button { width:100%; } }

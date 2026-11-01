@@ -648,6 +648,17 @@ class DirectStorefrontIntegrationTests {
                         .andExpect(status().isOk()).andReturn());
         assertThat(limitedPolicy.path("version").asLong()).isEqualTo(1);
         assertThat(limitedPolicy.at("/allowedRegions/0").asText()).isEqualTo("Dakar");
+        authorized(put(policyPath)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "mode", "ALL", "allowedRegions", List.of(), "version", 0))))
+                .andExpect(status().isConflict());
+        authorized(put(policyPath)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "mode", "SELECTED", "allowedRegions", List.of("Inconnue"),
+                                "version", 1))))
+                .andExpect(status().isBadRequest());
         mvc.perform(get(publicPath(store.path("publicIdentifier").asText()) + "/delivery-policy"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mode").value("SELECTED"));

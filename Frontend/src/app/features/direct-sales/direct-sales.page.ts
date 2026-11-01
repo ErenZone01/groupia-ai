@@ -151,6 +151,12 @@ export class DirectSalesPage {
       const result = await action(id);
       if (!this.current(id, seq, generation)) return;
       this.setStore(result);
+      // A newly created storefront has no delivery policy until its first read.
+      if (result.publicIdentifier && !this.deliveryPolicy()) {
+        const policy = await this.api.deliveryPolicy(id);
+        if (!this.current(id, seq, generation)) return;
+        this.setDeliveryPolicy(policy);
+      }
       this.notice.set(success);
     } catch (error) {
       if (this.current(id, seq, generation)) this.error.set(apiMessage(error));

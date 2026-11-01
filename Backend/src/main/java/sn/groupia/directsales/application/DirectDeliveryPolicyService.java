@@ -170,7 +170,7 @@ public class DirectDeliveryPolicyService {
                             rs.getString("mode"), List.copyOf(regions), rs.getLong("version"));
                 },
                 organizationId, storeId);
-        return results.isEmpty() ? new Policy("ALL", List.of(), 0) : results.getFirst();
+        return results.isEmpty() ? new Policy("DISABLED", List.of(), 0) : results.getFirst();
     }
 
     private List<String> validatedRegions(String mode, List<String> input) {

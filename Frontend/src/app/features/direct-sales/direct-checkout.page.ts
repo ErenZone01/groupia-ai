@@ -70,6 +70,15 @@ export class DirectCheckoutPage {
     const policy = this.deliveryPolicy();
     return policy !== null && policy.mode !== 'DISABLED';
   }
+  get locationReady(): boolean {
+    if (this.fulfillment === 'PICKUP') return true;
+    if (!this.deliveryAvailable) return false;
+    if (this.locationMode() === 'CONFIRMED') return this.confirmedPoint() !== null;
+    return this.locationMode() === 'MANUAL'
+      && this.regions.some((region) => region.name === this.location.region)
+      && !!this.location.city.trim() && !!this.location.commune.trim()
+      && !!this.location.details.trim();
+  }
   readonly other = '__OTHER__';
 
   contact: DirectCustomerContact = this.blankContact();

@@ -2,6 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, timeout } from 'rxjs';
 
+export type DirectDeliveryMode = 'ALL' | 'SELECTED' | 'DISABLED';
+
+export interface DirectDeliveryPolicy {
+  mode: DirectDeliveryMode;
+  allowedRegions: string[];
+  version: number;
+}
+
 export interface DirectOffer {
   id: string;
   variantId: string;
@@ -81,6 +89,21 @@ export class DirectSalesApi {
         { lines },
       ).pipe(timeout(15000)),
     );
+  }
+  deliveryPolicy(organizationId: string) {
+    return firstValueFrom(this.http.get<DirectDeliveryPolicy>(
+      this.privatePath(organizationId) + '/delivery-policy',
+    ).pipe(timeout(15000)));
+  }
+  updateDeliveryPolicy(organizationId: string, policy: DirectDeliveryPolicy) {
+    return firstValueFrom(this.http.put<DirectDeliveryPolicy>(
+      this.privatePath(organizationId) + '/delivery-policy', policy,
+    ).pipe(timeout(15000)));
+  }
+  publicDeliveryPolicy(publicIdentifier: string) {
+    return firstValueFrom(this.http.get<DirectDeliveryPolicy>(
+      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-policy',
+    ).pipe(timeout(15000)));
   }
   publicStore(publicIdentifier: string) {
     return firstValueFrom(

@@ -637,7 +637,7 @@ class DirectStorefrontIntegrationTests {
         String policyPath = path() + "/delivery-policy";
         var defaultPolicy = body(
                 authorized(get(policyPath)).andExpect(status().isOk()).andReturn());
-        assertThat(defaultPolicy.path("mode").asText()).isEqualTo("ALL");
+        assertThat(defaultPolicy.path("mode").asText()).isEqualTo("DISABLED");
         assertThat(defaultPolicy.path("version").asLong()).isZero();
         var limitedPolicy = body(
                 authorized(put(policyPath)

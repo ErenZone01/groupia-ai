@@ -1,0 +1,34 @@
+name: Temporary MapLibre lockfile sync
+on:
+  push:
+    branches: [direct-delivery-gps-map-v1]
+permissions:
+  contents: write
+jobs:
+  sync:
+    if: github.repository == 'ErenZone01/groupia-ai'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: direct-delivery-gps-map-v1
+          persist-credentials: true
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '24.16.0'
+      - name: Rebuild npm lockfile without running package scripts
+        working-directory: Frontend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile on feature branch only
+        shell: bash
+        run: |
+          git add Frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfile already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(map): synchronize MapLibre package-lock"
+          git push origin HEAD:direct-delivery-gps-map-v1

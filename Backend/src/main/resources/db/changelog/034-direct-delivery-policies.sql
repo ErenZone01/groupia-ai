@@ -1,8 +1,8 @@
 --liquibase formatted sql
 
 --changeset groupia:034-direct-delivery-policies dbms:postgresql
--- Optional merchant-level rules for delivery by region. Absence of a row means
--- the existing ALL-regions behavior, preserving compatibility for existing shops.
+-- Optional merchant-level rules for delivery by region. Absence of a row means DISABLED (pickup-only) until the merchant opts in.
+-- This avoids implying that merchants deliver nationwide by default.
 -- These settings do NOT establish the buyer's true location: GPS + server-side
 -- geographic containment remains a prerequisite for verified regional coverage.
 CREATE TABLE direct_delivery_policies (

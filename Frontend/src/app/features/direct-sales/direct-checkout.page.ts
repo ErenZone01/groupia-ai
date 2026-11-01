@@ -2,7 +2,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectCartStore } from './direct-cart.store';
-import { DirectSalesApi, DirectCartQuote } from './direct-sales.api';
+import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 import { Input } from '../../shared/forms/input';
@@ -44,12 +44,23 @@ export class DirectCheckoutPage {
   private readonly api = inject(DirectSalesApi);
   readonly publicId = signal('');
   readonly quote = signal<DirectCartQuote | null>(null);
+  readonly deliveryPolicy = signal<DirectDeliveryPolicy | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly review = signal(false);
   readonly money = money;
   readonly variantLabel = variantLabel;
-  readonly regions = SENEGAL_REGIONS;
+  get regions() {
+    const policy = this.deliveryPolicy();
+    return policy?.mode === 'SELECTED'
+      ? SENEGAL_REGIONS.filter((region) => policy.allowedRegions.includes(region.name))
+      : SENEGAL_REGIONS;
+  }
+
+  get deliveryAvailable() {
+    const policy = this.deliveryPolicy();
+    return policy !== null && policy.mode !== 'DISABLED';
+  }
   readonly other = '__OTHER__';
 
   contact: DirectCustomerContact = this.blankContact();
@@ -83,6 +94,7 @@ export class DirectCheckoutPage {
   }
 
   changeRegion(region: string) {
+    if (region && !this.regions.some((item) => item.name === region)) return;
     this.location.region = region;
     this.cityChoice = '';
     this.location.city = '';
@@ -106,6 +118,7 @@ export class DirectCheckoutPage {
   }
 
   changeFulfillment(value: FulfillmentMode) {
+    if (value === 'DELIVERY' && !this.deliveryAvailable) return;
     this.fulfillment = value;
     this.review.set(false);
     if (value === 'PICKUP') {
@@ -116,7 +129,11 @@ export class DirectCheckoutPage {
   }
 
   showReview() {
-    if (this.quote() && !this.loading() && !this.error() && this.cart.items().length) {
+    if (this.quote() && this.deliveryPolicy() && !this.loading() && !this.error()
+      && this.cart.items().length
+      && (this.fulfillment === 'PICKUP'
+        || (this.deliveryAvailable
+          && this.regions.some((region) => region.name === this.location.region)))) {
       this.review.set(true);
     }
   }
@@ -130,6 +147,7 @@ export class DirectCheckoutPage {
     const id = this.publicId();
     const items = this.cart.items();
     this.quote.set(null);
+    this.deliveryPolicy.set(null);
     this.error.set('');
     this.review.set(false);
     if (!id || !items.length) {
@@ -138,8 +156,14 @@ export class DirectCheckoutPage {
     }
     this.loading.set(true);
     try {
-      const quote = await this.api.quote(id, items);
-      if (this.sequence === seq) this.quote.set(quote);
+      const [quote, policy] = await Promise.all([
+        this.api.quote(id, items),
+        this.api.publicDeliveryPolicy(id),
+      ]);
+      if (this.sequence === seq) {
+        this.deliveryPolicy.set(policy);
+        this.quote.set(quote);
+      }
     } catch (error) {
       if (this.sequence === seq) this.error.set(apiMessage(error));
     } finally {
@@ -148,6 +172,7 @@ export class DirectCheckoutPage {
   }
 
   private resetPersonalData() {
+    this.deliveryPolicy.set(null);
     this.contact = this.blankContact();
     this.location = this.blankLocation();
     this.cityChoice = '';

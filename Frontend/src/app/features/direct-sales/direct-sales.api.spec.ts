@@ -75,4 +75,24 @@ describe('Vente directe : contrats HTTP', () => {
     req.flush(storefront);
     expect((await pending).offers).toEqual([]);
   });
+  it('enregistre les régions de livraison et la version de configuration', async () => {
+    const policy = { mode: 'SELECTED' as const, allowedRegions: ['Dakar'], version: 0 };
+    const pending = api.updateDeliveryPolicy(org, policy);
+    const request = http.expectOne('/api/organizations/' + org + '/direct-store/delivery-policy');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(policy);
+    request.flush({ ...policy, version: 1 });
+    expect((await pending).version).toBe(1);
+  });
+
+  it('lit la couverture publique sans transmettre de coordonnées GPS', async () => {
+    const pending = api.publicDeliveryPolicy(storefront.publicIdentifier);
+    const request = http.expectOne(
+      '/api/public/direct-stores/' + storefront.publicIdentifier + '/delivery-policy',
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({ mode: 'DISABLED', allowedRegions: [], version: 2 });
+    expect((await pending).mode).toBe('DISABLED');
+  });
+
 });

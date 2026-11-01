@@ -119,13 +119,25 @@
                       (ngModelChange)="changeFulfillment($event)" value="PICKUP" />
                     <span><strong>Retrait</strong><small>Lieu et disponibilité à convenir.</small></span>
                   </label>
-                  <label class="mode" [class.selected]="fulfillment === 'DELIVERY'">
-                    <input type="radio" name="fulfillment" [ngModel]="fulfillment"
-                      (ngModelChange)="changeFulfillment($event)" value="DELIVERY" />
-                    <span><strong>Livraison éventuelle</strong><small>Tarif et faisabilité à confirmer.</small></span>
-                  </label>
+                  @if (deliveryAvailable) {
+                    <label class="mode" [class.selected]="fulfillment === 'DELIVERY'">
+                      <input type="radio" name="fulfillment" [ngModel]="fulfillment"
+                        (ngModelChange)="changeFulfillment($event)" value="DELIVERY" />
+                      <span><strong>Livraison éventuelle</strong><small>Tarif et faisabilité à confirmer.</small></span>
+                    </label>
+                  }
                 </div>
+                @if (deliveryPolicy()?.mode === 'DISABLED') {
+                  <div class="location-note" role="status">
+                    Cette boutique ne propose pas la livraison. Le retrait reste disponible.
+                  </div>
+                }
                 @if (fulfillment === 'DELIVERY') {
+                  @if (deliveryPolicy()?.mode === 'SELECTED') {
+                    <div class="location-note" role="status">
+                      Livraison disponible uniquement dans les régions affichées ci-dessous.
+                    </div>
+                  }
                   <div class="location-note">
                     Renseigner une adresse ne garantit pas une livraison à domicile.
                     Aucun frais de livraison n'est encore calculé.

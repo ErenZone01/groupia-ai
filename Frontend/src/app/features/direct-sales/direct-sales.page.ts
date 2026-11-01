@@ -10,7 +10,8 @@ import { apiMessage } from '../../core/http/api-error';
 import { Button } from '../../shared/ui/button';
 import { Icon } from '../../shared/ui/icon';
 import { money, variantLabel } from '../../shared/utils/display';
-import { DirectOffer, DirectSalesApi, DirectStorefront } from './direct-sales.api';
+import { DirectDeliveryMode, DirectDeliveryPolicy, DirectOffer, DirectSalesApi, DirectStorefront } from './direct-sales.api';
+import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 
 @Component({
   selector: 'g-direct-sales-page',
@@ -27,6 +28,10 @@ export class DirectSalesPage {
 
   readonly store = signal<DirectStorefront | null>(null);
   readonly products = signal<ProductView[]>([]);
+  readonly deliveryPolicy = signal<DirectDeliveryPolicy | null>(null);
+  readonly deliveryRegions = SENEGAL_REGIONS.map((region) => region.name);
+  deliveryMode: DirectDeliveryMode = 'ALL';
+  deliverySelected: string[] = [];
   readonly page = signal(0);
   readonly totalPages = signal(0);
   readonly loading = signal(true);
@@ -57,6 +62,9 @@ export class DirectSalesPage {
       untracked(() => {
         this.store.set(null);
         this.products.set([]);
+        this.deliveryPolicy.set(null);
+        this.deliveryMode = 'ALL';
+        this.deliverySelected = [];
         this.name = '';
         this.selectedVariant = '';
         this.priceXof = null;
@@ -88,6 +96,11 @@ export class DirectSalesPage {
       const store = await this.api.manager(id);
       if (!this.current(id, seq, generation)) return;
       this.setStore(store);
+      if (store.publicIdentifier) {
+        const policy = await this.api.deliveryPolicy(id);
+        if (!this.current(id, seq, generation)) return;
+        this.setDeliveryPolicy(policy);
+      }
       await this.loadProducts(id, 0, seq, generation);
     } catch (error) {
       if (this.current(id, seq, generation)) this.error.set(apiMessage(error));
@@ -138,7 +151,51 @@ export class DirectSalesPage {
       const result = await action(id);
       if (!this.current(id, seq, generation)) return;
       this.setStore(result);
+      // A newly created storefront has no delivery policy until its first read.
+      if (result.publicIdentifier && !this.deliveryPolicy()) {
+        const policy = await this.api.deliveryPolicy(id);
+        if (!this.current(id, seq, generation)) return;
+        this.setDeliveryPolicy(policy);
+      }
       this.notice.set(success);
+    } catch (error) {
+      if (this.current(id, seq, generation)) this.error.set(apiMessage(error));
+    } finally {
+      if (this.current(id, seq, generation)) this.busy.set(false);
+    }
+  }
+
+  private setDeliveryPolicy(policy: DirectDeliveryPolicy) {
+    this.deliveryPolicy.set(policy);
+    this.deliveryMode = policy.mode;
+    this.deliverySelected = [...policy.allowedRegions];
+  }
+
+  toggleDeliveryRegion(region: string, checked: boolean) {
+    this.deliverySelected = checked
+      ? [...new Set([...this.deliverySelected, region])]
+      : this.deliverySelected.filter((name) => name !== region);
+  }
+
+  async saveDeliveryPolicy() {
+    const id = this.context.selectedId();
+    const old = this.deliveryPolicy();
+    if (!id || !old || this.busy()
+      || (this.deliveryMode === 'SELECTED' && !this.deliverySelected.length)) return;
+    const seq = this.request, generation = this.auth.generation();
+    this.busy.set(true);
+    this.error.set('');
+    this.notice.set('');
+    try {
+      const policy = await this.api.updateDeliveryPolicy(id, {
+        mode: this.deliveryMode,
+        allowedRegions: this.deliveryMode === 'SELECTED' ? this.deliverySelected : [],
+        version: old.version,
+      });
+      if (this.current(id, seq, generation)) {
+        this.setDeliveryPolicy(policy);
+        this.notice.set('Zones de livraison enregistrées.');
+      }
     } catch (error) {
       if (this.current(id, seq, generation)) this.error.set(apiMessage(error));
     } finally {

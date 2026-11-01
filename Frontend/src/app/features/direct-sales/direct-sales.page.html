@@ -56,6 +56,52 @@
     }
   </section>
 
+  @if (store()?.publicIdentifier && deliveryPolicy()) {
+    <section class="ds-card" aria-labelledby="direct-delivery-heading">
+      <div class="section-head">
+        <div>
+          <h2 id="direct-delivery-heading">Où pouvez-vous livrer ?</h2>
+          <p>Choisissez les régions couvertes. Les clientes ne verront que les possibilités autorisées.</p>
+        </div>
+      </div>
+      <form class="delivery-settings" (ngSubmit)="saveDeliveryPolicy()">
+        <label class="delivery-option">
+          <input type="radio" name="deliveryMode" value="ALL" [(ngModel)]="deliveryMode"
+            [disabled]="busy()" />
+          <span><strong>Toutes les régions du Sénégal</strong><small>Je peux organiser une livraison partout.</small></span>
+        </label>
+        <label class="delivery-option">
+          <input type="radio" name="deliveryMode" value="SELECTED" [(ngModel)]="deliveryMode"
+            [disabled]="busy()" />
+          <span><strong>Seulement certaines régions</strong><small>Par exemple Dakar uniquement.</small></span>
+        </label>
+        @if (deliveryMode === 'SELECTED') {
+          <fieldset class="delivery-region-list" [disabled]="busy()">
+            <legend>Régions dans lesquelles vous livrez</legend>
+            @for (region of deliveryRegions; track region) {
+              <label>
+                <input type="checkbox" [checked]="deliverySelected.includes(region)"
+                  (change)="toggleDeliveryRegion(region, $any($event.target).checked)" />
+                {{ region }}
+              </label>
+            }
+          </fieldset>
+        }
+        <label class="delivery-option">
+          <input type="radio" name="deliveryMode" value="DISABLED" [(ngModel)]="deliveryMode"
+            [disabled]="busy()" />
+          <span><strong>Pas de livraison</strong><small>Les clientes devront choisir le retrait.</small></span>
+        </label>
+        <p class="note">Les points de retrait et les zones de vente indépendantes seront configurés
+          dans une prochaine étape. Ce réglage concerne uniquement les livraisons.</p>
+        <button gButton type="submit"
+          [disabled]="busy() || (deliveryMode === 'SELECTED' && !deliverySelected.length)">
+          Enregistrer les zones
+        </button>
+      </form>
+    </section>
+  }
+
   <section class="ds-card" aria-labelledby="add-direct-heading">
     <div class="section-head">
       <div><h2 id="add-direct-heading">Ajouter un article en vente directe</h2>

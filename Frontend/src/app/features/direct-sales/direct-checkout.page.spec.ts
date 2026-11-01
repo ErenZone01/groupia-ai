@@ -27,12 +27,15 @@ const quoted: DirectCartQuote = {
 
 describe('Vente directe : préparation des coordonnées', () => {
   let cart: DirectCartStore;
-  let api: { quote: ReturnType<typeof vi.fn> };
+  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn> };
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(() => {
     params = new BehaviorSubject(convertToParamMap({ publicIdentifier: shopA }));
-    api = { quote: vi.fn(async () => quoted) };
+    api = {
+      quote: vi.fn(async () => quoted),
+      publicDeliveryPolicy: vi.fn(async () => ({ mode: 'ALL', allowedRegions: [], version: 0 })),
+    };
     TestBed.configureTestingModule({
       providers: [
         DirectCartStore,
@@ -58,7 +61,8 @@ describe('Vente directe : préparation des coordonnées', () => {
     page.edit();
     expect(page.review()).toBe(false);
     // The only API exposed to this page is a read-only cart quote.
-    expect(Object.keys(api)).toEqual(['quote']);
+    expect(api.publicDeliveryPolicy).toHaveBeenCalledWith(shopA);
+    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy']);
   });
 
   it('réinitialise le formulaire, la localisation et le panier au changement de boutique', async () => {
@@ -98,5 +102,30 @@ describe('Vente directe : préparation des coordonnées', () => {
     });
     expect(page.cityChoice).toBe('');
     expect(page.communeChoice).toBe('');
+  });
+
+  it('ne montre que les régions choisies par la gérante', async () => {
+    api.publicDeliveryPolicy.mockResolvedValue({
+      mode: 'SELECTED', allowedRegions: ['Dakar'], version: 1,
+    });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()?.mode).toBe('SELECTED'));
+    expect(page.regions.map((region) => region.name)).toEqual(['Dakar']);
+    page.changeFulfillment('DELIVERY');
+    page.changeRegion('Thiès');
+    expect(page.location.region).toBe('');
+    page.changeRegion('Dakar');
+    expect(page.location.region).toBe('Dakar');
+  });
+
+  it('ne permet pas la livraison si la gérante l’a désactivée', async () => {
+    api.publicDeliveryPolicy.mockResolvedValue({
+      mode: 'DISABLED', allowedRegions: [], version: 2,
+    });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()?.mode).toBe('DISABLED'));
+    expect(page.deliveryAvailable).toBe(false);
+    page.changeFulfillment('DELIVERY');
+    expect(page.fulfillment).toBe('PICKUP');
   });
 });

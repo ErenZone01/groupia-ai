@@ -99,3 +99,16 @@
 .place-confirmed p { margin:8px 0; color:var(--muted); font-size:12px; line-height:1.65; }
 .place-confirmed button { font:inherit; font-size:13px; padding:8px 0; text-decoration:underline;
   border:0; background:none; color:var(--primary); cursor:pointer; }
+
+/* Unpaid direct draft: the consent is explicit, and the reference remains readable. */
+.accept-price { display:flex !important; align-items:flex-start; gap:10px; padding:15px;
+  border:1px solid var(--hero-border); border-radius:12px; background:var(--primary-soft);
+  font-weight:400 !important; line-height:1.55; }
+.accept-price input { flex:none; width:18px !important; min-height:18px !important;
+  height:18px; margin-top:3px; accent-color:var(--primary); }
+.accept-price span { min-width:0; font-size:13px; }
+.draft-confirmation { max-width:720px; padding:clamp(20px,4vw,36px); background:var(--surface);
+  border:1px solid var(--hero-border); border-radius:18px; display:grid; gap:18px; }
+.draft-confirmation h2 { font-size:clamp(23px,4vw,32px); overflow-wrap:anywhere; letter-spacing:-.03em; }
+.draft-confirmation p { font-size:14px; color:var(--muted); line-height:1.65; }
+.draft-confirmation .action-link { margin-top:6px; }

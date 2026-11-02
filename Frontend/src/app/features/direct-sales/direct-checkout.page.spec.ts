@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { DirectCartStore } from './direct-cart.store';
@@ -27,7 +28,7 @@ const quoted: DirectCartQuote = {
 
 describe('Vente directe : préparation des coordonnées', () => {
   let cart: DirectCartStore;
-  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn>; previewDeliveryCoverage: ReturnType<typeof vi.fn>; shippingQuote: ReturnType<typeof vi.fn> };
+  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn>; previewDeliveryCoverage: ReturnType<typeof vi.fn>; shippingQuote: ReturnType<typeof vi.fn>; createDraft: ReturnType<typeof vi.fn> };
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(() => {
@@ -48,6 +49,13 @@ describe('Vente directe : préparation des coordonnées', () => {
         locationVerification: 'NONE', goodsSubtotalXof: 9000, platformFeeXof: 300,
         shippingFeeXof: 0, totalXof: 9300, shippingQuoted: true,
         paymentAvailable: false,
+      })),
+      createDraft: vi.fn(async () => ({
+        orderNumber: 'DIR-000000000001', status: 'PENDING_PAYMENT_INTEGRATION',
+        currency: 'XOF', fulfillmentMethod: 'PICKUP',
+        goodsSubtotalXof: 9000, platformFeeXof: 300, amountBeforeShippingXof: 9300,
+        shippingQuoted: true, shippingFeeXof: 0, acceptedTotalXof: 9300,
+        shippingRateVersion: null, paymentAvailable: false,
       })),
     };
     TestBed.configureTestingModule({
@@ -76,7 +84,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     expect(page.review()).toBe(false);
     // The only API exposed to this page is a read-only cart quote.
     expect(api.publicDeliveryPolicy).toHaveBeenCalledWith(shopA);
-    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress', 'previewDeliveryCoverage', 'shippingQuote']);
+    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress', 'previewDeliveryCoverage', 'shippingQuote', 'createDraft']);
   });
 
   it('réinitialise le formulaire, la localisation et le panier au changement de boutique', async () => {
@@ -325,6 +333,86 @@ describe('Vente directe : préparation des coordonnées', () => {
     await vi.waitFor(() => expect(page.shippingPreview()?.status).toBe('FEE_UNCONFIGURED'));
     expect(page.shippingPreview()?.totalXof).toBeNull();
     expect(page.shippingMessage).toContain('confirmer');
+  });
+
+  it('garde la création de commande désactivée lorsque le serveur ne l’autorise pas', async () => {
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.shippingPreview()?.status).toBe('QUOTED'));
+    page.contact = { firstName: 'Awa', lastName: 'Diop', phone: '+221771234567', email: '' };
+    page.showReview();
+    page.amountAccepted.set(true);
+    expect(page.canSubmitDraft).toBe(false);
+    await page.submitDraft();
+    expect(api.createDraft).not.toHaveBeenCalled();
+  });
+
+  it('crée un seul brouillon sans paiement après acceptation du total serveur', async () => {
+    api.quote.mockResolvedValue({ ...quoted, draftCreationAvailable: true });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.shippingPreview()?.totalXof).toBe(9300));
+    page.contact = { firstName: 'Awa', lastName: 'Diop', phone: '+221771234567', email: '' };
+    page.showReview();
+    expect(page.canSubmitDraft).toBe(false);
+    page.amountAccepted.set(true);
+    expect(page.canSubmitDraft).toBe(true);
+    await page.submitDraft();
+    expect(api.createDraft).toHaveBeenCalledTimes(1);
+    const [shop, payload, key] = api.createDraft.mock.calls[0];
+    expect(shop).toBe(shopA);
+    expect(key).toMatch(/^direct-[0-9a-f]{32}$/);
+    expect(payload).toEqual({
+      contact: {
+        firstName: 'Awa', lastName: 'Diop', phone: '+221771234567',
+        email: null, deliveryAddress: null,
+      },
+      fulfillmentMethod: 'PICKUP',
+      deliveryPoint: null,
+      acceptedTotalXof: 9300,
+      lines: [{
+        offerId: 'offer-a', quantity: 1, expectedUnitPriceXof: 9000,
+        expectedPriceRevision: 1,
+      }],
+    });
+    expect(page.receipt()?.orderNumber).toBe('DIR-000000000001');
+    expect(page.receipt()?.paymentAvailable).toBe(false);
+    expect(cart.items()).toEqual([]);
+  });
+
+  it('réessaie strictement la même requête et clé après une coupure réseau', async () => {
+    api.quote.mockResolvedValue({ ...quoted, draftCreationAvailable: true });
+    api.createDraft.mockRejectedValueOnce(new Error('network connection lost'));
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.shippingPreview()?.status).toBe('QUOTED'));
+    page.contact = { firstName: 'Awa', lastName: 'Diop', phone: '+221771234567', email: '' };
+    page.showReview();
+    page.amountAccepted.set(true);
+    await page.submitDraft();
+    expect(page.receipt()).toBeNull();
+    expect(page.submitError()).toContain('Réessayez');
+    expect(page.canSubmitDraft).toBe(true);
+    await page.submitDraft();
+    expect(api.createDraft).toHaveBeenCalledTimes(2);
+    expect(api.createDraft.mock.calls[0]).toEqual(api.createDraft.mock.calls[1]);
+    expect(page.receipt()?.orderNumber).toBe('DIR-000000000001');
+  });
+
+  it('refuse de réessayer automatiquement un ancien total après un conflit serveur', async () => {
+    api.quote.mockResolvedValue({ ...quoted, draftCreationAvailable: true });
+    api.createDraft.mockRejectedValueOnce(new HttpErrorResponse({
+      status: 409,
+      error: { code: 'DIRECT_TOTAL_CHANGED', message: 'Le total a changé.' },
+    }));
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.shippingPreview()?.status).toBe('QUOTED'));
+    page.contact = { firstName: 'Awa', lastName: 'Diop', phone: '+221771234567', email: '' };
+    page.showReview();
+    page.amountAccepted.set(true);
+    await page.submitDraft();
+    expect(api.createDraft).toHaveBeenCalledTimes(1);
+    expect(page.receipt()).toBeNull();
+    expect(page.amountAccepted()).toBe(false);
+    expect(page.review()).toBe(false);
+    expect(page.submitError()).toContain('Vérifiez');
   });
 
 });

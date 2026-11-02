@@ -139,8 +139,12 @@ public class DirectCartQuoteService {
         // No checkout operation exists in this tranche: a quote never requests money.
         // Payment is a separate feature and remains disabled even for enabled draft creation.
         return new Quote(
-                "XOF", store.displayName(), total, List.copyOf(quoteLines),
-                false, draftCreationEnabled);
+                "XOF",
+                store.displayName(),
+                total,
+                List.copyOf(quoteLines),
+                false,
+                draftCreationEnabled);
     }
 
     private ApiException invalid() {

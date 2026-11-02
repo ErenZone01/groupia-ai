@@ -107,3 +107,6 @@ databaseChangeLog:
   - include:
       file: 036-direct-shipping-fees.sql
       relativeToChangelogFile: true
+  - include:
+      file: 037-direct-checkout-accepted-totals.sql
+      relativeToChangelogFile: true

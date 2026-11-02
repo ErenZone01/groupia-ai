@@ -66,8 +66,8 @@ public record CreatePaymentRequest(
     }
 
     /**
-     * Draft financial target only. A separate authoritative direct-sales application service
-     * must verify the order snapshots before requesting this obligation; payment stays disabled.
+     * Draft financial target only. A separate authoritative direct-sales application service must
+     * verify the order snapshots before requesting this obligation; payment stays disabled.
      */
     public static CreatePaymentRequest forDirectOrder(
             UUID org,

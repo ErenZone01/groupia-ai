@@ -111,9 +111,11 @@ class SubscriptionBillingMigrationTests {
                                     String.class,
                                     request))
                     .isEqualTo(requestBefore);
-            assertThat(j.queryForObject(
-                            "select direct_order_id from payment_requests where id=?",
-                            UUID.class, request))
+            assertThat(
+                            j.queryForObject(
+                                    "select direct_order_id from payment_requests where id=?",
+                                    UUID.class,
+                                    request))
                     .isNull();
             assertThat(
                             j.queryForObject(

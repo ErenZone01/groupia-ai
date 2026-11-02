@@ -56,10 +56,11 @@ class DirectCustomerPaymentStatusTests {
         assertThat(result.preparationStatus()).isEqualTo("PREPARED");
         assertThat(result.acceptedTotalXof()).isEqualTo(10300L);
         assertThat(result.paymentAvailable()).isFalse();
-        verify(jdbc).query(
-                contains("where d.recovery_token_hash=?"),
-                any(RowMapper.class),
-                eq(DirectAccessTokens.hashForCreate(TOKEN)));
+        verify(jdbc)
+                .query(
+                        contains("where d.recovery_token_hash=?"),
+                        any(RowMapper.class),
+                        eq(DirectAccessTokens.hashForCreate(TOKEN)));
     }
 
     @Test
@@ -91,8 +92,7 @@ class DirectCustomerPaymentStatusTests {
                 .hasMessageContaining("introuvable");
         verifyNoInteractions(jdbc);
 
-        assertThatThrownBy(() -> subject.lookup(null))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> subject.lookup(null)).isInstanceOf(ApiException.class);
         verifyNoInteractions(jdbc);
     }
 

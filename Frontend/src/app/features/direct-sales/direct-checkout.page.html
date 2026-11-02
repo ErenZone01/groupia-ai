@@ -23,9 +23,13 @@
           }
           <div><dt>Paiement</dt><dd>Non disponible pour le moment</dd></div>
         </dl>
-        <p>Conservez cette référence pour contacter la boutique.
-          Un lien de suivi sécurisé sera ajouté avant l'ouverture commerciale.</p>
-        <a class="action-link" [routerLink]="['/v', publicId()]">Retour à la boutique</a>
+        <p>Le lien ci-dessous est personnel. Toute personne qui le possède peut voir
+          le statut de votre commande. Conservez-le et ne le partagez qu'avec une personne de confiance.</p>
+        @if (trackingToken(); as token) {
+          <a class="action-link" [routerLink]="['/v', publicId(), 'commande']"
+            [fragment]="'access=' + token">Consulter ma commande en sécurité</a>
+        }
+        <a class="back-to-cart" [routerLink]="['/v', publicId()]">Retour à la boutique</a>
       </section>
     } @else if (!cart.items().length) {
       <section class="empty" role="status">

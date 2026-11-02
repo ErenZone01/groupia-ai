@@ -485,8 +485,9 @@ class DirectStorefrontIntegrationTests {
         assertThat(detail.at("/items/0/quantity").asInt()).isEqualTo(2);
         assertThat(detail.at("/items/0/unitPriceXof").asLong()).isEqualTo(8500);
         assertThat(detail.at("/order/amountBeforeShippingXof").asLong()).isEqualTo(17300);
-        assertThat(detail.at("/order/acceptedTotalXof").isNull()
-                        || detail.at("/order/acceptedTotalXof").isMissingNode())
+        assertThat(
+                        detail.at("/order/acceptedTotalXof").isNull()
+                                || detail.at("/order/acceptedTotalXof").isMissingNode())
                 .isTrue();
         assertThat(detail.at("/platformFeeRule/amount").asText()).isEqualTo("300");
 
@@ -1220,12 +1221,10 @@ class DirectStorefrontIntegrationTests {
                         authorized(get(merchantOrdersPath + "/" + acceptedOrderId))
                                 .andExpect(status().isOk())
                                 .andReturn());
-        assertThat(acceptedMerchantDetail.at("/order/shippingFeeXof").asLong())
-                .isEqualTo(1500L);
+        assertThat(acceptedMerchantDetail.at("/order/shippingFeeXof").asLong()).isEqualTo(1500L);
         assertThat(acceptedMerchantDetail.at("/order/acceptedTotalXof").asLong())
                 .isEqualTo(acceptedPrice);
-        assertThat(acceptedMerchantDetail.at("/order/shippingRateVersion").asLong())
-                .isEqualTo(1L);
+        assertThat(acceptedMerchantDetail.at("/order/shippingRateVersion").asLong()).isEqualTo(1L);
         assertThat(acceptedMerchantDetail.at("/deliveryAddress/coverageStatus").asText())
                 .isEqualTo("REGION_MATCHED");
         var acceptedMerchantList =

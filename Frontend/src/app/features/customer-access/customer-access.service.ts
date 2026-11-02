@@ -1,11 +1,33 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpContext } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { firstValueFrom, Observable, switchMap, throwError, timeout } from 'rxjs';
 import { CustomerAccessControllerService } from '../../api/generated/services/customer-access-controller.service';
 import { CUSTOMER_CSRF } from '../../core/http/customer-access.interceptor';
+export interface DirectRecoveredOrder {
+  orderNumber: string;
+  publicIdentifier: string;
+  status: string;
+  fulfillmentMethod: 'PICKUP' | 'DELIVERY';
+  currency: 'XOF';
+  acceptedTotalXof: number | null;
+  placedAt: string;
+}
+export interface DirectRecoveredOrders {
+  items: DirectRecoveredOrder[];
+  total: number;
+  page: number;
+  size: number;
+}
+export interface RotatedDirectOrderLink {
+  orderNumber: string;
+  publicIdentifier: string;
+  token: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CustomerAccessService {
   private readonly api = inject(CustomerAccessControllerService);
+  private readonly http = inject(HttpClient);
   // The opaque session exists only in its HttpOnly cookie. No browser storage or bearer cache.
   private mutate<T>(operation: (context: HttpContext) => Observable<T>): Promise<T> {
     return firstValueFrom(
@@ -34,6 +56,18 @@ export class CustomerAccessService {
   orders(page = 0) {
     return firstValueFrom(this.api.customerOrders({ page, size: 20 }).pipe(timeout(20000)));
   }
+  directOrders(page = 0) {
+    return firstValueFrom(this.http.get<DirectRecoveredOrders>(
+      '/api/public/customer-access/direct-orders', { params: { page, size: 20 } },
+    ).pipe(timeout(15000)));
+  }
+  rotateDirectLink(orderNumber: string) {
+    return this.mutate((context) => this.http.post<RotatedDirectOrderLink>(
+      '/api/public/customer-access/direct-orders/'
+      + encodeURIComponent(orderNumber) + '/rotate-link', {}, { context },
+    ));
+  }
+
   order(orderNumber: string) {
     return firstValueFrom(this.api.customerOrder({ orderNumber }).pipe(timeout(20000)));
   }

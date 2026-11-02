@@ -73,3 +73,11 @@ input:focus-visible,select:focus-visible { outline:2px solid var(--accent); outl
 .delivery-region-list input { width:17px; height:17px; accent-color:var(--primary); }
 .delivery-settings > button { justify-self:start; }
 @media (max-width:550px) { .delivery-settings > button { width:100%; } }
+
+.shipping-rate-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px; margin-top:9px; }
+.shipping-rate-grid label { display:grid; gap:7px; font-size:13px; font-weight:600; }
+.shipping-rate-grid input { width:100%; min-height:42px; padding:10px 12px;
+  border:1px solid var(--border); border-radius:10px; color:var(--text);
+  background:var(--surface); font:inherit; font-weight:400; }
+.shipping-rate-grid input:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }

@@ -222,8 +222,8 @@ export class DirectSalesPage {
     );
   }
 
-  setShippingInput(region: string, raw: string) {
-    this.shippingInputs = { ...this.shippingInputs, [region]: raw };
+  setShippingInput(region: string, raw: string | number | null) {
+    this.shippingInputs = { ...this.shippingInputs, [region]: raw === null ? '' : String(raw) };
   }
 
   get shippingRegions(): string[] {

@@ -29,6 +29,7 @@
           <a class="action-link" [routerLink]="['/v', publicId(), 'commande']"
             [fragment]="'access=' + token">Consulter ma commande en sécurité</a>
         }
+        <a class="back-to-cart" [routerLink]="['/v', publicId(), 'recuperation']">J'ai perdu mon lien ? Retrouver ma commande par téléphone</a>
         <a class="back-to-cart" [routerLink]="['/v', publicId()]">Retour à la boutique</a>
       </section>
     } @else if (!cart.items().length) {

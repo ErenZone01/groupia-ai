@@ -1,0 +1,38 @@
+name: Temporary Spotless sync
+on:
+  push:
+    branches: [direct-delivery-gps-map-v1]
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.repository == 'ErenZone01/groupia-ai'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: direct-delivery-gps-map-v1
+          persist-credentials: true
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: Backend/pom.xml
+      - name: Apply project Spotless formatting
+        working-directory: Backend
+        run: ./mvnw --batch-mode --no-transfer-progress spotless:apply
+      - name: Commit only the four identified Java files
+        shell: bash
+        run: |
+          git add -- Backend/src/main/java/sn/groupia/directsales/application/DirectDeliveryPolicyService.java Backend/src/main/java/sn/groupia/directsales/application/DirectOrderQueries.java Backend/src/main/java/sn/groupia/directsales/infrastructure/DirectStorefrontController.java Backend/src/test/java/sn/groupia/DirectStorefrontIntegrationTests.java
+          if git diff --cached --quiet; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style(java): apply Spotless to direct sales files"
+          git push origin HEAD:direct-delivery-gps-map-v1

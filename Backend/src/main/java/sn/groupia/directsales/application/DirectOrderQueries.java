@@ -30,6 +30,9 @@ public class DirectOrderQueries {
             long goodsSubtotalXof,
             long platformFeeXof,
             long amountBeforeShippingXof,
+            Long shippingFeeXof,
+            Long acceptedTotalXof,
+            Long shippingRateVersion,
             boolean shippingQuoted,
             Instant placedAt,
             int itemCount) {}
@@ -44,7 +47,9 @@ public class DirectOrderQueries {
             String city,
             String commune,
             String neighborhood,
-            String details) {}
+            String details,
+            String locationMethod,
+            String coverageStatus) {}
 
     public record Item(
             int lineNumber,
@@ -91,6 +96,7 @@ public class DirectOrderQueries {
                 jdbc.query(
                         "select d.id,d.order_number,d.status,d.fulfillment_method,d.currency,"
                                 + "d.goods_subtotal_xof,d.platform_fee_xof,d.amount_before_shipping_xof,"
+                                + "d.shipping_fee_xof,d.accepted_total_xof,d.shipping_rate_version,"
                                 + "d.shipping_quoted,d.placed_at,"
                                 + "(select count(*) from direct_order_items i where i.organization_id=d.organization_id"
                                 + " and i.order_id=d.id) as item_count"
@@ -106,6 +112,9 @@ public class DirectOrderQueries {
                                         rs.getLong("goods_subtotal_xof"),
                                         rs.getLong("platform_fee_xof"),
                                         rs.getLong("amount_before_shipping_xof"),
+                                        rs.getObject("shipping_fee_xof", Long.class),
+                                        rs.getObject("accepted_total_xof", Long.class),
+                                        rs.getObject("shipping_rate_version", Long.class),
                                         rs.getBoolean("shipping_quoted"),
                                         rs.getTimestamp("placed_at").toInstant(),
                                         rs.getInt("item_count")),
@@ -121,6 +130,7 @@ public class DirectOrderQueries {
                 jdbc.query(
                         "select d.id,d.order_number,d.status,d.fulfillment_method,d.currency,"
                                 + "d.goods_subtotal_xof,d.platform_fee_xof,d.amount_before_shipping_xof,"
+                                + "d.shipping_fee_xof,d.accepted_total_xof,d.shipping_rate_version,"
                                 + "d.shipping_quoted,d.placed_at,d.customer_contact_snapshot::text as contact_json,"
                                 + "d.delivery_address_snapshot::text as address_json,"
                                 + "d.platform_fee_rule_snapshot::text as fee_json,"
@@ -142,6 +152,9 @@ public class DirectOrderQueries {
                                             rs.getLong("goods_subtotal_xof"),
                                             rs.getLong("platform_fee_xof"),
                                             rs.getLong("amount_before_shipping_xof"),
+                                        rs.getObject("shipping_fee_xof", Long.class),
+                                        rs.getObject("accepted_total_xof", Long.class),
+                                        rs.getObject("shipping_rate_version", Long.class),
                                             rs.getBoolean("shipping_quoted"),
                                             rs.getTimestamp("placed_at").toInstant(),
                                             rs.getInt("item_count")),
@@ -158,7 +171,9 @@ public class DirectOrderQueries {
                                                     value(address, "city"),
                                                     value(address, "commune"),
                                                     value(address, "neighborhood"),
-                                                    value(address, "details")),
+                                                    value(address, "details"),
+                                                    value(address, "locationMethod"),
+                                                    value(address, "coverageStatus")),
                                     map(json.readTree(rs.getString("fee_json"))),
                                     List.of());
                         },
@@ -210,6 +225,9 @@ public class DirectOrderQueries {
             long goods,
             long fee,
             long amount,
+            Long shippingFeeXof,
+            Long acceptedTotalXof,
+            Long shippingRateVersion,
             boolean shippingQuoted,
             Instant placedAt,
             int count) {
@@ -222,6 +240,9 @@ public class DirectOrderQueries {
                 goods,
                 fee,
                 amount,
+                shippingFeeXof,
+                acceptedTotalXof,
+                shippingRateVersion,
                 shippingQuoted,
                 placedAt,
                 count);

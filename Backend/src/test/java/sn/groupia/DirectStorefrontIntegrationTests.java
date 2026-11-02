@@ -1296,7 +1296,9 @@ class DirectStorefrontIntegrationTests {
                                 .andExpect(status().isOk())
                                 .andExpect(header().string("Cache-Control", "no-store"))
                                 .andExpect(header().string("Referrer-Policy", "no-referrer"))
-                                .andExpect(jsonPath("$.orderNumber").value(tracked.path("orderNumber").asText()))
+                                .andExpect(
+                                        jsonPath("$.orderNumber")
+                                                .value(tracked.path("orderNumber").asText()))
                                 .andExpect(jsonPath("$.currency").value("XOF"))
                                 .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice))
                                 .andExpect(jsonPath("$.preparationStatus").value("PREPARED"))

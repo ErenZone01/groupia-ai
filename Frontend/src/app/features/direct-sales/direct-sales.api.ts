@@ -20,6 +20,13 @@ export interface DirectAddressSuggestion {
   provider: string | null;
 }
 
+export interface DirectDeliveryCoverage {
+  status: 'INSIDE_ZONE' | 'OUTSIDE_ZONE' | 'OUTSIDE_SENEGAL' | 'UNCERTAIN' | 'DELIVERY_DISABLED';
+  region: string | null;
+  preliminaryAllowed: boolean;
+  boundarySource: string;
+}
+
 export interface DirectOffer {
   id: string;
   variantId: string;
@@ -120,6 +127,13 @@ export class DirectSalesApi {
       '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/reverse-geocode',
       { latitude, longitude },
     ).pipe(timeout(9000)));
+  }
+
+  previewDeliveryCoverage(publicIdentifier: string, latitude: number, longitude: number) {
+    return firstValueFrom(this.http.post<DirectDeliveryCoverage>(
+      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-coverage',
+      { latitude, longitude },
+    ).pipe(timeout(10000)));
   }
 
   publicStore(publicIdentifier: string) {

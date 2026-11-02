@@ -11,6 +11,9 @@ export interface DirectOrderSummary {
   goodsSubtotalXof: number;
   platformFeeXof: number;
   amountBeforeShippingXof: number;
+  shippingFeeXof: number | null;
+  acceptedTotalXof: number | null;
+  shippingRateVersion: number | null;
   shippingQuoted: boolean;
   placedAt: string;
   itemCount: number;
@@ -38,6 +41,8 @@ export interface DirectOrderDetail {
     commune: string;
     neighborhood: string | null;
     details: string;
+    locationMethod: 'MAP' | 'MANUAL' | null;
+    coverageStatus: 'REGION_MATCHED' | 'UNVERIFIED_MANUAL' | null;
   } | null;
   platformFeeRule: Record<string, string>;
   items: {

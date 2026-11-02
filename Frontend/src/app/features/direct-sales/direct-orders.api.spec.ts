@@ -43,6 +43,9 @@ describe('Commandes directes : accès commerçant', () => {
         goodsSubtotalXof: 8500,
         platformFeeXof: 300,
         amountBeforeShippingXof: 8800,
+        shippingFeeXof: 0,
+        acceptedTotalXof: 8800,
+        shippingRateVersion: null,
         shippingQuoted: true,
         placedAt: '2026-10-31T12:00:00Z',
         itemCount: 1,
@@ -52,6 +55,39 @@ describe('Commandes directes : accès commerçant', () => {
       platformFeeRule: { amount: '300' },
       items: [],
     });
-    expect((await pending).order.orderNumber).toBe('DIR-000000000001');
+    const result = await pending;
+    expect(result.order.orderNumber).toBe('DIR-000000000001');
+    expect(result.order.acceptedTotalXof).toBe(8800);
+    expect(result.order.shippingFeeXof).toBe(0);
   });
+  it('conserve les anciens brouillons sans transformer des frais absents en gratuité', async () => {
+    const pending = api.list('boutique-1', 0);
+    const request = http.expectOne(
+      '/api/organizations/boutique-1/direct-orders?page=0&size=20',
+    );
+    request.flush({
+      items: [{
+        id: 'legacy-order',
+        orderNumber: 'DIR-000000000002',
+        status: 'PENDING_PAYMENT_INTEGRATION',
+        fulfillmentMethod: 'DELIVERY',
+        currency: 'XOF',
+        goodsSubtotalXof: 8500,
+        platformFeeXof: 300,
+        amountBeforeShippingXof: 8800,
+        shippingFeeXof: null,
+        acceptedTotalXof: null,
+        shippingRateVersion: null,
+        shippingQuoted: false,
+        placedAt: '2026-10-31T12:00:00Z',
+        itemCount: 1,
+      }],
+      total: 1, page: 0, size: 20,
+    });
+    const page = await pending;
+    expect(page.items[0].acceptedTotalXof).toBeNull();
+    expect(page.items[0].shippingFeeXof).toBeNull();
+    expect(page.items[0].amountBeforeShippingXof).toBe(8800);
+  });
+
 });

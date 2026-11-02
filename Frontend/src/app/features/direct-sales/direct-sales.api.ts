@@ -10,6 +10,24 @@ export interface DirectDeliveryPolicy {
   version: number;
 }
 
+export interface DirectShippingSettings {
+  regionFeesXof: Record<string, number>;
+  version: number;
+}
+
+export interface DirectShippingPreview {
+  status: string;
+  currency: 'XOF';
+  region: string | null;
+  locationVerification: string;
+  goodsSubtotalXof: number;
+  platformFeeXof: number;
+  shippingFeeXof: number | null;
+  totalXof: number | null;
+  shippingQuoted: boolean;
+  paymentAvailable: boolean;
+}
+
 export interface DirectAddressSuggestion {
   status: 'FOUND' | 'UNAVAILABLE' | 'NO_RESULT';
   countryCode: string | null;
@@ -134,6 +152,31 @@ export class DirectSalesApi {
       '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-coverage',
       { latitude, longitude },
     ).pipe(timeout(10000)));
+  }
+
+  shippingFees(organizationId: string) {
+    return firstValueFrom(this.http.get<DirectShippingSettings>(
+      this.privatePath(organizationId) + '/shipping-fees',
+    ).pipe(timeout(15000)));
+  }
+  updateShippingFees(organizationId: string, settings: DirectShippingSettings) {
+    return firstValueFrom(this.http.put<DirectShippingSettings>(
+      this.privatePath(organizationId) + '/shipping-fees', settings,
+    ).pipe(timeout(15000)));
+  }
+  shippingQuote(
+    publicIdentifier: string,
+    request: {
+      fulfillmentMethod: 'PICKUP' | 'DELIVERY';
+      lines: { offerId: string; quantity: number }[];
+      region: string | null;
+      deliveryPoint: { latitude: number; longitude: number } | null;
+    },
+  ) {
+    return firstValueFrom(this.http.post<DirectShippingPreview>(
+      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/shipping-quote',
+      request,
+    ).pipe(timeout(15000)));
   }
 
   publicStore(publicIdentifier: string) {

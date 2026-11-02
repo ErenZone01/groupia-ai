@@ -27,7 +27,7 @@ const quoted: DirectCartQuote = {
 
 describe('Vente directe : préparation des coordonnées', () => {
   let cart: DirectCartStore;
-  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn>; previewDeliveryCoverage: ReturnType<typeof vi.fn> };
+  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn>; previewDeliveryCoverage: ReturnType<typeof vi.fn>; shippingQuote: ReturnType<typeof vi.fn> };
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(() => {
@@ -42,6 +42,12 @@ describe('Vente directe : préparation des coordonnées', () => {
       previewDeliveryCoverage: vi.fn(async () => ({
         status: 'INSIDE_ZONE', region: 'Dakar',
         preliminaryAllowed: true, boundarySource: 'geoBoundaries-SEN-ADM1-2019',
+      })),
+      shippingQuote: vi.fn(async () => ({
+        status: 'QUOTED', currency: 'XOF', region: null,
+        locationVerification: 'NONE', goodsSubtotalXof: 9000, platformFeeXof: 300,
+        shippingFeeXof: 0, totalXof: 9300, shippingQuoted: true,
+        paymentAvailable: false,
       })),
     };
     TestBed.configureTestingModule({
@@ -70,7 +76,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     expect(page.review()).toBe(false);
     // The only API exposed to this page is a read-only cart quote.
     expect(api.publicDeliveryPolicy).toHaveBeenCalledWith(shopA);
-    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress', 'previewDeliveryCoverage']);
+    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress', 'previewDeliveryCoverage', 'shippingQuote']);
   });
 
   it('réinitialise le formulaire, la localisation et le panier au changement de boutique', async () => {
@@ -276,6 +282,49 @@ describe('Vente directe : préparation des coordonnées', () => {
     await vi.waitFor(() => expect(page.quote()).toBeNull());
     expect(page.deliveryCoverage()).toBeNull();
     expect(page.confirmedPoint()).toBeNull();
+  });
+
+  it('obtient un devis des frais serveur sur la région choisie sans paiement', async () => {
+    api.shippingQuote.mockResolvedValue({
+      status: 'QUOTED', currency: 'XOF', region: 'Dakar',
+      locationVerification: 'MANUAL_UNVERIFIED',
+      goodsSubtotalXof: 9000, platformFeeXof: 300,
+      shippingFeeXof: 1500, totalXof: 10800,
+      shippingQuoted: true, paymentAvailable: false,
+    });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.quote()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.manualAddress();
+    page.changeRegion('Dakar');
+    await vi.waitFor(() => expect(page.shippingPreview()?.shippingFeeXof).toBe(1500));
+    expect(page.shippingPreview()?.totalXof).toBe(10800);
+    expect(page.shippingPreview()?.paymentAvailable).toBe(false);
+    expect(page.shippingMessage).toContain('adresse manuelle');
+    expect(api.shippingQuote).toHaveBeenCalledWith(shopA, {
+      fulfillmentMethod: 'DELIVERY',
+      lines: [{ offerId: 'offer-a', quantity: 1 }],
+      region: 'Dakar', deliveryPoint: null,
+    });
+    page.changeFulfillment('PICKUP');
+    expect(page.shippingPreview()).toBeNull();
+  });
+
+  it('n’affiche pas de livraison gratuite si la vendeuse n’a pas fixé de tarif', async () => {
+    api.shippingQuote.mockResolvedValue({
+      status: 'FEE_UNCONFIGURED', currency: 'XOF', region: 'Dakar',
+      locationVerification: 'MANUAL_UNVERIFIED', goodsSubtotalXof: 9000,
+      platformFeeXof: 300, shippingFeeXof: null, totalXof: null,
+      shippingQuoted: false, paymentAvailable: false,
+    });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.quote()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.manualAddress();
+    page.changeRegion('Dakar');
+    await vi.waitFor(() => expect(page.shippingPreview()?.status).toBe('FEE_UNCONFIGURED'));
+    expect(page.shippingPreview()?.totalXof).toBeNull();
+    expect(page.shippingMessage).toContain('confirmer');
   });
 
 });

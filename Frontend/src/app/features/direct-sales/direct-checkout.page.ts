@@ -3,7 +3,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectCartStore } from './direct-cart.store';
-import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion, DirectDeliveryCoverage } from './direct-sales.api';
+import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion, DirectDeliveryCoverage, DirectShippingPreview } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 import { Input } from '../../shared/forms/input';
@@ -62,6 +62,9 @@ export class DirectCheckoutPage {
   readonly deliveryCoverage = signal<DirectDeliveryCoverage | null>(null);
   readonly coverageBusy = signal(false);
   readonly coverageError = signal(false);
+  readonly shippingPreview = signal<DirectShippingPreview | null>(null);
+  readonly shippingBusy = signal(false);
+  readonly shippingError = signal(false);
   readonly money = money;
   readonly variantLabel = variantLabel;
   get regions() {
@@ -99,6 +102,7 @@ export class DirectCheckoutPage {
   private locationSequence = 0;
   private addressLookupSequence = 0;
   private coverageSequence = 0;
+  private shippingSequence = 0;
 
   constructor() {
     const sub = this.route.paramMap.subscribe((params) => {
@@ -131,6 +135,7 @@ export class DirectCheckoutPage {
     this.communeChoice = '';
     this.location.commune = '';
     this.review.set(false);
+    void this.updateShippingPreview();
   }
 
   changeCity(value: string) {
@@ -157,18 +162,21 @@ export class DirectCheckoutPage {
       this.cityChoice = '';
       this.communeChoice = '';
     }
+    void this.updateShippingPreview();
   }
 
   manualAddress() {
     this.clearMapLocation();
     this.locationMode.set('MANUAL');
     this.review.set(false);
+    void this.updateShippingPreview();
   }
 
   openMap() {
     this.locationMode.set('MAP');
     this.locationError.set('');
     this.review.set(false);
+    void this.updateShippingPreview();
   }
 
   chooseMapPoint(point: DirectGeoPoint) {
@@ -183,6 +191,7 @@ export class DirectCheckoutPage {
     this.candidatePoint.set(point);
     this.confirmedPoint.set(null);
     this.review.set(false);
+    void this.updateShippingPreview();
   }
 
   confirmMapPoint() {
@@ -198,6 +207,7 @@ export class DirectCheckoutPage {
     this.review.set(false);
     void this.suggestAddress(point);
     void this.checkDeliveryCoverage(point);
+    void this.updateShippingPreview();
   }
 
   private async checkDeliveryCoverage(point: DirectGeoPoint) {
@@ -221,6 +231,55 @@ export class DirectCheckoutPage {
     } finally {
       if (seq === this.coverageSequence) this.coverageBusy.set(false);
     }
+  }
+
+  async updateShippingPreview() {
+    const seq = ++this.shippingSequence;
+    const shop = this.publicId();
+    const items = this.cart.items();
+    this.shippingPreview.set(null);
+    this.shippingError.set(false);
+    this.shippingBusy.set(false);
+    if (!this.quote() || !shop || !items.length) return;
+    let region: string | null = null;
+    let deliveryPoint: DirectGeoPoint | null = null;
+    if (this.fulfillment === 'DELIVERY') {
+      if (!this.deliveryAvailable) return;
+      if (this.locationMode() === 'CONFIRMED') {
+        deliveryPoint = this.confirmedPoint();
+        if (!deliveryPoint) return;
+      } else if (this.locationMode() === 'MANUAL') {
+        region = this.location.region;
+        if (!region) return;
+      } else return;
+    }
+    this.shippingBusy.set(true);
+    try {
+      const preview = await this.api.shippingQuote(shop, {
+        fulfillmentMethod: this.fulfillment,
+        lines: items, region, deliveryPoint,
+      });
+      if (seq !== this.shippingSequence || shop !== this.publicId()) return;
+      this.shippingPreview.set(preview);
+    } catch {
+      if (seq === this.shippingSequence) this.shippingError.set(true);
+    } finally {
+      if (seq === this.shippingSequence) this.shippingBusy.set(false);
+    }
+  }
+
+  get shippingMessage(): string {
+    if (this.shippingBusy()) return 'Calcul des frais de livraison…';
+    if (this.shippingError()) return 'Tarif indisponible pour le moment. Aucun paiement ne sera demandé.';
+    const preview = this.shippingPreview();
+    if (!preview) return 'Choisissez votre mode de remise pour connaître les frais.';
+    if (preview.status === 'FEE_UNCONFIGURED') return 'La gérante doit encore confirmer le tarif de cette région.';
+    if (preview.status === 'OUTSIDE_ZONE' || preview.status === 'OUTSIDE_SENEGAL'
+        || preview.status === 'DELIVERY_DISABLED') return 'Livraison indisponible à cet endroit.';
+    if (preview.status !== 'QUOTED') return 'Ce point doit être vérifié avant la livraison.';
+    return preview.locationVerification === 'MANUAL_UNVERIFIED'
+      ? 'Montant estimatif : votre adresse manuelle reste à vérifier.'
+      : 'Montant estimatif, sans réservation ni demande de paiement.';
   }
 
   get coverageMessage(): string {
@@ -312,6 +371,10 @@ export class DirectCheckoutPage {
   }
 
   private clearMapLocation() {
+    this.shippingSequence++;
+    this.shippingPreview.set(null);
+    this.shippingBusy.set(false);
+    this.shippingError.set(false);
     this.coverageSequence++;
     this.deliveryCoverage.set(null);
     this.coverageBusy.set(false);
@@ -343,6 +406,10 @@ export class DirectCheckoutPage {
     const id = this.publicId();
     const items = this.cart.items();
     this.quote.set(null);
+    this.shippingSequence++;
+    this.shippingPreview.set(null);
+    this.shippingError.set(false);
+    this.shippingBusy.set(false);
     this.deliveryPolicy.set(null);
     this.error.set('');
     this.review.set(false);
@@ -359,6 +426,7 @@ export class DirectCheckoutPage {
       if (this.sequence === seq) {
         this.deliveryPolicy.set(policy);
         this.quote.set(quote);
+        void this.updateShippingPreview();
       }
     } catch (error) {
       if (this.sequence === seq) this.error.set(apiMessage(error));

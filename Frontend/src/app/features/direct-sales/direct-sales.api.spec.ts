@@ -95,4 +95,36 @@ describe('Vente directe : contrats HTTP', () => {
     expect((await pending).mode).toBe('DISABLED');
   });
 
+  it('enregistre les tarifs par région avec contrôle de version', async () => {
+    const fees = { regionFeesXof: { Dakar: 1500, 'Thiès': 0 }, version: 0 };
+    const pending = api.updateShippingFees(org, fees);
+    const req = http.expectOne('/api/organizations/' + org + '/direct-store/shipping-fees');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(fees);
+    req.flush({ ...fees, version: 1 });
+    expect((await pending).version).toBe(1);
+  });
+
+  it('demande un devis de livraison sans prix fourni par la cliente', async () => {
+    const request = {
+      fulfillmentMethod: 'DELIVERY' as const,
+      lines: [{ offerId: 'offer-a', quantity: 1 }],
+      region: null,
+      deliveryPoint: { latitude: 14.6937, longitude: -17.4474 },
+    };
+    const pending = api.shippingQuote(storefront.publicIdentifier, request);
+    const req = http.expectOne(
+      '/api/public/direct-stores/' + storefront.publicIdentifier + '/shipping-quote',
+    );
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(request);
+    req.flush({
+      status: 'QUOTED', currency: 'XOF', region: 'Dakar',
+      locationVerification: 'MAP_REGION_MATCHED',
+      goodsSubtotalXof: 9000, platformFeeXof: 300, shippingFeeXof: 1500,
+      totalXof: 10800, shippingQuoted: true, paymentAvailable: false,
+    });
+    expect((await pending).totalXof).toBe(10800);
+  });
+
 });

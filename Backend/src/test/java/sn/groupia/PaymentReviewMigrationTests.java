@@ -67,7 +67,8 @@ class PaymentReviewMigrationTests {
                                                     if (entry.getKey().equals("payment_requests")) {
                                                         row.remove("target_type");
                                                         row.remove("target_id");
-                                                        assertThat(row.remove("direct_order_id")).isNull();
+                                                        assertThat(row.remove("direct_order_id"))
+                                                                .isNull();
                                                     }
                                                     return row;
                                                 })

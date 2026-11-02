@@ -360,6 +360,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     const [shop, payload, key] = api.createDraft.mock.calls[0];
     expect(shop).toBe(shopA);
     expect(key).toMatch(/^direct-[0-9a-f]{32}$/);
+    expect(payload.recoveryToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(payload).toEqual({
       contact: {
         firstName: 'Awa', lastName: 'Diop', phone: '+221771234567',
@@ -368,6 +369,7 @@ describe('Vente directe : préparation des coordonnées', () => {
       fulfillmentMethod: 'PICKUP',
       deliveryPoint: null,
       acceptedTotalXof: 9300,
+      recoveryToken: payload.recoveryToken,
       lines: [{
         offerId: 'offer-a', quantity: 1, expectedUnitPriceXof: 9000,
         expectedPriceRevision: 1,
@@ -375,6 +377,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     });
     expect(page.receipt()?.orderNumber).toBe('DIR-000000000001');
     expect(page.receipt()?.paymentAvailable).toBe(false);
+    expect(page.trackingToken()).toBe(payload.recoveryToken);
     expect(cart.items()).toEqual([]);
   });
 
@@ -393,6 +396,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     await page.submitDraft();
     expect(api.createDraft).toHaveBeenCalledTimes(2);
     expect(api.createDraft.mock.calls[0]).toEqual(api.createDraft.mock.calls[1]);
+    expect(api.createDraft.mock.calls[0][1].recoveryToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(page.receipt()?.orderNumber).toBe('DIR-000000000001');
   });
 

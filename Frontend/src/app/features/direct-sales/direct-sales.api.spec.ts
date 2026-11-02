@@ -127,4 +127,33 @@ describe('Vente directe : contrats HTTP', () => {
     expect((await pending).totalXof).toBe(10800);
   });
 
+  it('transmet un total accepté et une clé idempotente sans appeler le paiement', async () => {
+    const body = {
+      contact: {
+        firstName: 'Awa', lastName: 'Diop', phone: '+221771234567', email: null,
+        deliveryAddress: null,
+      },
+      fulfillmentMethod: 'PICKUP' as const,
+      lines: [{ offerId: 'offer-a', quantity: 1, expectedUnitPriceXof: 9000,
+        expectedPriceRevision: 1 }],
+      deliveryPoint: null,
+      acceptedTotalXof: 9300,
+    };
+    const pending = api.createDraft(storefront.publicIdentifier, body, 'direct-unit-test-0001');
+    const req = http.expectOne(
+      '/api/public/direct-stores/' + storefront.publicIdentifier + '/checkout',
+    );
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Idempotency-Key')).toBe('direct-unit-test-0001');
+    expect(req.request.body).toEqual(body);
+    req.flush({
+      orderNumber: 'DIR-000000000001', status: 'PENDING_PAYMENT_INTEGRATION',
+      currency: 'XOF', fulfillmentMethod: 'PICKUP',
+      goodsSubtotalXof: 9000, platformFeeXof: 300, amountBeforeShippingXof: 9300,
+      shippingQuoted: true, shippingFeeXof: 0, acceptedTotalXof: 9300,
+      shippingRateVersion: null, paymentAvailable: false,
+    });
+    expect((await pending).orderNumber).toBe('DIR-000000000001');
+  });
+
 });

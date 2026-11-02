@@ -28,6 +28,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/direct-sales/direct-cart.page').then((m) => m.DirectCartPage),
   },
   {
+    path: 'v/:publicIdentifier/recuperation',
+    title: 'Retrouver mes commandes directes · Groupia',
+    loadComponent: () =>
+      import('./features/direct-sales/direct-order-recovery.page').then((m) => m.DirectOrderRecoveryPage),
+  },
+  {
     path: 'v/:publicIdentifier/commande',
     title: 'Suivi privé · Vente directe · Groupia',
     loadComponent: () =>

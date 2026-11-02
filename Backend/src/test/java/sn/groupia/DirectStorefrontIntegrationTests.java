@@ -20,7 +20,11 @@ import org.springframework.test.web.servlet.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "groupia.direct-sales.checkout.enabled=true")
+@SpringBootTest(
+        properties = {
+            "groupia.direct-sales.checkout.enabled=true",
+            "groupia.direct-sales.payment-obligation.auto-prepare.enabled=true"
+        })
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 class DirectStorefrontIntegrationTests {
@@ -1209,12 +1213,36 @@ class DirectStorefrontIntegrationTests {
         assertThat(((Number) savedAccepted.get("accepted_total_xof")).longValue())
                 .isEqualTo(acceptedPrice);
         assertThat(((Number) savedAccepted.get("shipping_rate_version")).longValue()).isEqualTo(1L);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from payment_requests"
+                                        + " where organization_id=? and purpose='DIRECT_ORDER_INITIAL'",
+                                Long.class,
+                                organizationId))
+                .isEqualTo(1L);
 
         UUID acceptedOrderId =
                 jdbc.queryForObject(
                         "select id from direct_orders where checkout_idempotency_key=?",
                         UUID.class,
                         acceptedGpsKey);
+        var preparedObligation =
+                jdbc.queryForMap(
+                        "select direct_order_id,target_type,target_id,expected_amount,"
+                                + "goods_amount,fee_amount,shipping_amount,acceptance_status"
+                                + " from payment_requests where organization_id=?"
+                                + " and direct_order_id=?",
+                        organizationId,
+                        acceptedOrderId);
+        assertThat(preparedObligation.get("direct_order_id")).isEqualTo(acceptedOrderId);
+        assertThat(preparedObligation.get("target_type")).isEqualTo("DIRECT_ORDER");
+        assertThat(preparedObligation.get("target_id")).isEqualTo(acceptedOrderId);
+        assertThat(((Number) preparedObligation.get("expected_amount")).longValue())
+                .isEqualTo(acceptedPrice);
+        assertThat(((Number) preparedObligation.get("shipping_amount")).longValue())
+                .isEqualTo(1500L);
+        assertThat(preparedObligation.get("acceptance_status")).isEqualTo("OPEN");
+
         String merchantOrdersPath = "/api/organizations/" + organizationId + "/direct-orders";
         var acceptedMerchantDetail =
                 body(
@@ -1309,6 +1337,13 @@ class DirectStorefrontIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.shippingFeeXof").value(1500))
                 .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from payment_requests"
+                                        + " where direct_order_id=?",
+                                Long.class,
+                                acceptedOrderId))
+                .isEqualTo(1L);
         mvc.perform(
                         post(endpoint)
                                 .header("Idempotency-Key", acceptedGpsKey)
@@ -1349,7 +1384,8 @@ class DirectStorefrontIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(4);
         assertThat(jdbc.queryForObject("select count(*) from payment_requests", Long.class))
-                .isZero();
+                .isEqualTo(2L);
+        assertThat(jdbc.queryForObject("select count(*) from payments", Long.class)).isZero();
         authorized(
                         put(policyPath)
                                 .contentType(MediaType.APPLICATION_JSON)

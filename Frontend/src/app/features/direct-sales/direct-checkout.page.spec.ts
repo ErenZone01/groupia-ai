@@ -198,7 +198,7 @@ describe('Vente directe : préparation des coordonnées', () => {
   });
 
   it('ignore le géocodage obsolète lors du déplacement du repère', async () => {
-    let release!: (value: any) => void;
+    let release!: (value: { status: string; countryCode: string; region: string; city: string; neighborhood: null; formatted: string; provider: string }) => void;
     api.suggestDeliveryAddress.mockImplementation(() => new Promise((resolve) => {
       release = resolve;
     }));

@@ -1,9 +1,10 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectCartStore } from './direct-cart.store';
-import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion, DirectDeliveryCoverage, DirectShippingPreview } from './direct-sales.api';
+import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion, DirectDeliveryCoverage, DirectShippingPreview, DirectDraftCommand, DirectDraftReceipt } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 import { Input } from '../../shared/forms/input';
@@ -31,10 +32,7 @@ interface DirectCustomerContact {
 type FulfillmentMode = 'PICKUP' | 'DELIVERY';
 type LocationMode = 'CHOICE' | 'MAP' | 'MANUAL' | 'CONFIRMED';
 
-/**
- * Preview of direct-sale checkout. Customer data stays in this component only;
- * no checkout write or payment request is performed until the backend rollout.
- */
+/** Customer-side direct draft creation. Payment is explicitly unavailable. */
 @Component({
   selector: 'g-direct-checkout-page',
   imports: [FormsModule, RouterLink, PublicShell, Input, Select, DirectLocationMap],
@@ -65,6 +63,11 @@ export class DirectCheckoutPage {
   readonly shippingPreview = signal<DirectShippingPreview | null>(null);
   readonly shippingBusy = signal(false);
   readonly shippingError = signal(false);
+  readonly submitting = signal(false);
+  readonly submitError = signal('');
+  readonly receipt = signal<DirectDraftReceipt | null>(null);
+  readonly amountAccepted = signal(false);
+  private pendingDraft: { key: string; payload: DirectDraftCommand } | null = null;
   readonly money = money;
   readonly variantLabel = variantLabel;
   get regions() {
@@ -390,18 +393,120 @@ export class DirectCheckoutPage {
     this.locationError.set('');
   }
 
+  get canSubmitDraft(): boolean {
+    const price = this.shippingPreview();
+    return !!this.quote()?.draftCreationAvailable
+      && this.review() && !this.submitting() && !this.loading() && !this.error()
+      && this.locationReady
+      && !this.shippingBusy() && !this.shippingError()
+      && price?.status === 'QUOTED' && price.shippingQuoted && price.totalXof !== null
+      && this.amountAccepted()
+      && (this.fulfillment === 'PICKUP' || this.locationMode() === 'MANUAL'
+          || (this.locationMode() === 'CONFIRMED'
+            && !this.coverageBusy() && this.deliveryCoverage()?.status === 'INSIDE_ZONE'));
+  }
+
   showReview() {
     if (this.quote() && this.deliveryPolicy() && !this.loading() && !this.error()
       && this.cart.items().length && this.locationReady) {
+      this.amountAccepted.set(false);
+      this.submitError.set('');
       this.review.set(true);
     }
   }
 
   edit() {
+    if (this.submitting()) return;
+    this.pendingDraft = null;
+    this.amountAccepted.set(false);
+    this.submitError.set('');
     this.review.set(false);
   }
 
+  private newDraftKey(): string | null {
+    if (!this.browser?.crypto?.getRandomValues) return null;
+    const entropy = this.browser.crypto.getRandomValues(new Uint8Array(16));
+    return 'direct-' + Array.from(entropy, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  async submitDraft() {
+    if (!this.canSubmitDraft || this.receipt()) return;
+    const shop = this.publicId();
+    const quoted = this.quote();
+    const price = this.shippingPreview();
+    if (!quoted || !price || price.totalXof === null) return;
+    if (!this.pendingDraft) {
+      const key = this.newDraftKey();
+      if (!key) {
+        this.submitError.set('Impossible de sécuriser la commande sur cet appareil.');
+        return;
+      }
+      const lines = this.cart.items().map((item) => {
+        const current = quoted.lines.find((line) => line.offerId === item.offerId);
+        return current && current.quantity === item.quantity
+          ? {
+              offerId: item.offerId, quantity: item.quantity,
+              expectedUnitPriceXof: current.unitPriceXof,
+              expectedPriceRevision: current.priceRevision,
+            }
+          : null;
+      });
+      if (lines.some((line) => line === null)) {
+        this.submitError.set('Le panier a changé. Actualisez les prix avant de confirmer.');
+        return;
+      }
+      const point = this.fulfillment === 'DELIVERY' && this.locationMode() === 'CONFIRMED'
+        ? this.confirmedPoint() : null;
+      const deliveryAddress = this.fulfillment === 'PICKUP' ? null
+        : this.locationMode() === 'MANUAL'
+          ? { ...this.location }
+          : {
+              country: 'SN' as const, region: null, city: null, commune: null,
+              neighborhood: null, details: this.location.details.trim() || null,
+            };
+      const payload: DirectDraftCommand = {
+        contact: {
+          firstName: this.contact.firstName.trim(), lastName: this.contact.lastName.trim(),
+          phone: this.contact.phone.trim(), email: this.contact.email.trim() || null,
+          deliveryAddress,
+        },
+        fulfillmentMethod: this.fulfillment,
+        lines: lines.filter((line): line is NonNullable<typeof line> => line !== null),
+        deliveryPoint: point,
+        acceptedTotalXof: price.totalXof,
+      };
+      this.pendingDraft = { key, payload };
+    }
+    const submission = this.pendingDraft;
+    this.submitting.set(true);
+    this.submitError.set('');
+    try {
+      const result = await this.api.createDraft(shop, submission.payload, submission.key);
+      if (shop !== this.publicId()) return;
+      this.receipt.set(result);
+      this.amountAccepted.set(false);
+      this.pendingDraft = null;
+      this.cart.clear(shop);
+    } catch (error) {
+      if (shop !== this.publicId()) return;
+      if (error instanceof HttpErrorResponse && [400, 404, 409, 503].includes(error.status)) {
+        // A definite rejection permits a new explicit acceptance with a new key.
+        this.pendingDraft = null;
+        this.amountAccepted.set(false);
+        this.review.set(false);
+        this.submitError.set(apiMessage(error) + ' Vérifiez les prix et acceptez le nouveau total.');
+        await this.refresh();
+      } else {
+        // A timeout/network error is ambiguous: retry the *identical* request and key.
+        this.submitError.set('Connexion interrompue. Réessayez sans modifier la commande : aucun doublon ne sera créé.');
+      }
+    } finally {
+      if (shop === this.publicId()) this.submitting.set(false);
+    }
+  }
+
   async refresh() {
+    if (this.submitting()) return;
     const seq = ++this.sequence;
     const id = this.publicId();
     const items = this.cart.items();
@@ -436,6 +541,11 @@ export class DirectCheckoutPage {
   }
 
   private resetPersonalData() {
+    this.pendingDraft = null;
+    this.receipt.set(null);
+    this.amountAccepted.set(false);
+    this.submitError.set('');
+    this.submitting.set(false);
     this.clearMapLocation();
     this.deliveryPolicy.set(null);
     this.contact = this.blankContact();

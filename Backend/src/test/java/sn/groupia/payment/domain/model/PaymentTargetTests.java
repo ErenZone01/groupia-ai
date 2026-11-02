@@ -78,8 +78,12 @@ class PaymentTargetTests {
                         () ->
                                 PaymentRequest.create(
                                         CreatePaymentRequest.forDirectOrder(
-                                                org, target, BigDecimal.TEN, BigDecimal.ZERO,
-                                                BigDecimal.ZERO, null),
+                                                org,
+                                                target,
+                                                BigDecimal.TEN,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                null),
                                         now))
                 .isInstanceOf(ApiException.class);
 
@@ -87,8 +91,12 @@ class PaymentTargetTests {
                         () ->
                                 PaymentRequest.create(
                                         CreatePaymentRequest.forDirectOrder(
-                                                org, target, BigDecimal.ZERO, BigDecimal.ZERO,
-                                                BigDecimal.ZERO, now.plusSeconds(300)),
+                                                org,
+                                                target,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                now.plusSeconds(300)),
                                         now))
                 .isInstanceOf(ApiException.class);
 

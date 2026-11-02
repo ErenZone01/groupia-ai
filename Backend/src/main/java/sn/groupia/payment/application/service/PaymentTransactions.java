@@ -85,6 +85,15 @@ public class PaymentTransactions {
         }
         key = key.strip();
         var request = scopedRequest(org, requestId);
+        // The direct order payment gateway is deliberately closed until the direct-sales
+        // command, provider evidence listener, and fulfillment gates are implemented.
+        // Reject even an idempotent replay before creating any payment attempt.
+        if (request.getTarget().type() == PaymentTargetType.DIRECT_ORDER) {
+            throw new ApiException(
+                    409,
+                    "DIRECT_PAYMENT_NOT_ENABLED",
+                    "Le paiement des commandes directes n'est pas encore disponible.");
+        }
         List<PaymentObligationView> shippingStates = List.of();
         if (request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE) {
             shippingStates = lockShippingRequests(org, request.getOrderId());

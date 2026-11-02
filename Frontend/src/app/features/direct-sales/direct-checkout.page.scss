@@ -74,3 +74,28 @@
   .form-footer button { width:100%; }
   .summary-card { padding:18px; }
 }
+
+/* Mobile-first location selection. The map is optional; manual entry is always available. */
+.address-choice { display:grid; gap:11px; border:1px solid var(--border); border-radius:14px;
+  background:var(--surface-alt); padding:17px; }
+.address-choice h3 { font-size:16px; margin:0; }
+.address-choice > p { color:var(--muted); font-size:12px; line-height:1.6; }
+.address-option { display:block; width:100%; border:1px solid var(--border); border-radius:12px;
+  padding:15px; text-align:left; background:var(--surface); color:var(--text);
+  font:inherit; font-size:14px; font-weight:650; cursor:pointer; min-height:50px; }
+.address-option.primary { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+.address-option:disabled { opacity:.55; cursor:wait; }
+.address-manual { display:inline-block; width:fit-content; background:none; border:0;
+  color:var(--primary); padding:9px 0; font:inherit; font-size:13px; font-weight:650;
+  text-decoration:underline; text-underline-offset:3px; cursor:pointer; text-align:left; }
+.map-step { display:grid; gap:10px; min-width:0; }
+.confirm-place { min-height:46px; padding:12px 18px; border:0; border-radius:10px;
+  color:var(--on-primary); background:var(--primary); font:inherit; font-size:14px;
+  font-weight:650; cursor:pointer; }
+.confirm-place:disabled { opacity:.5; cursor:not-allowed; }
+.place-confirmed { padding:15px; border:1px solid var(--hero-border);
+  border-radius:12px; background:var(--primary-soft); }
+.place-confirmed strong { font-size:14px; }
+.place-confirmed p { margin:8px 0; color:var(--muted); font-size:12px; line-height:1.65; }
+.place-confirmed button { font:inherit; font-size:13px; padding:8px 0; text-decoration:underline;
+  border:0; background:none; color:var(--primary); cursor:pointer; }

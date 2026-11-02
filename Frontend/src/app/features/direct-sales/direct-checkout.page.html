@@ -50,7 +50,13 @@
                   <dt>Mode de remise</dt>
                   <dd>{{ fulfillment === 'PICKUP' ? 'Retrait à convenir' : 'Livraison à organiser' }}</dd>
                 </div>
-                @if (fulfillment === 'DELIVERY') {
+                @if (fulfillment === 'DELIVERY' && locationMode() === 'CONFIRMED') {
+                  <div><dt>Lieu de livraison</dt><dd>Position choisie sur carte (zone à vérifier)</dd></div>
+                  @if (location.details) {
+                    <div><dt>Point de repère</dt><dd>{{ location.details }}</dd></div>
+                  }
+                }
+                @if (fulfillment === 'DELIVERY' && locationMode() === 'MANUAL') {
                   <div><dt>Région</dt><dd>{{ location.region }}</dd></div>
                   <div><dt>Ville / département</dt><dd>{{ location.city }}</dd></div>
                   <div><dt>Commune</dt><dd>{{ location.commune }}</dd></div>
@@ -133,6 +139,52 @@
                   </div>
                 }
                 @if (fulfillment === 'DELIVERY') {
+                  <div class="address-choice">
+                    <h3>Où souhaitez-vous être livrée ?</h3>
+                    <p>Choisissez la méthode qui vous semble la plus simple.</p>
+                    <button type="button" class="address-option primary"
+                      [disabled]="locating()" (click)="locateMe()">
+                      {{ locating() ? 'Recherche de votre position…' : '📍 Utiliser ma position' }}
+                    </button>
+                    <button type="button" class="address-option" (click)="openMap()">
+                      🗺️ Choisir un endroit sur la carte
+                    </button>
+                    <button type="button" class="address-manual" (click)="manualAddress()">
+                      Saisir mon adresse sans carte
+                    </button>
+                    @if (locationError()) {
+                      <p class="field-error" role="alert">{{ locationError() }}</p>
+                    }
+                  </div>
+
+                  @if (locationMode() === 'MAP') {
+                    <div class="map-step">
+                      <g-direct-location-map [point]="candidatePoint()"
+                        (pointSelected)="chooseMapPoint($event)"></g-direct-location-map>
+                      <p class="field-help">Le repère doit indiquer le lieu de livraison, qui peut être différent de votre position actuelle.</p>
+                      <button type="button" class="confirm-place" [disabled]="!candidatePoint()"
+                        (click)="confirmMapPoint()">Confirmer cet endroit</button>
+                      <button type="button" class="address-manual" (click)="manualAddress()">
+                        La carte ne fonctionne pas ? Saisir une adresse
+                      </button>
+                    </div>
+                  }
+
+                  @if (locationMode() === 'CONFIRMED') {
+                    <div class="place-confirmed" role="status">
+                      <strong>✓ Emplacement choisi sur la carte</strong>
+                      <p>Votre point n'est pas transmis à la vendeuse dans cette prévisualisation. La livraison et la zone couverte
+                        devront être vérifiées avant toute commande.</p>
+                      <button type="button" (click)="openMap()">Déplacer le point</button>
+                    </div>
+                    <label>Point de repère <span class="optional">(facultatif)</span>
+                      <textarea gInput name="gpsDetails" rows="2" maxlength="500"
+                        [(ngModel)]="location.details"
+                        placeholder="Ex. Maison derrière la pharmacie…"></textarea>
+                    </label>
+                  }
+
+                  @if (locationMode() === 'MANUAL') {
                   @if (deliveryPolicy()?.mode === 'SELECTED') {
                     <div class="location-note" role="status">
                       Livraison disponible uniquement dans les régions affichées ci-dessous.
@@ -198,12 +250,13 @@
                       [(ngModel)]="location.details"
                       placeholder="Rue, maison, point de repère utile"></textarea>
                   </label>
+                  }
                 }
               </section>
 
               <div class="form-footer">
                 <p>Vos informations restent dans cette page. Aucune commande ni paiement n'est créé.</p>
-                <button type="submit" [disabled]="!form.valid || !quote() || loading() || !!error()">
+                <button type="submit" [disabled]="!form.valid || !quote() || loading() || !!error() || !locationReady">
                   Vérifier mon récapitulatif
                 </button>
               </div>

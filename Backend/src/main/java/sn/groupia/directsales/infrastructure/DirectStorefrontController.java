@@ -16,7 +16,9 @@ class DirectStorefrontController {
     private final DirectCartQuoteService carts;
     private final DirectDeliveryPolicyService delivery;
 
-    DirectStorefrontController(DirectStorefrontService direct, DirectCartQuoteService carts,
+    DirectStorefrontController(
+            DirectStorefrontService direct,
+            DirectCartQuoteService carts,
             DirectDeliveryPolicyService delivery) {
         this.direct = direct;
         this.carts = carts;
@@ -67,7 +69,8 @@ class DirectStorefrontController {
     @io.swagger.v3.oas.annotations.Operation(operationId = "getDirectDeliveryPolicy")
     ResponseEntity<DirectDeliveryPolicyService.Policy> deliveryPolicy(
             @PathVariable UUID organizationId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(delivery.manager(organizationId));
     }
 
@@ -76,7 +79,8 @@ class DirectStorefrontController {
     ResponseEntity<DirectDeliveryPolicyService.Policy> updateDeliveryPolicy(
             @PathVariable UUID organizationId,
             @RequestBody DirectDeliveryPolicyService.Policy request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(delivery.save(organizationId, request));
     }
 
@@ -84,7 +88,8 @@ class DirectStorefrontController {
     @io.swagger.v3.oas.annotations.Operation(operationId = "getPublicDirectDeliveryPolicy")
     ResponseEntity<DirectDeliveryPolicyService.Policy> publicDeliveryPolicy(
             @PathVariable UUID publicIdentifier) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(delivery.publicPolicy(publicIdentifier));
     }
 

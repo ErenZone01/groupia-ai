@@ -45,7 +45,7 @@ for (const [width, height, theme] of [
     await expect(menu).toHaveAttribute('aria-expanded', 'true');
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('link')).toHaveText([
-      'Paiements', 'Versements', 'Statistiques', 'Ma boutique', 'Abonnement',
+      'Vente directe', 'Paiements', 'Versements', 'Statistiques', 'Ma boutique', 'Abonnement',
     ]);
     await noOverflow(page);
     await sheet.getByRole('link', { name: 'Statistiques', exact: true }).click();
@@ -128,7 +128,7 @@ for (const width of [1024, 1280, 1440]) {
     const sidebar = page.getByRole('navigation', { name: 'Navigation principale', exact: true });
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByRole('link')).toHaveText([
-      'Accueil', 'Groupages', 'Commandes', 'Produits',
+      'Accueil', 'Groupages', 'Vente directe', 'Commandes', 'Produits',
       'Paiements', 'Mes versements', 'Statistiques', 'Ma boutique', 'Abonnement',
     ]);
     await expect(page.locator('g-sidebar').getByText('Espace de travail')).toBeVisible();

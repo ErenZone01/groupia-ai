@@ -451,13 +451,16 @@ class DirectStorefrontIntegrationTests {
         String merchantPath = "/api/organizations/" + organizationId + "/direct-orders";
         mvc.perform(get(merchantPath)).andExpect(status().isUnauthorized());
         authorized(get(merchantPath + "?page=-1")).andExpect(status().isBadRequest());
-        var page = body(
-                authorized(get(merchantPath))
-                        .andExpect(status().isOk())
-                        .andExpect(header().string(
-                                "Cache-Control",
-                                org.hamcrest.Matchers.containsString("no-store")))
-                        .andReturn());
+        var page =
+                body(
+                        authorized(get(merchantPath))
+                                .andExpect(status().isOk())
+                                .andExpect(
+                                        header().string(
+                                                        "Cache-Control",
+                                                        org.hamcrest.Matchers.containsString(
+                                                                "no-store")))
+                                .andReturn());
         assertThat(page.path("total").asLong()).isEqualTo(1);
         assertThat(page.at("/items/0/orderNumber").asText())
                 .isEqualTo(created.path("orderNumber").asText());
@@ -465,13 +468,16 @@ class DirectStorefrontIntegrationTests {
         assertThat(page.toString()).doesNotContain("+221771234567");
 
         String orderId = page.at("/items/0/id").asText();
-        var detail = body(
-                authorized(get(merchantPath + "/" + orderId))
-                        .andExpect(status().isOk())
-                        .andExpect(header().string(
-                                "Cache-Control",
-                                org.hamcrest.Matchers.containsString("no-store")))
-                        .andReturn());
+        var detail =
+                body(
+                        authorized(get(merchantPath + "/" + orderId))
+                                .andExpect(status().isOk())
+                                .andExpect(
+                                        header().string(
+                                                        "Cache-Control",
+                                                        org.hamcrest.Matchers.containsString(
+                                                                "no-store")))
+                                .andReturn());
         assertThat(detail.at("/contact/firstName").asText()).isEqualTo("Awa");
         assertThat(detail.at("/contact/phoneE164").asText()).isEqualTo("+221771234567");
         assertThat(detail.at("/items/0/productName").asText()).isEqualTo("Panier direct");
@@ -484,17 +490,21 @@ class DirectStorefrontIntegrationTests {
         UUID secondOrg = organization(secondBearer, "Seconde boutique");
         mvc.perform(get(merchantPath).header("Authorization", "Bearer " + secondBearer))
                 .andExpect(status().isForbidden());
-        mvc.perform(get(merchantPath + "/" + orderId)
-                        .header("Authorization", "Bearer " + secondBearer))
-                .andExpect(status().isForbidden());
-        var secondPage = body(mvc.perform(
-                        get("/api/organizations/" + secondOrg + "/direct-orders")
+        mvc.perform(
+                        get(merchantPath + "/" + orderId)
                                 .header("Authorization", "Bearer " + secondBearer))
-                .andExpect(status().isOk())
-                .andReturn());
+                .andExpect(status().isForbidden());
+        var secondPage =
+                body(
+                        mvc.perform(
+                                        get("/api/organizations/" + secondOrg + "/direct-orders")
+                                                .header("Authorization", "Bearer " + secondBearer))
+                                .andExpect(status().isOk())
+                                .andReturn());
         assertThat(secondPage.path("total").asLong()).isZero();
-        mvc.perform(get("/api/organizations/" + secondOrg + "/direct-orders/" + orderId)
-                        .header("Authorization", "Bearer " + secondBearer))
+        mvc.perform(
+                        get("/api/organizations/" + secondOrg + "/direct-orders/" + orderId)
+                                .header("Authorization", "Bearer " + secondBearer))
                 .andExpect(status().isNotFound());
 
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
@@ -635,48 +645,91 @@ class DirectStorefrontIntegrationTests {
                                                         lines))))
                 .andExpect(status().isBadRequest());
         String policyPath = path() + "/delivery-policy";
-        var defaultPolicy = body(
-                authorized(get(policyPath)).andExpect(status().isOk()).andReturn());
+        var defaultPolicy =
+                body(authorized(get(policyPath)).andExpect(status().isOk()).andReturn());
         assertThat(defaultPolicy.path("mode").asText()).isEqualTo("DISABLED");
         assertThat(defaultPolicy.path("version").asLong()).isZero();
-        var limitedPolicy = body(
-                authorized(put(policyPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(
-                                Map.of("mode", "SELECTED", "allowedRegions", List.of("Dakar"),
-                                        "version", 0))))
-                        .andExpect(status().isOk()).andReturn());
+        var limitedPolicy =
+                body(
+                        authorized(
+                                        put(policyPath)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "mode",
+                                                                        "SELECTED",
+                                                                        "allowedRegions",
+                                                                        List.of("Dakar"),
+                                                                        "version",
+                                                                        0))))
+                                .andExpect(status().isOk())
+                                .andReturn());
         assertThat(limitedPolicy.path("version").asLong()).isEqualTo(1);
         assertThat(limitedPolicy.at("/allowedRegions/0").asText()).isEqualTo("Dakar");
-        authorized(put(policyPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "mode", "ALL", "allowedRegions", List.of(), "version", 0))))
+        authorized(
+                        put(policyPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "mode",
+                                                        "ALL",
+                                                        "allowedRegions",
+                                                        List.of(),
+                                                        "version",
+                                                        0))))
                 .andExpect(status().isConflict());
-        authorized(put(policyPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "mode", "SELECTED", "allowedRegions", List.of("Inconnue"),
-                                "version", 1))))
+        authorized(
+                        put(policyPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "mode",
+                                                        "SELECTED",
+                                                        "allowedRegions",
+                                                        List.of("Inconnue"),
+                                                        "version",
+                                                        1))))
                 .andExpect(status().isBadRequest());
         mvc.perform(get(publicPath(store.path("publicIdentifier").asText()) + "/delivery-policy"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mode").value("SELECTED"));
 
-        var outside = Map.of(
-                "contact", Map.of("firstName", "Awa", "lastName", "Ndiaye",
-                        "phone", "+221771234567",
-                        "deliveryAddress", Map.of("country", "SN", "region", "Thiès",
-                                "city", "Thiès", "commune", "Thiès",
-                                "details", "Près du marché")),
-                "fulfillmentMethod", "DELIVERY", "lines", lines);
-        mvc.perform(post(endpoint)
-                        .header("Idempotency-Key", "direct-outside-region-0001")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(outside)))
+        var outside =
+                Map.of(
+                        "contact",
+                        Map.of(
+                                "firstName",
+                                "Awa",
+                                "lastName",
+                                "Ndiaye",
+                                "phone",
+                                "+221771234567",
+                                "deliveryAddress",
+                                Map.of(
+                                        "country",
+                                        "SN",
+                                        "region",
+                                        "Thiès",
+                                        "city",
+                                        "Thiès",
+                                        "commune",
+                                        "Thiès",
+                                        "details",
+                                        "Près du marché")),
+                        "fulfillmentMethod",
+                        "DELIVERY",
+                        "lines",
+                        lines);
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", "direct-outside-region-0001")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(outside)))
                 .andExpect(status().isConflict());
-        assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
-                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class)).isZero();
 
         mvc.perform(
                         post(endpoint)
@@ -712,17 +765,25 @@ class DirectStorefrontIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from orders", Long.class)).isZero();
-        authorized(put(policyPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(
-                                Map.of("mode", "DISABLED", "allowedRegions", List.of(),
-                                        "version", 1))))
+        authorized(
+                        put(policyPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "mode",
+                                                        "DISABLED",
+                                                        "allowedRegions",
+                                                        List.of(),
+                                                        "version",
+                                                        1))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(2));
-        mvc.perform(post(endpoint)
-                        .header("Idempotency-Key", "direct-disabled-region-0001")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(outside)))
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", "direct-disabled-region-0001")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(outside)))
                 .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(1);
@@ -731,14 +792,21 @@ class DirectStorefrontIntegrationTests {
         UUID otherOrg = organization(second, "Autre boutique");
         mvc.perform(get(policyPath).header("Authorization", "Bearer " + second))
                 .andExpect(status().isForbidden());
-        mvc.perform(put(policyPath).header("Authorization", "Bearer " + second)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(
-                                Map.of("mode", "ALL", "allowedRegions", List.of(),
-                                        "version", 2))))
+        mvc.perform(
+                        put(policyPath)
+                                .header("Authorization", "Bearer " + second)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "mode",
+                                                        "ALL",
+                                                        "allowedRegions",
+                                                        List.of(),
+                                                        "version",
+                                                        2))))
                 .andExpect(status().isForbidden());
         assertThat(otherOrg).isNotEqualTo(organizationId);
-
     }
 
     private JsonNode product(UUID organization, String authorization, String name)

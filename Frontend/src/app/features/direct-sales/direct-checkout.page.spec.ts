@@ -128,4 +128,51 @@ describe('Vente directe : préparation des coordonnées', () => {
     page.changeFulfillment('DELIVERY');
     expect(page.fulfillment).toBe('PICKUP');
   });
+  it('autorise un point confirmé sur la carte sans imposer cinq champs', async () => {
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.quote()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    expect(page.locationReady).toBe(false);
+    page.openMap();
+    page.chooseMapPoint({ latitude: 92, longitude: -17.45 });
+    expect(page.candidatePoint()).toBeNull();
+    page.chooseMapPoint({ latitude: 14.73, longitude: -17.45 });
+    page.confirmMapPoint();
+    expect(page.locationMode()).toBe('CONFIRMED');
+    expect(page.confirmedPoint()).toEqual({ latitude: 14.73, longitude: -17.45 });
+    expect(page.locationReady).toBe(true);
+    page.showReview();
+    expect(page.review()).toBe(true);
+    page.changeFulfillment('PICKUP');
+    expect(page.confirmedPoint()).toBeNull();
+    expect(page.locationMode()).toBe('CHOICE');
+  });
+
+  it('permet toujours la saisie manuelle en cas de GPS indisponible', async () => {
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.quote()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.manualAddress();
+    page.changeRegion('Dakar');
+    page.changeCity('Dakar');
+    page.changeCommune('Yoff');
+    page.location.details = 'Près du marché';
+    expect(page.locationReady).toBe(true);
+    page.showReview();
+    expect(page.review()).toBe(true);
+  });
+
+  it('efface le point GPS lors du changement de boutique', async () => {
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.quote()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.openMap();
+    page.chooseMapPoint({ latitude: 14.72, longitude: -17.46 });
+    page.confirmMapPoint();
+    params.next(convertToParamMap({ publicIdentifier: shopB }));
+    expect(page.confirmedPoint()).toBeNull();
+    expect(page.candidatePoint()).toBeNull();
+    expect(page.locationMode()).toBe('CHOICE');
+  });
+
 });

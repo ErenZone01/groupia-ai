@@ -156,6 +156,7 @@ class SecurityConfiguration {
                                             HttpMethod.GET,
                                             "/api/public/groupings/*",
                                             "/api/public/direct-stores/*",
+                                            "/api/public/direct-stores/*/delivery-policy",
                                             "/api/public/media/*/*",
                                             "/api/public/orders/track")
                                     .permitAll()

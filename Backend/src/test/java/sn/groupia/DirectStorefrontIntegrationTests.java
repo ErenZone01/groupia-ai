@@ -788,7 +788,7 @@ class DirectStorefrontIntegrationTests {
                                                         "fulfillmentMethod",
                                                         "PICKUP",
                                                         "lines",
-                                                        lines))))
+                                                        shippingLines))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("QUOTED"))
                 .andExpect(jsonPath("$.shippingFeeXof").value(0))
@@ -860,7 +860,7 @@ class DirectStorefrontIntegrationTests {
                                                         "fulfillmentMethod",
                                                         "DELIVERY",
                                                         "lines",
-                                                        lines,
+                                                        shippingLines,
                                                         "deliveryPoint",
                                                         Map.of(
                                                                 "latitude",
@@ -881,7 +881,7 @@ class DirectStorefrontIntegrationTests {
                                                         "fulfillmentMethod",
                                                         "DELIVERY",
                                                         "lines",
-                                                        lines,
+                                                        shippingLines,
                                                         "region",
                                                         "Thiès"))))
                 .andExpect(status().isOk())
@@ -896,7 +896,7 @@ class DirectStorefrontIntegrationTests {
                                                         "fulfillmentMethod",
                                                         "DELIVERY",
                                                         "lines",
-                                                        lines,
+                                                        shippingLines,
                                                         "deliveryPoint",
                                                         Map.of(
                                                                 "latitude",
@@ -915,7 +915,7 @@ class DirectStorefrontIntegrationTests {
                                                         "fulfillmentMethod",
                                                         "DELIVERY",
                                                         "lines",
-                                                        lines,
+                                                        shippingLines,
                                                         "region",
                                                         "Inconnue"))))
                 .andExpect(status().isBadRequest());

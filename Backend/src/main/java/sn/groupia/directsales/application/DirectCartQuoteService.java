@@ -1,6 +1,7 @@
 package sn.groupia.directsales.application;
 
 import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +19,17 @@ public class DirectCartQuoteService {
     private final JdbcTemplate jdbc;
     private final CatalogVariants catalog;
     private final OrganizationAvailability organizations;
+    private final boolean draftCreationEnabled;
 
     public DirectCartQuoteService(
-            JdbcTemplate jdbc, CatalogVariants catalog, OrganizationAvailability organizations) {
+            JdbcTemplate jdbc,
+            CatalogVariants catalog,
+            OrganizationAvailability organizations,
+            @Value("${groupia.direct-sales.checkout.enabled:false}") boolean draftCreationEnabled) {
         this.jdbc = jdbc;
         this.catalog = catalog;
         this.organizations = organizations;
+        this.draftCreationEnabled = draftCreationEnabled;
     }
 
     public record RequestedLine(UUID offerId, Integer quantity) {}
@@ -43,7 +49,8 @@ public class DirectCartQuoteService {
             String displayName,
             long goodsSubtotalXof,
             List<QuotedLine> lines,
-            boolean checkoutAvailable) {}
+            boolean checkoutAvailable,
+            boolean draftCreationAvailable) {}
 
     private record Shop(UUID id, UUID organizationId, String displayName) {}
 
@@ -130,7 +137,10 @@ public class DirectCartQuoteService {
                             variant.attributes()));
         }
         // No checkout operation exists in this tranche: a quote never requests money.
-        return new Quote("XOF", store.displayName(), total, List.copyOf(quoteLines), false);
+        // Payment is a separate feature and remains disabled even for enabled draft creation.
+        return new Quote(
+                "XOF", store.displayName(), total, List.copyOf(quoteLines),
+                false, draftCreationEnabled);
     }
 
     private ApiException invalid() {

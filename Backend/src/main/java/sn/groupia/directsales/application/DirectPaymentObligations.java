@@ -213,8 +213,7 @@ public class DirectPaymentObligations {
         String region = address.path("region").asText();
         var matched =
                 geometry.locate(
-                        address.path("latitude").asDouble(),
-                        address.path("longitude").asDouble());
+                        address.path("latitude").asDouble(), address.path("longitude").asDouble());
         if (!"FOUND".equals(matched.status()) || !Objects.equals(region, matched.region())) {
             throw ineligible();
         }

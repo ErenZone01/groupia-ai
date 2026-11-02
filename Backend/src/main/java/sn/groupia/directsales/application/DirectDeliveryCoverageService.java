@@ -5,16 +5,13 @@ import org.springframework.stereotype.Service;
 import sn.groupia.shared.api.ApiException;
 
 /**
- * Public preview of configured delivery coverage for a submitted WGS84 point.
- * It does not attest the buyer's physical location and cannot authorize payment.
+ * Public preview of configured delivery coverage for a submitted WGS84 point. It does not attest
+ * the buyer's physical location and cannot authorize payment.
  */
 @Service
 public class DirectDeliveryCoverageService {
     public record Coverage(
-            String status,
-            String region,
-            boolean preliminaryAllowed,
-            String boundarySource) {}
+            String status, String region, boolean preliminaryAllowed, String boundarySource) {}
 
     private final DirectDeliveryPolicyService policies;
     private final DirectRegionGeometry regions;
@@ -46,9 +43,6 @@ public class DirectDeliveryCoverageService {
                         || (policy.mode().equals("SELECTED")
                                 && policy.allowedRegions().contains(point.region()));
         return new Coverage(
-                allowed ? "INSIDE_ZONE" : "OUTSIDE_ZONE",
-                point.region(),
-                allowed,
-                point.source());
+                allowed ? "INSIDE_ZONE" : "OUTSIDE_ZONE", point.region(), allowed, point.source());
     }
 }

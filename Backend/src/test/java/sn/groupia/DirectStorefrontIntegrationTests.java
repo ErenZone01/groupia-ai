@@ -725,8 +725,13 @@ class DirectStorefrontIntegrationTests {
         mvc.perform(
                         post(coveragePath)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("latitude", 14.6937, "longitude", -17.4474))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "latitude",
+                                                        14.6937,
+                                                        "longitude",
+                                                        -17.4474))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("INSIDE_ZONE"))
                 .andExpect(jsonPath("$.region").value("Dakar"))
@@ -734,8 +739,9 @@ class DirectStorefrontIntegrationTests {
         mvc.perform(
                         post(coveragePath)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("latitude", 14.791, "longitude", -16.928))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("latitude", 14.791, "longitude", -16.928))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OUTSIDE_ZONE"))
                 .andExpect(jsonPath("$.region").value("Thiès"))
@@ -743,14 +749,13 @@ class DirectStorefrontIntegrationTests {
         mvc.perform(
                         post(coveragePath)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(
-                                        Map.of("latitude", 5.3599, "longitude", -4.008))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("latitude", 5.3599, "longitude", -4.008))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OUTSIDE_SENEGAL"))
                 .andExpect(jsonPath("$.preliminaryAllowed").value(false));
-        mvc.perform(post(coveragePath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+        mvc.perform(post(coveragePath).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
 
         var outside =

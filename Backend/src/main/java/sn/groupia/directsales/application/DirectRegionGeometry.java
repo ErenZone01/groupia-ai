@@ -11,9 +11,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Offline Senegal ADM1 point-in-polygon lookup. Coordinates are WGS84 (lon,lat).
- * Data: geoBoundaries SEN ADM1, represented year 2019, Government of Senegal/OCHA,
- * CC BY 3.0 IGO. Geography is an approximation, not proof the buyer owns a GPS.
+ * Offline Senegal ADM1 point-in-polygon lookup. Coordinates are WGS84 (lon,lat). Data:
+ * geoBoundaries SEN ADM1, represented year 2019, Government of Senegal/OCHA, CC BY 3.0 IGO.
+ * Geography is an approximation, not proof the buyer owns a GPS.
  */
 @Component
 public final class DirectRegionGeometry {
@@ -37,6 +37,7 @@ public final class DirectRegionGeometry {
                     Map.entry("Kedougou", "Kédougou"));
 
     private record Point(double lon, double lat) {}
+
     private record Bounds(double minLon, double minLat, double maxLon, double maxLat) {
         boolean near(Point p) {
             return p.lon() >= minLon - EDGE_MARGIN_DEGREES
@@ -45,10 +46,18 @@ public final class DirectRegionGeometry {
                     && p.lat() <= maxLat + EDGE_MARGIN_DEGREES;
         }
     }
+
     private record Polygon(List<List<Point>> rings, Bounds bounds) {}
+
     private record Region(String name, List<Polygon> polygons) {}
+
     public record Match(String status, String region, String source) {}
-    private enum Containment { INSIDE, OUTSIDE, UNCERTAIN }
+
+    private enum Containment {
+        INSIDE,
+        OUTSIDE,
+        UNCERTAIN
+    }
 
     private final List<Region> regions;
 
@@ -67,7 +76,8 @@ public final class DirectRegionGeometry {
                 String sourceName = feature.path("properties").path("shapeName").asText();
                 String name = NAMES.get(sourceName);
                 if (name == null || !unique.add(name)) {
-                    throw new IllegalStateException("Unrecognized or duplicate ADM1 name: " + sourceName);
+                    throw new IllegalStateException(
+                            "Unrecognized or duplicate ADM1 name: " + sourceName);
                 }
                 JsonNode geometry = feature.path("geometry");
                 String type = geometry.path("type").asText();
@@ -94,8 +104,12 @@ public final class DirectRegionGeometry {
     }
 
     public Match locate(double latitude, double longitude) {
-        if (!Double.isFinite(latitude) || !Double.isFinite(longitude)
-                || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        if (!Double.isFinite(latitude)
+                || !Double.isFinite(longitude)
+                || latitude < -90
+                || latitude > 90
+                || longitude < -180
+                || longitude > 180) {
             return new Match("INVALID", null, SOURCE);
         }
         Point point = new Point(longitude, latitude);
@@ -132,13 +146,19 @@ public final class DirectRegionGeometry {
             }
             var points = new ArrayList<Point>();
             for (JsonNode pair : ring) {
-                if (!pair.isArray() || pair.size() < 2
-                        || !pair.get(0).isNumber() || !pair.get(1).isNumber()) {
+                if (!pair.isArray()
+                        || pair.size() < 2
+                        || !pair.get(0).isNumber()
+                        || !pair.get(1).isNumber()) {
                     throw new IllegalStateException("Invalid ADM1 vertex");
                 }
                 Point p = new Point(pair.get(0).asDouble(), pair.get(1).asDouble());
-                if (!Double.isFinite(p.lon()) || !Double.isFinite(p.lat())
-                        || p.lon() < -180 || p.lon() > 180 || p.lat() < -90 || p.lat() > 90) {
+                if (!Double.isFinite(p.lon())
+                        || !Double.isFinite(p.lat())
+                        || p.lon() < -180
+                        || p.lon() > 180
+                        || p.lat() < -90
+                        || p.lat() > 90) {
                     throw new IllegalStateException("Invalid ADM1 coordinate");
                 }
                 points.add(p);
@@ -162,8 +182,11 @@ public final class DirectRegionGeometry {
                 Point a = ring.get(j), b = ring.get(i);
                 if (nearSegment(point, a, b)) return Containment.UNCERTAIN;
                 if ((a.lat() > point.lat()) != (b.lat() > point.lat())
-                        && point.lon() < (b.lon() - a.lon()) * (point.lat() - a.lat())
-                                / (b.lat() - a.lat()) + a.lon()) {
+                        && point.lon()
+                                < (b.lon() - a.lon())
+                                                * (point.lat() - a.lat())
+                                                / (b.lat() - a.lat())
+                                        + a.lon()) {
                     inRing = !inRing;
                 }
             }
@@ -175,10 +198,15 @@ public final class DirectRegionGeometry {
     private static boolean nearSegment(Point p, Point a, Point b) {
         double dx = b.lon() - a.lon(), dy = b.lat() - a.lat();
         double lengthSquared = dx * dx + dy * dy;
-        double t = lengthSquared == 0 ? 0
-                : Math.max(0, Math.min(1,
-                        ((p.lon() - a.lon()) * dx + (p.lat() - a.lat()) * dy)
-                                / lengthSquared));
+        double t =
+                lengthSquared == 0
+                        ? 0
+                        : Math.max(
+                                0,
+                                Math.min(
+                                        1,
+                                        ((p.lon() - a.lon()) * dx + (p.lat() - a.lat()) * dy)
+                                                / lengthSquared));
         double distanceLon = p.lon() - (a.lon() + t * dx);
         double distanceLat = p.lat() - (a.lat() + t * dy);
         return distanceLon * distanceLon + distanceLat * distanceLat

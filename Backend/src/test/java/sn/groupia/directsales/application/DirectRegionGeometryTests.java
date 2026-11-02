@@ -19,8 +19,7 @@ class DirectRegionGeometryTests {
 
     @Test
     void neverClassifiesOutsideSenegalAsOneOfItsRegions() {
-        assertThat(boundaries.locate(5.3599, -4.008).status())
-                .isEqualTo("OUTSIDE_SENEGAL");
+        assertThat(boundaries.locate(5.3599, -4.008).status()).isEqualTo("OUTSIDE_SENEGAL");
         assertThat(boundaries.locate(12.639, -7.998).region()).isNull();
     }
 

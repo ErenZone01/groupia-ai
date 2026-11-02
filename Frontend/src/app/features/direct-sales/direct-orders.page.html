@@ -31,8 +31,13 @@
               <span class="meta">{{ fulfillment(order.fulfillmentMethod) }}</span>
             </div>
             <div class="order-actions">
-              <strong>{{ money(order.amountBeforeShippingXof, 'XOF') }}</strong>
-              <span class="meta">Avant éventuels frais de livraison</span>
+              @if (order.acceptedTotalXof != null) {
+                <strong>{{ money(order.acceptedTotalXof, 'XOF') }}</strong>
+                <span class="meta">Total accepté · Non payé</span>
+              } @else {
+                <strong>{{ money(order.amountBeforeShippingXof, 'XOF') }}</strong>
+                <span class="meta">Montant historique hors livraison · Non payé</span>
+              }
               <button type="button" [disabled]="detailLoading()" (click)="open(order)">Voir le détail</button>
             </div>
           </article>
@@ -87,6 +92,11 @@
           <p>{{ address.region }} · {{ address.city }} · {{ address.commune }}</p>
           @if (address.neighborhood) { <p>{{ address.neighborhood }}</p> }
           <p>{{ address.details }}</p>
+          @if (address.coverageStatus === 'UNVERIFIED_MANUAL') {
+            <p class="meta">Adresse saisie manuellement : région non vérifiée par GPS. À confirmer avant toute livraison.</p>
+          } @else if (address.coverageStatus === 'REGION_MATCHED') {
+            <p class="meta">Point carte situé dans la région autorisée (présence physique non attestée).</p>
+          }
         } @else {
           <p>Lieu de retrait à convenir avec la cliente.</p>
         }
@@ -108,12 +118,18 @@
     <div class="totals">
       <div><span>Articles</span><strong>{{ money(selected.order.goodsSubtotalXof, 'XOF') }}</strong></div>
       <div><span>Frais plateforme</span><strong>{{ money(selected.order.platformFeeXof, 'XOF') }}</strong></div>
-      <div><span>Montant hors livraison</span><strong>{{ money(selected.order.amountBeforeShippingXof, 'XOF') }}</strong></div>
+      @if (selected.order.acceptedTotalXof != null) {
+        <div><span>Livraison</span><strong>{{ selected.order.shippingFeeXof != null ? money(selected.order.shippingFeeXof, 'XOF') : 'Non cotée' }}</strong></div>
+        <div><span>Total accepté (non payé)</span><strong>{{ money(selected.order.acceptedTotalXof, 'XOF') }}</strong></div>
+      } @else {
+        <div><span>Montant historique hors livraison</span><strong>{{ money(selected.order.amountBeforeShippingXof, 'XOF') }}</strong></div>
+        <p class="meta">Ce brouillon ancien ne possède pas de total accepté. Aucun coût de livraison ne doit être supposé.</p>
+      }
     </div>
     <div class="warning">
       <strong>Pas encore une vente confirmée</strong>
-      <p>Ce brouillon ne prouve aucun paiement. La finalisation Bictorys et le suivi client
-        seront intégrés séparément. Aucun traitement de livraison n'est à déclencher depuis cette page.</p>
+      <p>Ce brouillon ne prouve aucun paiement. La finalisation du paiement Bictorys reste à intégrer ; un lien privé de suivi
+        est déjà disponible pour les nouveaux brouillons. Aucun traitement de livraison n'est à déclencher depuis cette page.</p>
     </div>
   </section>
 }

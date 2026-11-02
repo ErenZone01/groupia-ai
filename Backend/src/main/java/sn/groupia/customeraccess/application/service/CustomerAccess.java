@@ -74,6 +74,20 @@ public class CustomerAccess implements NotificationContentSource {
         store.insert(session,crypto.hash(raw),now);
         return new SessionIssued(raw,new CustomerSessionView(scope.name(),number,session.expiresAt()));
     }
+    /** Same verified, HttpOnly cookie session used for existing groupage recovery. */
+    @Transactional(readOnly=true)
+    public String verifiedPhone(String token) {
+        return phoneSession(token).phoneNormalized();
+    }
+
+    public String verifiedPhoneForDirectRotation(String token, String ip) {
+        policy.requireEnabled();
+        var phone=phoneSession(token).phoneNormalized();
+        limits.consume("direct-rotate-ip:"+ip,3600,policy.settings.ipRequestsPerHour());
+        limits.consume("direct-rotate-phone:"+phone,3600,policy.settings.phoneRequestsPerHour());
+        return phone;
+    }
+
     @Transactional(readOnly=true)
     public CustomerSessionView sessionView(String token) {
         var s=session(token);String number=null;

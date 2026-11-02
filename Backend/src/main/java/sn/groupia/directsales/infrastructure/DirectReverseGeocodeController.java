@@ -15,13 +15,13 @@ class DirectReverseGeocodeController {
         this.lookup = lookup;
     }
 
-    record PointRequest(double latitude, double longitude) {}
+    record PointRequest(Double latitude, Double longitude) {}
 
     @PostMapping("/api/public/direct-stores/{publicIdentifier}/reverse-geocode")
     @io.swagger.v3.oas.annotations.Operation(operationId = "suggestDirectDeliveryAddress")
     ResponseEntity<DirectReverseGeocodeService.Suggestion> suggest(
             @PathVariable UUID publicIdentifier, @RequestBody PointRequest request) {
-        if (request == null) {
+        if (request == null || request.latitude() == null || request.longitude() == null) {
             throw new sn.groupia.shared.api.ApiException(400, "INVALID_GEO_POINT", "Position invalide.");
         }
         return ResponseEntity.ok()

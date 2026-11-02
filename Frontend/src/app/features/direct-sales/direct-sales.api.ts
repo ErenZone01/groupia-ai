@@ -10,6 +10,16 @@ export interface DirectDeliveryPolicy {
   version: number;
 }
 
+export interface DirectAddressSuggestion {
+  status: 'FOUND' | 'UNAVAILABLE' | 'NO_RESULT';
+  countryCode: string | null;
+  region: string | null;
+  city: string | null;
+  neighborhood: string | null;
+  formatted: string | null;
+  provider: string | null;
+}
+
 export interface DirectOffer {
   id: string;
   variantId: string;
@@ -105,6 +115,13 @@ export class DirectSalesApi {
       '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-policy',
     ).pipe(timeout(15000)));
   }
+  suggestDeliveryAddress(publicIdentifier: string, latitude: number, longitude: number) {
+    return firstValueFrom(this.http.post<DirectAddressSuggestion>(
+      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/reverse-geocode',
+      { latitude, longitude },
+    ).pipe(timeout(9000)));
+  }
+
   publicStore(publicIdentifier: string) {
     return firstValueFrom(
       this.http.get<DirectStorefront>(

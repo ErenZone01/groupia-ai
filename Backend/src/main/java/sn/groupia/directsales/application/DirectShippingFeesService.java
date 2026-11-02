@@ -133,7 +133,8 @@ public class DirectShippingFeesService {
         if (request == null) throw invalid();
         // Existing catalog quote always validates published offers and current prices.
         var quote = carts.quote(publicIdentifier, request.lines());
-        if (request.fulfillmentMethod() == null\n                || !Set.of("PICKUP", "DELIVERY").contains(request.fulfillmentMethod())) throw invalid();
+        if (request.fulfillmentMethod() == null
+                || !Set.of("PICKUP", "DELIVERY").contains(request.fulfillmentMethod())) throw invalid();
         long base;
         try {
             base = Math.addExact(quote.goodsSubtotalXof(), platformFeeXof);

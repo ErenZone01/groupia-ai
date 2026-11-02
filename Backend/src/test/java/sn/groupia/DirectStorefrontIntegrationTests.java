@@ -139,7 +139,8 @@ class DirectStorefrontIntegrationTests {
                 .andExpect(jsonPath("$.goodsSubtotalXof").value(17000))
                 .andExpect(jsonPath("$.lines[0].unitPriceXof").value(8500))
                 .andExpect(jsonPath("$.lines[0].priceRevision").value(1))
-                .andExpect(jsonPath("$.checkoutAvailable").value(false));
+                .andExpect(jsonPath("$.checkoutAvailable").value(false))
+                .andExpect(jsonPath("$.draftCreationAvailable").value(true));
         mvc.perform(
                         post(publicPath(link) + "/quote")
                                 .contentType(MediaType.APPLICATION_JSON)

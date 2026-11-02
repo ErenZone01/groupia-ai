@@ -480,6 +480,7 @@ export class DirectCheckoutPage {
     const submission = this.pendingDraft;
     this.submitting.set(true);
     this.submitError.set('');
+    let mustRefresh = false;
     try {
       const result = await this.api.createDraft(shop, submission.payload, submission.key);
       if (shop !== this.publicId()) return;
@@ -495,7 +496,7 @@ export class DirectCheckoutPage {
         this.amountAccepted.set(false);
         this.review.set(false);
         this.submitError.set(apiMessage(error) + ' Vérifiez les prix et acceptez le nouveau total.');
-        await this.refresh();
+        mustRefresh = true;
       } else {
         // A timeout/network error is ambiguous: retry the *identical* request and key.
         this.submitError.set('Connexion interrompue. Réessayez sans modifier la commande : aucun doublon ne sera créé.');
@@ -503,6 +504,7 @@ export class DirectCheckoutPage {
     } finally {
       if (shop === this.publicId()) this.submitting.set(false);
     }
+    if (mustRefresh && shop === this.publicId()) await this.refresh();
   }
 
   async refresh() {

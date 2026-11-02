@@ -5,12 +5,29 @@
     </nav>
     <header class="heading">
       <p class="eyebrow">Groupia · Vente directe</p>
-      <h1>Vos coordonnées</h1>
-      <p>Préparez votre commande sans créer de compte. La validation et le paiement seront proposés
-        une fois la vente directe entièrement activée.</p>
+      <h1>{{ receipt() ? 'Votre commande est enregistrée' : 'Vos coordonnées' }}</h1>
+      <p>Préparez une commande sans compte. Aucun paiement n'est demandé à cette étape.</p>
     </header>
 
-    @if (!cart.items().length) {
+    @if (receipt(); as saved) {
+      <section class="draft-confirmation" role="status" aria-live="polite">
+        <p class="eyebrow">Commande enregistrée · Sans paiement</p>
+        <h2>Référence {{ saved.orderNumber }}</h2>
+        <p>Votre demande a été enregistrée par Groupia. La boutique devra confirmer la disponibilité,
+          le retrait ou la livraison. <strong>Aucun paiement n'a été effectué.</strong></p>
+        <dl class="review-grid">
+          <div><dt>Référence à conserver</dt><dd>{{ saved.orderNumber }}</dd></div>
+          <div><dt>Mode de remise</dt><dd>{{ saved.fulfillmentMethod === 'PICKUP' ? 'Retrait' : 'Livraison à confirmer' }}</dd></div>
+          @if (saved.acceptedTotalXof !== null) {
+            <div><dt>Total accepté</dt><dd>{{ money(saved.acceptedTotalXof, saved.currency) }}</dd></div>
+          }
+          <div><dt>Paiement</dt><dd>Non disponible pour le moment</dd></div>
+        </dl>
+        <p>Conservez cette référence pour contacter la boutique.
+          Un lien de suivi sécurisé sera ajouté avant l'ouverture commerciale.</p>
+        <a class="action-link" [routerLink]="['/v', publicId()]">Retour à la boutique</a>
+      </section>
+    } @else if (!cart.items().length) {
       <section class="empty" role="status">
         <h2>Votre panier est vide</h2>
         <p>Ajoutez des articles avant de préparer vos coordonnées.</p>
@@ -31,13 +48,19 @@
 
       <div class="layout">
         <section class="form-card" aria-label="Vos informations">
+          @if (submitError()) {
+            <div class="notice problem" role="alert">
+              <strong>Commande non confirmée</strong>
+              <p>{{ submitError() }}</p>
+            </div>
+          }
           @if (review()) {
             <div class="section">
               <div class="section-title">
                 <span class="step">01</span>
                 <div>
                   <h2>Vérifiez vos informations</h2>
-                  <p>Ce récapitulatif est visible uniquement ici ; rien n'est transmis à la boutique.</p>
+                  <p>Vérifiez la destination et le montant avant de valider votre demande.</p>
                 </div>
               </div>
               <dl class="review-grid">
@@ -83,7 +106,32 @@
                   Aucun paiement ne peut être effectué à ce stade.
                 </p>
               }
-              <button type="button" class="action-link" (click)="edit()">Modifier mes coordonnées</button>
+              @if (quote()?.draftCreationAvailable) {
+                @if (shippingPreview()?.status === 'QUOTED' && shippingPreview()?.totalXof !== null) {
+                  <label class="accept-price">
+                    <input type="checkbox" [checked]="amountAccepted()"
+                      [disabled]="submitting()" (change)="amountAccepted.set($any($event.target).checked)" />
+                    <span>J'accepte le total indiqué de
+                      <strong>{{ money(shippingPreview()!.totalXof!, 'XOF') }}</strong>
+                      pour créer une commande <strong>sans paiement immédiat</strong>.
+                    </span>
+                  </label>
+                  <button type="button" class="confirm-place"
+                    [disabled]="!canSubmitDraft" (click)="submitDraft()">
+                    {{ submitting() ? 'Enregistrement…' : 'Confirmer ma commande' }}
+                  </button>
+                } @else {
+                  <p class="location-note" role="status">{{ shippingMessage }}
+                    La commande ne peut pas être créée sans montant complet.</p>
+                }
+              } @else {
+                <p class="location-note" role="status">
+                  La création de commandes est en préparation sur cette boutique.
+                  Aucun paiement n'est encore disponible.
+                </p>
+              }
+              <button type="button" class="action-link" [disabled]="submitting()"
+                (click)="edit()">Modifier mes coordonnées</button>
             </div>
           } @else {
             <form #form="ngForm" (ngSubmit)="form.valid && showReview()" novalidate>
@@ -190,8 +238,8 @@
                   @if (locationMode() === 'CONFIRMED') {
                     <div class="place-confirmed" role="status">
                       <strong>✓ Emplacement choisi sur la carte</strong>
-                      <p>Votre point n'est pas transmis à la vendeuse dans cette prévisualisation. La livraison et la zone couverte
-                        devront être vérifiées avant toute commande.</p>
+                      <p>Ce lieu sera utilisé comme destination si vous confirmez votre commande.
+                      Sa région et les frais seront revérifiés par le serveur.</p>
                       <button type="button" (click)="openMap()">Déplacer le point</button>
                     </div>
                     @if (addressLookupBusy()) {
@@ -230,7 +278,7 @@
                   }
                   <div class="location-note">
                     Renseigner une adresse ne garantit pas une livraison à domicile.
-                    Aucun frais de livraison n'est encore calculé.
+                    Le tarif dépend de la région. La livraison reste à confirmer par la boutique.
                   </div>
                   <div class="field-grid">
                     <label>Région *
@@ -293,7 +341,8 @@
               </section>
 
               <div class="form-footer">
-                <p>Vos informations restent dans cette page. Aucune commande ni paiement n'est créé.</p>
+                <p>Vos informations seront transmises à la boutique uniquement si vous confirmez
+                  la commande. Aucun paiement ne sera déclenché.</p>
                 <button type="submit" [disabled]="!form.valid || !quote() || loading() || !!error() || !locationReady">
                   Vérifier mon récapitulatif
                 </button>
@@ -342,12 +391,12 @@
           }
           <div class="pending-total" role="status">
             <strong>{{ shippingMessage }}</strong>
-            <p>Les montants sont des estimations, pas une commande ni un paiement.
-              Les frais et la disponibilité seront revérifiés avant la finalisation.</p>
+            <p>Le total sera recalculé lors de la confirmation.
+              Si les prix changent, une nouvelle acceptation sera nécessaire.</p>
           </div>
           <div class="payment-state" role="note">
-            <strong>Finalisation des ventes directes bientôt disponible</strong>
-            <p>Le panier n'est pas réservé. Aucun débit n'est possible depuis cette page.</p>
+            <strong>Paiement non disponible</strong>
+            <p>Créer une commande ne réserve pas les articles et ne déclenche aucun débit.</p>
           </div>
           <a class="back-to-cart" [routerLink]="['/v', publicId(), 'panier']">Modifier les articles</a>
         </aside>

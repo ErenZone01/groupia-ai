@@ -1,7 +1,6 @@
 package sn.groupia.directsales.infrastructure;
 
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +22,7 @@ class DirectOrderTrackingController {
     ResponseEntity<DirectOrderTrackingService.Tracking> lookup(@RequestBody LookupRequest input) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .header(HttpHeaders.REFERRER_POLICY, "no-referrer")
+                .header("Referrer-Policy", "no-referrer")
                 .header("X-Robots-Tag", "noindex, nofollow")
                 .body(tracking.lookup(input == null ? null : input.token()));
     }

@@ -4,6 +4,7 @@
             "catalog::api",
             "media::api",
             "organization::api",
+            "payment::api",
             "subscription::api",
             "shared::api"
         })

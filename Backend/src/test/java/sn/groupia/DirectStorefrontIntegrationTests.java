@@ -761,97 +761,160 @@ class DirectStorefrontIntegrationTests {
         String shippingPath = path() + "/shipping-fees";
         String publicShippingPath =
                 publicPath(store.path("publicIdentifier").asText()) + "/shipping-quote";
-        var emptyShipping = body(
-                authorized(get(shippingPath)).andExpect(status().isOk()).andReturn());
+        var emptyShipping =
+                body(authorized(get(shippingPath)).andExpect(status().isOk()).andReturn());
         assertThat(emptyShipping.path("version").asLong()).isZero();
         assertThat(emptyShipping.path("regionFeesXof").size()).isZero();
-        var manualShippingRequest = Map.of(
-                "fulfillmentMethod", "DELIVERY", "lines", lines, "region", "Dakar");
-        mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(manualShippingRequest)))
+        var manualShippingRequest =
+                Map.of("fulfillmentMethod", "DELIVERY", "lines", lines, "region", "Dakar");
+        mvc.perform(
+                        post(publicShippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(manualShippingRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FEE_UNCONFIGURED"))
                 .andExpect(jsonPath("$.shippingQuoted").value(false))
                 .andExpect(jsonPath("$.shippingFeeXof").doesNotExist())
                 .andExpect(jsonPath("$.paymentAvailable").value(false));
-        mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "fulfillmentMethod", "PICKUP", "lines", lines))))
+        mvc.perform(
+                        post(publicShippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "fulfillmentMethod",
+                                                        "PICKUP",
+                                                        "lines",
+                                                        lines))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("QUOTED"))
                 .andExpect(jsonPath("$.shippingFeeXof").value(0))
                 .andExpect(jsonPath("$.shippingQuoted").value(true));
-        var shippingRates = Map.of(
-                "regionFeesXof", Map.of("Dakar", 1500, "Thiès", 0), "version", 0);
-        authorized(put(shippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(shippingRates)))
+        var shippingRates =
+                Map.of("regionFeesXof", Map.of("Dakar", 1500, "Thiès", 0), "version", 0);
+        authorized(
+                        put(shippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(shippingRates)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(1))
                 .andExpect(jsonPath("$.regionFeesXof.Dakar").value(1500));
-        authorized(put(shippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(shippingRates)))
+        authorized(
+                        put(shippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(shippingRates)))
                 .andExpect(status().isConflict());
-        authorized(put(shippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "regionFeesXof", Map.of("Dakar", -1), "version", 1))))
+        authorized(
+                        put(shippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "regionFeesXof",
+                                                        Map.of("Dakar", -1),
+                                                        "version",
+                                                        1))))
                 .andExpect(status().isBadRequest());
-        authorized(put(shippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "regionFeesXof", Map.of("Fausse région", 1000),
-                                "version", 1))))
+        authorized(
+                        put(shippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "regionFeesXof",
+                                                        Map.of("Fausse région", 1000),
+                                                        "version",
+                                                        1))))
                 .andExpect(status().isBadRequest());
 
-        var manualShipping = body(mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(manualShippingRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("QUOTED"))
-                .andExpect(jsonPath("$.shippingFeeXof").value(1500))
-                .andExpect(jsonPath("$.locationVerification").value("MANUAL_UNVERIFIED"))
-                .andExpect(jsonPath("$.paymentAvailable").value(false))
-                .andReturn());
+        var manualShipping =
+                body(
+                        mvc.perform(
+                                        post(publicShippingPath)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                manualShippingRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("QUOTED"))
+                                .andExpect(jsonPath("$.shippingFeeXof").value(1500))
+                                .andExpect(
+                                        jsonPath("$.locationVerification")
+                                                .value("MANUAL_UNVERIFIED"))
+                                .andExpect(jsonPath("$.paymentAvailable").value(false))
+                                .andReturn());
         assertThat(manualShipping.path("totalXof").asLong())
-                .isEqualTo(manualShipping.path("goodsSubtotalXof").asLong()
-                        + manualShipping.path("platformFeeXof").asLong() + 1500L);
-        mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "fulfillmentMethod", "DELIVERY", "lines", lines,
-                                "deliveryPoint", Map.of(
-                                        "latitude", 14.6937, "longitude", -17.4474)))))
+                .isEqualTo(
+                        manualShipping.path("goodsSubtotalXof").asLong()
+                                + manualShipping.path("platformFeeXof").asLong()
+                                + 1500L);
+        mvc.perform(
+                        post(publicShippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "lines",
+                                                        lines,
+                                                        "deliveryPoint",
+                                                        Map.of(
+                                                                "latitude",
+                                                                14.6937,
+                                                                "longitude",
+                                                                -17.4474)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("QUOTED"))
                 .andExpect(jsonPath("$.region").value("Dakar"))
                 .andExpect(jsonPath("$.locationVerification").value("MAP_REGION_MATCHED"))
                 .andExpect(jsonPath("$.shippingFeeXof").value(1500));
-        mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "fulfillmentMethod", "DELIVERY", "lines", lines,
-                                "region", "Thiès"))))
+        mvc.perform(
+                        post(publicShippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "lines",
+                                                        lines,
+                                                        "region",
+                                                        "Thiès"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OUTSIDE_ZONE"))
                 .andExpect(jsonPath("$.shippingQuoted").value(false));
-        mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "fulfillmentMethod", "DELIVERY", "lines", lines,
-                                "deliveryPoint", Map.of(
-                                        "latitude", 5.3599, "longitude", -4.008)))))
+        mvc.perform(
+                        post(publicShippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "lines",
+                                                        lines,
+                                                        "deliveryPoint",
+                                                        Map.of(
+                                                                "latitude",
+                                                                5.3599,
+                                                                "longitude",
+                                                                -4.008)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OUTSIDE_SENEGAL"))
                 .andExpect(jsonPath("$.shippingQuoted").value(false));
-        mvc.perform(post(publicShippingPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "fulfillmentMethod", "DELIVERY", "lines", lines,
-                                "region", "Inconnue"))))
+        mvc.perform(
+                        post(publicShippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "lines",
+                                                        lines,
+                                                        "region",
+                                                        "Inconnue"))))
                 .andExpect(status().isBadRequest());
         mvc.perform(get(shippingPath)).andExpect(status().isUnauthorized());
 

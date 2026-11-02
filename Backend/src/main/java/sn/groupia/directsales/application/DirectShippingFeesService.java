@@ -17,8 +17,8 @@ import sn.groupia.shared.api.ApiException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Optional regional delivery-price preview. No price sent by the buyer is trusted;
- * this service never creates a direct order or authorizes a payment.
+ * Optional regional delivery-price preview. No price sent by the buyer is trusted; this service
+ * never creates a direct order or authorizes a payment.
  */
 @Service
 public class DirectShippingFeesService {
@@ -46,9 +46,20 @@ public class DirectShippingFeesService {
 
     private static final Set<String> REGIONS =
             Set.of(
-                    "Dakar", "Diourbel", "Fatick", "Kaffrine", "Kaolack", "Kédougou",
-                    "Kolda", "Louga", "Matam", "Saint-Louis", "Sédhiou",
-                    "Tambacounda", "Thiès", "Ziguinchor");
+                    "Dakar",
+                    "Diourbel",
+                    "Fatick",
+                    "Kaffrine",
+                    "Kaolack",
+                    "Kédougou",
+                    "Kolda",
+                    "Louga",
+                    "Matam",
+                    "Saint-Louis",
+                    "Sédhiou",
+                    "Tambacounda",
+                    "Thiès",
+                    "Ziguinchor");
     private static final long MAX_FEE = 100_000;
 
     private final JdbcTemplate jdbc;
@@ -97,32 +108,44 @@ public class DirectShippingFeesService {
         var validated = new TreeMap<String, Long>();
         if (proposed.regionFeesXof().size() > REGIONS.size()) throw invalid();
         for (var entry : proposed.regionFeesXof().entrySet()) {
-            if (!REGIONS.contains(entry.getKey()) || entry.getValue() == null
-                    || entry.getValue() < 0 || entry.getValue() > MAX_FEE) throw invalid();
+            if (!REGIONS.contains(entry.getKey())
+                    || entry.getValue() == null
+                    || entry.getValue() < 0
+                    || entry.getValue() > MAX_FEE) throw invalid();
             validated.put(entry.getKey(), entry.getValue());
         }
         // This lock also serializes changes to the delivery-coverage policy and new drafts.
         UUID storeId = requireStore(organizationId, true);
         Settings current = read(organizationId, storeId);
         if (current.version() != proposed.version()) throw conflict();
-        boolean exists = !jdbc.query(
-                "select 1 from direct_shipping_fee_settings"
-                        + " where organization_id=? and storefront_id=?",
-                (rs, row) -> rs.getInt(1), organizationId, storeId).isEmpty();
+        boolean exists =
+                !jdbc.query(
+                                "select 1 from direct_shipping_fee_settings"
+                                        + " where organization_id=? and storefront_id=?",
+                                (rs, row) -> rs.getInt(1),
+                                organizationId,
+                                storeId)
+                        .isEmpty();
         if (!exists) {
             jdbc.update(
                     "insert into direct_shipping_fee_settings"
                             + " (organization_id,storefront_id,region_fees,version,updated_at)"
                             + " values (?,?,cast(? as jsonb),1,?)",
-                    organizationId, storeId, json.writeValueAsString(validated),
+                    organizationId,
+                    storeId,
+                    json.writeValueAsString(validated),
                     Timestamp.from(clock.instant()));
         } else {
-            int updated = jdbc.update(
-                    "update direct_shipping_fee_settings"
-                            + " set region_fees=cast(? as jsonb),version=version+1,updated_at=?"
-                            + " where organization_id=? and storefront_id=? and version=?",
-                    json.writeValueAsString(validated), Timestamp.from(clock.instant()),
-                    organizationId, storeId, proposed.version());
+            int updated =
+                    jdbc.update(
+                            "update direct_shipping_fee_settings"
+                                    + " set region_fees=cast(? as jsonb),version=version+1,updated_at=?"
+                                    + " where organization_id=? and storefront_id=? and version=?",
+                            json.writeValueAsString(validated),
+                            Timestamp.from(clock.instant()),
+                            organizationId,
+                            storeId,
+                            proposed.version());
             if (updated != 1) throw conflict();
         }
         return read(organizationId, storeId);
@@ -134,7 +157,8 @@ public class DirectShippingFeesService {
         // Existing catalog quote always validates published offers and current prices.
         var quote = carts.quote(publicIdentifier, request.lines());
         if (request.fulfillmentMethod() == null
-                || !Set.of("PICKUP", "DELIVERY").contains(request.fulfillmentMethod())) throw invalid();
+                || !Set.of("PICKUP", "DELIVERY").contains(request.fulfillmentMethod()))
+            throw invalid();
         long base;
         try {
             base = Math.addExact(quote.goodsSubtotalXof(), platformFeeXof);
@@ -144,8 +168,16 @@ public class DirectShippingFeesService {
         if ("PICKUP".equals(request.fulfillmentMethod())) {
             if (request.region() != null || request.deliveryPoint() != null) throw invalid();
             return new Preview(
-                    "QUOTED", "XOF", null, "NONE", quote.goodsSubtotalXof(),
-                    platformFeeXof, 0L, base, true, false);
+                    "QUOTED",
+                    "XOF",
+                    null,
+                    "NONE",
+                    quote.goodsSubtotalXof(),
+                    platformFeeXof,
+                    0L,
+                    base,
+                    true,
+                    false);
         }
         if ((request.region() == null) == (request.deliveryPoint() == null)) throw invalid();
 
@@ -172,8 +204,7 @@ public class DirectShippingFeesService {
         if ("DISABLED".equals(policy.mode())) {
             return unquoted("DELIVERY_DISABLED", region, verification, quote, platformFeeXof);
         }
-        if ("SELECTED".equals(policy.mode())
-                && !policy.allowedRegions().contains(region)) {
+        if ("SELECTED".equals(policy.mode()) && !policy.allowedRegions().contains(region)) {
             return unquoted("OUTSIDE_ZONE", region, verification, quote, platformFeeXof);
         }
 
@@ -189,8 +220,16 @@ public class DirectShippingFeesService {
             throw invalid();
         }
         return new Preview(
-                "QUOTED", "XOF", region, verification, quote.goodsSubtotalXof(),
-                platformFeeXof, fee, total, true, false);
+                "QUOTED",
+                "XOF",
+                region,
+                verification,
+                quote.goodsSubtotalXof(),
+                platformFeeXof,
+                fee,
+                total,
+                true,
+                false);
     }
 
     private Preview unquoted(
@@ -199,16 +238,29 @@ public class DirectShippingFeesService {
             String verification,
             DirectCartQuoteService.Quote quote,
             long platformFee) {
-        return new Preview(status, "XOF", region, verification, quote.goodsSubtotalXof(),
-                platformFee, null, null, false, false);
+        return new Preview(
+                status,
+                "XOF",
+                region,
+                verification,
+                quote.goodsSubtotalXof(),
+                platformFee,
+                null,
+                null,
+                false,
+                false);
     }
 
     private Settings publicSettings(UUID publicIdentifier) {
-        var ids = jdbc.query(
-                "select id,organization_id from direct_storefronts where public_identifier=?",
-                (rs, row) -> new UUID[] {
-                    rs.getObject("id", UUID.class), rs.getObject("organization_id", UUID.class)
-                }, publicIdentifier);
+        var ids =
+                jdbc.query(
+                        "select id,organization_id from direct_storefronts where public_identifier=?",
+                        (rs, row) ->
+                                new UUID[] {
+                                    rs.getObject("id", UUID.class),
+                                    rs.getObject("organization_id", UUID.class)
+                                },
+                        publicIdentifier);
         if (ids.isEmpty()) {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
         }
@@ -216,39 +268,49 @@ public class DirectShippingFeesService {
     }
 
     private UUID requireStore(UUID organizationId, boolean lock) {
-        var rows = jdbc.query(
-                "select id from direct_storefronts where organization_id=?"
-                        + (lock ? " for update" : ""),
-                (rs, row) -> rs.getObject("id", UUID.class), organizationId);
-        if (rows.isEmpty()) throw new ApiException(
-                409, "DIRECT_STORE_REQUIRED", "Créez d'abord votre boutique directe.");
+        var rows =
+                jdbc.query(
+                        "select id from direct_storefronts where organization_id=?"
+                                + (lock ? " for update" : ""),
+                        (rs, row) -> rs.getObject("id", UUID.class),
+                        organizationId);
+        if (rows.isEmpty())
+            throw new ApiException(
+                    409, "DIRECT_STORE_REQUIRED", "Créez d'abord votre boutique directe.");
         return rows.getFirst();
     }
 
     private Settings read(UUID organizationId, UUID storeId) {
-        var rows = jdbc.query(
-                "select region_fees::text as fees,version"
-                        + " from direct_shipping_fee_settings"
-                        + " where organization_id=? and storefront_id=?",
-                (rs, row) -> {
-                    var root = json.readTree(rs.getString("fees"));
-                    var fees = new TreeMap<String, Long>();
-                    for (String region : REGIONS) {
-                        var value = root.path(region);
-                        if (value.isIntegralNumber()) fees.put(region, value.asLong());
-                    }
-                    return new Settings(Map.copyOf(fees), rs.getLong("version"));
-                }, organizationId, storeId);
+        var rows =
+                jdbc.query(
+                        "select region_fees::text as fees,version"
+                                + " from direct_shipping_fee_settings"
+                                + " where organization_id=? and storefront_id=?",
+                        (rs, row) -> {
+                            var root = json.readTree(rs.getString("fees"));
+                            var fees = new TreeMap<String, Long>();
+                            for (String region : REGIONS) {
+                                var value = root.path(region);
+                                if (value.isIntegralNumber()) fees.put(region, value.asLong());
+                            }
+                            return new Settings(Map.copyOf(fees), rs.getLong("version"));
+                        },
+                        organizationId,
+                        storeId);
         return rows.isEmpty() ? new Settings(Map.of(), 0) : rows.getFirst();
     }
 
     private ApiException invalid() {
-        return new ApiException(400, "INVALID_DIRECT_SHIPPING_FEES",
+        return new ApiException(
+                400,
+                "INVALID_DIRECT_SHIPPING_FEES",
                 "Tarifs ou destination de livraison invalides.");
     }
 
     private ApiException conflict() {
-        return new ApiException(409, "DIRECT_SHIPPING_FEES_CONFLICT",
+        return new ApiException(
+                409,
+                "DIRECT_SHIPPING_FEES_CONFLICT",
                 "Les tarifs ont changé. Rechargez la page avant d'enregistrer.");
     }
 }

@@ -145,7 +145,9 @@ class CustomerAccessIntegrationTests {
                 "insert into direct_storefronts"
                         + " (id,organization_id,public_identifier,display_name,created_at,updated_at)"
                         + " values (?,?,?,'Boutique directe',current_timestamp,current_timestamp)",
-                storeId, org, publicId);
+                storeId,
+                org,
+                publicId);
         String own = insertRecoveryDraft(org, storeId, "+221771234567");
         String foreign = insertRecoveryDraft(org, storeId, "+221781234567");
 
@@ -156,61 +158,80 @@ class CustomerAccessIntegrationTests {
                 .andExpect(status().isForbidden());
 
         Cookie verified = phone("+221 77 123 45 67");
-        var list = read(mvc.perform(get(BASE + "/direct-orders").cookie(verified))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", containsString("no-store")))
-                .andExpect(jsonPath("$.total").value(1))
-                .andExpect(jsonPath("$.items[0].orderNumber").value(own))
-                .andReturn());
-        assertThat(list.toString()).doesNotContain(
-                "phoneE164", "customerContact", "deliveryAddress", "+221771234567",
-                foreign, "recoveryToken");
-        mvc.perform(get(BASE + "/direct-orders").cookie(verified)
-                        .param("size", "100"))
+        var list =
+                read(
+                        mvc.perform(get(BASE + "/direct-orders").cookie(verified))
+                                .andExpect(status().isOk())
+                                .andExpect(
+                                        header().string(
+                                                        "Cache-Control",
+                                                        containsString("no-store")))
+                                .andExpect(jsonPath("$.total").value(1))
+                                .andExpect(jsonPath("$.items[0].orderNumber").value(own))
+                                .andReturn());
+        assertThat(list.toString())
+                .doesNotContain(
+                        "phoneE164",
+                        "customerContact",
+                        "deliveryAddress",
+                        "+221771234567",
+                        foreign,
+                        "recoveryToken");
+        mvc.perform(get(BASE + "/direct-orders").cookie(verified).param("size", "100"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post(BASE + "/direct-orders/" + own + "/rotate-link")
-                        .cookie(verified))
+        mvc.perform(post(BASE + "/direct-orders/" + own + "/rotate-link").cookie(verified))
                 .andExpect(status().isForbidden());
         postJson("/direct-orders/" + foreign + "/rotate-link", Map.of(), verified)
                 .andExpect(status().isNotFound());
-        var rotated = read(postJson(
-                        "/direct-orders/" + own + "/rotate-link", Map.of(), verified)
-                .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", containsString("no-store")))
-                .andReturn());
+        var rotated =
+                read(
+                        postJson("/direct-orders/" + own + "/rotate-link", Map.of(), verified)
+                                .andExpect(status().isOk())
+                                .andExpect(
+                                        header().string(
+                                                        "Cache-Control",
+                                                        containsString("no-store")))
+                                .andReturn());
         String firstToken = rotated.path("token").asText();
         assertThat(firstToken).matches("[A-Za-z0-9_-]{43}");
         assertThat(rotated.path("publicIdentifier").asText()).isEqualTo(publicId.toString());
-        var oldHash = jdbc.queryForObject(
-                "select recovery_token_hash from direct_orders where order_number=?",
-                String.class, own);
+        var oldHash =
+                jdbc.queryForObject(
+                        "select recovery_token_hash from direct_orders where order_number=?",
+                        String.class,
+                        own);
         assertThat(oldHash).matches("[0-9a-f]{64}").isNotEqualTo(firstToken);
-        mvc.perform(post("/api/public/direct-orders/lookup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("token", firstToken))))
+        mvc.perform(
+                        post("/api/public/direct-orders/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("token", firstToken))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderNumber").value(own))
                 .andExpect(jsonPath("$.paymentAvailable").value(false));
 
-        var second = read(postJson(
-                        "/direct-orders/" + own + "/rotate-link", Map.of(), verified)
-                .andExpect(status().isOk()).andReturn());
+        var second =
+                read(
+                        postJson("/direct-orders/" + own + "/rotate-link", Map.of(), verified)
+                                .andExpect(status().isOk())
+                                .andReturn());
         String secondToken = second.path("token").asText();
         assertThat(secondToken).isNotEqualTo(firstToken);
-        mvc.perform(post("/api/public/direct-orders/lookup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("token", firstToken))))
+        mvc.perform(
+                        post("/api/public/direct-orders/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("token", firstToken))))
                 .andExpect(status().isNotFound());
-        mvc.perform(post("/api/public/direct-orders/lookup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("token", secondToken))))
+        mvc.perform(
+                        post("/api/public/direct-orders/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("token", secondToken))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderNumber").value(own));
     }
 
     private String insertRecoveryDraft(UUID organization, UUID storeId, String phone) {
-        long sequence = jdbc.queryForObject(
-                "select nextval('direct_order_number_seq')", Long.class);
+        long sequence =
+                jdbc.queryForObject("select nextval('direct_order_number_seq')", Long.class);
         String number = "DIR-" + String.format(Locale.ROOT, "%012d", sequence);
         jdbc.update(
                 "insert into direct_orders"
@@ -221,10 +242,14 @@ class CustomerAccessIntegrationTests {
                         + " checkout_request_fingerprint,placed_at)"
                         + " values (?,?,?,?,'PENDING_PAYMENT_INTEGRATION','PICKUP','XOF',"
                         + " cast(? as jsonb),9000,300,cast('{}' as jsonb),9300,true,?,?,current_timestamp)",
-                UUID.randomUUID(), organization, storeId, number,
-                json.writeValueAsString(Map.of(
-                        "firstName","Awa", "lastName","Diop", "phoneE164",phone)),
-                UUID.randomUUID().toString(), "b".repeat(64));
+                UUID.randomUUID(),
+                organization,
+                storeId,
+                number,
+                json.writeValueAsString(
+                        Map.of("firstName", "Awa", "lastName", "Diop", "phoneE164", phone)),
+                UUID.randomUUID().toString(),
+                "b".repeat(64));
         return number;
     }
 

@@ -29,6 +29,7 @@ for (const width of [360, 768, 1024, 1440])
         calls.every(
           (url) =>
             new URL(url).pathname === '/api/auth/refresh' ||
+            new URL(url).pathname === '/api/auth/me' ||
             new URL(url).pathname === '/api/organizations' ||
             /\/api\/organizations\/[^/]+\/analytics\/business$/.test(new URL(url).pathname) ||
             /\/api\/organizations\/[^/]+\/(?:orders|grouping-campaigns|products)$/.test(

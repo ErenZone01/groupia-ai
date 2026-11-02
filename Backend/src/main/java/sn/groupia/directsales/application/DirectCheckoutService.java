@@ -107,6 +107,7 @@ public class DirectCheckoutService {
     private final DirectDeliveryPolicyService deliveryPolicy;
     private final DirectRegionGeometry boundaries;
     private final DirectShippingFeesService shippingFees;
+    private final DirectCheckoutPaymentPreparation paymentPreparation;
     private final CatalogVariants catalog;
     private final OrganizationAvailability organizations;
     private final SubscriptionEntitlements entitlements;
@@ -121,6 +122,7 @@ public class DirectCheckoutService {
             DirectDeliveryPolicyService deliveryPolicy,
             DirectRegionGeometry boundaries,
             DirectShippingFeesService shippingFees,
+            DirectCheckoutPaymentPreparation paymentPreparation,
             CatalogVariants catalog,
             OrganizationAvailability organizations,
             SubscriptionEntitlements entitlements,
@@ -136,6 +138,7 @@ public class DirectCheckoutService {
         this.deliveryPolicy = deliveryPolicy;
         this.boundaries = boundaries;
         this.shippingFees = shippingFees;
+        this.paymentPreparation = paymentPreparation;
         this.catalog = catalog;
         this.organizations = organizations;
         this.entitlements = entitlements;
@@ -476,6 +479,16 @@ public class DirectCheckoutService {
                     line.lineTotalXof(),
                     line.priceRevision());
         }
+        // No financial request is prepared on an idempotent replay or for an
+        // unquoted/unverified draft. The opt-in handoff uses the persisted snapshots
+        // and shares this transaction; Bictorys initiation remains blocked.
+        paymentPreparation.afterCreated(
+                store.organizationId(),
+                orderId,
+                method,
+                deliverySnapshot != null
+                        && "REGION_MATCHED".equals(deliverySnapshot.coverageStatus()),
+                acceptedTotal);
         return new Result(
                 true,
                 new Receipt(

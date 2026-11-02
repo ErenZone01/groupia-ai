@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import sn.groupia.customeraccess.application.service.*;
 import sn.groupia.customeraccess.api.dto.*;
 import sn.groupia.notification.api.DeliveryGateway;
+import sn.groupia.directsales.api.DirectOrderRecovery;
 import sn.groupia.ordering.api.dto.*;
 
 @RestController
@@ -19,8 +20,9 @@ class CustomerAccessController {
     private final CustomerAccess access;
     private final AccessPolicy policy;
     private final DeliveryGateway delivery;
-    CustomerAccessController(CustomerAccess access, AccessPolicy policy, DeliveryGateway delivery,CustomerShippingPayments payments) {
-        this.payments=payments;this.access=access; this.policy=policy; this.delivery=delivery;
+    private final DirectOrderRecovery directRecovery;
+    CustomerAccessController(CustomerAccess access, AccessPolicy policy, DeliveryGateway delivery,CustomerShippingPayments payments,DirectOrderRecovery directRecovery) {
+        this.payments=payments;this.access=access; this.policy=policy; this.delivery=delivery;this.directRecovery=directRecovery;
     }
     public record CsrfView(String token) {}
     public record PhoneInput(@NotBlank @Size(max=64) String phone) {
@@ -53,6 +55,26 @@ class CustomerAccessController {
     }
     @GetMapping("/session")
     CustomerSessionView customerSession(HttpServletRequest request){return access.sessionView(cookie(request));}
+    @GetMapping("/direct-orders")
+    ResponseEntity<DirectOrderRecovery.Page> verifiedDirectOrders(
+            HttpServletRequest request,
+            @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="20") int size) {
+        var result=directRecovery.forVerifiedPhone(access.verifiedPhone(cookie(request)),page,size);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy","no-referrer").body(result);
+    }
+
+    @PostMapping("/direct-orders/{orderNumber}/rotate-link")
+    ResponseEntity<DirectOrderRecovery.Rotated> rotateDirectLink(
+            HttpServletRequest request,@PathVariable String orderNumber) {
+        var result=directRecovery.rotateForVerifiedPhone(
+                access.verifiedPhoneForDirectRotation(cookie(request),request.getRemoteAddr()),
+                orderNumber);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy","no-referrer").body(result);
+    }
+
     @GetMapping("/orders")
     MyOrdersPage customerOrders(HttpServletRequest request,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){
         return access.list(cookie(request),page,size);

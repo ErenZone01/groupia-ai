@@ -99,6 +99,32 @@
           Enregistrer les zones
         </button>
       </form>
+      @if (shippingSettings(); as fees) {
+        <form class="delivery-settings" (ngSubmit)="saveShippingFees()">
+          <div class="section-head">
+            <div>
+              <h3>Frais de livraison par région</h3>
+              <p>Définissez un tarif fixe. Laissez un champ vide si le prix doit encore être confirmé.
+                Saisissez 0 seulement pour une livraison gratuite.</p>
+            </div>
+          </div>
+          <div class="shipping-rate-grid">
+            @for (region of shippingRegions; track region) {
+              <label [for]="'shipping-rate-' + region">
+                {{ region }}
+                <input [id]="'shipping-rate-' + region" type="number" step="1" min="0"
+                  max="100000" [disabled]="busy()" [name]="'rate-' + region"
+                  [ngModel]="shippingInputs[region] ?? ''"
+                  (ngModelChange)="setShippingInput(region, $event)"
+                  placeholder="Tarif à confirmer" />
+              </label>
+            }
+          </div>
+          <p class="note">Ces montants sont indicatifs avant confirmation de la commande.
+            Aucun paiement n'est encore déclenché.</p>
+          <button gButton type="submit" [disabled]="busy()">Enregistrer les frais</button>
+        </form>
+      }
     </section>
   }
 

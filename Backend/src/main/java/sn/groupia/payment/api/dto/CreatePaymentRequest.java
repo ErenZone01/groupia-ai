@@ -65,6 +65,30 @@ public record CreatePaymentRequest(
                 expires);
     }
 
+    /**
+     * Draft financial target only. A separate authoritative direct-sales application service
+     * must verify the order snapshots before requesting this obligation; payment stays disabled.
+     */
+    public static CreatePaymentRequest forDirectOrder(
+            UUID org,
+            UUID directOrder,
+            BigDecimal goods,
+            BigDecimal fee,
+            BigDecimal shipping,
+            Instant expires) {
+        return new CreatePaymentRequest(
+                org,
+                PaymentTarget.directOrder(directOrder),
+                PaymentPurpose.DIRECT_ORDER_INITIAL,
+                "DIRECT_ORDER_INITIAL:" + directOrder,
+                goods.add(fee).add(shipping),
+                "XOF",
+                goods,
+                fee,
+                shipping,
+                expires);
+    }
+
     public static CreatePaymentRequest forSubscription(
             UUID org, UUID invoice, BigDecimal amount, Instant expires) {
         return new CreatePaymentRequest(

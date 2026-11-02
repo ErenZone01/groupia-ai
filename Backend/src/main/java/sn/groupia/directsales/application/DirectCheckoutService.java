@@ -177,8 +177,10 @@ public class DirectCheckoutService {
                 validateContact(
                         command.contact(), organizations.countryCode(store.organizationId()));
         DeliveryPoint destination = command.deliveryPoint();
-        String recoveryHash = command.recoveryToken() == null
-                ? null : DirectAccessTokens.hashForCreate(command.recoveryToken());
+        String recoveryHash =
+                command.recoveryToken() == null
+                        ? null
+                        : DirectAccessTokens.hashForCreate(command.recoveryToken());
         Long acceptedTotal = command.acceptedTotalXof();
         if (acceptedTotal != null && (acceptedTotal < 1 || acceptedTotal > 99999999999999L)) {
             throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant accepté invalide.");
@@ -205,31 +207,31 @@ public class DirectCheckoutService {
                                                 acceptedTotal,
                                                 recoveryHash)
                                         : acceptedTotal != null
-                                        ? Arrays.asList(
-                                                "direct-checkout-accepted-v1",
-                                                publicIdentifier,
-                                                contact,
-                                                method,
-                                                delivery,
-                                                destination,
-                                                lines,
-                                                acceptedTotal)
-                                        : destination == null
                                                 ? Arrays.asList(
-                                                        "direct-checkout-v1",
-                                                        publicIdentifier,
-                                                        contact,
-                                                        method,
-                                                        delivery,
-                                                        lines)
-                                                : Arrays.asList(
-                                                        "direct-checkout-point-v1",
+                                                        "direct-checkout-accepted-v1",
                                                         publicIdentifier,
                                                         contact,
                                                         method,
                                                         delivery,
                                                         destination,
-                                                        lines)));
+                                                        lines,
+                                                        acceptedTotal)
+                                                : destination == null
+                                                        ? Arrays.asList(
+                                                                "direct-checkout-v1",
+                                                                publicIdentifier,
+                                                                contact,
+                                                                method,
+                                                                delivery,
+                                                                lines)
+                                                        : Arrays.asList(
+                                                                "direct-checkout-point-v1",
+                                                                publicIdentifier,
+                                                                contact,
+                                                                method,
+                                                                delivery,
+                                                                destination,
+                                                                lines)));
 
         var existing =
                 jdbc.query(

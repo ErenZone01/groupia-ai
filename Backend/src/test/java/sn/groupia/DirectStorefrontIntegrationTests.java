@@ -1161,7 +1161,8 @@ class DirectStorefrontIntegrationTests {
         acceptedGps.put("acceptedTotalXof", acceptedPrice);
         byte[] recoveryBytes = new byte[32];
         new java.security.SecureRandom().nextBytes(recoveryBytes);
-        String recoveryToken = Base64.getUrlEncoder().withoutPadding().encodeToString(recoveryBytes);
+        String recoveryToken =
+                Base64.getUrlEncoder().withoutPadding().encodeToString(recoveryBytes);
         acceptedGps.put("recoveryToken", recoveryToken);
         mvc.perform(
                         post(endpoint)
@@ -1204,46 +1205,61 @@ class DirectStorefrontIntegrationTests {
         assertThat(((Number) savedAccepted.get("accepted_total_xof")).longValue())
                 .isEqualTo(acceptedPrice);
         assertThat(((Number) savedAccepted.get("shipping_rate_version")).longValue()).isEqualTo(1L);
-        String tokenHash = jdbc.queryForObject(
-                "select recovery_token_hash from direct_orders"
-                        + " where checkout_idempotency_key=?",
-                String.class, acceptedGpsKey);
+        String tokenHash =
+                jdbc.queryForObject(
+                        "select recovery_token_hash from direct_orders"
+                                + " where checkout_idempotency_key=?",
+                        String.class,
+                        acceptedGpsKey);
         assertThat(tokenHash).matches("[0-9a-f]{64}").isNotEqualTo(recoveryToken);
-        var tracked = body(mvc.perform(
-                        post("/api/public/direct-orders/lookup")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(Map.of("token", recoveryToken))))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.paymentAvailable").value(false))
-                .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice))
-                .andExpect(jsonPath("$.orderNumber").exists())
-                .andReturn());
+        var tracked =
+                body(
+                        mvc.perform(
+                                        post("/api/public/direct-orders/lookup")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of("token", recoveryToken))))
+                                .andExpect(status().isOk())
+                                .andExpect(header().string("Cache-Control", "no-store"))
+                                .andExpect(jsonPath("$.paymentAvailable").value(false))
+                                .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice))
+                                .andExpect(jsonPath("$.orderNumber").exists())
+                                .andReturn());
         assertThat(tracked.has("phoneE164")).isFalse();
         assertThat(tracked.has("customerContact")).isFalse();
         assertThat(tracked.has("deliveryAddress")).isFalse();
-        mvc.perform(post("/api/public/direct-orders/lookup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("token",
-                                Base64.getUrlEncoder().withoutPadding()
-                                        .encodeToString(new byte[32])))))
+        mvc.perform(
+                        post("/api/public/direct-orders/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "token",
+                                                        Base64.getUrlEncoder()
+                                                                .withoutPadding()
+                                                                .encodeToString(new byte[32])))))
                 .andExpect(status().isNotFound());
-        mvc.perform(post("/api/public/direct-orders/lookup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("token", "DIR-000000000001"))))
+        mvc.perform(
+                        post("/api/public/direct-orders/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("token", "DIR-000000000001"))))
                 .andExpect(status().isNotFound());
         var conflictingRecovery = new java.util.HashMap<String, Object>(acceptedGps);
         byte[] anotherBytes = new byte[32];
         new java.security.SecureRandom().nextBytes(anotherBytes);
-        conflictingRecovery.put("recoveryToken",
+        conflictingRecovery.put(
+                "recoveryToken",
                 Base64.getUrlEncoder().withoutPadding().encodeToString(anotherBytes));
-        mvc.perform(post(endpoint)
-                        .header("Idempotency-Key", acceptedGpsKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(conflictingRecovery)))
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedGpsKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(conflictingRecovery)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
-
 
         authorized(
                         put(shippingPath)

@@ -17,8 +17,7 @@ public final class DirectAccessTokens {
     public static String hashForCreate(String token) {
         if (!wellFormed(token)) {
             throw new ApiException(
-                    400, "INVALID_DIRECT_ACCESS_TOKEN",
-                    "Jeton de suivi de commande invalide.");
+                    400, "INVALID_DIRECT_ACCESS_TOKEN", "Jeton de suivi de commande invalide.");
         }
         return digest(token);
     }
@@ -44,9 +43,11 @@ public final class DirectAccessTokens {
     private static String digest(String token) {
         try {
             var md = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(
-                    md.digest(("groupia-direct-access-v1:" + token)
-                            .getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(
+                            md.digest(
+                                    ("groupia-direct-access-v1:" + token)
+                                            .getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 unavailable", ex);
         }

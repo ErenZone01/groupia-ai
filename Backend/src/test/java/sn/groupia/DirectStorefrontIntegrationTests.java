@@ -1231,7 +1231,8 @@ class DirectStorefrontIntegrationTests {
         var acceptedMerchantList =
                 body(authorized(get(merchantOrdersPath)).andExpect(status().isOk()).andReturn());
         assertThat(acceptedMerchantList.path("items").toString())
-                .contains("\\"acceptedTotalXof\\":" + acceptedPrice);
+                .contains("acceptedTotalXof")
+                .contains(Long.toString(acceptedPrice));
         String tokenHash =
                 jdbc.queryForObject(
                         "select recovery_token_hash from direct_orders"

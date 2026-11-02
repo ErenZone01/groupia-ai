@@ -131,15 +131,13 @@ export class DirectOrderRecoveryPage {
     try {
       const session = await this.access.session();
       if (seq !== this.sequence) return;
-      if (session.scope === 'PHONE_VERIFIED') {
-        this.verified.set(true);
-        await this.load(0);
-      }
+      if (session.scope === 'PHONE_VERIFIED') this.verified.set(true);
     } catch {
       // An absent/expired session is normal: the OTP form remains available.
     } finally {
       if (seq === this.sequence) this.loading.set(false);
     }
+    if (seq === this.sequence && this.verified()) await this.load(0);
   }
 
   async requestCode() {

@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 import sn.groupia.directsales.application.DirectCustomerPaymentStatus;
 
 /**
- * Token-only status inspection. The request body avoids putting bearer credentials in URLs.
- * Never exposes provider IDs, payment links, personal details or other orders.
+ * Token-only status inspection. The request body avoids putting bearer credentials in URLs. Never
+ * exposes provider IDs, payment links, personal details or other orders.
  */
 @RestController
 class DirectCustomerPaymentStatusController {

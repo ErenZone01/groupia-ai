@@ -149,7 +149,9 @@ public class DirectPaymentObligations {
         if ("PICKUP".equals(saved.method())) {
             if (saved.address() != null
                     || saved.shippingFee() != 0
-                    || saved.shippingRateVersion() != null) throw ineligible();
+                    || saved.shippingRateVersion() != null) {
+                throw ineligible();
+            }
         } else if ("DELIVERY".equals(saved.method())) {
             validateDelivery(organizationId, storefrontId, saved);
         } else {
@@ -190,8 +192,11 @@ public class DirectPaymentObligations {
     }
 
     private void validateDelivery(UUID org, UUID storefrontId, Snapshot saved) {
-        if (saved.address() == null || saved.shippingRateVersion() == null
-                || saved.shippingRateVersion() < 0) throw ineligible();
+        if (saved.address() == null
+                || saved.shippingRateVersion() == null
+                || saved.shippingRateVersion() < 0) {
+            throw ineligible();
+        }
         JsonNode address;
         try {
             address = json.readTree(saved.address());
@@ -206,8 +211,10 @@ public class DirectPaymentObligations {
             throw ineligible();
         }
         String region = address.path("region").asText();
-        var matched = geometry.locate(
-                address.path("latitude").asDouble(), address.path("longitude").asDouble());
+        var matched =
+                geometry.locate(
+                        address.path("latitude").asDouble(),
+                        address.path("longitude").asDouble());
         if (!"FOUND".equals(matched.status()) || !Objects.equals(region, matched.region())) {
             throw ineligible();
         }

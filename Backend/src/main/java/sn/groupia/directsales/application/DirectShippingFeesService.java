@@ -24,6 +24,20 @@ import tools.jackson.databind.ObjectMapper;
 public class DirectShippingFeesService {
     public record Settings(Map<String, Long> regionFeesXof, long version) {}
 
+    /** Read inside the storefront row lock held by DirectCheckoutService. */
+    public record CheckoutFee(long amountXof, long rateVersion) {}
+
+    public CheckoutFee forCheckout(UUID organizationId, UUID storefrontId, String region) {
+        Settings settings = read(organizationId, storefrontId);
+        Long rate = settings.regionFeesXof().get(region);
+        if (rate == null) {
+            throw new ApiException(
+                    409, "DIRECT_SHIPPING_FEE_UNCONFIGURED",
+                    "La livraison doit être tarifée avant de confirmer le total.");
+        }
+        return new CheckoutFee(rate, settings.version());
+    }
+
     public record Destination(Double latitude, Double longitude) {}
 
     public record PreviewRequest(

@@ -696,6 +696,29 @@ class DirectStorefrontIntegrationTests {
         mvc.perform(get(publicPath(store.path("publicIdentifier").asText()) + "/delivery-policy"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mode").value("SELECTED"));
+        mvc.perform(
+                        post(publicPath(store.path("publicIdentifier").asText())
+                                        + "/reverse-geocode")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("latitude", 14.72, "longitude", -17.46))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UNAVAILABLE"));
+        mvc.perform(
+                        post(publicPath(store.path("publicIdentifier").asText())
+                                        + "/reverse-geocode")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("latitude", 92, "longitude", -17.46))))
+                .andExpect(status().isBadRequest());
+        mvc.perform(
+                        post(publicPath(store.path("publicIdentifier").asText())
+                                        + "/reverse-geocode")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andExpect(status().isBadRequest());
 
         var outside =
                 Map.of(

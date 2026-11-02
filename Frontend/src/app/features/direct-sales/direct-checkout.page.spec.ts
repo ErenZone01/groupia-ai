@@ -27,7 +27,7 @@ const quoted: DirectCartQuote = {
 
 describe('Vente directe : préparation des coordonnées', () => {
   let cart: DirectCartStore;
-  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn> };
+  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn> };
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(() => {
@@ -35,6 +35,10 @@ describe('Vente directe : préparation des coordonnées', () => {
     api = {
       quote: vi.fn(async () => quoted),
       publicDeliveryPolicy: vi.fn(async () => ({ mode: 'ALL', allowedRegions: [], version: 0 })),
+      suggestDeliveryAddress: vi.fn(async () => ({
+        status: 'UNAVAILABLE', countryCode: null, region: null, city: null,
+        neighborhood: null, formatted: null, provider: null,
+      })),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -62,7 +66,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     expect(page.review()).toBe(false);
     // The only API exposed to this page is a read-only cart quote.
     expect(api.publicDeliveryPolicy).toHaveBeenCalledWith(shopA);
-    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy']);
+    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress']);
   });
 
   it('réinitialise le formulaire, la localisation et le panier au changement de boutique', async () => {
@@ -173,6 +177,57 @@ describe('Vente directe : préparation des coordonnées', () => {
     expect(page.confirmedPoint()).toBeNull();
     expect(page.candidatePoint()).toBeNull();
     expect(page.locationMode()).toBe('CHOICE');
+  });
+
+  it('affiche une adresse suggérée sans la présenter comme zone vérifiée', async () => {
+    api.suggestDeliveryAddress.mockResolvedValue({
+      status: 'FOUND', countryCode: 'SN', region: 'Dakar', city: 'Dakar',
+      neighborhood: 'Yoff', formatted: 'Yoff, Dakar, Sénégal', provider: 'geoapify',
+    });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.openMap();
+    page.chooseMapPoint({ latitude: 14.72, longitude: -17.46 });
+    page.confirmMapPoint();
+    await vi.waitFor(() => expect(page.addressSuggestion()?.region).toBe('Dakar'));
+    expect(api.suggestDeliveryAddress).toHaveBeenCalledWith(shopA, 14.72, -17.46);
+    expect(page.suggestedCoverageMessage).toContain('confirmée');
+    page.changeFulfillment('PICKUP');
+    expect(page.addressSuggestion()).toBeNull();
+  });
+
+  it('ignore le géocodage obsolète lors du déplacement du repère', async () => {
+    let release!: (value: { status: string; countryCode: string; region: string; city: string; neighborhood: null; formatted: string; provider: string }) => void;
+    api.suggestDeliveryAddress.mockImplementation(() => new Promise((resolve) => {
+      release = resolve;
+    }));
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.chooseMapPoint({ latitude: 14.72, longitude: -17.46 });
+    page.confirmMapPoint();
+    expect(page.addressLookupBusy()).toBe(true);
+    page.chooseMapPoint({ latitude: 14.74, longitude: -17.48 });
+    release({
+      status: 'FOUND', countryCode: 'SN', region: 'Dakar', city: 'Dakar',
+      neighborhood: null, formatted: 'Ancien lieu', provider: 'geoapify',
+    });
+    await Promise.resolve();
+    expect(page.addressSuggestion()).toBeNull();
+    expect(page.addressLookupBusy()).toBe(false);
+  });
+
+  it('ne bloque pas la localisation en cas d’échec Geoapify', async () => {
+    api.suggestDeliveryAddress.mockRejectedValue(new Error('provider offline'));
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.chooseMapPoint({ latitude: 14.73, longitude: -17.44 });
+    page.confirmMapPoint();
+    await vi.waitFor(() => expect(page.addressLookupBusy()).toBe(false));
+    expect(page.locationReady).toBe(true);
+    expect(page.addressSuggestion()).toBeNull();
   });
 
 });

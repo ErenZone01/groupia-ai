@@ -70,12 +70,54 @@ export interface DirectQuoteLine {
   attributes: Record<string, string>;
 }
 
+export interface DirectDraftReceipt {
+  orderNumber: string;
+  status: 'PENDING_PAYMENT_INTEGRATION';
+  currency: 'XOF';
+  fulfillmentMethod: 'PICKUP' | 'DELIVERY';
+  goodsSubtotalXof: number;
+  platformFeeXof: number;
+  amountBeforeShippingXof: number;
+  shippingQuoted: boolean;
+  shippingFeeXof: number | null;
+  acceptedTotalXof: number | null;
+  shippingRateVersion: number | null;
+  paymentAvailable: false;
+}
+
+export interface DirectDraftCommand {
+  contact: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string | null;
+    deliveryAddress: {
+      country: 'SN';
+      region: string | null;
+      city: string | null;
+      commune: string | null;
+      neighborhood: string | null;
+      details: string | null;
+    } | null;
+  };
+  fulfillmentMethod: 'PICKUP' | 'DELIVERY';
+  lines: {
+    offerId: string;
+    quantity: number;
+    expectedUnitPriceXof: number;
+    expectedPriceRevision: number;
+  }[];
+  deliveryPoint: { latitude: number; longitude: number } | null;
+  acceptedTotalXof: number;
+}
+
 export interface DirectCartQuote {
   currency: 'XOF';
   displayName: string;
   goodsSubtotalXof: number;
   lines: DirectQuoteLine[];
   checkoutAvailable: boolean;
+  draftCreationAvailable?: boolean;
 }
 
 export interface DirectStorefront {
@@ -177,6 +219,14 @@ export class DirectSalesApi {
       '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/shipping-quote',
       request,
     ).pipe(timeout(15000)));
+  }
+
+  createDraft(publicIdentifier: string, command: DirectDraftCommand, idempotencyKey: string) {
+    return firstValueFrom(this.http.post<DirectDraftReceipt>(
+      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/checkout',
+      command,
+      { headers: { 'Idempotency-Key': idempotencyKey } },
+    ).pipe(timeout(20000)));
   }
 
   publicStore(publicIdentifier: string) {

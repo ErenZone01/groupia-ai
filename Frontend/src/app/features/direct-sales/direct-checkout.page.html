@@ -51,7 +51,8 @@
                   <dd>{{ fulfillment === 'PICKUP' ? 'Retrait à convenir' : 'Livraison à organiser' }}</dd>
                 </div>
                 @if (fulfillment === 'DELIVERY' && locationMode() === 'CONFIRMED') {
-                  <div><dt>Lieu de livraison</dt><dd>Position choisie sur carte (zone à vérifier)</dd></div>
+                  <div><dt>Lieu de livraison</dt><dd>Position choisie sur la carte</dd></div>
+                  <div><dt>Zone de livraison</dt><dd>{{ coverageMessage }}</dd></div>
                   @if (addressSuggestion(); as suggestion) {
                     @if (suggestion.formatted) {
                       <div><dt>Adresse estimée</dt><dd>{{ suggestion.formatted }}</dd></div>
@@ -197,6 +198,13 @@
                         <small>Lieu estimé, possiblement imprécis. <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Powered by Geoapify</a> et OpenStreetMap.</small>
                       </div>
                     }
+                    <div class="location-note" role="status">
+                      @if (coverageBusy()) {
+                        Vérification de la région choisie…
+                      } @else {
+                        {{ coverageMessage }}
+                      }
+                    </div>
                     <label>Point de repère <span class="optional">(facultatif)</span>
                       <textarea gInput name="gpsDetails" rows="2" maxlength="500"
                         [(ngModel)]="location.details"

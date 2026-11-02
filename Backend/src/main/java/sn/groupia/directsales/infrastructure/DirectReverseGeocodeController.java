@@ -22,7 +22,8 @@ class DirectReverseGeocodeController {
     ResponseEntity<DirectReverseGeocodeService.Suggestion> suggest(
             @PathVariable UUID publicIdentifier, @RequestBody PointRequest request) {
         if (request == null || request.latitude() == null || request.longitude() == null) {
-            throw new sn.groupia.shared.api.ApiException(400, "INVALID_GEO_POINT", "Position invalide.");
+            throw new sn.groupia.shared.api.ApiException(
+                    400, "INVALID_GEO_POINT", "Position invalide.");
         }
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())

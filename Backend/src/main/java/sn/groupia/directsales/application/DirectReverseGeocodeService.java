@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -26,8 +25,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Optional best-effort address suggestions. Geoapify estimates are never proof of location
- * or delivery eligibility. No coordinates, request identity, or provider response are persisted.
+ * Optional best-effort address suggestions. Geoapify estimates are never proof of location or
+ * delivery eligibility. No coordinates, request identity, or provider response are persisted.
  */
 @Service
 public class DirectReverseGeocodeService {
@@ -108,7 +107,10 @@ public class DirectReverseGeocodeService {
         Instant now = clock.instant();
         var day = now.atZone(ZoneOffset.UTC).toLocalDate();
         int dailyUsage =
-                consume("day:" + day, day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC), 2400);
+                consume(
+                        "day:" + day,
+                        day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
+                        2400);
         if (dailyUsage == 0
                 || consume(
                                 "second:" + now.truncatedTo(ChronoUnit.SECONDS).getEpochSecond(),
@@ -116,7 +118,9 @@ public class DirectReverseGeocodeService {
                                 3)
                         == 0) {
             throw new ApiException(
-                    429, "GEOCODING_QUOTA_REACHED", "La recherche d'adresse est temporairement indisponible.");
+                    429,
+                    "GEOCODING_QUOTA_REACHED",
+                    "La recherche d'adresse est temporairement indisponible.");
         }
         // One cleanup when a new day's first request arrives. No scheduler needed.
         if (dailyUsage == 1) cleanupExpiredQuotas();
@@ -137,8 +141,7 @@ public class DirectReverseGeocodeService {
         try {
             HttpResponse<String> response =
                     client.send(
-                            request,
-                            HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                            request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() != 200 || response.body().length() > 65536) {
                 return UNAVAILABLE;
             }
@@ -207,8 +210,12 @@ public class DirectReverseGeocodeService {
     }
 
     private static String normalize(String value) {
-        String text = Normalizer.normalize(value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "").replace('-', ' ').replaceAll("\\s+", " ").trim();
+        String text =
+                Normalizer.normalize(value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                        .replaceAll("\\p{M}", "")
+                        .replace('-', ' ')
+                        .replaceAll("\\s+", " ")
+                        .trim();
         text = text.replaceFirst("^region (de |du |d )?", "");
         return text.replaceFirst(" region$", "").trim();
     }

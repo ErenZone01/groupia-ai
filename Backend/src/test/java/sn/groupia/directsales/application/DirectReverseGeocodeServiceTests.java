@@ -55,9 +55,10 @@ class DirectReverseGeocodeServiceTests {
 
     @Test
     void handlesNoResult() {
-        var suggestion = DirectReverseGeocodeService.parseResponse(
-                json.readTree(
-                        """
+        var suggestion =
+                DirectReverseGeocodeService.parseResponse(
+                        json.readTree(
+                                """
                         {"results":[]}
                         """));
         assertThat(suggestion.status()).isEqualTo("NO_RESULT");

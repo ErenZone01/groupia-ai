@@ -73,6 +73,16 @@
                   <div><dt>Indications</dt><dd>{{ location.details }}</dd></div>
                 }
               </dl>
+              @if (shippingPreview(); as estimate) {
+                <p class="field-help">
+                  @if (estimate.shippingQuoted && estimate.totalXof !== null) {
+                    Total estimé : {{ money(estimate.totalXof, estimate.currency) }}.
+                  } @else {
+                    {{ shippingMessage }}
+                  }
+                  Aucun paiement ne peut être effectué à ce stade.
+                </p>
+              }
               <button type="button" class="action-link" (click)="edit()">Modifier mes coordonnées</button>
             </div>
           } @else {
@@ -311,11 +321,29 @@
               <span>Sous-total articles</span>
               <strong>{{ money(q.goodsSubtotalXof, q.currency) }}</strong>
             </div>
+            @if (shippingPreview(); as fees) {
+              <div class="subtotal">
+                <span>Frais de plateforme</span>
+                <strong>{{ money(fees.platformFeeXof, fees.currency) }}</strong>
+              </div>
+              @if (fees.shippingQuoted && fees.shippingFeeXof !== null) {
+                <div class="subtotal">
+                  <span>Livraison</span>
+                  <strong>{{ money(fees.shippingFeeXof, fees.currency) }}</strong>
+                </div>
+              }
+              @if (fees.shippingQuoted && fees.totalXof !== null) {
+                <div class="subtotal">
+                  <strong>Total estimé</strong>
+                  <strong>{{ money(fees.totalXof, fees.currency) }}</strong>
+                </div>
+              }
+            }
           }
-          <div class="pending-total">
-            <strong>Ce n'est pas le montant final.</strong>
-            <p>Les frais de plateforme et les éventuels frais de livraison seront
-              précisés avant la mise en service du paiement.</p>
+          <div class="pending-total" role="status">
+            <strong>{{ shippingMessage }}</strong>
+            <p>Les montants sont des estimations, pas une commande ni un paiement.
+              Les frais et la disponibilité seront revérifiés avant la finalisation.</p>
           </div>
           <div class="payment-state" role="note">
             <strong>Finalisation des ventes directes bientôt disponible</strong>

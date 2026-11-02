@@ -45,6 +45,9 @@ import { money } from '../../shared/utils/display';
           <p>Le numéro de commande seul ne donne pas accès au suivi.
             Utilisez le lien privé reçu lors de la confirmation.</p>
         }
+        <a class="back-link" [routerLink]="['/v', publicId(), 'recuperation']">
+          J'ai perdu mon lien : vérifier mon numéro
+        </a>
         <a class="back-link" [routerLink]="['/v', publicId()]">Retour à la boutique</a>
       </section>
     </g-public-shell>

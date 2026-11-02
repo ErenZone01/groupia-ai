@@ -9,11 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.groupia.shared.api.ApiException;
 
-/**
- * Minimal bearer-token-scoped payment preparation status for a direct-order customer. The token
- * hash is the only selector: neither order number, merchant ID nor payment request ID grants access.
- * Preparation is not a payment, so paymentAvailable stays false in every response.
- */
+/** A token-scoped read-only payment status. Never initiates or confirms payments. */
 @Service
 @Transactional(readOnly = true)
 public class DirectCustomerPaymentStatus {
@@ -47,7 +43,8 @@ public class DirectCustomerPaymentStatus {
                             String acceptance = rs.getString("acceptance_status");
                             BigDecimal expected = rs.getBigDecimal("expected_amount");
                             Timestamp expires = rs.getTimestamp("expires_at");
-                            String preparation = preparation(accepted, acceptance, expected, expires);
+                            String preparation =
+                                    preparation(accepted, acceptance, expected, expires);
                             return new Status(
                                     rs.getString("order_number"),
                                     rs.getString("currency"),

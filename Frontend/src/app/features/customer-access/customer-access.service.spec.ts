@@ -94,4 +94,31 @@ describe('Customer access transport', () => {
     r.flush({ items: [], page: 2 });
     await p;
   });
+  it('reads only direct orders belonging to an OTP-verified cookie session', async () => {
+    const pending = service.directOrders(1);
+    const r = http.expectOne(base + '/direct-orders?page=1&size=20');
+    expect(r.request.method).toBe('GET');
+    expect(r.request.withCredentials).toBe(true);
+    expect(r.request.headers.has('Authorization')).toBe(false);
+    r.flush({ items: [], total: 0, page: 1, size: 20 });
+    expect((await pending).total).toBe(0);
+  });
+
+  it('requires a CSRF token before rotating a direct-order private link', async () => {
+    const pending = service.rotateDirectLink('DIR-000000000001');
+    http.expectOne(base + '/csrf').flush({ token: 'csrf-test' });
+    const r = http.expectOne(base + '/direct-orders/DIR-000000000001/rotate-link');
+    expect(r.request.method).toBe('POST');
+    expect(r.request.body).toEqual({});
+    expect(r.request.withCredentials).toBe(true);
+    expect(r.request.headers.get('X-XSRF-TOKEN')).toBe('csrf-test');
+    expect(r.request.headers.has('Authorization')).toBe(false);
+    r.flush({
+      orderNumber: 'DIR-000000000001',
+      publicIdentifier: '11111111-1111-4111-8111-111111111111',
+      token: 'A'.repeat(43),
+    });
+    expect((await pending).token).toHaveLength(43);
+  });
+
 });

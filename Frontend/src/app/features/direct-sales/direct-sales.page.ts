@@ -10,7 +10,7 @@ import { apiMessage } from '../../core/http/api-error';
 import { Button } from '../../shared/ui/button';
 import { Icon } from '../../shared/ui/icon';
 import { money, variantLabel } from '../../shared/utils/display';
-import { DirectDeliveryMode, DirectDeliveryPolicy, DirectOffer, DirectSalesApi, DirectStorefront } from './direct-sales.api';
+import { DirectDeliveryMode, DirectDeliveryPolicy, DirectShippingSettings, DirectOffer, DirectSalesApi, DirectStorefront } from './direct-sales.api';
 import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 
 @Component({
@@ -29,6 +29,8 @@ export class DirectSalesPage {
   readonly store = signal<DirectStorefront | null>(null);
   readonly products = signal<ProductView[]>([]);
   readonly deliveryPolicy = signal<DirectDeliveryPolicy | null>(null);
+  readonly shippingSettings = signal<DirectShippingSettings | null>(null);
+  shippingInputs: Record<string, string> = {};
   readonly deliveryRegions = SENEGAL_REGIONS.map((region) => region.name);
   deliveryMode: DirectDeliveryMode = 'ALL';
   deliverySelected: string[] = [];
@@ -63,6 +65,8 @@ export class DirectSalesPage {
         this.store.set(null);
         this.products.set([]);
         this.deliveryPolicy.set(null);
+        this.shippingSettings.set(null);
+        this.shippingInputs = {};
         this.deliveryMode = 'ALL';
         this.deliverySelected = [];
         this.name = '';
@@ -100,6 +104,9 @@ export class DirectSalesPage {
         const policy = await this.api.deliveryPolicy(id);
         if (!this.current(id, seq, generation)) return;
         this.setDeliveryPolicy(policy);
+        const fees = await this.api.shippingFees(id);
+        if (!this.current(id, seq, generation)) return;
+        this.setShippingSettings(fees);
       }
       await this.loadProducts(id, 0, seq, generation);
     } catch (error) {
@@ -157,6 +164,11 @@ export class DirectSalesPage {
         if (!this.current(id, seq, generation)) return;
         this.setDeliveryPolicy(policy);
       }
+      if (result.publicIdentifier && !this.shippingSettings()) {
+        const fees = await this.api.shippingFees(id);
+        if (!this.current(id, seq, generation)) return;
+        this.setShippingSettings(fees);
+      }
       this.notice.set(success);
     } catch (error) {
       if (this.current(id, seq, generation)) this.error.set(apiMessage(error));
@@ -195,6 +207,55 @@ export class DirectSalesPage {
       if (this.current(id, seq, generation)) {
         this.setDeliveryPolicy(policy);
         this.notice.set('Zones de livraison enregistrées.');
+      }
+    } catch (error) {
+      if (this.current(id, seq, generation)) this.error.set(apiMessage(error));
+    } finally {
+      if (this.current(id, seq, generation)) this.busy.set(false);
+    }
+  }
+
+  private setShippingSettings(settings: DirectShippingSettings) {
+    this.shippingSettings.set(settings);
+    this.shippingInputs = Object.fromEntries(
+      Object.entries(settings.regionFeesXof).map(([region, fee]) => [region, String(fee)]),
+    );
+  }
+
+  setShippingInput(region: string, raw: string) {
+    this.shippingInputs = { ...this.shippingInputs, [region]: raw };
+  }
+
+  get shippingRegions(): string[] {
+    return this.deliveryMode === 'SELECTED' ? this.deliverySelected : this.deliveryRegions;
+  }
+
+  async saveShippingFees() {
+    const id = this.context.selectedId();
+    const previous = this.shippingSettings();
+    if (!id || !previous || this.busy()) return;
+    const proposed: Record<string, number> = {};
+    for (const [region, raw] of Object.entries(this.shippingInputs)) {
+      if (!this.deliveryRegions.includes(region)) return;
+      if (raw.trim() === '') continue;
+      const value = Number(raw);
+      if (!Number.isSafeInteger(value) || value < 0 || value > 100000) {
+        this.error.set('Indiquez un montant entier entre 0 et 100 000 F CFA.');
+        return;
+      }
+      proposed[region] = value;
+    }
+    const seq = this.request, generation = this.auth.generation();
+    this.busy.set(true);
+    this.error.set('');
+    this.notice.set('');
+    try {
+      const next = await this.api.updateShippingFees(id, {
+        regionFeesXof: proposed, version: previous.version,
+      });
+      if (this.current(id, seq, generation)) {
+        this.setShippingSettings(next);
+        this.notice.set('Frais de livraison enregistrés.');
       }
     } catch (error) {
       if (this.current(id, seq, generation)) this.error.set(apiMessage(error));

@@ -165,6 +165,7 @@ class SecurityConfiguration {
                                             "/api/public/groupings/*/checkout",
                                             "/api/public/direct-stores/*/quote",
                                             "/api/public/direct-stores/*/reverse-geocode",
+                                            "/api/public/direct-stores/*/delivery-coverage",
                                             "/api/public/direct-stores/*/checkout",
                                             "/api/public/orders/*/payments",
                                             "/api/payment/webhooks/*")

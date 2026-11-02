@@ -352,8 +352,9 @@ public class DirectCheckoutService {
             if (method.equals("PICKUP")) {
                 shippingFee = 0L;
             } else {
-                var rate = shippingFees.forCheckout(
-                        store.organizationId(), store.id(), deliverySnapshot.region());
+                var rate =
+                        shippingFees.forCheckout(
+                                store.organizationId(), store.id(), deliverySnapshot.region());
                 shippingFee = rate.amountXof();
                 shippingRateVersion = rate.rateVersion();
             }
@@ -368,7 +369,8 @@ public class DirectCheckoutService {
             }
             if (acceptedTotal.longValue() != currentTotal) {
                 throw new ApiException(
-                        409, "DIRECT_TOTAL_CHANGED",
+                        409,
+                        "DIRECT_TOTAL_CHANGED",
                         "Les frais ou le total ont changé. Vérifiez et acceptez le nouveau montant.");
             }
         }

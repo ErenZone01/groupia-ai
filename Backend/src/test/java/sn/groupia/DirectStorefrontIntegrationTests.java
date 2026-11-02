@@ -1162,12 +1162,19 @@ class DirectStorefrontIntegrationTests {
                         post(endpoint)
                                 .header("Idempotency-Key", acceptedPrefix + "wrong-0001")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(Map.of(
-                                        "contact", gpsInside.get("contact"),
-                                        "fulfillmentMethod", "DELIVERY",
-                                        "deliveryPoint", gpsInside.get("deliveryPoint"),
-                                        "lines", lines,
-                                        "acceptedTotalXof", acceptedPrice - 1))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        gpsInside.get("contact"),
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "deliveryPoint",
+                                                        gpsInside.get("deliveryPoint"),
+                                                        "lines",
+                                                        lines,
+                                                        "acceptedTotalXof",
+                                                        acceptedPrice - 1))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DIRECT_TOTAL_CHANGED"));
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
@@ -1183,23 +1190,26 @@ class DirectStorefrontIntegrationTests {
                 .andExpect(jsonPath("$.shippingRateVersion").value(1))
                 .andExpect(jsonPath("$.shippingQuoted").value(true))
                 .andExpect(jsonPath("$.paymentAvailable").value(false));
-        var savedAccepted = jdbc.queryForMap(
-                "select shipping_fee_xof,accepted_total_xof,shipping_rate_version"
-                        + " from direct_orders where checkout_idempotency_key=?",
-                acceptedGpsKey);
-        assertThat(((Number) savedAccepted.get("shipping_fee_xof")).longValue())
-                .isEqualTo(1500L);
+        var savedAccepted =
+                jdbc.queryForMap(
+                        "select shipping_fee_xof,accepted_total_xof,shipping_rate_version"
+                                + " from direct_orders where checkout_idempotency_key=?",
+                        acceptedGpsKey);
+        assertThat(((Number) savedAccepted.get("shipping_fee_xof")).longValue()).isEqualTo(1500L);
         assertThat(((Number) savedAccepted.get("accepted_total_xof")).longValue())
                 .isEqualTo(acceptedPrice);
-        assertThat(((Number) savedAccepted.get("shipping_rate_version")).longValue())
-                .isEqualTo(1L);
+        assertThat(((Number) savedAccepted.get("shipping_rate_version")).longValue()).isEqualTo(1L);
 
         authorized(
                         put(shippingPath)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(Map.of(
-                                        "regionFeesXof", Map.of("Dakar", 1800),
-                                        "version", 1))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "regionFeesXof",
+                                                        Map.of("Dakar", 1800),
+                                                        "version",
+                                                        1))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(2));
         // Exact replay is stable even after the merchant changes shipping prices.
@@ -1215,11 +1225,19 @@ class DirectStorefrontIntegrationTests {
                         post(endpoint)
                                 .header("Idempotency-Key", acceptedGpsKey)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(json.writeValueAsString(Map.of(
-                                        "contact", gpsInside.get("contact"),
-                                        "fulfillmentMethod", "DELIVERY",
-                                        "deliveryPoint", gpsInside.get("deliveryPoint"),
-                                        "lines", lines, "acceptedTotalXof", acceptedPrice + 300))))
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        gpsInside.get("contact"),
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "deliveryPoint",
+                                                        gpsInside.get("deliveryPoint"),
+                                                        "lines",
+                                                        lines,
+                                                        "acceptedTotalXof",
+                                                        acceptedPrice + 300))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
         mvc.perform(

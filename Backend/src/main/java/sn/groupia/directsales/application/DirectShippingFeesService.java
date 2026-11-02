@@ -32,7 +32,8 @@ public class DirectShippingFeesService {
         Long rate = settings.regionFeesXof().get(region);
         if (rate == null) {
             throw new ApiException(
-                    409, "DIRECT_SHIPPING_FEE_UNCONFIGURED",
+                    409,
+                    "DIRECT_SHIPPING_FEE_UNCONFIGURED",
                     "La livraison doit être tarifée avant de confirmer le total.");
         }
         return new CheckoutFee(rate, settings.version());

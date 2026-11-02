@@ -129,7 +129,7 @@ for (const width of [1024, 1280, 1440]) {
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByRole('link')).toHaveText([
       'Accueil', 'Groupages', 'Commandes', 'Produits',
-      'Paiements', 'Mes versements', 'Statistiques', 'Ma boutique', 'Abonnement',
+      'Vente directe', 'Paiements', 'Mes versements', 'Statistiques', 'Ma boutique', 'Abonnement',
     ]);
     await expect(page.locator('g-sidebar').getByText('Espace de travail')).toBeVisible();
     await expect(page.locator('g-sidebar').getByText('Finances et analyse')).toBeVisible();

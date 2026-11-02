@@ -56,9 +56,10 @@ class ShippingFinanceMigrationTests {
                             jdbc.queryForList(
                                     "select (to_jsonb(r)-'target_type'-'target_id'-'direct_order_id')::text as historical from payment_requests r order by id"))
                     .isEqualTo(before);
-            assertThat(jdbc.queryForObject(
-                            "select count(*) from payment_requests where direct_order_id is not null",
-                            Long.class))
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from payment_requests where direct_order_id is not null",
+                                    Long.class))
                     .isZero();
             var upgraded = jdbc.queryForList("select * from orders");
             upgraded.forEach(r -> assertThat(r.remove("ready_for_pickup_at")).isNull());

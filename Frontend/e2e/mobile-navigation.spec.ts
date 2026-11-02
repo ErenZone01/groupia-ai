@@ -45,7 +45,7 @@ for (const [width, height, theme] of [
     await expect(menu).toHaveAttribute('aria-expanded', 'true');
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('link')).toHaveText([
-      'Paiements', 'Versements', 'Statistiques', 'Ma boutique', 'Abonnement',
+      'Vente directe', 'Paiements', 'Versements', 'Statistiques', 'Ma boutique', 'Abonnement',
     ]);
     await noOverflow(page);
     await sheet.getByRole('link', { name: 'Statistiques', exact: true }).click();

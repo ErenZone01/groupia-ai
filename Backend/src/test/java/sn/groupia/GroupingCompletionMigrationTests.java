@@ -52,9 +52,10 @@ class GroupingCompletionMigrationTests {
                             jdbc.queryForList(
                                     "select (to_jsonb(r)-'target_type'-'target_id'-'direct_order_id')::text as historical from payment_requests r order by id"))
                     .isEqualTo(history);
-            assertThat(jdbc.queryForObject(
-                            "select count(*) from payment_requests where direct_order_id is not null",
-                            Long.class))
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from payment_requests where direct_order_id is not null",
+                                    Long.class))
                     .isZero();
             assertThat(
                             jdbc.queryForObject(

@@ -63,8 +63,8 @@ public class DirectCheckoutService {
             DeliveryPoint deliveryPoint) {}
 
     /**
-     * The snapshot explicitly distinguishes a server polygon-matched region from an
-     * unverified manual address. Neither state is a payment or shipping approval.
+     * The snapshot explicitly distinguishes a server polygon-matched region from an unverified
+     * manual address. Neither state is a payment or shipping approval.
      */
     private record DeliverySnapshot(
             String country,
@@ -241,28 +241,45 @@ public class DirectCheckoutService {
                 if (match.status().equals("INVALID")) throw invalidContact();
                 if (!match.status().equals("FOUND")) {
                     throw new ApiException(
-                            409, "DIRECT_DELIVERY_LOCATION_UNVERIFIED",
+                            409,
+                            "DIRECT_DELIVERY_LOCATION_UNVERIFIED",
                             "Ce lieu ne peut pas être vérifié. Choisissez un autre point ou le retrait.");
                 }
                 // Re-evaluate the point inside the transaction, rather than trusting
                 // the earlier public coverage preview or a client-supplied region.
                 deliveryPolicy.requireDeliveryAllowed(
                         store.organizationId(), store.id(), match.region());
-                deliverySnapshot = new DeliverySnapshot(
-                        "SN", match.region(), delivery == null ? null : delivery.city(),
-                        delivery == null ? null : delivery.commune(),
-                        delivery == null ? null : delivery.neighborhood(),
-                        delivery == null ? null : delivery.details(),
-                        latitude, longitude, "MAP", match.source(), "REGION_MATCHED");
+                deliverySnapshot =
+                        new DeliverySnapshot(
+                                "SN",
+                                match.region(),
+                                delivery == null ? null : delivery.city(),
+                                delivery == null ? null : delivery.commune(),
+                                delivery == null ? null : delivery.neighborhood(),
+                                delivery == null ? null : delivery.details(),
+                                latitude,
+                                longitude,
+                                "MAP",
+                                match.source(),
+                                "REGION_MATCHED");
             } else {
                 // The manual form remains accessible. This creates an UNVERIFIED
                 // draft only; it cannot become a confirmed shipment/payment.
                 deliveryPolicy.requireDeliveryAllowed(
                         store.organizationId(), store.id(), delivery.region());
-                deliverySnapshot = new DeliverySnapshot(
-                        delivery.country(), delivery.region(), delivery.city(),
-                        delivery.commune(), delivery.neighborhood(), delivery.details(),
-                        null, null, "MANUAL", null, "UNVERIFIED_MANUAL");
+                deliverySnapshot =
+                        new DeliverySnapshot(
+                                delivery.country(),
+                                delivery.region(),
+                                delivery.city(),
+                                delivery.commune(),
+                                delivery.neighborhood(),
+                                delivery.details(),
+                                null,
+                                null,
+                                "MANUAL",
+                                null,
+                                "UNVERIFIED_MANUAL");
             }
         }
         // Existing idempotent receipts remain readable even if subscriptions later expire.
@@ -481,14 +498,17 @@ public class DirectCheckoutService {
         if (mapPoint) {
             // Region, city and commune from an external reverse geocoder are only
             // hints; the region is always computed by the backend from the GPS point.
-            if (address != null && address.country() != null
-                    && !"SN".equals(address.country())) throw invalidContact();
-            return address == null ? null : new Address(
-                    "SN", null,
-                    optional(address.city(), 100),
-                    optional(address.commune(), 120),
-                    optional(address.neighborhood(), 160),
-                    optional(address.details(), 500));
+            if (address != null && address.country() != null && !"SN".equals(address.country()))
+                throw invalidContact();
+            return address == null
+                    ? null
+                    : new Address(
+                            "SN",
+                            null,
+                            optional(address.city(), 100),
+                            optional(address.commune(), 120),
+                            optional(address.neighborhood(), 160),
+                            optional(address.details(), 500));
         }
         if (address == null || !"SN".equals(address.country())) {
             throw invalidContact();

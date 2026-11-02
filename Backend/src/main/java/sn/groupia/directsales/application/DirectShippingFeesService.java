@@ -133,7 +133,7 @@ public class DirectShippingFeesService {
         if (request == null) throw invalid();
         // Existing catalog quote always validates published offers and current prices.
         var quote = carts.quote(publicIdentifier, request.lines());
-        if (!Set.of("PICKUP", "DELIVERY").contains(request.fulfillmentMethod())) throw invalid();
+        if (request.fulfillmentMethod() == null\n                || !Set.of("PICKUP", "DELIVERY").contains(request.fulfillmentMethod())) throw invalid();
         long base;
         try {
             base = Math.addExact(quote.goodsSubtotalXof(), platformFeeXof);
@@ -164,7 +164,7 @@ public class DirectShippingFeesService {
             verification = "MAP_REGION_MATCHED";
         } else {
             region = request.region();
-            if (!REGIONS.contains(region)) throw invalid();
+            if (region == null || !REGIONS.contains(region)) throw invalid();
             verification = "MANUAL_UNVERIFIED";
         }
 

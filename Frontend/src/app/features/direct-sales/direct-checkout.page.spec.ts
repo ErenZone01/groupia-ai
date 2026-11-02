@@ -27,7 +27,7 @@ const quoted: DirectCartQuote = {
 
 describe('Vente directe : préparation des coordonnées', () => {
   let cart: DirectCartStore;
-  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn> };
+  let api: { quote: ReturnType<typeof vi.fn>; publicDeliveryPolicy: ReturnType<typeof vi.fn>; suggestDeliveryAddress: ReturnType<typeof vi.fn>; previewDeliveryCoverage: ReturnType<typeof vi.fn> };
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(() => {
@@ -38,6 +38,10 @@ describe('Vente directe : préparation des coordonnées', () => {
       suggestDeliveryAddress: vi.fn(async () => ({
         status: 'UNAVAILABLE', countryCode: null, region: null, city: null,
         neighborhood: null, formatted: null, provider: null,
+      })),
+      previewDeliveryCoverage: vi.fn(async () => ({
+        status: 'INSIDE_ZONE', region: 'Dakar',
+        preliminaryAllowed: true, boundarySource: 'geoBoundaries-SEN-ADM1-2019',
       })),
     };
     TestBed.configureTestingModule({
@@ -66,7 +70,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     expect(page.review()).toBe(false);
     // The only API exposed to this page is a read-only cart quote.
     expect(api.publicDeliveryPolicy).toHaveBeenCalledWith(shopA);
-    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress']);
+    expect(Object.keys(api)).toEqual(['quote', 'publicDeliveryPolicy', 'suggestDeliveryAddress', 'previewDeliveryCoverage']);
   });
 
   it('réinitialise le formulaire, la localisation et le panier au changement de boutique', async () => {
@@ -228,6 +232,50 @@ describe('Vente directe : préparation des coordonnées', () => {
     await vi.waitFor(() => expect(page.addressLookupBusy()).toBe(false));
     expect(page.locationReady).toBe(true);
     expect(page.addressSuggestion()).toBeNull();
+  });
+
+  it('affiche la région vérifiée sur le serveur sans déclarer la livraison payée', async () => {
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.openMap();
+    page.chooseMapPoint({ latitude: 14.6937, longitude: -17.4474 });
+    page.confirmMapPoint();
+    await vi.waitFor(() => expect(page.deliveryCoverage()?.region).toBe('Dakar'));
+    expect(api.previewDeliveryCoverage).toHaveBeenCalledWith(shopA, 14.6937, -17.4474);
+    expect(page.coverageMessage).toContain('dans une région desservie');
+    expect(page.locationReady).toBe(true);
+  });
+
+  it('bloque le récapitulatif lorsque les coordonnées sont hors zone', async () => {
+    api.previewDeliveryCoverage.mockResolvedValue({
+      status: 'OUTSIDE_ZONE', region: 'Thiès',
+      preliminaryAllowed: false, boundarySource: 'geoBoundaries-SEN-ADM1-2019',
+    });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.chooseMapPoint({ latitude: 14.791, longitude: -16.928 });
+    page.confirmMapPoint();
+    await vi.waitFor(() => expect(page.deliveryCoverage()?.status).toBe('OUTSIDE_ZONE'));
+    expect(page.locationReady).toBe(false);
+    page.showReview();
+    expect(page.review()).toBe(false);
+    page.changeFulfillment('PICKUP');
+    expect(page.locationReady).toBe(true);
+    expect(page.deliveryCoverage()).toBeNull();
+  });
+
+  it('ignore une réponse tardive des zones lorsque la cliente change de boutique', async () => {
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.deliveryPolicy()).not.toBeNull());
+    page.changeFulfillment('DELIVERY');
+    page.chooseMapPoint({ latitude: 14.72, longitude: -17.46 });
+    page.confirmMapPoint();
+    params.next(convertToParamMap({ publicIdentifier: shopB }));
+    await vi.waitFor(() => expect(page.quote()).toBeNull());
+    expect(page.deliveryCoverage()).toBeNull();
+    expect(page.confirmedPoint()).toBeNull();
   });
 
 });

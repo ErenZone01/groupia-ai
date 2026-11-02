@@ -138,6 +138,7 @@ describe('Vente directe : contrats HTTP', () => {
         expectedPriceRevision: 1 }],
       deliveryPoint: null,
       acceptedTotalXof: 9300,
+      recoveryToken: 'A'.repeat(43),
     };
     const pending = api.createDraft(storefront.publicIdentifier, body, 'direct-unit-test-0001');
     const req = http.expectOne(
@@ -154,6 +155,22 @@ describe('Vente directe : contrats HTTP', () => {
       shippingRateVersion: null, paymentAvailable: false,
     });
     expect((await pending).orderNumber).toBe('DIR-000000000001');
+  });
+
+  it('cherche une commande directe par jeton opaque et non par numéro ou par URL GET', async () => {
+    const token = 'A'.repeat(43);
+    const pending = api.trackDirectOrder(token);
+    const req = http.expectOne('/api/public/direct-orders/lookup');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ token });
+    req.flush({
+      orderNumber: 'DIR-000000000001', status: 'PENDING_PAYMENT_INTEGRATION',
+      currency: 'XOF', fulfillmentMethod: 'PICKUP',
+      goodsSubtotalXof: 9000, platformFeeXof: 300, amountBeforeShippingXof: 9300,
+      shippingFeeXof: 0, acceptedTotalXof: 9300, paymentAvailable: false,
+      placedAt: '2026-11-02T12:00:00Z',
+    });
+    expect((await pending).paymentAvailable).toBe(false);
   });
 
 });

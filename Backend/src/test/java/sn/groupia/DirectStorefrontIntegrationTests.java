@@ -1151,6 +1151,117 @@ class DirectStorefrontIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
                 .isEqualTo(2);
         assertThat(jdbc.queryForObject("select count(*) from orders", Long.class)).isZero();
+        // The total acknowledged by the buyer must match a fresh quote obtained
+        // under the same storefront lock as rate modifications.
+        String acceptedPrefix = "accepted-" + "direct-";
+        String acceptedGpsKey = acceptedPrefix + "dakar-0001";
+        long acceptedPrice = manualShipping.path("totalXof").asLong();
+        var acceptedGps = new java.util.HashMap<String, Object>(gpsInside);
+        acceptedGps.put("acceptedTotalXof", acceptedPrice);
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedPrefix + "wrong-0001")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        gpsInside.get("contact"),
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "deliveryPoint",
+                                                        gpsInside.get("deliveryPoint"),
+                                                        "lines",
+                                                        lines,
+                                                        "acceptedTotalXof",
+                                                        acceptedPrice - 1))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DIRECT_TOTAL_CHANGED"));
+        assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
+                .isEqualTo(2);
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedGpsKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(acceptedGps)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.shippingFeeXof").value(1500))
+                .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice))
+                .andExpect(jsonPath("$.shippingRateVersion").value(1))
+                .andExpect(jsonPath("$.shippingQuoted").value(true))
+                .andExpect(jsonPath("$.paymentAvailable").value(false));
+        var savedAccepted =
+                jdbc.queryForMap(
+                        "select shipping_fee_xof,accepted_total_xof,shipping_rate_version"
+                                + " from direct_orders where checkout_idempotency_key=?",
+                        acceptedGpsKey);
+        assertThat(((Number) savedAccepted.get("shipping_fee_xof")).longValue()).isEqualTo(1500L);
+        assertThat(((Number) savedAccepted.get("accepted_total_xof")).longValue())
+                .isEqualTo(acceptedPrice);
+        assertThat(((Number) savedAccepted.get("shipping_rate_version")).longValue()).isEqualTo(1L);
+
+        authorized(
+                        put(shippingPath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "regionFeesXof",
+                                                        Map.of("Dakar", 1800),
+                                                        "version",
+                                                        1))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2));
+        // Exact replay is stable even after the merchant changes shipping prices.
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedGpsKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(acceptedGps)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shippingFeeXof").value(1500))
+                .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice));
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedGpsKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        gpsInside.get("contact"),
+                                                        "fulfillmentMethod",
+                                                        "DELIVERY",
+                                                        "deliveryPoint",
+                                                        gpsInside.get("deliveryPoint"),
+                                                        "lines",
+                                                        lines,
+                                                        "acceptedTotalXof",
+                                                        acceptedPrice + 300))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedPrefix + "stale-0001")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(acceptedGps)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DIRECT_TOTAL_CHANGED"));
+        var updatedGps = new java.util.HashMap<String, Object>(gpsInside);
+        updatedGps.put("acceptedTotalXof", acceptedPrice + 300);
+        mvc.perform(
+                        post(endpoint)
+                                .header("Idempotency-Key", acceptedPrefix + "updated-0001")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(updatedGps)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.shippingFeeXof").value(1800))
+                .andExpect(jsonPath("$.shippingRateVersion").value(2))
+                .andExpect(jsonPath("$.paymentAvailable").value(false));
+        assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
+                .isEqualTo(4);
+        assertThat(jdbc.queryForObject("select count(*) from payment_requests", Long.class))
+                .isZero();
         authorized(
                         put(policyPath)
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -1172,7 +1283,7 @@ class DirectStorefrontIntegrationTests {
                                 .content(json.writeValueAsString(outside)))
                 .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
-                .isEqualTo(2);
+                .isEqualTo(4);
         mvc.perform(get(policyPath)).andExpect(status().isUnauthorized());
         var second = token(account("+221781234567"));
         UUID otherOrg = organization(second, "Autre boutique");

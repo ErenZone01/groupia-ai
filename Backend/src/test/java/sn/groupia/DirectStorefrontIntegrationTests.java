@@ -758,6 +758,9 @@ class DirectStorefrontIntegrationTests {
         mvc.perform(post(coveragePath).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
 
+        // Shipping previews take offerId and quantity only. Checkout expected-price
+        // fields must not be included in this distinct, strictly typed API contract.
+        var shippingLines = List.of(Map.of("offerId", offerId, "quantity", 1));
         String shippingPath = path() + "/shipping-fees";
         String publicShippingPath =
                 publicPath(store.path("publicIdentifier").asText()) + "/shipping-quote";
@@ -766,7 +769,7 @@ class DirectStorefrontIntegrationTests {
         assertThat(emptyShipping.path("version").asLong()).isZero();
         assertThat(emptyShipping.path("regionFeesXof").size()).isZero();
         var manualShippingRequest =
-                Map.of("fulfillmentMethod", "DELIVERY", "lines", lines, "region", "Dakar");
+                Map.of("fulfillmentMethod", "DELIVERY", "lines", shippingLines, "region", "Dakar");
         mvc.perform(
                         post(publicShippingPath)
                                 .contentType(MediaType.APPLICATION_JSON)

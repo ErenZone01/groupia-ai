@@ -3,7 +3,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectCartStore } from './direct-cart.store';
-import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion } from './direct-sales.api';
+import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion, DirectDeliveryCoverage } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 import { Input } from '../../shared/forms/input';
@@ -59,6 +59,9 @@ export class DirectCheckoutPage {
   readonly locationError = signal('');
   readonly addressSuggestion = signal<DirectAddressSuggestion | null>(null);
   readonly addressLookupBusy = signal(false);
+  readonly deliveryCoverage = signal<DirectDeliveryCoverage | null>(null);
+  readonly coverageBusy = signal(false);
+  readonly coverageError = signal(false);
   readonly money = money;
   readonly variantLabel = variantLabel;
   get regions() {
@@ -75,7 +78,11 @@ export class DirectCheckoutPage {
   get locationReady(): boolean {
     if (this.fulfillment === 'PICKUP') return true;
     if (!this.deliveryAvailable) return false;
-    if (this.locationMode() === 'CONFIRMED') return this.confirmedPoint() !== null;
+    if (this.locationMode() === 'CONFIRMED') {
+      const status = this.deliveryCoverage()?.status;
+      return this.confirmedPoint() !== null
+        && !['OUTSIDE_ZONE', 'OUTSIDE_SENEGAL', 'DELIVERY_DISABLED'].includes(status ?? '');
+    }
     return this.locationMode() === 'MANUAL'
       && this.regions.some((region) => region.name === this.location.region)
       && !!this.location.city.trim() && !!this.location.commune.trim()
@@ -91,6 +98,7 @@ export class DirectCheckoutPage {
   private sequence = 0;
   private locationSequence = 0;
   private addressLookupSequence = 0;
+  private coverageSequence = 0;
 
   constructor() {
     const sub = this.route.paramMap.subscribe((params) => {
@@ -168,6 +176,10 @@ export class DirectCheckoutPage {
     this.addressLookupSequence++;
     this.addressSuggestion.set(null);
     this.addressLookupBusy.set(false);
+    this.coverageSequence++;
+    this.deliveryCoverage.set(null);
+    this.coverageBusy.set(false);
+    this.coverageError.set(false);
     this.candidatePoint.set(point);
     this.confirmedPoint.set(null);
     this.review.set(false);
@@ -185,6 +197,48 @@ export class DirectCheckoutPage {
     this.locationError.set('');
     this.review.set(false);
     void this.suggestAddress(point);
+    void this.checkDeliveryCoverage(point);
+  }
+
+  private async checkDeliveryCoverage(point: DirectGeoPoint) {
+    const seq = ++this.coverageSequence;
+    const shop = this.publicId();
+    this.deliveryCoverage.set(null);
+    this.coverageError.set(false);
+    this.coverageBusy.set(true);
+    try {
+      const coverage = await this.api.previewDeliveryCoverage(
+        shop, point.latitude, point.longitude,
+      );
+      const selected = this.confirmedPoint();
+      if (seq !== this.coverageSequence || shop !== this.publicId() ||
+        this.locationMode() !== 'CONFIRMED' || !selected ||
+        selected.latitude !== point.latitude || selected.longitude !== point.longitude) return;
+      this.deliveryCoverage.set(coverage);
+      this.review.set(false);
+    } catch {
+      if (seq === this.coverageSequence) this.coverageError.set(true);
+    } finally {
+      if (seq === this.coverageSequence) this.coverageBusy.set(false);
+    }
+  }
+
+  get coverageMessage(): string {
+    const result = this.deliveryCoverage();
+    if (!result) return this.coverageError()
+      ? 'Zone non vérifiée pour le moment. Vous pouvez choisir une adresse manuelle.'
+      : 'La zone de livraison devra être confirmée.';
+    switch (result.status) {
+      case 'INSIDE_ZONE':
+        return 'Ce point se trouve dans une région desservie. Livraison et frais à confirmer.';
+      case 'OUTSIDE_ZONE':
+      case 'OUTSIDE_SENEGAL':
+        return 'Cette boutique ne livre pas à cet endroit. Choisissez un autre lieu ou le retrait.';
+      case 'DELIVERY_DISABLED':
+        return 'Cette boutique ne propose pas la livraison à domicile.';
+      default:
+        return 'Point proche d’une limite ou non reconnu. Choisissez un autre lieu ou une adresse manuelle.';
+    }
   }
 
   private async suggestAddress(point: DirectGeoPoint) {
@@ -258,6 +312,10 @@ export class DirectCheckoutPage {
   }
 
   private clearMapLocation() {
+    this.coverageSequence++;
+    this.deliveryCoverage.set(null);
+    this.coverageBusy.set(false);
+    this.coverageError.set(false);
     this.addressLookupSequence++;
     this.addressSuggestion.set(null);
     this.addressLookupBusy.set(false);
@@ -271,13 +329,7 @@ export class DirectCheckoutPage {
 
   showReview() {
     if (this.quote() && this.deliveryPolicy() && !this.loading() && !this.error()
-      && this.cart.items().length
-      && (this.fulfillment === 'PICKUP'
-        || (this.deliveryAvailable && (
-          (this.locationMode() === 'CONFIRMED' && this.confirmedPoint() !== null)
-          || (this.locationMode() === 'MANUAL'
-            && this.regions.some((region) => region.name === this.location.region))
-        )))) {
+      && this.cart.items().length && this.locationReady) {
       this.review.set(true);
     }
   }

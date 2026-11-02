@@ -20,6 +20,9 @@ public class PaymentRequest {
     @Column(updatable = false)
     private UUID orderId;
 
+    @Column(updatable = false)
+    private UUID directOrderId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false)
     private PaymentTargetType targetType;
@@ -77,8 +80,16 @@ public class PaymentRequest {
                 || !"XOF".equals(c.currency())) {
             throw new ApiException(400, "INVALID_PAYMENT_REQUEST", "Obligation invalide.");
         }
-        if ((c.purpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY)
-                != (c.target().type() == PaymentTargetType.SUBSCRIPTION_INVOICE)) {
+        boolean targetCompatible =
+                switch (c.purpose()) {
+                    case INITIAL_ORDER, SHIPPING_BALANCE ->
+                            c.target().type() == PaymentTargetType.ORDER;
+                    case SUBSCRIPTION_MONTHLY ->
+                            c.target().type() == PaymentTargetType.SUBSCRIPTION_INVOICE;
+                    case DIRECT_ORDER_INITIAL ->
+                            c.target().type() == PaymentTargetType.DIRECT_ORDER;
+                };
+        if (!targetCompatible) {
             throw new ApiException(
                     400, "INVALID_PAYMENT_TARGET", "Cible incompatible avec l'obligation.");
         }
@@ -86,6 +97,8 @@ public class PaymentRequest {
         r.id = UUID.randomUUID();
         r.organizationId = c.organizationId();
         r.orderId = c.orderId();
+        r.directOrderId =
+                c.target().type() == PaymentTargetType.DIRECT_ORDER ? c.target().id() : null;
         r.targetType = c.target().type();
         r.targetId = c.target().id();
         r.purpose = c.purpose();
@@ -95,10 +108,17 @@ public class PaymentRequest {
         r.goodsAmount = FinancialValues.money(c.goodsAmount());
         r.feeAmount = FinancialValues.money(c.feeAmount());
         r.shippingAmount = FinancialValues.money(c.shippingAmount());
-        if (r.targetType == PaymentTargetType.ORDER
+        if ((r.targetType == PaymentTargetType.ORDER
+                        || r.targetType == PaymentTargetType.DIRECT_ORDER)
                 && r.goodsAmount.add(r.feeAmount).add(r.shippingAmount).compareTo(r.expectedAmount)
                         != 0) {
             throw new ApiException(400, "INVALID_PAYMENT_BREAKDOWN", "Ventilation incohérente.");
+        }
+        if (r.purpose == PaymentPurpose.DIRECT_ORDER_INITIAL
+                && (r.expectedAmount.signum() <= 0
+                        || r.expectedAmount.compareTo(new BigDecimal("99999999999999")) > 0)) {
+            throw new ApiException(
+                    400, "INVALID_PAYMENT_BREAKDOWN", "Total de vente directe invalide.");
         }
         if (r.purpose == PaymentPurpose.SHIPPING_BALANCE
                 && (r.expectedAmount.signum() <= 0

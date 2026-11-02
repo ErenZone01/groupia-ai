@@ -82,7 +82,8 @@ class DirectPaymentObligationsTests {
             Long accepted,
             String address,
             boolean quoted,
-            Instant placedAt) throws Exception {
+            Instant placedAt)
+            throws Exception {
         ResultSet rs = mock(ResultSet.class);
         when(rs.getObject("id", UUID.class)).thenReturn(order);
         when(rs.getString("status")).thenReturn("PENDING_PAYMENT_INTEGRATION");
@@ -170,21 +171,18 @@ class DirectPaymentObligationsTests {
                 """,
                 true,
                 NOW.minusSeconds(10));
-        assertThatThrownBy(() -> subject.prepare(org, order))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> subject.prepare(org, order)).isInstanceOf(ApiException.class);
         verifyNoInteractions(payments);
 
         order("PICKUP", null, null, null, true, NOW.minusSeconds(10));
-        assertThatThrownBy(() -> subject.prepare(org, order))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> subject.prepare(org, order)).isInstanceOf(ApiException.class);
         verifyNoInteractions(payments);
     }
 
     @Test
     void oldOrCorruptedAmountsAndItemsAreRejected() throws Exception {
         order("PICKUP", 0L, 8800L, null, true, NOW.minusSeconds(90000));
-        assertThatThrownBy(() -> subject.prepare(org, order))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> subject.prepare(org, order)).isInstanceOf(ApiException.class);
         verifyNoInteractions(payments);
 
         order("PICKUP", 0L, 8800L, null, true, NOW.minusSeconds(10));
@@ -194,8 +192,7 @@ class DirectPaymentObligationsTests {
                         eq(org),
                         eq(order)))
                 .thenReturn(BigDecimal.valueOf(5000));
-        assertThatThrownBy(() -> subject.prepare(org, order))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> subject.prepare(org, order)).isInstanceOf(ApiException.class);
         verifyNoInteractions(payments);
     }
 
@@ -227,8 +224,7 @@ class DirectPaymentObligationsTests {
                 NOW.minusSeconds(10));
         when(geometry.locate(14.69, -17.44))
                 .thenReturn(new DirectRegionGeometry.Match("FOUND", "Thiès", "local-ADM1"));
-        assertThatThrownBy(() -> subject.prepare(org, order))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> subject.prepare(org, order)).isInstanceOf(ApiException.class);
         verifyNoInteractions(payments);
         verifyNoInteractions(delivery);
     }

@@ -1,0 +1,44 @@
+name: Temporary import Senegal ADM1 boundaries
+on:
+  push:
+    branches: [direct-delivery-coverage-v1]
+permissions:
+  contents: write
+jobs:
+  import-boundaries:
+    if: github.repository == 'ErenZone01/groupia-ai'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: direct-delivery-coverage-v1
+          persist-credentials: true
+      - name: Download pinned geoBoundaries 2019 Senegal ADM1 GeoJSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p Backend/src/main/resources/geo
+          curl --fail --location --silent --show-error --retry 2 --connect-timeout 12 --max-time 65 \
+            'https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/SEN/ADM1/geoBoundaries-SEN-ADM1_simplified.geojson' \
+            -o Backend/src/main/resources/geo/senegal-regions-adm1.geojson
+          echo 'ea2855a2882503b7ed479b3341168002a47035107e423366cb086f401950a57d  Backend/src/main/resources/geo/senegal-regions-adm1.geojson' | sha256sum --check
+          python - <<'PY'
+          import json
+          p='Backend/src/main/resources/geo/senegal-regions-adm1.geojson'
+          data=json.load(open(p,encoding='utf-8'))
+          assert data.get('type') == 'FeatureCollection'
+          assert len(data.get('features',[])) == 14
+          assert all(f.get('geometry',{}).get('type') in ('Polygon','MultiPolygon') for f in data['features'])
+          print('GeoJSON features:',len(data['features']))
+          print('Sample properties:',data['features'][0].get('properties',{}))
+          PY
+      - name: Commit pinned data to feature branch only
+        shell: bash
+        run: |
+          git add Backend/src/main/resources/geo/senegal-regions-adm1.geojson
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'data(geo): vendor pinned Senegal ADM1 polygons with attribution'
+          git push origin HEAD:direct-delivery-coverage-v1

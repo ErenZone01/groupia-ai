@@ -70,6 +70,20 @@ export interface DirectQuoteLine {
   attributes: Record<string, string>;
 }
 
+export interface DirectTrackingView {
+  orderNumber: string;
+  status: string;
+  fulfillmentMethod: 'PICKUP' | 'DELIVERY';
+  currency: 'XOF';
+  goodsSubtotalXof: number;
+  platformFeeXof: number;
+  amountBeforeShippingXof: number;
+  shippingFeeXof: number | null;
+  acceptedTotalXof: number | null;
+  paymentAvailable: false;
+  placedAt: string;
+}
+
 export interface DirectDraftReceipt {
   orderNumber: string;
   status: 'PENDING_PAYMENT_INTEGRATION';
@@ -109,6 +123,7 @@ export interface DirectDraftCommand {
   }[];
   deliveryPoint: { latitude: number; longitude: number } | null;
   acceptedTotalXof: number;
+  recoveryToken: string;
 }
 
 export interface DirectCartQuote {
@@ -227,6 +242,13 @@ export class DirectSalesApi {
       command,
       { headers: { 'Idempotency-Key': idempotencyKey } },
     ).pipe(timeout(20000)));
+  }
+
+  trackDirectOrder(token: string) {
+    return firstValueFrom(this.http.post<DirectTrackingView>(
+      '/api/public/direct-orders/lookup',
+      { token },
+    ).pipe(timeout(15000)));
   }
 
   publicStore(publicIdentifier: string) {

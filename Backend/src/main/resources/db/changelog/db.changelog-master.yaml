@@ -110,3 +110,6 @@ databaseChangeLog:
   - include:
       file: 037-direct-checkout-accepted-totals.sql
       relativeToChangelogFile: true
+  - include:
+      file: 038-direct-order-access-capabilities.sql
+      relativeToChangelogFile: true

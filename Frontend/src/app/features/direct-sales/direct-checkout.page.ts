@@ -66,6 +66,7 @@ export class DirectCheckoutPage {
   readonly submitting = signal(false);
   readonly submitError = signal('');
   readonly receipt = signal<DirectDraftReceipt | null>(null);
+  readonly trackingToken = signal<string | null>(null);
   readonly amountAccepted = signal(false);
   private pendingDraft: { key: string; payload: DirectDraftCommand } | null = null;
   readonly money = money;
@@ -423,6 +424,13 @@ export class DirectCheckoutPage {
     this.review.set(false);
   }
 
+  private newRecoveryToken(): string | null {
+    if (!this.browser?.crypto?.getRandomValues || !this.browser.btoa) return null;
+    const entropy = this.browser.crypto.getRandomValues(new Uint8Array(32));
+    return this.browser.btoa(String.fromCharCode(...entropy))
+      .replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  }
+
   private newDraftKey(): string | null {
     if (!this.browser?.crypto?.getRandomValues) return null;
     const entropy = this.browser.crypto.getRandomValues(new Uint8Array(16));
@@ -437,7 +445,8 @@ export class DirectCheckoutPage {
     if (!quoted || !price || price.totalXof === null) return;
     if (!this.pendingDraft) {
       const key = this.newDraftKey();
-      if (!key) {
+      const recoveryToken = this.newRecoveryToken();
+      if (!key || !recoveryToken) {
         this.submitError.set('Impossible de sécuriser la commande sur cet appareil.');
         return;
       }
@@ -474,6 +483,7 @@ export class DirectCheckoutPage {
         lines: lines.filter((line): line is NonNullable<typeof line> => line !== null),
         deliveryPoint: point,
         acceptedTotalXof: price.totalXof,
+        recoveryToken,
       };
       this.pendingDraft = { key, payload };
     }
@@ -485,6 +495,7 @@ export class DirectCheckoutPage {
       const result = await this.api.createDraft(shop, submission.payload, submission.key);
       if (shop !== this.publicId()) return;
       this.receipt.set(result);
+      this.trackingToken.set(submission.payload.recoveryToken);
       this.amountAccepted.set(false);
       this.pendingDraft = null;
       this.cart.clear(shop);
@@ -545,6 +556,7 @@ export class DirectCheckoutPage {
   private resetPersonalData() {
     this.pendingDraft = null;
     this.receipt.set(null);
+    this.trackingToken.set(null);
     this.amountAccepted.set(false);
     this.submitError.set('');
     this.submitting.set(false);

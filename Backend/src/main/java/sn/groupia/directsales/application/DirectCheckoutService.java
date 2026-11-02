@@ -61,7 +61,8 @@ public class DirectCheckoutService {
             String fulfillmentMethod,
             List<Line> lines,
             DeliveryPoint deliveryPoint,
-            Long acceptedTotalXof) {}
+            Long acceptedTotalXof,
+            String recoveryToken) {}
 
     /**
      * The snapshot explicitly distinguishes a server polygon-matched region from an unverified
@@ -176,6 +177,8 @@ public class DirectCheckoutService {
                 validateContact(
                         command.contact(), organizations.countryCode(store.organizationId()));
         DeliveryPoint destination = command.deliveryPoint();
+        String recoveryHash = command.recoveryToken() == null
+                ? null : DirectAccessTokens.hashForCreate(command.recoveryToken());
         Long acceptedTotal = command.acceptedTotalXof();
         if (acceptedTotal != null && (acceptedTotal < 1 || acceptedTotal > 99999999999999L)) {
             throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant accepté invalide.");
@@ -190,7 +193,18 @@ public class DirectCheckoutService {
         var fingerprint =
                 sha256(
                         json.writeValueAsString(
-                                acceptedTotal != null
+                                recoveryHash != null
+                                        ? Arrays.asList(
+                                                "direct-checkout-recoverable-v1",
+                                                publicIdentifier,
+                                                contact,
+                                                method,
+                                                delivery,
+                                                destination,
+                                                lines,
+                                                acceptedTotal,
+                                                recoveryHash)
+                                        : acceptedTotal != null
                                         ? Arrays.asList(
                                                 "direct-checkout-accepted-v1",
                                                 publicIdentifier,
@@ -407,9 +421,9 @@ public class DirectCheckoutService {
                         + "delivery_address_snapshot,goods_subtotal_xof,platform_fee_xof,"
                         + "platform_fee_rule_snapshot,amount_before_shipping_xof,"
                         + "shipping_quoted,shipping_fee_xof,accepted_total_xof,shipping_rate_version,"
-                        + "checkout_idempotency_key,checkout_request_fingerprint,placed_at)"
+                        + "checkout_idempotency_key,checkout_request_fingerprint,placed_at,recovery_token_hash)"
                         + " values (?,?,?,?,?,?,?,cast(? as jsonb),cast(? as jsonb),?,?,"
-                        + "cast(? as jsonb),?,?,?,?,?,?,?,?)",
+                        + "cast(? as jsonb),?,?,?,?,?,?,?,?,?)",
                 orderId,
                 store.organizationId(),
                 store.id(),
@@ -429,7 +443,8 @@ public class DirectCheckoutService {
                 shippingRateVersion,
                 key,
                 fingerprint,
-                java.sql.Timestamp.from(now));
+                java.sql.Timestamp.from(now),
+                recoveryHash);
         int position = 0;
         for (var line : quote.lines()) {
             var snapshot = snapshots.get(line.variantId());

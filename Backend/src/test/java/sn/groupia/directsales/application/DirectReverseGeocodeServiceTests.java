@@ -43,7 +43,10 @@ class DirectReverseGeocodeServiceTests {
     void missingFieldsAreNotInvented() {
         var suggestion =
                 DirectReverseGeocodeService.parseResponse(
-                        json.readTree("""{"results":[{"country_code":"sn"}]}"""));
+                        json.readTree(
+                                """
+                                {"results":[{"country_code":"sn"}]}
+                                """));
         assertThat(suggestion.region()).isNull();
         assertThat(suggestion.city()).isNull();
         assertThat(suggestion.neighborhood()).isNull();
@@ -53,7 +56,10 @@ class DirectReverseGeocodeServiceTests {
     @Test
     void handlesNoResult() {
         var suggestion = DirectReverseGeocodeService.parseResponse(
-                json.readTree("""{"results":[]}"""));
+                json.readTree(
+                        """
+                        {"results":[]}
+                        """));
         assertThat(suggestion.status()).isEqualTo("NO_RESULT");
     }
 }

@@ -60,7 +60,8 @@ public class DirectCheckoutService {
             Contact contact,
             String fulfillmentMethod,
             List<Line> lines,
-            DeliveryPoint deliveryPoint) {}
+            DeliveryPoint deliveryPoint,
+            Long acceptedTotalXof) {}
 
     /**
      * The snapshot explicitly distinguishes a server polygon-matched region from an unverified
@@ -88,6 +89,9 @@ public class DirectCheckoutService {
             long platformFeeXof,
             long amountBeforeShippingXof,
             boolean shippingQuoted,
+            Long shippingFeeXof,
+            Long acceptedTotalXof,
+            Long shippingRateVersion,
             boolean paymentAvailable) {}
 
     public record Result(boolean created, Receipt receipt) {}
@@ -101,6 +105,7 @@ public class DirectCheckoutService {
     private final DirectCartQuoteService carts;
     private final DirectDeliveryPolicyService deliveryPolicy;
     private final DirectRegionGeometry boundaries;
+    private final DirectShippingFeesService shippingFees;
     private final CatalogVariants catalog;
     private final OrganizationAvailability organizations;
     private final SubscriptionEntitlements entitlements;
@@ -114,6 +119,7 @@ public class DirectCheckoutService {
             DirectCartQuoteService carts,
             DirectDeliveryPolicyService deliveryPolicy,
             DirectRegionGeometry boundaries,
+            DirectShippingFeesService shippingFees,
             CatalogVariants catalog,
             OrganizationAvailability organizations,
             SubscriptionEntitlements entitlements,
@@ -128,6 +134,7 @@ public class DirectCheckoutService {
         this.carts = carts;
         this.deliveryPolicy = deliveryPolicy;
         this.boundaries = boundaries;
+        this.shippingFees = shippingFees;
         this.catalog = catalog;
         this.organizations = organizations;
         this.entitlements = entitlements;
@@ -169,6 +176,10 @@ public class DirectCheckoutService {
                 validateContact(
                         command.contact(), organizations.countryCode(store.organizationId()));
         DeliveryPoint destination = command.deliveryPoint();
+        Long acceptedTotal = command.acceptedTotalXof();
+        if (acceptedTotal != null && (acceptedTotal < 1 || acceptedTotal > 99999999999999L)) {
+            throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant accepté invalide.");
+        }
         if (method.equals("PICKUP") && destination != null) {
             throw invalidContact();
         }
@@ -179,28 +190,39 @@ public class DirectCheckoutService {
         var fingerprint =
                 sha256(
                         json.writeValueAsString(
-                                destination == null
+                                acceptedTotal != null
                                         ? Arrays.asList(
-                                                "direct-checkout-v1",
-                                                publicIdentifier,
-                                                contact,
-                                                method,
-                                                delivery,
-                                                lines)
-                                        : Arrays.asList(
-                                                "direct-checkout-point-v1",
+                                                "direct-checkout-accepted-v1",
                                                 publicIdentifier,
                                                 contact,
                                                 method,
                                                 delivery,
                                                 destination,
-                                                lines)));
+                                                lines,
+                                                acceptedTotal)
+                                        : destination == null
+                                                ? Arrays.asList(
+                                                        "direct-checkout-v1",
+                                                        publicIdentifier,
+                                                        contact,
+                                                        method,
+                                                        delivery,
+                                                        lines)
+                                                : Arrays.asList(
+                                                        "direct-checkout-point-v1",
+                                                        publicIdentifier,
+                                                        contact,
+                                                        method,
+                                                        delivery,
+                                                        destination,
+                                                        lines)));
 
         var existing =
                 jdbc.query(
                         "select order_number,checkout_request_fingerprint,status,fulfillment_method,"
                                 + "goods_subtotal_xof,platform_fee_xof,amount_before_shipping_xof,"
-                                + "shipping_quoted from direct_orders"
+                                + "shipping_quoted,shipping_fee_xof,accepted_total_xof,shipping_rate_version"
+                                + " from direct_orders"
                                 + " where organization_id=? and checkout_idempotency_key=?",
                         (rs, row) ->
                                 new Object[] {
@@ -214,6 +236,9 @@ public class DirectCheckoutService {
                                             rs.getLong("platform_fee_xof"),
                                             rs.getLong("amount_before_shipping_xof"),
                                             rs.getBoolean("shipping_quoted"),
+                                            rs.getObject("shipping_fee_xof", Long.class),
+                                            rs.getObject("accepted_total_xof", Long.class),
+                                            rs.getObject("shipping_rate_version", Long.class),
                                             false)
                                 },
                         store.organizationId(),
@@ -317,6 +342,36 @@ public class DirectCheckoutService {
         if (amount > 99999999999999L) {
             throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant trop élevé.");
         }
+        // The buyer explicitly accepts a total *after* seeing a server quote.
+        // The merchant can update fees concurrently, so read them only while the
+        // storefront lock above is held, after checking the current delivery region.
+        // Older disabled-payment drafts without an accepted total remain unquoted.
+        Long shippingFee = null;
+        Long shippingRateVersion = null;
+        if (acceptedTotal != null) {
+            if (method.equals("PICKUP")) {
+                shippingFee = 0L;
+            } else {
+                var rate = shippingFees.forCheckout(
+                        store.organizationId(), store.id(), deliverySnapshot.region());
+                shippingFee = rate.amountXof();
+                shippingRateVersion = rate.rateVersion();
+            }
+            long currentTotal;
+            try {
+                currentTotal = Math.addExact(amount, shippingFee);
+            } catch (ArithmeticException ex) {
+                throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant trop élevé.");
+            }
+            if (currentTotal > 99999999999999L) {
+                throw new ApiException(400, "INVALID_DIRECT_TOTAL", "Montant trop élevé.");
+            }
+            if (acceptedTotal.longValue() != currentTotal) {
+                throw new ApiException(
+                        409, "DIRECT_TOTAL_CHANGED",
+                        "Les frais ou le total ont changé. Vérifiez et acceptez le nouveau montant.");
+            }
+        }
         var snapshots =
                 catalog.commercialSnapshots(
                         store.organizationId(),
@@ -349,9 +404,10 @@ public class DirectCheckoutService {
                         + "fulfillment_method,currency,customer_contact_snapshot,"
                         + "delivery_address_snapshot,goods_subtotal_xof,platform_fee_xof,"
                         + "platform_fee_rule_snapshot,amount_before_shipping_xof,"
-                        + "shipping_quoted,checkout_idempotency_key,checkout_request_fingerprint,placed_at)"
+                        + "shipping_quoted,shipping_fee_xof,accepted_total_xof,shipping_rate_version,"
+                        + "checkout_idempotency_key,checkout_request_fingerprint,placed_at)"
                         + " values (?,?,?,?,?,?,?,cast(? as jsonb),cast(? as jsonb),?,?,"
-                        + "cast(? as jsonb),?,?,?,?,?)",
+                        + "cast(? as jsonb),?,?,?,?,?,?,?,?)",
                 orderId,
                 store.organizationId(),
                 store.id(),
@@ -365,7 +421,10 @@ public class DirectCheckoutService {
                 platformFeeXof,
                 json.writeValueAsString(feeRule),
                 amount,
-                pickup,
+                pickup || acceptedTotal != null,
+                shippingFee,
+                acceptedTotal,
+                shippingRateVersion,
                 key,
                 fingerprint,
                 java.sql.Timestamp.from(now));
@@ -408,7 +467,10 @@ public class DirectCheckoutService {
                         quote.goodsSubtotalXof(),
                         platformFeeXof,
                         amount,
-                        pickup,
+                        pickup || acceptedTotal != null,
+                        shippingFee,
+                        acceptedTotal,
+                        shippingRateVersion,
                         false));
     }
 

@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import sn.groupia.shared.api.ApiException;
 import tools.jackson.databind.JsonNode;
@@ -108,14 +107,19 @@ public class DirectReverseGeocodeService {
         // Below the free Geoapify limits, not a per-client anti-bot replacement.
         Instant now = clock.instant();
         var day = now.atZone(ZoneOffset.UTC).toLocalDate();
-        if (!consume("day:" + day, day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC), 2400)
-                || !consume(
-                        "second:" + now.truncatedTo(ChronoUnit.SECONDS).getEpochSecond(),
-                        now.truncatedTo(ChronoUnit.SECONDS).plusSeconds(1),
-                        3)) {
+        int dailyUsage =
+                consume("day:" + day, day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC), 2400);
+        if (dailyUsage == 0
+                || consume(
+                                "second:" + now.truncatedTo(ChronoUnit.SECONDS).getEpochSecond(),
+                                now.truncatedTo(ChronoUnit.SECONDS).plusSeconds(1),
+                                3)
+                        == 0) {
             throw new ApiException(
                     429, "GEOCODING_QUOTA_REACHED", "La recherche d'adresse est temporairement indisponible.");
         }
+        // One cleanup when a new day's first request arrives. No scheduler needed.
+        if (dailyUsage == 1) cleanupExpiredQuotas();
         URI uri =
                 URI.create(
                         "https://api.geoapify.com/v1/geocode/reverse?lat="
@@ -150,7 +154,7 @@ public class DirectReverseGeocodeService {
         }
     }
 
-    private boolean consume(String bucket, Instant expiresAt, int max) {
+    private int consume(String bucket, Instant expiresAt, int max) {
         var results =
                 jdbc.query(
                         "insert into direct_geocode_quotas (bucket,used,expires_at)"
@@ -161,11 +165,10 @@ public class DirectReverseGeocodeService {
                         bucket,
                         Timestamp.from(expiresAt),
                         max);
-        return !results.isEmpty();
+        return results.isEmpty() ? 0 : results.getFirst();
     }
 
-    @Scheduled(cron = "0 21 3 * * *", zone = "UTC")
-    public void cleanupExpiredQuotas() {
+    private void cleanupExpiredQuotas() {
         jdbc.update(
                 "delete from direct_geocode_quotas where expires_at < ?",
                 Timestamp.from(clock.instant().minus(2, ChronoUnit.DAYS)));

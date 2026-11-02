@@ -3,7 +3,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectCartStore } from './direct-cart.store';
-import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy } from './direct-sales.api';
+import { DirectSalesApi, DirectCartQuote, DirectDeliveryPolicy, DirectAddressSuggestion } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { SENEGAL_REGIONS } from '../checkout/senegal-localities';
 import { Input } from '../../shared/forms/input';
@@ -57,6 +57,8 @@ export class DirectCheckoutPage {
   readonly confirmedPoint = signal<DirectGeoPoint | null>(null);
   readonly locating = signal(false);
   readonly locationError = signal('');
+  readonly addressSuggestion = signal<DirectAddressSuggestion | null>(null);
+  readonly addressLookupBusy = signal(false);
   readonly money = money;
   readonly variantLabel = variantLabel;
   get regions() {
@@ -88,6 +90,7 @@ export class DirectCheckoutPage {
   communeChoice = '';
   private sequence = 0;
   private locationSequence = 0;
+  private addressLookupSequence = 0;
 
   constructor() {
     const sub = this.route.paramMap.subscribe((params) => {
@@ -162,6 +165,9 @@ export class DirectCheckoutPage {
 
   chooseMapPoint(point: DirectGeoPoint) {
     if (!validDirectGeoPoint(point)) return;
+    this.addressLookupSequence++;
+    this.addressSuggestion.set(null);
+    this.addressLookupBusy.set(false);
     this.candidatePoint.set(point);
     this.confirmedPoint.set(null);
     this.review.set(false);
@@ -178,6 +184,39 @@ export class DirectCheckoutPage {
     this.locationMode.set('CONFIRMED');
     this.locationError.set('');
     this.review.set(false);
+    void this.suggestAddress(point);
+  }
+
+  private async suggestAddress(point: DirectGeoPoint) {
+    const sequence = ++this.addressLookupSequence;
+    const shop = this.publicId();
+    this.addressSuggestion.set(null);
+    this.addressLookupBusy.set(true);
+    try {
+      const suggestion = await this.api.suggestDeliveryAddress(
+        shop, point.latitude, point.longitude,
+      );
+      if (sequence !== this.addressLookupSequence || shop !== this.publicId()) return;
+      if (this.locationMode() !== 'CONFIRMED') return;
+      const current = this.confirmedPoint();
+      if (!current || current.latitude !== point.latitude || current.longitude !== point.longitude)
+        return;
+      if (suggestion.status === 'FOUND') this.addressSuggestion.set(suggestion);
+    } catch {
+      // Geocoding is best effort. An external outage must never block manual entry.
+    } finally {
+      if (sequence === this.addressLookupSequence) this.addressLookupBusy.set(false);
+    }
+  }
+
+  get suggestedCoverageMessage(): string {
+    const address = this.addressSuggestion();
+    if (!address) return '';
+    if (address.countryCode && address.countryCode !== 'SN')
+      return 'Ce lieu semble situé hors du Sénégal. La livraison doit être confirmée.';
+    if (address.region && !this.regions.some((region) => region.name === address.region))
+      return 'Ce lieu semble être hors des régions proposées par cette boutique.';
+    return 'Adresse estimée automatiquement. La livraison devra encore être confirmée.';
   }
 
   locateMe() {
@@ -202,6 +241,8 @@ export class DirectCheckoutPage {
           this.locationError.set('Position invalide. Choisissez un point sur la carte.');
           return;
         }
+        this.addressLookupSequence++;
+        this.addressSuggestion.set(null);
         this.candidatePoint.set(point);
         this.confirmedPoint.set(null);
         this.locationMode.set('MAP');
@@ -217,6 +258,9 @@ export class DirectCheckoutPage {
   }
 
   private clearMapLocation() {
+    this.addressLookupSequence++;
+    this.addressSuggestion.set(null);
+    this.addressLookupBusy.set(false);
     this.locationSequence++;
     this.locating.set(false);
     this.locationMode.set('CHOICE');

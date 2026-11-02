@@ -107,10 +107,16 @@ class SubscriptionBillingMigrationTests {
             migrate(db);
             assertThat(
                             j.queryForObject(
-                                    "select (to_jsonb(r)-'target_type'-'target_id')::text from payment_requests r where id=?",
+                                    "select (to_jsonb(r)-'target_type'-'target_id'-'direct_order_id')::text from payment_requests r where id=?",
                                     String.class,
                                     request))
                     .isEqualTo(requestBefore);
+            assertThat(
+                            j.queryForObject(
+                                    "select direct_order_id from payment_requests where id=?",
+                                    UUID.class,
+                                    request))
+                    .isNull();
             assertThat(
                             j.queryForObject(
                                     "select (to_jsonb(p)-'subscription_invoice_id'-'payment_request_id'-'payment_id'-'provider_account_reference')::text from subscription_periods p",

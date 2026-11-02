@@ -51,6 +51,73 @@ class PaymentTargetTests {
         assertThat(r.getGoodsAmount().add(r.getFeeAmount()).add(r.getShippingAmount())).isZero();
     }
 
+    @Test
+    void directOrderPurposeKeepsDistinctTargetAndExactBreakdown() {
+        var request =
+                PaymentRequest.create(
+                        CreatePaymentRequest.forDirectOrder(
+                                org,
+                                target,
+                                BigDecimal.valueOf(8500),
+                                BigDecimal.valueOf(300),
+                                BigDecimal.valueOf(1500),
+                                now.plusSeconds(300)),
+                        now);
+        assertThat(request.getTarget()).isEqualTo(PaymentTarget.directOrder(target));
+        assertThat(request.getOrderId()).isNull();
+        assertThat(request.getPurpose()).isEqualTo(PaymentPurpose.DIRECT_ORDER_INITIAL);
+        assertThat(request.getExpectedAmount()).isEqualByComparingTo("10300");
+        assertThat(request.getGoodsAmount()).isEqualByComparingTo("8500");
+        assertThat(request.getFeeAmount()).isEqualByComparingTo("300");
+        assertThat(request.getShippingAmount()).isEqualByComparingTo("1500");
+    }
+
+    @Test
+    void directOrderRequiresDeadlinePositiveTotalAndHonestBreakdown() {
+        assertThatThrownBy(
+                        () ->
+                                PaymentRequest.create(
+                                        CreatePaymentRequest.forDirectOrder(
+                                                org,
+                                                target,
+                                                BigDecimal.TEN,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                null),
+                                        now))
+                .isInstanceOf(ApiException.class);
+
+        assertThatThrownBy(
+                        () ->
+                                PaymentRequest.create(
+                                        CreatePaymentRequest.forDirectOrder(
+                                                org,
+                                                target,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                now.plusSeconds(300)),
+                                        now))
+                .isInstanceOf(ApiException.class);
+
+        assertThatThrownBy(
+                        () ->
+                                PaymentRequest.create(
+                                        new CreatePaymentRequest(
+                                                org,
+                                                PaymentTarget.directOrder(target),
+                                                PaymentPurpose.DIRECT_ORDER_INITIAL,
+                                                "DIRECT_ORDER_INITIAL:" + target,
+                                                BigDecimal.valueOf(1200),
+                                                "XOF",
+                                                BigDecimal.valueOf(1000),
+                                                BigDecimal.valueOf(100),
+                                                BigDecimal.ZERO,
+                                                now.plusSeconds(300)),
+                                        now))
+                .isInstanceOf(ApiException.class);
+    }
+
     @ParameterizedTest
     @EnumSource(PaymentPurpose.class)
     void contradictoryTargetIsRejected(PaymentPurpose purpose) {

@@ -94,6 +94,7 @@ class MerchantSettlementMigrationTests {
                     for (var row : rows) {
                         assertThat(row.remove("target_type")).isEqualTo("ORDER");
                         assertThat(row.remove("target_id")).isEqualTo(row.get("order_id"));
+                        assertThat(row.remove("direct_order_id")).isNull();
                     }
                 }
                 assertThat(rows).isEqualTo(originals.get(table));

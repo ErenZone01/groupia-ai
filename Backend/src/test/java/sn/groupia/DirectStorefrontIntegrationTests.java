@@ -1284,6 +1284,39 @@ class DirectStorefrontIntegrationTests {
         assertThat(tracked.has("phoneE164")).isFalse();
         assertThat(tracked.has("customerContact")).isFalse();
         assertThat(tracked.has("deliveryAddress")).isFalse();
+
+        var paymentStatus =
+                body(
+                        mvc.perform(
+                                        post("/api/public/direct-orders/payment-status")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of("token", recoveryToken))))
+                                .andExpect(status().isOk())
+                                .andExpect(header().string("Cache-Control", "no-store"))
+                                .andExpect(header().string("Referrer-Policy", "no-referrer"))
+                                .andExpect(
+                                        jsonPath("$.orderNumber")
+                                                .value(tracked.path("orderNumber").asText()))
+                                .andExpect(jsonPath("$.currency").value("XOF"))
+                                .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice))
+                                .andExpect(jsonPath("$.preparationStatus").value("PREPARED"))
+                                .andExpect(jsonPath("$.paymentAvailable").value(false))
+                                .andReturn());
+        assertThat(paymentStatus.has("organizationId")).isFalse();
+        assertThat(paymentStatus.has("directOrderId")).isFalse();
+        assertThat(paymentStatus.has("paymentRequestId")).isFalse();
+        assertThat(paymentStatus.has("phoneE164")).isFalse();
+        assertThat(paymentStatus.has("providerTransactionId")).isFalse();
+        mvc.perform(
+                        post("/api/public/direct-orders/payment-status")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of("token", "DIR-000000000001"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DIRECT_ORDER_NOT_FOUND"));
         mvc.perform(
                         post("/api/public/direct-orders/lookup")
                                 .contentType(MediaType.APPLICATION_JSON)

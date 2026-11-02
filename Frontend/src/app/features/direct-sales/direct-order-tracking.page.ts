@@ -77,6 +77,7 @@ export class DirectOrderTrackingPage {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DirectSalesApi);
   readonly publicId = signal('');
+  readonly money = money;
   readonly busy = signal(false);
   readonly order = signal<DirectTrackingView | null>(null);
   readonly message = signal('');

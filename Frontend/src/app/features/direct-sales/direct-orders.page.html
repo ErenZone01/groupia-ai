@@ -2,14 +2,14 @@
   <div>
     <p class="eyebrow">Vente directe · Espace gérante</p>
     <h1>Commandes directes</h1>
-    <p>Consultez les brouillons de vente directe de cette boutique, sans mélanger vos groupages.</p>
+    <p>Suivez les commandes, les paiements vérifiés et la préparation de cette boutique, indépendamment des groupages.</p>
   </div>
   <a class="back" routerLink="/app/vente-directe">← Retour à la boutique</a>
 </header>
 
 <section class="orders-card" aria-label="Liste des commandes directes">
   <div class="section-head">
-    <h2>Brouillons reçus</h2>
+    <h2>Commandes reçues</h2>
     <button type="button" (click)="refresh()" [disabled]="loading() || !context.selectedId()">Actualiser</button>
   </div>
 
@@ -33,10 +33,10 @@
             <div class="order-actions">
               @if (order.acceptedTotalXof != null) {
                 <strong>{{ money(order.acceptedTotalXof, 'XOF') }}</strong>
-                <span class="meta">Total accepté · Non payé</span>
+                <span class="meta">Total accepté · {{ status(order.status) }}</span>
               } @else {
                 <strong>{{ money(order.amountBeforeShippingXof, 'XOF') }}</strong>
-                <span class="meta">Montant historique hors livraison · Non payé</span>
+                <span class="meta">Montant historique hors livraison</span>
               }
               <button type="button" [disabled]="detailLoading()" (click)="open(order)">Voir le détail</button>
             </div>
@@ -55,7 +55,7 @@
     } @else {
       <div class="empty">
         <h3>Aucune commande directe pour le moment</h3>
-        <p>Le checkout client n'est pas encore activé ; les commandes de groupage restent dans leur espace habituel.</p>
+        <p>Les nouvelles commandes de votre vitrine de vente directe apparaîtront ici.</p>
       </div>
     }
   }
@@ -120,16 +120,68 @@
       <div><span>Frais plateforme</span><strong>{{ money(selected.order.platformFeeXof, 'XOF') }}</strong></div>
       @if (selected.order.acceptedTotalXof != null) {
         <div><span>Livraison</span><strong>{{ selected.order.shippingFeeXof != null ? money(selected.order.shippingFeeXof, 'XOF') : 'Non cotée' }}</strong></div>
-        <div><span>Total accepté (non payé)</span><strong>{{ money(selected.order.acceptedTotalXof, 'XOF') }}</strong></div>
+        <div><span>Total accepté</span><strong>{{ money(selected.order.acceptedTotalXof, 'XOF') }}</strong></div>
       } @else {
         <div><span>Montant historique hors livraison</span><strong>{{ money(selected.order.amountBeforeShippingXof, 'XOF') }}</strong></div>
         <p class="meta">Ce brouillon ancien ne possède pas de total accepté. Aucun coût de livraison ne doit être supposé.</p>
       }
     </div>
+    <section class="financial-panel" aria-label="État financier et traitement">
+      <div class="section-head">
+        <h3>Suivi et actions</h3>
+        <span class="status">{{ status(selected.order.status) }}</span>
+      </div>
+      @if (financialLoading()) {
+        <p class="meta" role="status">Vérification du paiement en cours…</p>
+      } @else if (financialError()) {
+        <p class="error" role="alert">{{ financialError() }}</p>
+      } @else if (financial(); as payment) {
+        <p class="financial-state"><strong>{{ financialLabel(payment.financialStatus) }}</strong></p>
+        @if (reviewRequired()) {
+          <p class="error" role="alert">Le règlement demande une vérification. Aucune préparation ou remise ne doit être effectuée.</p>
+        }
+        @if (!payment.fulfillmentAllowed) {
+          <p class="meta">Le statut financier consulté ne constitue pas une autorisation de remise ni de livraison.</p>
+        }
+      }
+      @if (actionError()) {
+        <p class="error" role="alert">{{ actionError() }}</p>
+      }
+      @if (actionNotice()) {
+        <p class="action-notice" role="status">{{ actionNotice() }}</p>
+      }
+      <div class="workflow-actions">
+        @if (canCancel()) {
+          @if (confirmCancellation()) {
+            <p class="cancel-confirm">Confirmer l'annulation de cette commande non payée ? Un règlement en cours ou litigieux sera refusé par le serveur.</p>
+            <button type="button" class="danger-button" [disabled]="actionBusy()" (click)="act('cancel')">Confirmer l'annulation</button>
+            <button type="button" [disabled]="actionBusy()" (click)="confirmCancellation.set(false)">Conserver la commande</button>
+          } @else {
+            <button type="button" [disabled]="actionBusy()" (click)="confirmCancellation.set(true)">Annuler la commande non payée</button>
+          }
+        }
+        @if (canPrepare()) {
+          <button type="button" class="primary-button" [disabled]="actionBusy()" (click)="act('prepare')">Démarrer la préparation</button>
+        }
+        @if (canReady()) {
+          <button type="button" class="primary-button" [disabled]="actionBusy()" (click)="act('ready')">
+            {{ selected.order.fulfillmentMethod === 'PICKUP' ? 'Marquer prête au retrait' : 'Marquer prête à expédier' }}
+          </button>
+        }
+        @if (actionBusy()) {
+          <span class="meta" role="status">Vérification de la commande par le serveur…</span>
+        }
+      </div>
+      @if (selected.order.status === 'READY_FOR_PICKUP' || selected.order.status === 'READY_FOR_DISPATCH') {
+        <p class="meta">Commande prête, mais aucune remise ou expédition effective n'est enregistrée à cette étape.</p>
+      }
+      @if (selected.order.status === 'CANCELLED') {
+        <p class="meta">Cette commande est annulée. Aucun traitement supplémentaire ne peut être lancé.</p>
+      }
+    </section>
     <div class="warning">
-      <strong>Pas encore une vente confirmée</strong>
-      <p>Ce brouillon ne prouve aucun paiement. La finalisation du paiement Bictorys reste à intégrer ; un lien privé de suivi
-        est déjà disponible pour les nouveaux brouillons. Aucun traitement de livraison n'est à déclencher depuis cette page.</p>
+      <strong>Encaissement de vente directe encore désactivé</strong>
+      <p>La connexion au paiement Bictorys sera activée dans une étape sécurisée distincte. Les actions ci-dessus ne simulent jamais un règlement et n'autorisent ni remise effective, ni livraison, ni reversement.</p>
     </div>
   </section>
 }

@@ -47,3 +47,12 @@ button:disabled { opacity:.45; cursor:not-allowed; }
   .detail-grid { grid-template-columns:1fr; }
   .pagination { justify-content:space-between; gap:6px; flex-wrap:wrap; }
 }
+
+.financial-panel { display:grid; gap:13px; padding:18px; border-radius:12px; border:1px solid var(--border); background:var(--surface-alt); }
+.financial-panel .section-head h3 { margin:0; font-size:15px; }
+.financial-state { margin:0; font-size:14px; }
+.workflow-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.workflow-actions .primary-button { background:var(--primary); color:white; border-color:var(--primary); }
+.workflow-actions .danger-button { color:var(--danger-text); border-color:var(--danger-text); }
+.action-notice { margin:0; padding:10px 12px; border-radius:8px; font-size:13px; border:1px solid var(--border); }
+.cancel-confirm { margin:0; font-size:13px; line-height:1.5; width:100%; }

@@ -56,7 +56,29 @@ export interface DirectOrderDetail {
   }[];
 }
 
-/** Authenticated merchant reads. No public endpoint or payment action. */
+
+export type DirectFinancialState =
+  | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
+  | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+
+export interface DirectOrderPaymentStatus {
+  orderNumber: string;
+  acceptedTotalXof: number | null;
+  financialStatus: DirectFinancialState;
+  /** This read model is not an authorization to hand over goods. */
+  fulfillmentAllowed: boolean;
+}
+
+export interface DirectOrderActionReceipt {
+  orderNumber: string;
+  status: string;
+  fulfillmentMethod?: 'PICKUP' | 'DELIVERY';
+  cancelledAt?: string;
+  preparingAt?: string;
+  readyAt?: string;
+}
+
+/** Authenticated merchant reads and server-guarded fulfillment actions. */
 @Injectable({ providedIn: 'root' })
 export class DirectOrdersApi {
   private readonly http = inject(HttpClient);
@@ -75,6 +97,30 @@ export class DirectOrdersApi {
   get(organizationId: string, orderId: string) {
     return firstValueFrom(this.http.get<DirectOrderDetail>(
       this.path(organizationId) + '/' + encodeURIComponent(orderId),
+    ).pipe(timeout(15000)));
+  }
+  paymentStatus(organizationId: string, orderId: string) {
+    return firstValueFrom(this.http.get<DirectOrderPaymentStatus>(
+      this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/payment-status',
+    ).pipe(timeout(15000)));
+  }
+
+  /** No financial data or target state is accepted from the browser. */
+  cancel(organizationId: string, orderId: string) {
+    return this.command(organizationId, orderId, 'cancel');
+  }
+
+  startPreparation(organizationId: string, orderId: string) {
+    return this.command(organizationId, orderId, 'start-preparation');
+  }
+
+  markReady(organizationId: string, orderId: string) {
+    return this.command(organizationId, orderId, 'mark-ready');
+  }
+
+  private command(organizationId: string, orderId: string, action: string) {
+    return firstValueFrom(this.http.post<DirectOrderActionReceipt>(
+      this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/' + action, {},
     ).pipe(timeout(15000)));
   }
 }

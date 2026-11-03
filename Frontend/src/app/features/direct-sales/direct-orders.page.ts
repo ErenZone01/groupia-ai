@@ -5,7 +5,15 @@ import { AuthService } from '../../core/auth/auth.service';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { apiMessage } from '../../core/http/api-error';
 import { money, variantLabel } from '../../shared/utils/display';
-import { DirectOrderDetail, DirectOrderSummary, DirectOrdersApi, DirectOrdersPage as DirectOrdersResponse } from './direct-orders.api';
+import {
+  DirectOrderDetail,
+  DirectOrderPaymentStatus,
+  DirectOrderSummary,
+  DirectOrdersApi,
+  DirectOrdersPage as DirectOrdersResponse,
+} from './direct-orders.api';
+
+type MerchantAction = 'cancel' | 'prepare' | 'ready';
 
 @Component({
   selector: 'g-direct-orders-page',
@@ -19,10 +27,17 @@ export class DirectOrdersPage {
   readonly context = inject(BoutiqueContextService);
   readonly data = signal<DirectOrdersResponse | null>(null);
   readonly detail = signal<DirectOrderDetail | null>(null);
+  readonly financial = signal<DirectOrderPaymentStatus | null>(null);
   readonly loading = signal(false);
   readonly detailLoading = signal(false);
+  readonly financialLoading = signal(false);
+  readonly actionBusy = signal(false);
   readonly error = signal('');
   readonly detailError = signal('');
+  readonly financialError = signal('');
+  readonly actionError = signal('');
+  readonly actionNotice = signal('');
+  readonly confirmCancellation = signal(false);
   readonly money = money;
   readonly variantLabel = variantLabel;
   readonly currentPage = signal(0);
@@ -30,6 +45,15 @@ export class DirectOrdersPage {
     const page = this.data();
     return page ? Math.ceil(page.total / page.size) : 0;
   });
+  readonly canCancel = computed(() => this.detail()?.order.status === 'PENDING_PAYMENT_INTEGRATION'
+    && ['NOT_PREPARED', 'PREPARED', 'EXPIRED', 'UNAVAILABLE']
+      .includes(this.financial()?.financialStatus ?? ''));
+  readonly canPrepare = computed(() => this.detail()?.order.status === 'PAYMENT_CONFIRMED'
+    && this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED');
+  readonly canReady = computed(() => this.detail()?.order.status === 'PREPARING'
+    && this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED');
+  readonly reviewRequired = computed(() => ['REVIEW_REQUIRED', 'SETTLEMENT_PROCESSING']
+    .includes(this.financial()?.financialStatus ?? ''));
   private request = 0;
   private detailRequest = 0;
 
@@ -39,13 +63,10 @@ export class DirectOrdersPage {
       const generation = this.auth.generation();
       untracked(() => {
         const seq = ++this.request;
-        this.detailRequest++;
+        this.clearDetail();
         this.data.set(null);
-        this.detail.set(null);
         this.error.set('');
-        this.detailError.set('');
         this.currentPage.set(0);
-        this.detailLoading.set(false);
         if (organizationId) {
           void this.load(organizationId, 0, seq, generation);
         } else {
@@ -58,6 +79,24 @@ export class DirectOrdersPage {
   private current(id: string, seq: number, generation: number) {
     return id === this.context.selectedId() && seq === this.request
       && generation === this.auth.generation();
+  }
+
+  private currentDetail(id: string, listSeq: number, generation: number, detailSeq: number) {
+    return this.current(id, listSeq, generation) && detailSeq === this.detailRequest;
+  }
+
+  private clearDetail() {
+    this.detailRequest++;
+    this.detail.set(null);
+    this.financial.set(null);
+    this.detailError.set('');
+    this.financialError.set('');
+    this.actionError.set('');
+    this.actionNotice.set('');
+    this.confirmCancellation.set(false);
+    this.detailLoading.set(false);
+    this.financialLoading.set(false);
+    this.actionBusy.set(false);
   }
 
   private async load(id: string, page: number, seq: number, generation: number) {
@@ -77,63 +116,130 @@ export class DirectOrdersPage {
 
   async page(page: number) {
     const id = this.context.selectedId();
-    if (!id || page < 0 || page >= this.totalPages() || this.loading()) return;
+    if (!id || page < 0 || page >= this.totalPages() || this.loading() || this.actionBusy()) return;
     const seq = ++this.request;
-    this.detailRequest++;
-    this.detail.set(null);
-    this.detailError.set('');
+    this.clearDetail();
     await this.load(id, page, seq, this.auth.generation());
   }
 
   async refresh() {
     const id = this.context.selectedId();
-    if (!id || this.loading()) return;
+    if (!id || this.loading() || this.actionBusy()) return;
     const seq = ++this.request;
-    this.detailRequest++;
-    this.detail.set(null);
-    this.detailError.set('');
+    this.clearDetail();
     await this.load(id, this.currentPage(), seq, this.auth.generation());
   }
 
   async open(order: DirectOrderSummary) {
     const id = this.context.selectedId();
-    if (!id || this.loading()) return;
-    const seq = ++this.detailRequest;
+    if (!id || this.loading() || this.actionBusy()) return;
+    this.clearDetail();
+    const detailSeq = this.detailRequest;
     const listSeq = this.request;
     const generation = this.auth.generation();
-    this.detail.set(null);
-    this.detailError.set('');
     this.detailLoading.set(true);
+    this.financialLoading.set(true);
+    const [detail, financial] = await Promise.allSettled([
+      this.api.get(id, order.id),
+      this.api.paymentStatus(id, order.id),
+    ]);
+    if (!this.currentDetail(id, listSeq, generation, detailSeq)) return;
+    if (detail.status === 'fulfilled') this.detail.set(detail.value);
+    else this.detailError.set(apiMessage(detail.reason));
+    if (financial.status === 'fulfilled') this.financial.set(financial.value);
+    else this.financialError.set(apiMessage(financial.reason));
+    this.detailLoading.set(false);
+    this.financialLoading.set(false);
+  }
+
+  close() {
+    this.clearDetail();
+  }
+
+  async act(action: MerchantAction) {
+    const id = this.context.selectedId();
+    const order = this.detail()?.order;
+    if (!id || !order || this.actionBusy() || this.financialLoading()) return;
+    if (action === 'cancel' && !this.canCancel()) return;
+    if (action === 'prepare' && !this.canPrepare()) return;
+    if (action === 'ready' && !this.canReady()) return;
+    if (action === 'cancel' && !this.confirmCancellation()) return;
+
+    const detailSeq = ++this.detailRequest;
+    const listSeq = this.request;
+    const generation = this.auth.generation();
+    this.actionBusy.set(true);
+    this.actionError.set('');
+    this.actionNotice.set('');
+    this.confirmCancellation.set(false);
     try {
-      const result = await this.api.get(id, order.id);
-      if (this.current(id, listSeq, generation) && seq === this.detailRequest) {
-        this.detail.set(result);
+      if (action === 'cancel') await this.api.cancel(id, order.id);
+      else if (action === 'prepare') await this.api.startPreparation(id, order.id);
+      else await this.api.markReady(id, order.id);
+      if (!this.currentDetail(id, listSeq, generation, detailSeq)) return;
+      this.actionNotice.set(action === 'cancel' ? 'Commande annulée.'
+        : action === 'prepare' ? 'Préparation démarrée.' : 'Commande marquée comme prête.');
+
+      // Re-read authoritative state, including the payment risk. Never trust the response
+      // to a mutation as an authorization for another step.
+      const [detail, financial, list] = await Promise.allSettled([
+        this.api.get(id, order.id),
+        this.api.paymentStatus(id, order.id),
+        this.api.list(id, this.currentPage()),
+      ]);
+      if (!this.currentDetail(id, listSeq, generation, detailSeq)) return;
+      if (detail.status === 'fulfilled') this.detail.set(detail.value);
+      else this.detailError.set('Action effectuée, mais le détail n’a pas pu être rechargé.');
+      if (financial.status === 'fulfilled') {
+        this.financial.set(financial.value);
+        this.financialError.set('');
+      } else {
+        this.financial.set(null);
+        this.financialError.set('État financier indisponible : aucune autre action autorisée.');
       }
+      if (list.status === 'fulfilled') this.data.set(list.value);
+      else this.error.set('Actualisez la liste pour voir le dernier statut.');
     } catch (error) {
-      if (this.current(id, listSeq, generation) && seq === this.detailRequest) {
-        this.detailError.set(apiMessage(error));
+      if (this.currentDetail(id, listSeq, generation, detailSeq)) {
+        this.actionError.set(apiMessage(error));
+        // The server is authoritative; a rejected or ambiguous command must not
+        // update the local status or optimistically unlock the next step.
+        this.financial.set(null);
+        this.financialError.set('Actualisez le détail pour vérifier l’état financier.');
       }
     } finally {
-      if (this.current(id, listSeq, generation) && seq === this.detailRequest) {
-        this.detailLoading.set(false);
+      if (this.currentDetail(id, listSeq, generation, detailSeq)) {
+        this.actionBusy.set(false);
       }
     }
   }
 
-  close() {
-    this.detailRequest++;
-    this.detail.set(null);
-    this.detailError.set('');
-    this.detailLoading.set(false);
+  status(value: string) {
+    switch (value) {
+      case 'PENDING_PAYMENT_INTEGRATION': return 'En attente de paiement';
+      case 'CANCELLED': return 'Annulée';
+      case 'PAYMENT_CONFIRMED': return 'Paiement confirmé';
+      case 'PREPARING': return 'En préparation';
+      case 'READY_FOR_PICKUP': return 'Prête pour le retrait';
+      case 'READY_FOR_DISPATCH': return 'Prête pour l’expédition';
+      default: return 'Statut indisponible';
+    }
   }
 
-  status(value: string) {
-    return value === 'PENDING_PAYMENT_INTEGRATION'
-      ? 'Paiement non disponible'
-      : 'Statut : ' + value;
+  financialLabel(value: string) {
+    switch (value) {
+      case 'NOT_PREPARED': return 'Paiement non préparé';
+      case 'PREPARED': return 'Paiement préparé, non confirmé';
+      case 'EXPIRED': return 'Demande de paiement expirée';
+      case 'UNAVAILABLE': return 'Paiement indisponible';
+      case 'SETTLEMENT_PROCESSING': return 'Vérification du règlement en cours';
+      case 'SETTLEMENT_VERIFIED': return 'Règlement vérifié';
+      case 'REVIEW_REQUIRED': return 'Vérification manuelle nécessaire';
+      default: return 'Statut financier indisponible';
+    }
   }
 
   fulfillment(value: string) {
-    return value === 'PICKUP' ? 'Retrait à convenir' : 'Livraison à organiser';
+    return value === 'PICKUP' ? 'Retrait en boutique' : 'Livraison prévue';
   }
 }

@@ -50,16 +50,17 @@ class DirectCustomerPaymentInitiationTests {
         var expected = new PaymentAttemptView(
                 UUID.randomUUID(), PaymentStatus.PENDING,
                 BigDecimal.valueOf(10300), "XOF", false, null, null);
-        when(payments.initiateRequest(
-                eq(organization), eq(requestId), eq("BICTORYS"), eq(KEY), any()))
+        when(payments.initiateDirect(
+                eq(organization), eq(requestId), eq(KEY),
+                eq(DirectAccessTokens.hashForLookup(TOKEN)), any()))
                 .thenReturn(expected);
         var subject = new DirectCustomerPaymentInitiation(jdbc, payments, true);
         assertThat(subject.initiate(TOKEN, KEY)).isEqualTo(expected);
         verify(jdbc).query(
                 contains("where d.recovery_token_hash=?"),
                 any(RowMapper.class), eq(DirectAccessTokens.hashForLookup(TOKEN)));
-        verify(payments).initiateRequest(
-                organization, requestId, "BICTORYS", KEY,
+        verify(payments).initiateDirect(
+                organization, requestId, KEY, DirectAccessTokens.hashForLookup(TOKEN),
                 new PaymentCheckoutContext(
                         "DIR-000000000001", "Awa Ndiaye", "+221771234567", null));
         verifyNoMoreInteractions(payments);

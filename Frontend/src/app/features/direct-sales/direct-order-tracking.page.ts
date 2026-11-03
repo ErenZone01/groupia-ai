@@ -1,6 +1,6 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DirectSalesApi, DirectTrackingView } from './direct-sales.api';
+import { DirectSalesApi, DirectTrackingView, DirectCustomerFinancialStatus } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { money } from '../../shared/utils/display';
 
@@ -20,11 +20,10 @@ import { money } from '../../shared/utils/display';
           <p role="status">Chargement sécurisé du statut…</p>
         } @else if (order(); as data) {
           <p class="tracking-ref">Référence : <strong>{{ data.orderNumber }}</strong></p>
-          <h2>Commande enregistrée</h2>
-          <p>La boutique doit encore confirmer la suite de votre commande.
-            Aucun paiement n'a été demandé ni effectué.</p>
+          <h2>État de ma commande</h2>
+          <p>Le paiement et le suivi de la commande sont vérifiés côté serveur. Aucun paiement ne peut être lancé depuis cette page pour le moment.</p>
           <dl class="tracking-data">
-            <div><dt>Statut</dt><dd>En attente de finalisation</dd></div>
+            <div><dt>Statut</dt><dd>{{ orderLabel(data.status) }}</dd></div>
             <div><dt>Remise</dt><dd>{{ data.fulfillmentMethod === 'PICKUP'
               ? 'Retrait à convenir' : 'Livraison à confirmer' }}</dd></div>
             <div><dt>Articles</dt><dd>{{ money(data.goodsSubtotalXof, data.currency) }}</dd></div>
@@ -35,8 +34,11 @@ import { money } from '../../shared/utils/display';
             @if (data.acceptedTotalXof !== null) {
               <div><dt>Total accepté</dt><dd>{{ money(data.acceptedTotalXof, data.currency) }}</dd></div>
             }
-            <div><dt>Paiement</dt><dd>Indisponible pour le moment</dd></div>
+            <div><dt>Paiement</dt><dd>{{ paymentLabel() }}</dd></div>
           </dl>
+          @if (paymentProblem() || financial()?.financialStatus === 'REVIEW_REQUIRED') {
+            <p class="notice" role="alert">Le paiement nécessite une vérification. Ne retirez pas les articles et n'organisez pas de livraison sur la base de cette page.</p>
+          }
           <p class="notice">Conservez ce lien privé pour revenir consulter votre commande.
             Toute personne qui possède ce lien peut voir ce résumé.</p>
           <button type="button" class="action-link" (click)="reload()">Actualiser le statut</button>
@@ -83,6 +85,8 @@ export class DirectOrderTrackingPage {
   readonly money = money;
   readonly busy = signal(false);
   readonly order = signal<DirectTrackingView | null>(null);
+  readonly financial = signal<DirectCustomerFinancialStatus | null>(null);
+  readonly paymentProblem = signal(false);
   readonly message = signal('');
   private token: string | null = null;
   private sequence = 0;
@@ -104,10 +108,41 @@ export class DirectOrderTrackingPage {
     });
   }
 
+  orderLabel(value: string) {
+    if (value === 'CANCELLED') return 'Commande annulée';
+    if (value === 'PENDING_PAYMENT_INTEGRATION') return 'En attente de règlement';
+    if (this.financial()?.financialStatus !== 'SETTLEMENT_VERIFIED') {
+      return 'Traitement suspendu : règlement à vérifier';
+    }
+    switch (value) {
+      case 'PAYMENT_CONFIRMED': return 'Règlement confirmé';
+      case 'PREPARING': return 'Commande en préparation';
+      case 'READY_FOR_PICKUP': return 'Prête pour le retrait (à confirmer avec la boutique)';
+      case 'READY_FOR_DISPATCH': return 'Prête pour l’expédition (à confirmer avec la boutique)';
+      default: return 'Statut à vérifier';
+    }
+  }
+
+  paymentLabel() {
+    if (this.paymentProblem()) return 'État financier temporairement indisponible';
+    switch (this.financial()?.financialStatus) {
+      case 'SETTLEMENT_VERIFIED': return 'Règlement vérifié';
+      case 'SETTLEMENT_PROCESSING': return 'Règlement en cours de confirmation';
+      case 'REVIEW_REQUIRED': return 'Vérification manuelle nécessaire';
+      case 'PREPARED': return 'Paiement non encore confirmé';
+      case 'NOT_PREPARED': return 'Paiement non préparé';
+      case 'EXPIRED': return 'Délai de règlement expiré';
+      case 'UNAVAILABLE': return 'Paiement indisponible';
+      default: return 'État à vérifier';
+    }
+  }
+
   async reload() {
     const sequence = ++this.sequence;
     const token = this.token;
     this.order.set(null);
+    this.financial.set(null);
+    this.paymentProblem.set(false);
     this.message.set('');
     if (!token) {
       this.busy.set(false);
@@ -116,8 +151,21 @@ export class DirectOrderTrackingPage {
     }
     this.busy.set(true);
     try {
-      const data = await this.api.trackDirectOrder(token);
-      if (sequence === this.sequence) this.order.set(data);
+      const [order, payment] = await Promise.allSettled([
+        this.api.trackDirectOrder(token),
+        this.api.directPaymentStatus(token),
+      ]);
+      if (sequence !== this.sequence) return;
+      if (order.status === 'rejected') throw order.reason;
+      this.order.set(order.value);
+      if (payment.status === 'fulfilled'
+        && payment.value.orderNumber === order.value.orderNumber
+        && payment.value.currency === order.value.currency
+        && payment.value.acceptedTotalXof === order.value.acceptedTotalXof) {
+        this.financial.set(payment.value);
+      } else {
+        this.paymentProblem.set(true);
+      }
     } catch {
       if (sequence === this.sequence) {
         this.message.set('Ce lien est invalide ou cette commande n’est pas accessible.');

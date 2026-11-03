@@ -59,3 +59,9 @@ réconciliation, incohérences de montant et de statut.
 Tests Angular : même jeton pour les deux lectures, comparaison stricte,
 pas de paiement simulé, absence de confirmation si une lecture échoue,
 protection contre les réponses anciennes après rotation du lien.
+
+## Qualité de la branche
+
+Le formatage des sources et des tests Java a été appliqué avec le formatteur
+`googleJavaFormat` 1.28.0, style `AOSP`, identique à la configuration Spotless
+vérifiée par GitHub Actions. Aucune dérogation au contrôle financier ni à la CI.

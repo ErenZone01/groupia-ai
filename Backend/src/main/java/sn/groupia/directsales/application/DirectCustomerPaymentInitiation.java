@@ -1,6 +1,5 @@
 package sn.groupia.directsales.application;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -105,9 +104,9 @@ public class DirectCustomerPaymentInitiation {
                 order.phone(), order.email());
         // Service opens a transaction for the durable claim, then calls Bictorys only
         // after its commit. A changed order/token/amount must never cause a charge.
-        return payments.initiateRequest(
-                order.organizationId(), order.requestId(), "BICTORYS",
-                idempotencyKey.strip(), context);
+        return payments.initiateDirect(
+                order.organizationId(), order.requestId(),
+                idempotencyKey.strip(), tokenHash, context);
     }
 
     private static ApiException notFound() {

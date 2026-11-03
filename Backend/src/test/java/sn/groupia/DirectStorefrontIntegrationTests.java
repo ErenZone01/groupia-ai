@@ -1251,7 +1251,12 @@ class DirectStorefrontIntegrationTests {
 
         String merchantOrdersPath = "/api/organizations/" + organizationId + "/direct-orders";
         String preparePath = merchantOrdersPath + "/" + acceptedOrderId + "/start-preparation";
+        String readyPath = merchantOrdersPath + "/" + acceptedOrderId + "/mark-ready";
         mvc.perform(post(preparePath)).andExpect(status().isUnauthorized());
+        mvc.perform(post(readyPath)).andExpect(status().isUnauthorized());
+        authorized(post(readyPath))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DIRECT_ORDER_READY_BLOCKED"));
         authorized(post(preparePath))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DIRECT_ORDER_PREPARATION_BLOCKED"));
@@ -1479,6 +1484,8 @@ class DirectStorefrontIntegrationTests {
         assertThat(otherOrg).isNotEqualTo(organizationId);
         mvc.perform(post(preparePath).header("Authorization", "Bearer " + second))
                 .andExpect(status().isForbidden());
+        mvc.perform(post(readyPath).header("Authorization", "Bearer " + second))
+                .andExpect(status().isForbidden());
 
         String cancelPath = merchantOrdersPath + "/" + acceptedOrderId + "/cancel";
         mvc.perform(post(cancelPath)).andExpect(status().isUnauthorized());
@@ -1501,6 +1508,9 @@ class DirectStorefrontIntegrationTests {
         authorized(post(preparePath))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DIRECT_ORDER_PREPARATION_BLOCKED"));
+        authorized(post(readyPath))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DIRECT_ORDER_READY_BLOCKED"));
         assertThat(
                         jdbc.queryForObject(
                                 "select acceptance_status from payment_requests"

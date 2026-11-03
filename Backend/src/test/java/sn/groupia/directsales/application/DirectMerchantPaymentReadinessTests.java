@@ -76,8 +76,9 @@ class DirectMerchantPaymentReadinessTests {
     }
 
     private void state(PaymentOperationalStatus status, UUID settled) {
+        PaymentRequestView view = obligation(settled);
         when(payments.requestState(organization, requestId))
-                .thenReturn(new PaymentRequestState(obligation(settled), status, false, false));
+                .thenReturn(new PaymentRequestState(view, status, false, false));
     }
 
     private PaymentSettlementEvidence proof(boolean reversed) {

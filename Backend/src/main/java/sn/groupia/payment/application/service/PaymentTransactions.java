@@ -3,6 +3,9 @@ package sn.groupia.payment.application.service;
 import java.time.*;
 import java.util.*;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.payment.api.*;
@@ -22,7 +25,10 @@ public class PaymentTransactions {
     private final ProviderRegistry providers;
     private final sn.groupia.payment.domain.repository.RefundStore refunds;
     private final sn.groupia.payment.domain.repository.PaymentReviewStore reviews;
+    private final ObjectProvider<DirectPaymentClaimGuard> directGuard;
+    private final boolean directPaymentEnabled;
 
+    // Preserve isolated unit tests: their default remains strictly disabled.
     PaymentTransactions(
             FinancialStore store,
             ApplicationEventPublisher events,
@@ -30,12 +36,27 @@ public class PaymentTransactions {
             ProviderRegistry providers,
             sn.groupia.payment.domain.repository.RefundStore refunds,
             sn.groupia.payment.domain.repository.PaymentReviewStore reviews) {
+        this(store, events, clock, providers, refunds, reviews, null, false);
+    }
+
+    @Autowired
+    PaymentTransactions(
+            FinancialStore store,
+            ApplicationEventPublisher events,
+            Clock clock,
+            ProviderRegistry providers,
+            sn.groupia.payment.domain.repository.RefundStore refunds,
+            sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
+            ObjectProvider<DirectPaymentClaimGuard> directGuard,
+            @Value("${groupia.direct-sales.payment-initiation.enabled:false}") boolean directPaymentEnabled) {
         this.store = store;
         this.events = events;
         this.clock = clock;
         this.providers = providers;
         this.refunds = refunds;
         this.reviews = reviews;
+        this.directGuard = directGuard;
+        this.directPaymentEnabled = directPaymentEnabled;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -85,14 +106,25 @@ public class PaymentTransactions {
         }
         key = key.strip();
         var request = scopedRequest(org, requestId);
-        // The direct order payment gateway is deliberately closed until the direct-sales
-        // command, provider evidence listener, and fulfillment gates are implemented.
-        // Reject even an idempotent replay before creating any payment attempt.
         if (request.getTarget().type() == PaymentTargetType.DIRECT_ORDER) {
-            throw new ApiException(
-                    409,
-                    "DIRECT_PAYMENT_NOT_ENABLED",
-                    "Le paiement des commandes directes n'est pas encore disponible.");
+            // Default-deny and enforce storefront -> order -> financial request lock order.
+            // Provider calls remain outside this transactional claim.
+            if (!directPaymentEnabled || directGuard == null
+                    || !"BICTORYS".equals(provider)
+                    || request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL) {
+                throw new ApiException(
+                        409, "DIRECT_PAYMENT_NOT_ENABLED",
+                        "Le paiement des commandes directes n'est pas encore disponible.");
+            }
+            DirectPaymentClaimGuard guard = directGuard.getIfAvailable();
+            if (guard == null) {
+                throw new ApiException(
+                        409, "DIRECT_PAYMENT_NOT_ENABLED",
+                        "Le paiement des commandes directes n'est pas encore disponible.");
+            }
+            context = guard.authorize(
+                    org, request.getTarget().id(), request.getId(),
+                    request.getExpectedAmount(), context);
         }
         List<PaymentObligationView> shippingStates = List.of();
         if (request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE) {

@@ -217,6 +217,38 @@ class DirectOrderSettlementListenerTests {
     }
 
     @Test
+    void preparationDoesNotBreakLegitimateFinancialEventReplays() throws Exception {
+        when(payments.settlementEvidence(org, request)).thenReturn(proof(false));
+        orderRow(10300, "PREPARING", NOW.minusSeconds(30));
+        ResultSet row = mock(ResultSet.class);
+        when(row.getObject("payment_request_id", UUID.class)).thenReturn(request);
+        when(row.getObject("payment_id", UUID.class)).thenReturn(payment);
+        when(row.getBigDecimal("amount_xof")).thenReturn(BigDecimal.valueOf(10300));
+        when(row.getString("currency")).thenReturn("XOF");
+        when(row.getString("provider")).thenReturn("BICTORYS");
+        when(row.getString("provider_transaction_id")).thenReturn("gateway-transaction-123");
+        when(row.getTimestamp("confirmed_at")).thenReturn(Timestamp.from(NOW.minusSeconds(30)));
+        when(jdbc.query(
+                        contains("from direct_order_verified_settlements"),
+                        any(RowMapper.class),
+                        eq(org),
+                        eq(order)))
+                .thenAnswer(
+                        invocation -> {
+                            RowMapper<?> mapper = invocation.getArgument(1);
+                            return List.of(mapper.mapRow(row, 0));
+                        });
+
+        listener.on(event());
+
+        verify(jdbc, never())
+                .update(
+                        contains("insert into direct_order_verified_settlements"),
+                        any(Object[].class));
+        verify(jdbc, never()).update(startsWith("update direct_orders d"), any(Object[].class));
+    }
+
+    @Test
     void inconsistentReplayIsNeverSilentlyAccepted() throws Exception {
         when(payments.settlementEvidence(org, request)).thenReturn(proof(false));
         orderRow(10300);

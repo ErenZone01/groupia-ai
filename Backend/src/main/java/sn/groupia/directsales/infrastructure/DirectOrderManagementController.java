@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import sn.groupia.directsales.application.DirectMerchantPaymentReadiness;
 import sn.groupia.directsales.application.DirectOrderCancellation;
+import sn.groupia.directsales.application.DirectOrderPreparation;
 import sn.groupia.directsales.application.DirectOrderQueries;
 
 /** Private merchant reads only; no public order/token access is exposed. */
@@ -20,14 +21,17 @@ class DirectOrderManagementController {
     private final DirectOrderQueries orders;
     private final DirectMerchantPaymentReadiness paymentReadiness;
     private final DirectOrderCancellation cancellations;
+    private final DirectOrderPreparation preparation;
 
     DirectOrderManagementController(
             DirectOrderQueries orders,
             DirectMerchantPaymentReadiness paymentReadiness,
-            DirectOrderCancellation cancellations) {
+            DirectOrderCancellation cancellations,
+            DirectOrderPreparation preparation) {
         this.orders = orders;
         this.paymentReadiness = paymentReadiness;
         this.cancellations = cancellations;
+        this.preparation = preparation;
     }
 
     @GetMapping
@@ -39,6 +43,15 @@ class DirectOrderManagementController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(orders.list(organizationId, page, size));
+    }
+
+    @PostMapping("/{orderId}/start-preparation")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "startDirectOrderPreparation")
+    ResponseEntity<DirectOrderPreparation.Receipt> startPreparation(
+            @PathVariable UUID organizationId, @PathVariable UUID orderId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(preparation.start(organizationId, orderId));
     }
 
     @PostMapping("/{orderId}/cancel")

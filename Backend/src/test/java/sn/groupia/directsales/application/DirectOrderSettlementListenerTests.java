@@ -58,8 +58,7 @@ class DirectOrderSettlementListenerTests {
                 .thenReturn(
                         new PaymentRequestState(
                                 view, PaymentOperationalStatus.SETTLED, false, false));
-        when(jdbc.update(startsWith("update direct_orders d"), any(Object[].class)))
-                .thenReturn(1);
+        when(jdbc.update(startsWith("update direct_orders d"), any(Object[].class))).thenReturn(1);
     }
 
     private PaymentObligationSettled event() {
@@ -214,8 +213,7 @@ class DirectOrderSettlementListenerTests {
                 .update(
                         contains("insert into direct_order_verified_settlements"),
                         any(Object[].class));
-        verify(jdbc, never())
-                .update(startsWith("update direct_orders d"), any(Object[].class));
+        verify(jdbc, never()).update(startsWith("update direct_orders d"), any(Object[].class));
     }
 
     @Test
@@ -245,7 +243,6 @@ class DirectOrderSettlementListenerTests {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Contradictory");
     }
-
 
     @Test
     void oldVerifiedReceiptCanSafelyFinishTheFinancialTransition() throws Exception {
@@ -310,7 +307,6 @@ class DirectOrderSettlementListenerTests {
         assertThatThrownBy(() -> listener.on(event()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("amount/status mismatch");
-        verify(jdbc, never())
-                .update(startsWith("update direct_orders d"), any(Object[].class));
+        verify(jdbc, never()).update(startsWith("update direct_orders d"), any(Object[].class));
     }
 }

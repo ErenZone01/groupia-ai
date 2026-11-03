@@ -105,22 +105,31 @@ public class DirectCustomerPaymentStatus {
         Snapshot saved = matches.getFirst();
         String financial = financialStatus(saved);
         String preparation = preparationStatus(financial);
-        return new Status(saved.orderNumber(), saved.currency(), saved.acceptedTotalXof(),
-                preparation, false, financial);
+        return new Status(
+                saved.orderNumber(),
+                saved.currency(),
+                saved.acceptedTotalXof(),
+                preparation,
+                false,
+                financial);
     }
 
     private String financialStatus(Snapshot saved) {
         if (saved.requestId() == null) {
             return "PENDING_PAYMENT_INTEGRATION".equals(saved.orderStatus())
-                    ? "NOT_PREPARED" : "UNAVAILABLE";
+                    ? "NOT_PREPARED"
+                    : "UNAVAILABLE";
         }
-        if (saved.organizationId() == null || saved.orderId() == null
-                || saved.acceptedTotalXof() == null || saved.acceptedTotalXof() <= 0
+        if (saved.organizationId() == null
+                || saved.orderId() == null
+                || saved.acceptedTotalXof() == null
+                || saved.acceptedTotalXof() <= 0
                 || !"XOF".equals(saved.currency())) {
             return "REVIEW_REQUIRED";
         }
 
-        PaymentRequestState state = payments.requestState(saved.organizationId(), saved.requestId());
+        PaymentRequestState state =
+                payments.requestState(saved.organizationId(), saved.requestId());
         if (state == null || state.request() == null) return "REVIEW_REQUIRED";
         var request = state.request();
         BigDecimal total = BigDecimal.valueOf(saved.acceptedTotalXof());
@@ -166,7 +175,8 @@ public class DirectCustomerPaymentStatus {
                     || !"XOF".equals(proof.currency())
                     || proof.amount() == null
                     || proof.amount().compareTo(total) != 0
-                    || proof.provider() == null || proof.provider().isBlank()
+                    || proof.provider() == null
+                    || proof.provider().isBlank()
                     || proof.providerTransactionId() == null
                     || proof.providerTransactionId().isBlank()
                     || !Objects.equals(proof.provider(), saved.receiptProvider())
@@ -174,9 +184,9 @@ public class DirectCustomerPaymentStatus {
                     || !Objects.equals(proof.confirmedAt(), saved.receiptConfirmedAt())
                     || clock.instant().isBefore(proof.confirmedAt())
                     || !"PAYMENT_CONFIRMED".equals(saved.orderStatus())
-                        && !"PREPARING".equals(saved.orderStatus())
-                        && !"READY_FOR_PICKUP".equals(saved.orderStatus())
-                        && !"READY_FOR_DISPATCH".equals(saved.orderStatus())) {
+                            && !"PREPARING".equals(saved.orderStatus())
+                            && !"READY_FOR_PICKUP".equals(saved.orderStatus())
+                            && !"READY_FOR_DISPATCH".equals(saved.orderStatus())) {
                 return "REVIEW_REQUIRED";
             }
             return "SETTLEMENT_VERIFIED";

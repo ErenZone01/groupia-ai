@@ -42,12 +42,15 @@ class DirectCustomerPaymentStatusTests {
     void setup() {
         jdbc = mock(JdbcTemplate.class);
         payments = mock(PaymentOperations.class);
-        subject = new DirectCustomerPaymentStatus(
-                jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments);
+        subject = new DirectCustomerPaymentStatus(jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments);
     }
 
     private void snapshot(String orderStatus, UUID request, UUID receipt, Long accepted) {
-        snapshot(orderStatus, request, receipt, accepted,
+        snapshot(
+                orderStatus,
+                request,
+                receipt,
+                accepted,
                 request == null ? null : receipt == null ? "OPEN" : "CLOSED");
     }
 
@@ -55,18 +58,27 @@ class DirectCustomerPaymentStatusTests {
             String orderStatus, UUID request, UUID receipt, Long accepted, String acceptance) {
         when(jdbc.query(
                         contains("where d.recovery_token_hash=?"),
-                        any(RowMapper.class), anyString()))
-                .thenReturn(List.of(new DirectCustomerPaymentStatus.Snapshot(
-                        organization, order, "DIR-000000000001", orderStatus, "XOF",
-                        accepted, request,
-                        acceptance,
-                        accepted == null ? null : BigDecimal.valueOf(accepted),
-                        NOW.plusSeconds(3600), receipt,
-                        receipt == null ? null : BigDecimal.valueOf(10300),
-                        receipt == null ? null : "BICTORYS",
-                        receipt == null ? null : "gateway-transaction",
-                        receipt == null ? null : NOW.minusSeconds(20),
-                        receipt == null ? null : NOW.minusSeconds(20))));
+                        any(RowMapper.class),
+                        anyString()))
+                .thenReturn(
+                        List.of(
+                                new DirectCustomerPaymentStatus.Snapshot(
+                                        organization,
+                                        order,
+                                        "DIR-000000000001",
+                                        orderStatus,
+                                        "XOF",
+                                        accepted,
+                                        request,
+                                        acceptance,
+                                        accepted == null ? null : BigDecimal.valueOf(accepted),
+                                        NOW.plusSeconds(3600),
+                                        receipt,
+                                        receipt == null ? null : BigDecimal.valueOf(10300),
+                                        receipt == null ? null : "BICTORYS",
+                                        receipt == null ? null : "gateway-transaction",
+                                        receipt == null ? null : NOW.minusSeconds(20),
+                                        receipt == null ? null : NOW.minusSeconds(20))));
     }
 
     private void state(PaymentOperationalStatus operational, UUID settled, boolean reconciliation) {
@@ -87,11 +99,22 @@ class DirectCustomerPaymentStatusTests {
 
     private PaymentSettlementEvidence proof(boolean reversed) {
         return new PaymentSettlementEvidence(
-                organization, requestId, paymentId, PaymentTarget.directOrder(order),
-                PaymentPurpose.DIRECT_ORDER_INITIAL, BigDecimal.valueOf(10300), "XOF",
-                AcceptanceStatus.CLOSED, PaymentStatus.SUCCEEDED, "BICTORYS", "sandbox",
-                "gateway-transaction", "ref", NOW.minusSeconds(20),
-                NOW.plusSeconds(3600), reversed);
+                organization,
+                requestId,
+                paymentId,
+                PaymentTarget.directOrder(order),
+                PaymentPurpose.DIRECT_ORDER_INITIAL,
+                BigDecimal.valueOf(10300),
+                "XOF",
+                AcceptanceStatus.CLOSED,
+                PaymentStatus.SUCCEEDED,
+                "BICTORYS",
+                "sandbox",
+                "gateway-transaction",
+                "ref",
+                NOW.minusSeconds(20),
+                NOW.plusSeconds(3600),
+                reversed);
     }
 
     @Test
@@ -103,8 +126,11 @@ class DirectCustomerPaymentStatusTests {
         assertThat(result.financialStatus()).isEqualTo("PREPARED");
         assertThat(result.preparationStatus()).isEqualTo("PREPARED");
         assertThat(result.paymentAvailable()).isFalse();
-        verify(jdbc).query(contains("where d.recovery_token_hash=?"),
-                any(RowMapper.class), eq(DirectAccessTokens.hashForCreate(TOKEN)));
+        verify(jdbc)
+                .query(
+                        contains("where d.recovery_token_hash=?"),
+                        any(RowMapper.class),
+                        eq(DirectAccessTokens.hashForCreate(TOKEN)));
         verify(payments, never()).settlementEvidence(any(), any());
     }
 
@@ -171,11 +197,13 @@ class DirectCustomerPaymentStatusTests {
     @Test
     void invalidOrUnknownTokenNeverEnumeratesOtherOrders() {
         assertThatThrownBy(() -> subject.lookup("DIR-000000000001"))
-                .isInstanceOf(ApiException.class).hasMessageContaining("introuvable");
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("introuvable");
         assertThatThrownBy(() -> subject.lookup(null)).isInstanceOf(ApiException.class);
         verifyNoInteractions(jdbc, payments);
 
         assertThatThrownBy(() -> subject.lookup(TOKEN))
-                .isInstanceOf(ApiException.class).hasMessageContaining("introuvable");
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("introuvable");
     }
 }

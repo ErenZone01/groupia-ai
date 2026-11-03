@@ -23,6 +23,7 @@ import sn.groupia.shared.api.ApiException;
 
 class DirectPaymentClaimAuthorizationTests {
     private static final Instant NOW = Instant.parse("2026-11-03T12:00:00Z");
+    private static final String TOKEN_HASH = "a".repeat(64);
     private final UUID org = UUID.randomUUID();
     private final UUID order = UUID.randomUUID();
     private final UUID requestId = UUID.randomUUID();
@@ -50,7 +51,7 @@ class DirectPaymentClaimAuthorizationTests {
         when(jdbc.query(
                 contains("from direct_orders d"),
                 any(RowMapper.class),
-                eq(org), eq(order)))
+                eq(org), eq(order), eq(TOKEN_HASH)))
                 .thenReturn(List.of(new DirectPaymentClaimAuthorization.Contact(
                         "DIR-000000000001", "Awa", "Ndiaye", "+221771234567", null)));
     }
@@ -63,11 +64,11 @@ class DirectPaymentClaimAuthorizationTests {
     void permitsOnlyCanonicalCustomerContextAfterRevalidatingUnderLocks() {
         eligible();
         assertThat(guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), context()))
+                org, order, requestId, BigDecimal.valueOf(10300), context(), TOKEN_HASH))
                 .isEqualTo(context());
         verify(obligations).prepare(org, order);
         verify(jdbc).query(contains("from direct_orders d"),
-                any(RowMapper.class), eq(org), eq(order));
+                any(RowMapper.class), eq(org), eq(order), eq(TOKEN_HASH));
     }
 
     @Test
@@ -76,7 +77,7 @@ class DirectPaymentClaimAuthorizationTests {
         PaymentCheckoutContext forged =
                 new PaymentCheckoutContext("DIR-000000000001", "Autre Personne", "+221771234567", null);
         assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), forged))
+                org, order, requestId, BigDecimal.valueOf(10300), forged, TOKEN_HASH))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("conditions de paiement");
     }
@@ -85,14 +86,23 @@ class DirectPaymentClaimAuthorizationTests {
     void refusesMismatchedRequestAndTotalOrMissingFinancialSnapshot() {
         eligible();
         assertThatThrownBy(() -> guard.authorize(
-                org, order, UUID.randomUUID(), BigDecimal.valueOf(10300), context()))
+                org, order, UUID.randomUUID(), BigDecimal.valueOf(10300), context(), TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10301), context()))
+                org, order, requestId, BigDecimal.valueOf(10301), context(), TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, null, context()))
+                org, order, requestId, null, context(), TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void rejectsRevokedTokenAtTheLockedOrderBoundary() {
+        eligible();
+        assertThatThrownBy(() -> guard.authorize(
+                org, order, requestId, BigDecimal.valueOf(10300), context(), "short"))
+                .isInstanceOf(ApiException.class);
+        verifyNoInteractions(obligations, jdbc);
     }
 
     @Test

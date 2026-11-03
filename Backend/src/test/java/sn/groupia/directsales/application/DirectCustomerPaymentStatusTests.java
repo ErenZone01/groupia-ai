@@ -47,13 +47,19 @@ class DirectCustomerPaymentStatusTests {
     }
 
     private void snapshot(String orderStatus, UUID request, UUID receipt, Long accepted) {
+        snapshot(orderStatus, request, receipt, accepted,
+                request == null ? null : receipt == null ? "OPEN" : "CLOSED");
+    }
+
+    private void snapshot(
+            String orderStatus, UUID request, UUID receipt, Long accepted, String acceptance) {
         when(jdbc.query(
                         contains("where d.recovery_token_hash=?"),
                         any(RowMapper.class), anyString()))
                 .thenReturn(List.of(new DirectCustomerPaymentStatus.Snapshot(
                         organization, order, "DIR-000000000001", orderStatus, "XOF",
                         accepted, request,
-                        request == null ? null : receipt == null ? "OPEN" : "CLOSED",
+                        acceptance,
                         accepted == null ? null : BigDecimal.valueOf(accepted),
                         NOW.plusSeconds(3600), receipt,
                         receipt == null ? null : BigDecimal.valueOf(10300),
@@ -111,9 +117,19 @@ class DirectCustomerPaymentStatusTests {
 
     @Test
     void settledButNotRecordedIsOnlyProcessing() {
-        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L);
+        // A settled obligation is CLOSED even if the asynchronous immutable receipt
+        // is not written yet; it must never be advertised as verified.
+        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L, "CLOSED");
         state(PaymentOperationalStatus.SETTLED, paymentId, false);
         assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("SETTLEMENT_PROCESSING");
+        verify(payments, never()).settlementEvidence(any(), any());
+    }
+
+    @Test
+    void settledRequestWithContradictoryOpenAcceptanceFailsClosed() {
+        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L, "OPEN");
+        state(PaymentOperationalStatus.SETTLED, paymentId, false);
+        assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("REVIEW_REQUIRED");
         verify(payments, never()).settlementEvidence(any(), any());
     }
 

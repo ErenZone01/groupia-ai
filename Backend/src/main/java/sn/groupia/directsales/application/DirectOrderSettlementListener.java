@@ -114,7 +114,8 @@ public class DirectOrderSettlementListener {
                                         rs.getLong("accepted_total_xof"),
                                         rs.getTimestamp("payment_confirmed_at") == null
                                                 ? null
-                                                : rs.getTimestamp("payment_confirmed_at").toInstant()),
+                                                : rs.getTimestamp("payment_confirmed_at")
+                                                        .toInstant()),
                         org,
                         directOrderId);
         if (orders.isEmpty()) {

@@ -64,10 +64,7 @@ class DirectOrderCancellationTests {
 
     private void safe(List<UUID> requests) {
         when(jdbc.queryForObject(
-                        contains("select exists("),
-                        eq(Boolean.class),
-                        eq(org),
-                        eq(orderId)))
+                        contains("select exists("), eq(Boolean.class), eq(org), eq(orderId)))
                 .thenReturn(false);
         when(jdbc.query(
                         contains("select id from payment_requests"),
@@ -104,12 +101,13 @@ class DirectOrderCancellationTests {
         assertThat(subject.cancel(org, orderId).status()).isEqualTo("CANCELLED");
 
         verify(payments).cancelDirectUnpaidRequest(org, requestId, orderId);
-        verify(jdbc).update(
-                contains("update direct_orders"),
-                eq(Timestamp.from(NOW)),
-                eq(actor),
-                eq(org),
-                eq(orderId));
+        verify(jdbc)
+                .update(
+                        contains("update direct_orders"),
+                        eq(Timestamp.from(NOW)),
+                        eq(actor),
+                        eq(org),
+                        eq(orderId));
     }
 
     @Test
@@ -128,10 +126,7 @@ class DirectOrderCancellationTests {
     void settlementEvidenceBlocksCancellation() {
         order("PENDING_PAYMENT_INTEGRATION", null);
         when(jdbc.queryForObject(
-                        contains("select exists("),
-                        eq(Boolean.class),
-                        eq(org),
-                        eq(orderId)))
+                        contains("select exists("), eq(Boolean.class), eq(org), eq(orderId)))
                 .thenReturn(true);
 
         assertThatThrownBy(() -> subject.cancel(org, orderId))

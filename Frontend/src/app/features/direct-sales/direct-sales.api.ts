@@ -84,6 +84,17 @@ export interface DirectTrackingView {
   placedAt: string;
 }
 
+export interface DirectCustomerFinancialStatus {
+  orderNumber: string;
+  currency: 'XOF';
+  acceptedTotalXof: number | null;
+  preparationStatus: string;
+  paymentAvailable: false;
+  financialStatus:
+    | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
+    | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+}
+
 export interface DirectDraftReceipt {
   orderNumber: string;
   status: 'PENDING_PAYMENT_INTEGRATION';
@@ -247,6 +258,13 @@ export class DirectSalesApi {
   trackDirectOrder(token: string) {
     return firstValueFrom(this.http.post<DirectTrackingView>(
       '/api/public/direct-orders/lookup',
+      { token },
+    ).pipe(timeout(15000)));
+  }
+
+  directPaymentStatus(token: string) {
+    return firstValueFrom(this.http.post<DirectCustomerFinancialStatus>(
+      '/api/public/direct-orders/payment-status',
       { token },
     ).pipe(timeout(15000)));
   }

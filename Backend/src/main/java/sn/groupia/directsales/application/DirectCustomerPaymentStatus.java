@@ -104,7 +104,7 @@ public class DirectCustomerPaymentStatus {
         }
         Snapshot saved = matches.getFirst();
         String financial = financialStatus(saved);
-        String preparation = preparationStatus(saved, financial);
+        String preparation = preparationStatus(financial);
         return new Status(saved.orderNumber(), saved.currency(), saved.acceptedTotalXof(),
                 preparation, false, financial);
     }
@@ -128,6 +128,9 @@ public class DirectCustomerPaymentStatus {
                 || !Objects.equals(request.organizationId(), saved.organizationId())
                 || !Objects.equals(request.target(), PaymentTarget.directOrder(saved.orderId()))
                 || request.purpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
+                || request.acceptanceStatus() == null
+                || !request.acceptanceStatus().name().equals(saved.acceptanceStatus())
+                || !Objects.equals(request.expiresAt(), saved.expiresAt())
                 || !"XOF".equals(request.currency())
                 || request.expectedAmount() == null
                 || request.expectedAmount().compareTo(total) != 0
@@ -194,7 +197,7 @@ public class DirectCustomerPaymentStatus {
         return "PREPARED";
     }
 
-    private String preparationStatus(Snapshot saved, String financial) {
+    private String preparationStatus(String financial) {
         if ("NOT_PREPARED".equals(financial)) return "NOT_PREPARED";
         if ("PREPARED".equals(financial)) return "PREPARED";
         if ("EXPIRED".equals(financial)) return "EXPIRED";

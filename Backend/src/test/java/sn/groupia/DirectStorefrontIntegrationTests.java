@@ -494,6 +494,12 @@ class DirectStorefrontIntegrationTests {
                                 || detail.at("/order/acceptedTotalXof").isMissingNode())
                 .isTrue();
         assertThat(detail.at("/platformFeeRule/amount").asText()).isEqualTo("300");
+        mvc.perform(get(merchantPath + "/" + orderId + "/payment-status"))
+                .andExpect(status().isUnauthorized());
+        authorized(get(merchantPath + "/" + orderId + "/payment-status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("NOT_PREPARED"))
+                .andExpect(jsonPath("$.fulfillmentAllowed").value(false));
 
         var secondBearer = token(account("+221781234567"));
         UUID secondOrg = organization(secondBearer, "Seconde boutique");
@@ -1244,6 +1250,11 @@ class DirectStorefrontIntegrationTests {
         assertThat(preparedObligation.get("acceptance_status")).isEqualTo("OPEN");
 
         String merchantOrdersPath = "/api/organizations/" + organizationId + "/direct-orders";
+        authorized(get(merchantOrdersPath + "/" + acceptedOrderId + "/payment-status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("PREPARED"))
+                .andExpect(jsonPath("$.acceptedTotalXof").value(acceptedPrice))
+                .andExpect(jsonPath("$.fulfillmentAllowed").value(false));
         var acceptedMerchantDetail =
                 body(
                         authorized(get(merchantOrdersPath + "/" + acceptedOrderId))

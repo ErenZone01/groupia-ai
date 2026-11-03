@@ -2,8 +2,8 @@ package sn.groupia.directsales.application;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -21,8 +21,8 @@ import sn.groupia.payment.api.dto.PaymentSettlementEvidence;
 import sn.groupia.payment.api.event.PaymentObligationSettled;
 
 /**
- * Records canonical payment evidence and marks direct orders financially confirmed.
- * Neither this state nor the durable receipt authorizes fulfillment or payouts.
+ * Records canonical payment evidence and marks direct orders financially confirmed. Neither this
+ * state nor the durable receipt authorizes fulfillment or payouts.
  */
 @Component
 public class DirectOrderSettlementListener {

@@ -16,7 +16,7 @@ import sn.groupia.shared.api.ApiException;
 /** Merchant cancellation of unpaid direct orders, serializing with payment preparation. */
 @Service
 public class DirectOrderCancellation {
-    private record Order(String number, String status, Instant cancelledAt) {}
+    record Order(String number, String status, Instant cancelledAt) {}
 
     public record Receipt(String orderNumber, String status, Instant cancelledAt) {}
 

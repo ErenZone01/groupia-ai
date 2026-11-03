@@ -23,6 +23,7 @@ import sn.groupia.shared.api.ApiException;
 class DirectPaymentClaimEnabledTests {
     private static final Instant NOW = Instant.parse("2026-11-03T12:00:00Z");
     private static final String KEY = "direct-checkout-key-0001";
+    private static final String TOKEN_HASH = "a".repeat(64);
     private final UUID org = UUID.randomUUID();
     private final UUID order = UUID.randomUUID();
     private final FinancialStore store = mock(FinancialStore.class);
@@ -47,7 +48,7 @@ class DirectPaymentClaimEnabledTests {
         var transactions = new PaymentTransactions(
                 store, null, Clock.fixed(NOW, ZoneOffset.UTC), null, null, null, guards, false);
         assertThatThrownBy(() -> transactions.claim(
-                org, req.getId(), "BICTORYS", "sandbox", KEY, context))
+                org, req.getId(), "BICTORYS", "sandbox", KEY, context, TOKEN_HASH))
                 .isInstanceOf(ApiException.class).hasMessageContaining("pas encore disponible");
         verifyNoInteractions(guards, guard);
         verify(store, never()).lockRequest(any());
@@ -59,7 +60,7 @@ class DirectPaymentClaimEnabledTests {
         var transactions = new PaymentTransactions(
                 store, null, Clock.fixed(NOW, ZoneOffset.UTC), null, null, null, guards, true);
         assertThatThrownBy(() -> transactions.claim(
-                org, req.getId(), "ANOTHER_GATEWAY", "other", KEY, context))
+                org, req.getId(), "ANOTHER_GATEWAY", "other", KEY, context, TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(guards, guard);
         verify(store, never()).lockRequest(any());
@@ -72,8 +73,20 @@ class DirectPaymentClaimEnabledTests {
         var transactions = new PaymentTransactions(
                 store, null, Clock.fixed(NOW, ZoneOffset.UTC), null, null, null, guards, true);
         assertThatThrownBy(() -> transactions.claim(
+                org, req.getId(), "BICTORYS", "sandbox", KEY, context, TOKEN_HASH))
+                .isInstanceOf(ApiException.class);
+        verify(store, never()).lockRequest(any());
+    }
+
+    @Test
+    void genericPaymentApiCannotStartDirectClaimEvenWhenEnabled() {
+        PaymentRequest req = prepared();
+        var transactions = new PaymentTransactions(
+                store, null, Clock.fixed(NOW, ZoneOffset.UTC), null, null, null, guards, true);
+        assertThatThrownBy(() -> transactions.claim(
                 org, req.getId(), "BICTORYS", "sandbox", KEY, context))
                 .isInstanceOf(ApiException.class);
+        verifyNoInteractions(guards, guard);
         verify(store, never()).lockRequest(any());
     }
 
@@ -81,7 +94,7 @@ class DirectPaymentClaimEnabledTests {
     void canonicalGuardRunsBeforeFinancialRequestLockAndAttemptCreation() {
         PaymentRequest req = prepared();
         when(guards.getIfAvailable()).thenReturn(guard);
-        when(guard.authorize(org, order, req.getId(), req.getExpectedAmount(), context))
+        when(guard.authorize(org, order, req.getId(), req.getExpectedAmount(), context, TOKEN_HASH))
                 .thenReturn(context);
         when(store.lockRequest(req.getId())).thenReturn(req);
         when(store.attempt(req.getId(), KEY)).thenReturn(Optional.empty());
@@ -89,12 +102,12 @@ class DirectPaymentClaimEnabledTests {
         var transactions = new PaymentTransactions(
                 store, null, Clock.fixed(NOW, ZoneOffset.UTC), null, null, null, guards, true);
         var claim = transactions.claim(
-                org, req.getId(), "BICTORYS", "sandbox", KEY, context);
+                org, req.getId(), "BICTORYS", "sandbox", KEY, context, TOKEN_HASH);
         assertThat(claim.owned()).isTrue();
         assertThat(claim.instruction().checkout()).isEqualTo(context);
         var orderOfOperations = inOrder(guard, store);
         orderOfOperations.verify(guard).authorize(
-                org, order, req.getId(), req.getExpectedAmount(), context);
+                org, order, req.getId(), req.getExpectedAmount(), context, TOKEN_HASH);
         orderOfOperations.verify(store).lockRequest(req.getId());
         verify(store).add(any(sn.groupia.payment.domain.model.Payment.class));
     }

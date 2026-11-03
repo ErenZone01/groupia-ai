@@ -32,8 +32,10 @@ public class DirectOrderSettlementListener {
             UUID requestId,
             UUID paymentId,
             BigDecimal amount,
+            String currency,
             String provider,
-            String transactionId) {}
+            String transactionId,
+            Instant confirmedAt) {}
 
     private final JdbcTemplate jdbc;
     private final PaymentOperations payments;
@@ -128,8 +130,8 @@ public class DirectOrderSettlementListener {
 
         List<Receipt> saved =
                 jdbc.query(
-                        "select payment_request_id,payment_id,amount_xof,provider,"
-                                + "provider_transaction_id"
+                        "select payment_request_id,payment_id,amount_xof,currency,provider,"
+                                + "provider_transaction_id,confirmed_at"
                                 + " from direct_order_verified_settlements"
                                 + " where organization_id=? and direct_order_id=?",
                         (rs, row) ->
@@ -137,8 +139,10 @@ public class DirectOrderSettlementListener {
                                         rs.getObject("payment_request_id", UUID.class),
                                         rs.getObject("payment_id", UUID.class),
                                         rs.getBigDecimal("amount_xof"),
+                                        rs.getString("currency"),
                                         rs.getString("provider"),
-                                        rs.getString("provider_transaction_id")),
+                                        rs.getString("provider_transaction_id"),
+                                        rs.getTimestamp("confirmed_at").toInstant()),
                         org,
                         directOrderId);
         if (!saved.isEmpty()) {
@@ -146,8 +150,10 @@ public class DirectOrderSettlementListener {
             if (!existing.requestId().equals(proof.paymentRequestId())
                     || !existing.paymentId().equals(proof.paymentId())
                     || existing.amount().compareTo(proof.amount()) != 0
+                    || !existing.currency().equals(proof.currency())
                     || !existing.provider().equals(proof.provider())
-                    || !existing.transactionId().equals(proof.providerTransactionId())) {
+                    || !existing.transactionId().equals(proof.providerTransactionId())
+                    || !existing.confirmedAt().equals(proof.confirmedAt())) {
                 throw new IllegalStateException("Contradictory direct settlement replay");
             }
         } else {
@@ -155,22 +161,22 @@ public class DirectOrderSettlementListener {
                 throw new IllegalStateException("Confirmed direct order has no settlement receipt");
             }
             jdbc.update(
-                "insert into direct_order_verified_settlements"
-                        + " (id,event_id,organization_id,direct_order_id,payment_request_id,"
-                        + "payment_id,amount_xof,currency,provider,provider_transaction_id,"
-                        + "confirmed_at,recorded_at) values (?,?,?,?,?,?,?,?,?,?,?,?)",
-                UUID.randomUUID(),
-                event.eventId(),
-                org,
-                directOrderId,
-                proof.paymentRequestId(),
-                proof.paymentId(),
-                proof.amount(),
-                proof.currency(),
-                proof.provider(),
-                proof.providerTransactionId(),
-                Timestamp.from(proof.confirmedAt()),
-                Timestamp.from(clock.instant()));
+                    "insert into direct_order_verified_settlements"
+                            + " (id,event_id,organization_id,direct_order_id,payment_request_id,"
+                            + "payment_id,amount_xof,currency,provider,provider_transaction_id,"
+                            + "confirmed_at,recorded_at) values (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    UUID.randomUUID(),
+                    event.eventId(),
+                    org,
+                    directOrderId,
+                    proof.paymentRequestId(),
+                    proof.paymentId(),
+                    proof.amount(),
+                    proof.currency(),
+                    proof.provider(),
+                    proof.providerTransactionId(),
+                    Timestamp.from(proof.confirmedAt()),
+                    Timestamp.from(clock.instant()));
         }
 
         if ("PAYMENT_CONFIRMED".equals(order.status())) {

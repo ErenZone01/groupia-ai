@@ -41,8 +41,7 @@ class DirectOrderSettlementListenerTests {
         jdbc = mock(JdbcTemplate.class);
         payments = mock(PaymentOperations.class);
         listener =
-                new DirectOrderSettlementListener(
-                        jdbc, payments, Clock.fixed(NOW, ZoneOffset.UTC));
+                new DirectOrderSettlementListener(jdbc, payments, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private PaymentObligationSettled event() {
@@ -83,11 +82,7 @@ class DirectOrderSettlementListenerTests {
         when(row.getString("status")).thenReturn("PENDING_PAYMENT_INTEGRATION");
         when(row.getString("currency")).thenReturn("XOF");
         when(row.getLong("accepted_total_xof")).thenReturn(total);
-        when(jdbc.query(
-                        contains("from direct_orders"),
-                        any(RowMapper.class),
-                        eq(org),
-                        eq(order)))
+        when(jdbc.query(contains("from direct_orders"), any(RowMapper.class), eq(org), eq(order)))
                 .thenAnswer(
                         invocation -> {
                             RowMapper<?> mapper = invocation.getArgument(1);
@@ -152,7 +147,9 @@ class DirectOrderSettlementListenerTests {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("amount/status mismatch");
         verify(jdbc, never())
-                .update(contains("insert into direct_order_verified_settlements"), any(Object[].class));
+                .update(
+                        contains("insert into direct_order_verified_settlements"),
+                        any(Object[].class));
     }
 
     @Test
@@ -179,7 +176,9 @@ class DirectOrderSettlementListenerTests {
         listener.on(event());
 
         verify(jdbc, never())
-                .update(contains("insert into direct_order_verified_settlements"), any(Object[].class));
+                .update(
+                        contains("insert into direct_order_verified_settlements"),
+                        any(Object[].class));
     }
 
     @Test

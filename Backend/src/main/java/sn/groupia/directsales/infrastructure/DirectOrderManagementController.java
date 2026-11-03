@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import sn.groupia.directsales.application.DirectMerchantPaymentReadiness;
 import sn.groupia.directsales.application.DirectOrderQueries;
 
 /** Private merchant reads only; no public order/token access is exposed. */
@@ -15,9 +16,12 @@ import sn.groupia.directsales.application.DirectOrderQueries;
 @RequestMapping("/api/organizations/{organizationId}/direct-orders")
 class DirectOrderManagementController {
     private final DirectOrderQueries orders;
+    private final DirectMerchantPaymentReadiness paymentReadiness;
 
-    DirectOrderManagementController(DirectOrderQueries orders) {
+    DirectOrderManagementController(
+            DirectOrderQueries orders, DirectMerchantPaymentReadiness paymentReadiness) {
         this.orders = orders;
+        this.paymentReadiness = paymentReadiness;
     }
 
     @GetMapping
@@ -29,6 +33,15 @@ class DirectOrderManagementController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(orders.list(organizationId, page, size));
+    }
+
+    @GetMapping("/{orderId}/payment-status")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "getDirectOrderPaymentReadiness")
+    ResponseEntity<DirectMerchantPaymentReadiness.Status> paymentStatus(
+            @PathVariable UUID organizationId, @PathVariable UUID orderId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(paymentReadiness.get(organizationId, orderId));
     }
 
     @GetMapping("/{orderId}")

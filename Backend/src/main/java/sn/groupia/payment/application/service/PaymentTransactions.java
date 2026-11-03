@@ -674,8 +674,7 @@ public class PaymentTransactions {
                 || state.attemptInProgress()
                 || state.reconciliationRequired()
                 || (state.operationalStatus() != PaymentOperationalStatus.PENDING
-                        && state.operationalStatus()
-                                != PaymentOperationalStatus.TERMINAL_UNPAID)) {
+                        && state.operationalStatus() != PaymentOperationalStatus.TERMINAL_UNPAID)) {
             throw new ApiException(
                     409,
                     "DIRECT_PAYMENT_CANCELLATION_BLOCKED",

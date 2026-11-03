@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import sn.groupia.directsales.application.DirectMerchantPaymentReadiness;
 import sn.groupia.directsales.application.DirectOrderCancellation;
 import sn.groupia.directsales.application.DirectOrderPreparation;
+import sn.groupia.directsales.application.DirectOrderReadiness;
 import sn.groupia.directsales.application.DirectOrderQueries;
 
 /** Private merchant reads only; no public order/token access is exposed. */
@@ -22,16 +23,19 @@ class DirectOrderManagementController {
     private final DirectMerchantPaymentReadiness paymentReadiness;
     private final DirectOrderCancellation cancellations;
     private final DirectOrderPreparation preparation;
+    private final DirectOrderReadiness readiness;
 
     DirectOrderManagementController(
             DirectOrderQueries orders,
             DirectMerchantPaymentReadiness paymentReadiness,
             DirectOrderCancellation cancellations,
-            DirectOrderPreparation preparation) {
+            DirectOrderPreparation preparation,
+            DirectOrderReadiness readiness) {
         this.orders = orders;
         this.paymentReadiness = paymentReadiness;
         this.cancellations = cancellations;
         this.preparation = preparation;
+        this.readiness = readiness;
     }
 
     @GetMapping
@@ -43,6 +47,15 @@ class DirectOrderManagementController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(orders.list(organizationId, page, size));
+    }
+
+    @PostMapping("/{orderId}/mark-ready")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "markDirectOrderReady")
+    ResponseEntity<DirectOrderReadiness.Receipt> markReady(
+            @PathVariable UUID organizationId, @PathVariable UUID orderId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(readiness.markReady(organizationId, orderId));
     }
 
     @PostMapping("/{orderId}/start-preparation")

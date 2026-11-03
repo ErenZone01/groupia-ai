@@ -57,7 +57,12 @@ class DirectMerchantPaymentReadinessTests {
                 .thenReturn(
                         List.of(
                                 new DirectMerchantPaymentReadiness.Snapshot(
-                                        "DIR-000000000001", "XOF", 10300L, request, settled, amount)));
+                                        "DIR-000000000001",
+                                        "XOF",
+                                        10300L,
+                                        request,
+                                        settled,
+                                        amount)));
     }
 
     private PaymentRequestView obligation(UUID settled) {
@@ -154,8 +159,7 @@ class DirectMerchantPaymentReadinessTests {
         state(PaymentOperationalStatus.SETTLED, paymentId);
         when(payments.settlementEvidence(organization, requestId)).thenReturn(proof(true));
 
-        assertThat(subject.get(organization, order).financialStatus())
-                .isEqualTo("REVIEW_REQUIRED");
+        assertThat(subject.get(organization, order).financialStatus()).isEqualTo("REVIEW_REQUIRED");
         assertThat(subject.get(organization, order).fulfillmentAllowed()).isFalse();
 
         when(payments.settlementEvidence(organization, requestId))
@@ -177,8 +181,7 @@ class DirectMerchantPaymentReadinessTests {
                                 NOW.minusSeconds(20),
                                 NOW.plusSeconds(3600),
                                 false));
-        assertThat(subject.get(organization, order).financialStatus())
-                .isEqualTo("REVIEW_REQUIRED");
+        assertThat(subject.get(organization, order).financialStatus()).isEqualTo("REVIEW_REQUIRED");
     }
 
     @Test
@@ -186,8 +189,7 @@ class DirectMerchantPaymentReadinessTests {
         snapshot(requestId, paymentId, BigDecimal.valueOf(10300));
         state(PaymentOperationalStatus.REVIEW_REQUIRED, paymentId);
 
-        assertThat(subject.get(organization, order).financialStatus())
-                .isEqualTo("REVIEW_REQUIRED");
+        assertThat(subject.get(organization, order).financialStatus()).isEqualTo("REVIEW_REQUIRED");
         verify(payments, never()).settlementEvidence(any(), any());
     }
 

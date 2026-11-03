@@ -26,7 +26,11 @@ public class DirectOrderSettlementListener {
     private record Order(String status, String currency, long total) {}
 
     private record Receipt(
-            UUID requestId, UUID paymentId, BigDecimal amount, String provider, String transactionId) {}
+            UUID requestId,
+            UUID paymentId,
+            BigDecimal amount,
+            String provider,
+            String transactionId) {}
 
     private final JdbcTemplate jdbc;
     private final PaymentOperations payments;
@@ -50,7 +54,8 @@ public class DirectOrderSettlementListener {
         UUID org = event.organizationId();
         UUID directOrderId = event.target().id();
         // Never trust the event alone. The payment module owns verified gateway evidence.
-        PaymentSettlementEvidence proof = payments.settlementEvidence(org, event.paymentRequestId());
+        PaymentSettlementEvidence proof =
+                payments.settlementEvidence(org, event.paymentRequestId());
         if (!Objects.equals(proof.organizationId(), org)
                 || !Objects.equals(proof.paymentRequestId(), event.paymentRequestId())
                 || !Objects.equals(proof.paymentId(), event.paymentId())

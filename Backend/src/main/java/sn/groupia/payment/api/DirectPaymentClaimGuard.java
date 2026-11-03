@@ -15,5 +15,6 @@ public interface DirectPaymentClaimGuard {
             UUID directOrderId,
             UUID paymentRequestId,
             BigDecimal amount,
-            PaymentCheckoutContext checkoutContext);
+            PaymentCheckoutContext checkoutContext,
+            String recoveryTokenHash);
 }

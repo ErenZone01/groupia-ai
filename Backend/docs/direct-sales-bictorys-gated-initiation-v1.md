@@ -21,11 +21,15 @@ The server:
    shipping quote, tenant, expiry and current delivery coverage. The locked
    financial obligation is then verified for exact matching reference,
    target, amount, currency, payer and acceptance state.
-5. Writes an idempotent payment attempt under the payment-request lock. A
+5. Rechecks the recovery token **hash under the locked order**, so a capability
+   rotated concurrently cannot initiate after its revocation. The generic
+   payment initiation API is incapable of bypassing the token-bound direct-only
+   API, even with the feature flag on.
+6. Writes an idempotent payment attempt under the payment-request lock. A
    conflicting or unresolved attempt blocks any second provider initiation.
    Only after that transaction commits can the existing Bictorys adapter
    initiate an external charge.
-6. Delegates all eventual success evidence to the existing authenticated
+7. Delegates all eventual success evidence to the existing authenticated
    webhook/reconciliation path and immutable direct-order settlement listener.
    Neither an initiation response nor a redirect URL is proof of payment.
 

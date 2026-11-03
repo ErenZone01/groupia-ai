@@ -136,8 +136,7 @@ class DirectOrderPreparationTests {
         settlement();
         state(PaymentOperationalStatus.SETTLED, false);
         when(payments.settlementEvidence(org, requestId)).thenReturn(proof(false));
-        when(jdbc.update(startsWith("update direct_orders d"), any(Object[].class)))
-                .thenReturn(1);
+        when(jdbc.update(startsWith("update direct_orders d"), any(Object[].class))).thenReturn(1);
     }
 
     @Test
@@ -230,8 +229,7 @@ class DirectOrderPreparationTests {
     @Test
     void aFailedConditionalUpdateCannotReportPreparationStarted() {
         safeFinancialEvidence();
-        when(jdbc.update(startsWith("update direct_orders d"), any(Object[].class)))
-                .thenReturn(0);
+        when(jdbc.update(startsWith("update direct_orders d"), any(Object[].class))).thenReturn(0);
 
         assertThatThrownBy(() -> subject.start(org, orderId))
                 .isInstanceOf(ApiException.class)

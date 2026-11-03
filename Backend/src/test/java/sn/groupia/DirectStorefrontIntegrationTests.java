@@ -1472,6 +1472,50 @@ class DirectStorefrontIntegrationTests {
                                                         2))))
                 .andExpect(status().isForbidden());
         assertThat(otherOrg).isNotEqualTo(organizationId);
+
+        String cancelPath = merchantOrdersPath + "/" + acceptedOrderId + "/cancel";
+        mvc.perform(post(cancelPath)).andExpect(status().isUnauthorized());
+        mvc.perform(post(cancelPath).header("Authorization", "Bearer " + second))
+                .andExpect(status().isForbidden());
+        authorized(post(cancelPath))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.orderNumber").exists())
+                .andExpect(jsonPath("$.cancelledAt").exists());
+        authorized(post(cancelPath))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from direct_orders where id=?",
+                                String.class,
+                                acceptedOrderId))
+                .isEqualTo("CANCELLED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select acceptance_status from payment_requests"
+                                        + " where direct_order_id=?",
+                                String.class,
+                                acceptedOrderId))
+                .isEqualTo("CANCELLED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from payments where payment_request_id"
+                                        + " in (select id from payment_requests"
+                                        + " where direct_order_id=?)",
+                                Long.class,
+                                acceptedOrderId))
+                .isZero();
+        authorized(get(merchantOrdersPath + "/" + acceptedOrderId + "/payment-status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("UNAVAILABLE"))
+                .andExpect(jsonPath("$.fulfillmentAllowed").value(false));
+        mvc.perform(
+                        post("/api/public/direct-orders/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("token", recoveryToken))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
 
     private JsonNode product(UUID organization, String authorization, String name)

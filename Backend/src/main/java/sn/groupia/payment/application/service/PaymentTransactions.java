@@ -659,6 +659,36 @@ public class PaymentTransactions {
         store.flush();
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void cancelDirectUnpaidRequest(UUID org, UUID id, UUID directOrderId) {
+        var request = scopedRequest(org, id);
+        request = store.lockRequest(request.getId());
+        if (request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
+                || !request.getTarget().equals(PaymentTarget.directOrder(directOrderId))) {
+            throw new ApiException(
+                    409, "DIRECT_PAYMENT_REQUEST_MISMATCH", "Obligation incompatible.");
+        }
+        PaymentRequestState state = state(request);
+        if (request.getAcceptanceStatus() != AcceptanceStatus.OPEN
+                || request.getSettledPaymentId() != null
+                || state.attemptInProgress()
+                || state.reconciliationRequired()
+                || (state.operationalStatus() != PaymentOperationalStatus.PENDING
+                        && state.operationalStatus() != PaymentOperationalStatus.TERMINAL_UNPAID)) {
+            throw new ApiException(
+                    409,
+                    "DIRECT_PAYMENT_CANCELLATION_BLOCKED",
+                    "Paiement en cours, réglé ou à vérifier : annulation impossible.");
+        }
+        if (!request.cancel(clock.instant())) {
+            throw new ApiException(
+                    409,
+                    "DIRECT_PAYMENT_CANCELLATION_BLOCKED",
+                    "Paiement déjà réglé : annulation impossible.");
+        }
+        store.flush();
+    }
+
     private PaymentObligationView obligation(PaymentRequest r) {
         boolean blocking =
                 !PaymentRisk.reasons(r, store.attempts(r.getId()), reviews.forRequest(r.getId()))

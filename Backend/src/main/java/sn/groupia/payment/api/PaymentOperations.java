@@ -28,6 +28,9 @@ public interface PaymentOperations {
 
     void cancelShippingRequest(UUID organizationId, UUID paymentRequestId);
 
+    /** Caller holds the direct order lock; rejects attempts, reviews and settled requests. */
+    void cancelDirectUnpaidRequest(UUID organizationId, UUID paymentRequestId, UUID directOrderId);
+
     PaymentRequestView createRequest(CreatePaymentRequest command);
 
     PaymentRequestView initialRequest(UUID organizationId, UUID orderId);

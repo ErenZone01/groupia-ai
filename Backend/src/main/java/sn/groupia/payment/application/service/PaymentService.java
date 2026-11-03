@@ -72,6 +72,12 @@ public class PaymentService implements PaymentOperations {
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void cancelDirectUnpaidRequest(UUID org, UUID requestId, UUID directOrderId) {
+        transactions.cancelDirectUnpaidRequest(org, requestId, directOrderId);
+    }
+
+    @Override
     public boolean cancelInitialAcceptance(UUID org, UUID order) {
         return transactions.cancel(org, order);
     }

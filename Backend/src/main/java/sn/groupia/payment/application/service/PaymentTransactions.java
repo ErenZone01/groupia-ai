@@ -98,6 +98,17 @@ public class PaymentTransactions {
             String account,
             String key,
             PaymentCheckoutContext context) {
+        return claim(org, requestId, provider, account, key, context, null);
+    }
+
+    public Claim claim(
+            UUID org,
+            UUID requestId,
+            String provider,
+            String account,
+            String key,
+            PaymentCheckoutContext context,
+            String recoveryTokenHash) {
         if (key == null || !key.strip().matches("[A-Za-z0-9._:-]{16,128}")) {
             throw new ApiException(
                     400,
@@ -106,12 +117,20 @@ public class PaymentTransactions {
         }
         key = key.strip();
         var request = scopedRequest(org, requestId);
+        if (request.getTarget().type() != PaymentTargetType.DIRECT_ORDER
+                && recoveryTokenHash != null) {
+            throw new ApiException(
+                    409, "PAYMENT_INITIATION_CONFLICT",
+                    "Ce jeton est incompatible avec cette obligation.");
+        }
         if (request.getTarget().type() == PaymentTargetType.DIRECT_ORDER) {
             // Default-deny and enforce storefront -> order -> financial request lock order.
             // Provider calls remain outside this transactional claim.
             if (!directPaymentEnabled || directGuard == null
                     || !"BICTORYS".equals(provider)
-                    || request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL) {
+                    || request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
+                    || recoveryTokenHash == null
+                    || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
                 throw new ApiException(
                         409, "DIRECT_PAYMENT_NOT_ENABLED",
                         "Le paiement des commandes directes n'est pas encore disponible.");
@@ -124,7 +143,7 @@ public class PaymentTransactions {
             }
             context = guard.authorize(
                     org, request.getTarget().id(), request.getId(),
-                    request.getExpectedAmount(), context);
+                    request.getExpectedAmount(), context, recoveryTokenHash);
         }
         List<PaymentObligationView> shippingStates = List.of();
         if (request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE) {

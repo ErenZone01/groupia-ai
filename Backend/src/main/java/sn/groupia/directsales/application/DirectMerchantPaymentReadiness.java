@@ -106,8 +106,7 @@ public class DirectMerchantPaymentReadiness {
         }
         if (saved.receiptPaymentId() != null) {
             if (state.operationalStatus() != PaymentOperationalStatus.SETTLED
-                    || !Objects.equals(
-                            request.settledPaymentId(), saved.receiptPaymentId())) {
+                    || !Objects.equals(request.settledPaymentId(), saved.receiptPaymentId())) {
                 return status(saved, "REVIEW_REQUIRED");
             }
             PaymentSettlementEvidence proof =

@@ -90,4 +90,40 @@ describe('Commandes directes : accès commerçant', () => {
     expect(page.items[0].amountBeforeShippingXof).toBe(8800);
   });
 
+  it('lit l’état financier serveur sans envoyer les coordonnées du client', async () => {
+    const pending = api.paymentStatus('boutique-1', 'commande-1');
+    const request = http.expectOne(
+      '/api/organizations/boutique-1/direct-orders/commande-1/payment-status',
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.has('X-Order-Tracking-Token')).toBe(false);
+    request.flush({
+      orderNumber: 'DIR-000000000001',
+      acceptedTotalXof: 8800,
+      financialStatus: 'SETTLEMENT_VERIFIED',
+      fulfillmentAllowed: false,
+    });
+    const status = await pending;
+    expect(status.financialStatus).toBe('SETTLEMENT_VERIFIED');
+    expect(status.fulfillmentAllowed).toBe(false);
+  });
+
+  it('ne transmet ni montant, ni statut imposé, ni jeton client dans les actions', async () => {
+    for (const [name, call] of [
+      ['cancel', () => api.cancel('boutique-1', 'commande-1')],
+      ['start-preparation', () => api.startPreparation('boutique-1', 'commande-1')],
+      ['mark-ready', () => api.markReady('boutique-1', 'commande-1')],
+    ] as const) {
+      const pending = call();
+      const request = http.expectOne(
+        '/api/organizations/boutique-1/direct-orders/commande-1/' + name,
+      );
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({});
+      expect(request.request.headers.has('X-Order-Tracking-Token')).toBe(false);
+      request.flush({ orderNumber: 'DIR-000000000001', status: 'PREPARING' });
+      expect((await pending).orderNumber).toBe('DIR-000000000001');
+    }
+  });
+
 });

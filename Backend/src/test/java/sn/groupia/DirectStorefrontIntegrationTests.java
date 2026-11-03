@@ -1513,9 +1513,7 @@ class DirectStorefrontIntegrationTests {
         mvc.perform(
                         post("/api/public/direct-orders/lookup")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        json.writeValueAsString(
-                                                Map.of("token", recoveryToken))))
+                                .content(json.writeValueAsString(Map.of("token", recoveryToken))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
     }

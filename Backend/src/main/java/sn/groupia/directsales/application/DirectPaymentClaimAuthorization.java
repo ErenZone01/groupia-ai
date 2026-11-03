@@ -43,9 +43,11 @@ public class DirectPaymentClaimAuthorization implements DirectPaymentClaimGuard 
             UUID directOrderId,
             UUID paymentRequestId,
             BigDecimal amount,
-            PaymentCheckoutContext checkoutContext) {
+            PaymentCheckoutContext checkoutContext,
+            String recoveryTokenHash) {
         if (organizationId == null || directOrderId == null || paymentRequestId == null
-                || amount == null || checkoutContext == null) {
+                || amount == null || checkoutContext == null
+                || recoveryTokenHash == null || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
             throw blocked();
         }
 
@@ -75,14 +77,15 @@ public class DirectPaymentClaimAuthorization implements DirectPaymentClaimGuard 
                         + "d.customer_contact_snapshot->>'phoneE164' as phone,"
                         + "d.customer_contact_snapshot->>'email' as email"
                         + " from direct_orders d where d.organization_id=? and d.id=?"
-                        + " and d.status='PENDING_PAYMENT_INTEGRATION'",
+                        + " and d.status='PENDING_PAYMENT_INTEGRATION'"
+                        + " and d.recovery_token_hash=?", 
                 (rs, row) -> new Contact(
                         rs.getString("order_number"),
                         rs.getString("first_name"),
                         rs.getString("last_name"),
                         rs.getString("phone"),
                         rs.getString("email")),
-                organizationId, directOrderId);
+                organizationId, directOrderId, recoveryTokenHash);
         if (contacts.size() != 1) throw blocked();
         Contact contact = contacts.getFirst();
         if (contact.number() == null

@@ -50,8 +50,7 @@ class DirectOrderReadinessTests {
         access = mock(OrganizationAccess.class);
         payments = mock(PaymentOperations.class);
         subject =
-                new DirectOrderReadiness(
-                        jdbc, access, payments, Clock.fixed(NOW, ZoneOffset.UTC));
+                new DirectOrderReadiness(jdbc, access, payments, Clock.fixed(NOW, ZoneOffset.UTC));
         when(access.requireActorPermission(org, OrganizationPermission.MANAGE_FULFILLMENT))
                 .thenReturn(actor);
         when(jdbc.query(

@@ -33,8 +33,9 @@ class DirectPaymentClaimAuthorizationTests {
 
     @BeforeEach
     void setUp() {
-        guard = new DirectPaymentClaimAuthorization(
-                obligations, jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+        guard =
+                new DirectPaymentClaimAuthorization(
+                        obligations, jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private void eligible() {
@@ -49,11 +50,19 @@ class DirectPaymentClaimAuthorizationTests {
         when(payment.expiresAt()).thenReturn(NOW.plusSeconds(3600));
         when(obligations.prepare(org, order)).thenReturn(payment);
         when(jdbc.query(
-                contains("from direct_orders d"),
-                any(RowMapper.class),
-                eq(org), eq(order), eq(TOKEN_HASH)))
-                .thenReturn(List.of(new DirectPaymentClaimAuthorization.Contact(
-                        "DIR-000000000001", "Awa", "Ndiaye", "+221771234567", null)));
+                        contains("from direct_orders d"),
+                        any(RowMapper.class),
+                        eq(org),
+                        eq(order),
+                        eq(TOKEN_HASH)))
+                .thenReturn(
+                        List.of(
+                                new DirectPaymentClaimAuthorization.Contact(
+                                        "DIR-000000000001",
+                                        "Awa",
+                                        "Ndiaye",
+                                        "+221771234567",
+                                        null)));
     }
 
     private PaymentCheckoutContext context() {
@@ -63,21 +72,40 @@ class DirectPaymentClaimAuthorizationTests {
     @Test
     void permitsOnlyCanonicalCustomerContextAfterRevalidatingUnderLocks() {
         eligible();
-        assertThat(guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), context(), TOKEN_HASH))
+        assertThat(
+                        guard.authorize(
+                                org,
+                                order,
+                                requestId,
+                                BigDecimal.valueOf(10300),
+                                context(),
+                                TOKEN_HASH))
                 .isEqualTo(context());
         verify(obligations).prepare(org, order);
-        verify(jdbc).query(contains("from direct_orders d"),
-                any(RowMapper.class), eq(org), eq(order), eq(TOKEN_HASH));
+        verify(jdbc)
+                .query(
+                        contains("from direct_orders d"),
+                        any(RowMapper.class),
+                        eq(org),
+                        eq(order),
+                        eq(TOKEN_HASH));
     }
 
     @Test
     void rejectsForgedCustomerIdentityBeforeClaim() {
         eligible();
         PaymentCheckoutContext forged =
-                new PaymentCheckoutContext("DIR-000000000001", "Autre Personne", "+221771234567", null);
-        assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), forged, TOKEN_HASH))
+                new PaymentCheckoutContext(
+                        "DIR-000000000001", "Autre Personne", "+221771234567", null);
+        assertThatThrownBy(
+                        () ->
+                                guard.authorize(
+                                        org,
+                                        order,
+                                        requestId,
+                                        BigDecimal.valueOf(10300),
+                                        forged,
+                                        TOKEN_HASH))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("conditions de paiement");
     }
@@ -85,22 +113,43 @@ class DirectPaymentClaimAuthorizationTests {
     @Test
     void refusesMismatchedRequestAndTotalOrMissingFinancialSnapshot() {
         eligible();
-        assertThatThrownBy(() -> guard.authorize(
-                org, order, UUID.randomUUID(), BigDecimal.valueOf(10300), context(), TOKEN_HASH))
+        assertThatThrownBy(
+                        () ->
+                                guard.authorize(
+                                        org,
+                                        order,
+                                        UUID.randomUUID(),
+                                        BigDecimal.valueOf(10300),
+                                        context(),
+                                        TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10301), context(), TOKEN_HASH))
+        assertThatThrownBy(
+                        () ->
+                                guard.authorize(
+                                        org,
+                                        order,
+                                        requestId,
+                                        BigDecimal.valueOf(10301),
+                                        context(),
+                                        TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, null, context(), TOKEN_HASH))
+        assertThatThrownBy(
+                        () -> guard.authorize(org, order, requestId, null, context(), TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
     }
 
     @Test
     void rejectsRevokedTokenAtTheLockedOrderBoundary() {
         eligible();
-        assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), context(), "short"))
+        assertThatThrownBy(
+                        () ->
+                                guard.authorize(
+                                        org,
+                                        order,
+                                        requestId,
+                                        BigDecimal.valueOf(10300),
+                                        context(),
+                                        "short"))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(obligations, jdbc);
     }
@@ -115,8 +164,15 @@ class DirectPaymentClaimAuthorizationTests {
         when(closed.purpose()).thenReturn(PaymentPurpose.DIRECT_ORDER_INITIAL);
         when(closed.acceptanceStatus()).thenReturn(AcceptanceStatus.CLOSED);
         when(obligations.prepare(org, order)).thenReturn(closed);
-        assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), context(), TOKEN_HASH))
+        assertThatThrownBy(
+                        () ->
+                                guard.authorize(
+                                        org,
+                                        order,
+                                        requestId,
+                                        BigDecimal.valueOf(10300),
+                                        context(),
+                                        TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
         verifyNoMoreInteractions(jdbc);
     }

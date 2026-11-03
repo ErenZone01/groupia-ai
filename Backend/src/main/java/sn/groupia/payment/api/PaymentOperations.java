@@ -20,9 +20,9 @@ public interface PaymentOperations {
             PaymentCheckoutContext context);
 
     /**
-     * Direct-only, capability-verified initiation. The token hash is rechecked under the order
-     * lock by DirectPaymentClaimGuard; the generic initiateRequest route remains unusable
-     * for direct orders, even when the explicit feature flag is enabled.
+     * Direct-only, capability-verified initiation. The token hash is rechecked under the order lock
+     * by DirectPaymentClaimGuard; the generic initiateRequest route remains unusable for direct
+     * orders, even when the explicit feature flag is enabled.
      */
     PaymentAttemptView initiateDirect(
             UUID organizationId,

@@ -105,20 +105,31 @@ public class PaymentService implements PaymentOperations {
     @Override
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiateDirect(
-            UUID org, UUID requestId, String key, String recoveryTokenHash,
+            UUID org,
+            UUID requestId,
+            String key,
+            String recoveryTokenHash,
             PaymentCheckoutContext context) {
-        return initiateRequestInternal(
-                org, requestId, "BICTORYS", key, context, recoveryTokenHash);
+        return initiateRequestInternal(org, requestId, "BICTORYS", key, context, recoveryTokenHash);
     }
 
     private PaymentAttemptView initiateRequestInternal(
-            UUID org, UUID requestId, String provider, String key,
-            PaymentCheckoutContext context, String recoveryTokenHash) {
+            UUID org,
+            UUID requestId,
+            String provider,
+            String key,
+            PaymentCheckoutContext context,
+            String recoveryTokenHash) {
         var adapter = providers.require(provider);
         var claim =
                 transactions.claim(
-                        org, requestId, adapter.name(), adapter.accountReference(),
-                        key, context, recoveryTokenHash);
+                        org,
+                        requestId,
+                        adapter.name(),
+                        adapter.accountReference(),
+                        key,
+                        context,
+                        recoveryTokenHash);
         if (!claim.owned()) {
             return claim.receipt();
         }

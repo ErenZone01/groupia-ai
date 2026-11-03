@@ -18,8 +18,8 @@ import sn.groupia.payment.api.dto.PaymentRequestView;
 import sn.groupia.shared.api.ApiException;
 
 /**
- * Runs inside the payment claim transaction. Reuses the complete order and regional verification
- * in DirectPaymentObligations, which locks storefront THEN order before any payment-request lock.
+ * Runs inside the payment claim transaction. Reuses the complete order and regional verification in
+ * DirectPaymentObligations, which locks storefront THEN order before any payment-request lock.
  */
 @Service
 public class DirectPaymentClaimAuthorization implements DirectPaymentClaimGuard {
@@ -45,9 +45,13 @@ public class DirectPaymentClaimAuthorization implements DirectPaymentClaimGuard 
             BigDecimal amount,
             PaymentCheckoutContext checkoutContext,
             String recoveryTokenHash) {
-        if (organizationId == null || directOrderId == null || paymentRequestId == null
-                || amount == null || checkoutContext == null
-                || recoveryTokenHash == null || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
+        if (organizationId == null
+                || directOrderId == null
+                || paymentRequestId == null
+                || amount == null
+                || checkoutContext == null
+                || recoveryTokenHash == null
+                || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
             throw blocked();
         }
 
@@ -70,43 +74,52 @@ public class DirectPaymentClaimAuthorization implements DirectPaymentClaimGuard 
             throw blocked();
         }
 
-        List<Contact> contacts = jdbc.query(
-                "select d.order_number,"
-                        + "d.customer_contact_snapshot->>'firstName' as first_name,"
-                        + "d.customer_contact_snapshot->>'lastName' as last_name,"
-                        + "d.customer_contact_snapshot->>'phoneE164' as phone,"
-                        + "d.customer_contact_snapshot->>'email' as email"
-                        + " from direct_orders d where d.organization_id=? and d.id=?"
-                        + " and d.status='PENDING_PAYMENT_INTEGRATION'"
-                        + " and d.recovery_token_hash=?", 
-                (rs, row) -> new Contact(
-                        rs.getString("order_number"),
-                        rs.getString("first_name"),
-                        rs.getString("last_name"),
-                        rs.getString("phone"),
-                        rs.getString("email")),
-                organizationId, directOrderId, recoveryTokenHash);
+        List<Contact> contacts =
+                jdbc.query(
+                        "select d.order_number,"
+                                + "d.customer_contact_snapshot->>'firstName' as first_name,"
+                                + "d.customer_contact_snapshot->>'lastName' as last_name,"
+                                + "d.customer_contact_snapshot->>'phoneE164' as phone,"
+                                + "d.customer_contact_snapshot->>'email' as email"
+                                + " from direct_orders d where d.organization_id=? and d.id=?"
+                                + " and d.status='PENDING_PAYMENT_INTEGRATION'"
+                                + " and d.recovery_token_hash=?",
+                        (rs, row) ->
+                                new Contact(
+                                        rs.getString("order_number"),
+                                        rs.getString("first_name"),
+                                        rs.getString("last_name"),
+                                        rs.getString("phone"),
+                                        rs.getString("email")),
+                        organizationId,
+                        directOrderId,
+                        recoveryTokenHash);
         if (contacts.size() != 1) throw blocked();
         Contact contact = contacts.getFirst();
         if (contact.number() == null
-                || contact.firstName() == null || contact.firstName().isBlank()
-                || contact.lastName() == null || contact.lastName().isBlank()
-                || contact.phone() == null || !contact.phone().matches("\\+[1-9][0-9]{7,14}")) {
+                || contact.firstName() == null
+                || contact.firstName().isBlank()
+                || contact.lastName() == null
+                || contact.lastName().isBlank()
+                || contact.phone() == null
+                || !contact.phone().matches("\\+[1-9][0-9]{7,14}")) {
             throw blocked();
         }
 
-        PaymentCheckoutContext canonical = new PaymentCheckoutContext(
-                contact.number(),
-                contact.firstName() + " " + contact.lastName(),
-                contact.phone(),
-                contact.email());
+        PaymentCheckoutContext canonical =
+                new PaymentCheckoutContext(
+                        contact.number(),
+                        contact.firstName() + " " + contact.lastName(),
+                        contact.phone(),
+                        contact.email());
         if (!canonical.equals(checkoutContext)) throw blocked();
         return canonical;
     }
 
     private static ApiException blocked() {
         return new ApiException(
-                409, "DIRECT_PAYMENT_ORDER_INELIGIBLE",
+                409,
+                "DIRECT_PAYMENT_ORDER_INELIGIBLE",
                 "La commande ne remplit pas les conditions de paiement sécurisé.");
     }
 }

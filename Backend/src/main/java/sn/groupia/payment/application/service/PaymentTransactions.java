@@ -2,10 +2,10 @@ package sn.groupia.payment.application.service;
 
 import java.time.*;
 import java.util.*;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.payment.api.*;
@@ -48,7 +48,8 @@ public class PaymentTransactions {
             sn.groupia.payment.domain.repository.RefundStore refunds,
             sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
             ObjectProvider<DirectPaymentClaimGuard> directGuard,
-            @Value("${groupia.direct-sales.payment-initiation.enabled:false}") boolean directPaymentEnabled) {
+            @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
+                    boolean directPaymentEnabled) {
         this.store = store;
         this.events = events;
         this.clock = clock;
@@ -120,30 +121,39 @@ public class PaymentTransactions {
         if (request.getTarget().type() != PaymentTargetType.DIRECT_ORDER
                 && recoveryTokenHash != null) {
             throw new ApiException(
-                    409, "PAYMENT_INITIATION_CONFLICT",
+                    409,
+                    "PAYMENT_INITIATION_CONFLICT",
                     "Ce jeton est incompatible avec cette obligation.");
         }
         if (request.getTarget().type() == PaymentTargetType.DIRECT_ORDER) {
             // Default-deny and enforce storefront -> order -> financial request lock order.
             // Provider calls remain outside this transactional claim.
-            if (!directPaymentEnabled || directGuard == null
+            if (!directPaymentEnabled
+                    || directGuard == null
                     || !"BICTORYS".equals(provider)
                     || request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
                     || recoveryTokenHash == null
                     || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
                 throw new ApiException(
-                        409, "DIRECT_PAYMENT_NOT_ENABLED",
+                        409,
+                        "DIRECT_PAYMENT_NOT_ENABLED",
                         "Le paiement des commandes directes n'est pas encore disponible.");
             }
             DirectPaymentClaimGuard guard = directGuard.getIfAvailable();
             if (guard == null) {
                 throw new ApiException(
-                        409, "DIRECT_PAYMENT_NOT_ENABLED",
+                        409,
+                        "DIRECT_PAYMENT_NOT_ENABLED",
                         "Le paiement des commandes directes n'est pas encore disponible.");
             }
-            context = guard.authorize(
-                    org, request.getTarget().id(), request.getId(),
-                    request.getExpectedAmount(), context, recoveryTokenHash);
+            context =
+                    guard.authorize(
+                            org,
+                            request.getTarget().id(),
+                            request.getId(),
+                            request.getExpectedAmount(),
+                            context,
+                            recoveryTokenHash);
         }
         List<PaymentObligationView> shippingStates = List.of();
         if (request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE) {

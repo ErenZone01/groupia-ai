@@ -116,7 +116,7 @@ class DirectPaymentClaimAuthorizationTests {
         when(closed.acceptanceStatus()).thenReturn(AcceptanceStatus.CLOSED);
         when(obligations.prepare(org, order)).thenReturn(closed);
         assertThatThrownBy(() -> guard.authorize(
-                org, order, requestId, BigDecimal.valueOf(10300), context()))
+                org, order, requestId, BigDecimal.valueOf(10300), context(), TOKEN_HASH))
                 .isInstanceOf(ApiException.class);
         verifyNoMoreInteractions(jdbc);
     }

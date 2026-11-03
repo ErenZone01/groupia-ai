@@ -159,8 +159,7 @@ public class DirectOrderSettlementListener {
                 throw new IllegalStateException("Contradictory direct settlement replay");
             }
         } else {
-            if ("PAYMENT_CONFIRMED".equals(order.status())
-                    || "PREPARING".equals(order.status())) {
+            if ("PAYMENT_CONFIRMED".equals(order.status()) || "PREPARING".equals(order.status())) {
                 throw new IllegalStateException("Confirmed direct order has no settlement receipt");
             }
             jdbc.update(
@@ -182,8 +181,7 @@ public class DirectOrderSettlementListener {
                     Timestamp.from(clock.instant()));
         }
 
-        if ("PAYMENT_CONFIRMED".equals(order.status())
-                || "PREPARING".equals(order.status())) {
+        if ("PAYMENT_CONFIRMED".equals(order.status()) || "PREPARING".equals(order.status())) {
             if (!Objects.equals(order.confirmedAt(), proof.confirmedAt())) {
                 throw new IllegalStateException("Direct order confirmation timestamp mismatch");
             }

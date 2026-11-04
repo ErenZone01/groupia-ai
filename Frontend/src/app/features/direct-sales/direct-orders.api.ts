@@ -36,11 +36,11 @@ export interface DirectOrderDetail {
   };
   deliveryAddress: {
     country: string;
-    region: string;
-    city: string;
-    commune: string;
+    region: string | null;
+    city: string | null;
+    commune: string | null;
     neighborhood: string | null;
-    details: string;
+    details: string | null;
     locationMethod: 'MAP' | 'MANUAL' | null;
     coverageStatus: 'REGION_MATCHED' | 'UNVERIFIED_MANUAL' | null;
     latitude: number | null;

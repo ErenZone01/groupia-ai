@@ -102,6 +102,22 @@ describe('Vente directe : suivi client avec jeton secret', () => {
     expect(page.orderLabel('READY_FOR_PICKUP')).toContain('suspendu');
   });
 
+  it('affiche un paiement initié en attente sans ouvrir une nouvelle charge', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'UNAVAILABLE',
+      financialStatus: 'PAYMENT_IN_PROGRESS', paymentAvailable: false,
+    });
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.financial()?.financialStatus).toBe('PAYMENT_IN_PROGRESS'));
+    expect(page.paymentLabel()).toContain('Paiement en cours');
+    expect(page.paymentLabel()).not.toContain('manuelle');
+    expect(page.canPay()).toBe(false);
+    await page.pay();
+    expect(initiatePayment).not.toHaveBeenCalled();
+  });
+
   it('n’envoie jamais une tentative quand le backend interdit le paiement', async () => {
     fragment.next('access=' + token);
     const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());

@@ -259,8 +259,8 @@ public class DirectOrderQueries {
     }
 
     /**
-     * Never interpret a legacy/manual address or an untrusted text field as a verified
-     * delivery pin. Coordinates are exposed only in the tenant-scoped order detail.
+     * Never interpret a legacy/manual address or an untrusted text field as a verified delivery
+     * pin. Coordinates are exposed only in the tenant-scoped order detail.
      */
     private static Double coordinate(JsonNode address, String property, boolean latitude) {
         if (!"MAP".equals(value(address, "locationMethod"))
@@ -271,7 +271,9 @@ public class DirectOrderQueries {
         if (!value.isNumber()) return null;
         double result = value.asDouble();
         return Double.isFinite(result)
-                        && (latitude ? result >= -90 && result <= 90 : result >= -180 && result <= 180)
+                        && (latitude
+                                ? result >= -90 && result <= 90
+                                : result >= -180 && result <= 180)
                 ? result
                 : null;
     }

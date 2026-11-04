@@ -82,7 +82,8 @@ export class DirectLocationMap implements AfterViewInit {
       const center = this.point();
       this.map = new lib.Map({
         container: this.canvas().nativeElement,
-        style: 'https://tiles.openfreemap.org/styles/positron',
+        // Liberty includes road/place labels and POIs absent from the minimalist Positron style.
+        style: 'https://tiles.openfreemap.org/styles/liberty',
         center: center && validDirectGeoPoint(center)
           ? [center.longitude, center.latitude] : [-17.4677, 14.7167],
         zoom: center ? this.initialZoom() : 11,

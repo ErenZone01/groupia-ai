@@ -3,6 +3,7 @@ package sn.groupia.payment.domain.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
@@ -188,7 +189,10 @@ public class Payment {
         if (status == PaymentStatus.SUCCEEDED) {
             confirmedAmount = expectedAmount;
             confirmedCurrency = currency;
-            confirmedAt = now;
+            // PostgreSQL TIMESTAMPTZ persists at microsecond precision. Modulith publishes
+            // the confirmation timestamp before a later consumer reloads this row; preserve
+            // the exact same canonical instant across both sides of that transaction.
+            confirmedAt = now.truncatedTo(ChronoUnit.MICROS);
             return true;
         }
         return false;

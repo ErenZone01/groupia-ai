@@ -299,6 +299,46 @@ class DirectBictorysSandboxIntegrationTests {
     }
 
     @Test
+    void simultaneousMerchantCancellationAndCustomerInitiationNeverChargeCancelledOrder()
+            throws Exception {
+        queueCharge();
+        String cancelUrl = "/api/organizations/" + org + "/direct-orders/" + order + "/cancel";
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Future<Integer> customer = executor.submit(() -> {
+                start.await();
+                return initiate(recovery, "direct-race-sandbox-key-0001")
+                        .andReturn().getResponse().getStatus();
+            });
+            Future<Integer> merchant = executor.submit(() -> {
+                start.await();
+                return mvc.perform(post(cancelUrl)
+                                .header("Authorization", "Bearer " + bearer))
+                        .andReturn().getResponse().getStatus();
+            });
+            start.countDown();
+            int customerStatus = customer.get(30, TimeUnit.SECONDS);
+            int merchantStatus = merchant.get(30, TimeUnit.SECONDS);
+            assertThat(customerStatus).isIn(200, 409);
+            assertThat(merchantStatus).isIn(200, 409);
+            assertThat(customerStatus == 200 && merchantStatus == 200).isFalse();
+
+            if ("CANCELLED".equals(orderStatus())) {
+                assertThat(merchantStatus).isEqualTo(200);
+                assertThat(customerStatus).isEqualTo(409);
+                assertThat(count("payments")).isZero();
+                assertThat(bictorys.requests).isEmpty();
+            } else {
+                assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT_INTEGRATION");
+                assertThat(customerStatus).isEqualTo(200);
+                assertThat(merchantStatus).isEqualTo(409);
+                assertThat(count("payments")).isEqualTo(1);
+                assertThat(bictorys.requests).hasSize(1);
+            }
+        }
+    }
+
+    @Test
     void rotatedCapabilityIsRecheckedBeforeProviderClaim() throws Exception {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);

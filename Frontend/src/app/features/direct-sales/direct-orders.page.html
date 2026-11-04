@@ -89,9 +89,9 @@
         <h3>Remise</h3>
         <p>{{ fulfillment(selected.order.fulfillmentMethod) }}</p>
         @if (selected.deliveryAddress; as address) {
-          <p>{{ address.region }} · {{ address.city }} · {{ address.commune }}</p>
-          @if (address.neighborhood) { <p>{{ address.neighborhood }}</p> }
-          <p>{{ address.details }}</p>
+          <p>{{ address.region }}@if (address.city) { · {{ address.city }} }@if (address.commune) { · {{ address.commune }} }</p>
+          @if (address.neighborhood) { <p>Quartier estimé : {{ address.neighborhood }}</p> }
+          @if (address.details) { <p>Indications : {{ address.details }}</p> }
           @if (deliveryPoint(address); as destination) {
             <p class="meta"><strong>Point de livraison confirmé par la cliente</strong> (pas sa position actuelle garantie).</p>
             <p class="meta">GPS : {{ destination.latitude.toFixed(6) }}, {{ destination.longitude.toFixed(6) }}</p>

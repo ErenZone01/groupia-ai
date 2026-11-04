@@ -306,14 +306,16 @@ class DirectBictorysSandboxIntegrationTests {
         // exactly. Millisecond clocks alone would not catch this regression.
         var paymentConfirmedAt =
                 jdbc.queryForObject(
-                        "select confirmed_at from payments where id=?",
-                        java.sql.Timestamp.class,
-                        payment).toInstant();
+                                "select confirmed_at from payments where id=?",
+                                java.sql.Timestamp.class,
+                                payment)
+                        .toInstant();
         var orderConfirmedAt =
                 jdbc.queryForObject(
-                        "select payment_confirmed_at from direct_orders where id=?",
-                        java.sql.Timestamp.class,
-                        order).toInstant();
+                                "select payment_confirmed_at from direct_orders where id=?",
+                                java.sql.Timestamp.class,
+                                order)
+                        .toInstant();
         assertThat(orderConfirmedAt).isEqualTo(paymentConfirmedAt);
         assertThat(paymentConfirmedAt.getNano() % 1000).isZero();
         assertThat(

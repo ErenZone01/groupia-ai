@@ -129,6 +129,41 @@ describe('Vente directe : actions de la gérante', () => {
     expect(page.canReady()).toBe(false);
   });
 
+  it('montre le point GPS sauvegardé à la gérante et génère un lien d’itinéraire sûr', async () => {
+    const address = {
+      country: 'SN', region: 'Dakar', city: null, commune: null,
+      neighborhood: null, details: 'Devant la pharmacie',
+      locationMethod: 'MAP' as const, coverageStatus: 'REGION_MATCHED' as const,
+      latitude: 14.6937, longitude: -17.4474,
+    };
+    api.get.mockResolvedValue({
+      order: order('PENDING_PAYMENT_INTEGRATION'),
+      contact: { firstName: 'Awa', lastName: 'Diop', phoneE164: '+221771234567', email: null },
+      deliveryAddress: address, platformFeeRule: { amount: '300' }, items: [],
+    });
+    const page = await pageForCurrentOrder();
+    expect(page.deliveryPoint(page.detail()?.deliveryAddress ?? null)).toEqual({
+      latitude: 14.6937, longitude: -17.4474,
+    });
+    expect(page.deliveryMapUrl(address)).toContain('mlat=14.693700&mlon=-17.447400');
+    expect(page.deliveryDirectionsUrl(address)).toContain('destination=14.693700%2C-17.447400');
+  });
+
+  it('n’invente aucun point exact pour une adresse manuelle ou des coordonnées invalides', async () => {
+    const page = await pageForCurrentOrder();
+    const manual = {
+      country: 'SN', region: 'Dakar', city: 'Dakar', commune: 'Yoff',
+      neighborhood: null, details: 'Derrière le marché',
+      locationMethod: 'MANUAL' as const, coverageStatus: 'UNVERIFIED_MANUAL' as const,
+      latitude: null, longitude: null,
+    };
+    expect(page.deliveryPoint(manual)).toBeNull();
+    expect(page.deliveryMapUrl(manual)).toBeNull();
+    expect(page.deliveryDirectionsUrl(manual)).toBeNull();
+    expect(page.deliveryPoint({ ...manual, locationMethod: 'MAP',
+      coverageStatus: 'REGION_MATCHED', latitude: 200, longitude: -17.5 })).toBeNull();
+  });
+
   it('efface les informations confidentielles au changement de boutique', async () => {
     const page = await pageForCurrentOrder();
     expect(page.detail()?.contact.phoneE164).toBe('+221771234567');

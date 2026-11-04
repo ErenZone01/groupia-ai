@@ -119,6 +119,67 @@ export class DirectOrderTrackingPage {
   private paymentKey: string | null = null;
   private token: string | null = null;
   private sequence = 0;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollAttempts = 0;
+  private readonly pollDelayMs = 15000;
+  private readonly maxPollAttempts = 12;
+
+  private stopPoll() {
+    if (this.pollTimer !== null) clearTimeout(this.pollTimer);
+    this.pollTimer = null;
+  }
+
+  private schedulePoll() {
+    this.stopPoll();
+    const stage = this.financial()?.financialStatus;
+    const isPending = stage === 'PAYMENT_IN_PROGRESS' || stage === 'SETTLEMENT_PROCESSING'
+      || (stage === 'PREPARED' && this.paymentWaiting());
+    if (!isPending || !this.token || !this.order() || this.pollAttempts >= this.maxPollAttempts) return;
+    this.pollTimer = setTimeout(() => {
+      this.pollTimer = null;
+      this.pollAttempts++;
+      void this.pollOnce();
+    }, this.pollDelayMs);
+  }
+
+  private acknowledgeVerifiedSettlement() {
+    this.paymentWaiting.set(false);
+    this.paymentKey = null;
+    this.checkoutUrl.set(null);
+    this.paymentError.set('');
+    this.stopPoll();
+  }
+
+  /** A bounded, read-only refresh: keep the existing order visible during network I/O. */
+  private async pollOnce() {
+    const sequence = this.sequence;
+    const token = this.token;
+    if (!token || !this.order()) return;
+    const [tracking, payment] = await Promise.allSettled([
+      this.api.trackDirectOrder(token),
+      this.api.directPaymentStatus(token),
+    ]);
+    if (sequence !== this.sequence || token !== this.token) return;
+    if (tracking.status === 'fulfilled' && payment.status === 'fulfilled'
+      && tracking.value.orderNumber === payment.value.orderNumber
+      && tracking.value.currency === payment.value.currency
+      && tracking.value.acceptedTotalXof === payment.value.acceptedTotalXof) {
+      this.order.set(tracking.value);
+      this.financial.set(payment.value);
+      this.paymentProblem.set(false);
+      if (payment.value.financialStatus === 'SETTLEMENT_VERIFIED') {
+        this.acknowledgeVerifiedSettlement();
+      } else if (['REVIEW_REQUIRED', 'EXPIRED', 'UNAVAILABLE'].includes(payment.value.financialStatus)) {
+        this.paymentWaiting.set(false);
+        this.checkoutUrl.set(null);
+      }
+    } else {
+      // An unavailable or contradictory server read must not unlock payment or fulfillment.
+      this.paymentProblem.set(true);
+      this.checkoutUrl.set(null);
+    }
+    this.schedulePoll();
+  }
 
   constructor() {
     const params = this.route.paramMap.subscribe((map) => {
@@ -128,6 +189,8 @@ export class DirectOrderTrackingPage {
       const token = value?.startsWith('access=') ? value.slice('access='.length) : '';
       const nextToken = /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
       if (nextToken !== this.token) {
+        this.stopPoll();
+        this.pollAttempts = 0;
         this.paymentKey = null;
         this.paymentBusy.set(false);
         this.paymentWaiting.set(false);
@@ -138,6 +201,7 @@ export class DirectOrderTrackingPage {
       void this.reload();
     });
     inject(DestroyRef).onDestroy(() => {
+      this.stopPoll();
       this.sequence++;
       this.token = null;
       this.paymentKey = null;
@@ -217,6 +281,8 @@ export class DirectOrderTrackingPage {
       this.checkoutUrl.set(receipt.status === 'PENDING' && !receipt.reconciliationRequired
         ? safeBictorysCheckout(receipt.checkoutUrl ?? undefined)
         : null);
+      this.pollAttempts = 0;
+      this.schedulePoll();
     } catch {
       if (sequence === this.sequence && token === this.token) {
         // Network errors are ambiguous. Keep the same idempotency key for a retry,
@@ -229,6 +295,8 @@ export class DirectOrderTrackingPage {
   }
 
   async reload() {
+    this.stopPoll();
+    this.pollAttempts = 0;
     const sequence = ++this.sequence;
     const token = this.token;
     if (this.paymentBusy()) {
@@ -261,10 +329,10 @@ export class DirectOrderTrackingPage {
         && payment.value.acceptedTotalXof === order.value.acceptedTotalXof) {
         this.financial.set(payment.value);
         if (payment.value.financialStatus === 'SETTLEMENT_VERIFIED') {
+          this.acknowledgeVerifiedSettlement();
+        } else if (['REVIEW_REQUIRED', 'EXPIRED', 'UNAVAILABLE'].includes(payment.value.financialStatus)) {
           this.paymentWaiting.set(false);
-          this.paymentKey = null;
           this.checkoutUrl.set(null);
-          this.paymentError.set('');
         }
       } else {
         this.paymentProblem.set(true);
@@ -274,7 +342,10 @@ export class DirectOrderTrackingPage {
         this.message.set('Ce lien est invalide ou cette commande n’est pas accessible.');
       }
     } finally {
-      if (sequence === this.sequence) this.busy.set(false);
+      if (sequence === this.sequence) {
+        this.busy.set(false);
+        this.schedulePoll();
+      }
     }
   }
 }

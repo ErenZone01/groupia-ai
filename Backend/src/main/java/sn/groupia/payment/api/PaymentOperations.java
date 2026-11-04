@@ -19,6 +19,18 @@ public interface PaymentOperations {
             String idempotencyKey,
             PaymentCheckoutContext context);
 
+    /**
+     * Direct-only, capability-verified initiation. The token hash is rechecked under the order lock
+     * by DirectPaymentClaimGuard; the generic initiateRequest route remains unusable for direct
+     * orders, even when the explicit feature flag is enabled.
+     */
+    PaymentAttemptView initiateDirect(
+            UUID organizationId,
+            UUID paymentRequestId,
+            String idempotencyKey,
+            String recoveryTokenHash,
+            PaymentCheckoutContext context);
+
     PaymentRequestView request(UUID organizationId, UUID paymentRequestId);
 
     java.util.List<PaymentObligationView> shippingRequests(UUID organizationId, UUID orderId);

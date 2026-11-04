@@ -34,3 +34,13 @@ litiges, attribution du compte commerçant, plafonds et reversements.
 Le flag `groupia.direct-sales.payment-initiation.enabled` reste
 `false` par défaut. Le test le passe à `true` **uniquement dans son
 contexte de test**. Aucune configuration de production n'est changée.
+
+## Précision des horodatages de règlement
+
+Le paiement confirmé publie un événement asynchrone et sa preuve est relue
+depuis PostgreSQL. Java permet les nanosecondes, mais `TIMESTAMPTZ` conserve
+les microsecondes. `Payment.apply` utilise désormais une date canonique
+tronquée à la microseconde, identique pour l'événement et la preuve persistée.
+La suite d'intégration vérifie l'égalité stricte entre `payments.confirmed_at`
+et `direct_orders.payment_confirmed_at`. Cette normalisation ne contourne
+ni la vérification des montants ni l'exigence de preuves fournisseur.

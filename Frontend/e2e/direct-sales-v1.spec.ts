@@ -19,7 +19,7 @@ test('vente directe : vitrine anonyme, photo complète et aucun faux checkout', 
     });
   });
   // Match the storefront itself, not its /delivery-policy or /quote subroutes.
-  await page.route(new RegExp('/api/public/direct-stores/' + publicIdentifier + '
+  await page.route((url) => url.pathname === '/api/public/direct-stores/' + publicIdentifier, (route) => {
     authHeader = route.request().headers()['authorization'];
     return route.fulfill({
       status: 200,

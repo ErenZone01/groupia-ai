@@ -23,6 +23,24 @@
       <div><g-icon name="shield" />
         <span><strong>Catalogue sans compte</strong><small>Consultez librement les produits</small></span></div>
     </section>
+    <section class="delivery-coverage" aria-label="Zones de livraison de la boutique">
+      @if (deliveryPolicy(); as policy) {
+        @if (policy.mode === 'DISABLED') {
+          <strong>Retrait uniquement</strong>
+          <p>Cette boutique ne propose pas de livraison à domicile.</p>
+        } @else if (policy.mode === 'ALL') {
+          <strong>Livraison proposée dans les 14 régions du Sénégal</strong>
+          <p>Le point exact et les frais seront vérifiés avant la confirmation de votre commande.</p>
+        } @else {
+          <strong>Régions desservies ({{ policy.allowedRegions.length }})</strong>
+          <p>{{ policy.allowedRegions.join(' · ') }}</p>
+          <p>Votre position précise sera vérifiée avant la commande. Une région non listée n'est pas desservie.</p>
+        }
+      } @else {
+        <strong>Zones de livraison à vérifier</strong>
+        <p>Les zones ne sont pas accessibles pour le moment. Vérifiez-les à l'étape de livraison avant de commander.</p>
+      }
+    </section>
     @if (notice()) { <p class="notice" role="status">{{ notice() }}</p> }
     <div class="cart-bar"><strong>{{ cart.count() }} article(s) dans mon panier</strong>
       <a [routerLink]="['/v', shop.publicIdentifier, 'panier']" class="cart-link">Voir mon panier</a>
@@ -61,9 +79,8 @@
     <aside class="notice">
       <g-icon name="info" />
       <div><strong>Panier et estimation disponibles</strong>
-        <p>Vous pouvez préparer votre sélection et vérifier son prix actuel.
-          Les commandes et les paiements en vente directe ne sont pas encore activés.
-          Aucun paiement ne sera demandé à ce stade.</p>
+        <p>Vérifiez vos articles, votre région de livraison et le total avant de commander.
+          Le paiement n'est confirmé qu'après validation du prestataire.</p>
       </div>
     </aside>
   }

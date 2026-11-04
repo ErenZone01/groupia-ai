@@ -26,7 +26,11 @@ export function validDirectGeoPoint(point: DirectGeoPoint): boolean {
     @if (mapError()) {
       <p class="map-error" role="alert">{{ mapError() }}</p>
     } @else {
-      <p class="map-help">Touchez la carte ou déplacez le repère pour choisir votre adresse.</p>
+      @if (previewOnly()) {
+        <p class="map-help">Destination choisie par la cliente. Le repère ne peut pas être déplacé ici.</p>
+      } @else {
+        <p class="map-help">Touchez la carte ou déplacez le repère pour choisir votre adresse.</p>
+      }
     }
     <small class="attribution">Carte : © OpenStreetMap contributors · OpenFreeMap</small>
   `,
@@ -41,6 +45,9 @@ export function validDirectGeoPoint(point: DirectGeoPoint): boolean {
 })
 export class DirectLocationMap implements AfterViewInit {
   readonly point = input<DirectGeoPoint | null>(null);
+  /** Merchant preview is non-editable: the customer's persisted destination is authoritative. */
+  readonly previewOnly = input(false);
+  readonly initialZoom = input(15);
   readonly pointSelected = output<DirectGeoPoint>();
   readonly mapError = signal('');
   private readonly canvas = viewChild.required<ElementRef<HTMLDivElement>>('canvas');
@@ -75,13 +82,15 @@ export class DirectLocationMap implements AfterViewInit {
       const center = this.point();
       this.map = new lib.Map({
         container: this.canvas().nativeElement,
-        style: 'https://tiles.openfreemap.org/styles/positron',
+        // Liberty includes road/place labels and POIs absent from the minimalist Positron style.
+        style: 'https://tiles.openfreemap.org/styles/liberty',
         center: center && validDirectGeoPoint(center)
           ? [center.longitude, center.latitude] : [-17.4677, 14.7167],
-        zoom: center ? 15 : 11,
+        zoom: center ? this.initialZoom() : 11,
       });
       this.map.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right');
       this.map.on('click', (event) => {
+        if (this.previewOnly()) return;
         this.pointSelected.emit({
           latitude: Number(event.lngLat.lat.toFixed(6)),
           longitude: Number(event.lngLat.lng.toFixed(6)),
@@ -107,9 +116,10 @@ export class DirectLocationMap implements AfterViewInit {
     } else {
       const lib = await import('maplibre-gl');
       if (this.disposed || !this.map) return;
-      this.marker = new lib.Marker({ draggable: true, color: '#126044' })
+      this.marker = new lib.Marker({ draggable: !this.previewOnly(), color: '#126044' })
         .setLngLat([point.longitude, point.latitude]).addTo(this.map);
       this.marker.on('dragend', () => {
+        if (this.previewOnly()) return;
         const position = this.marker?.getLngLat();
         if (position) {
           this.pointSelected.emit({

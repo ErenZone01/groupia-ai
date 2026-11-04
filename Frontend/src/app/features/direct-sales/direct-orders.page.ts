@@ -12,12 +12,13 @@ import {
   DirectOrdersApi,
   DirectOrdersPage as DirectOrdersResponse,
 } from './direct-orders.api';
+import { DirectGeoPoint, DirectLocationMap, validDirectGeoPoint } from './direct-location-map';
 
 type MerchantAction = 'cancel' | 'prepare' | 'ready';
 
 @Component({
   selector: 'g-direct-orders-page',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, DirectLocationMap],
   templateUrl: './direct-orders.page.html',
   styleUrl: './direct-orders.page.scss',
 })
@@ -238,6 +239,28 @@ export class DirectOrdersPage {
       case 'REVIEW_REQUIRED': return 'Vérification manuelle nécessaire';
       default: return 'Statut financier indisponible';
     }
+  }
+
+  /** Reuse the customer's saved point. No reverse-geocoding or browser GPS is inferred here. */
+  deliveryPoint(address: DirectOrderDetail['deliveryAddress']): DirectGeoPoint | null {
+    if (address?.locationMethod !== 'MAP' || address.coverageStatus !== 'REGION_MATCHED'
+      || typeof address.latitude !== 'number' || typeof address.longitude !== 'number') return null;
+    const point = { latitude: address.latitude, longitude: address.longitude };
+    return validDirectGeoPoint(point) ? point : null;
+  }
+
+  deliveryMapUrl(address: DirectOrderDetail['deliveryAddress']): string | null {
+    const point = this.deliveryPoint(address);
+    if (!point) return null;
+    const lat = point.latitude.toFixed(6);
+    const lon = point.longitude.toFixed(6);
+    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
+  }
+
+  deliveryDirectionsUrl(address: DirectOrderDetail['deliveryAddress']): string | null {
+    const point = this.deliveryPoint(address);
+    if (!point) return null;
+    return `https://www.google.com/maps/dir/?api=1&destination=${point.latitude.toFixed(6)}%2C${point.longitude.toFixed(6)}`;
   }
 
   fulfillment(value: string) {

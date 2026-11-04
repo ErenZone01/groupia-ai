@@ -8,7 +8,18 @@ test('vente directe : vitrine anonyme, photo complète et aucun faux checkout', 
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
   let authHeader: string | undefined;
-  await page.route('**/api/public/direct-stores/*', (route) => {
+  let policyRequests = 0;
+  await page.route('**/api/public/direct-stores/*/delivery-policy', (route) => {
+    expect(route.request().headers()['authorization']).toBeUndefined();
+    policyRequests++;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ mode: 'SELECTED', allowedRegions: ['Dakar'], version: 1 }),
+    });
+  });
+  // Match the storefront itself, not its /delivery-policy or /quote subroutes.
+  await page.route((url) => url.pathname === '/api/public/direct-stores/' + publicIdentifier, (route) => {
     authHeader = route.request().headers()['authorization'];
     return route.fulfill({
       status: 200,
@@ -46,6 +57,8 @@ test('vente directe : vitrine anonyme, photo complète et aucun faux checkout', 
   await page.goto('/v/' + publicIdentifier);
   await expect(page.getByRole('heading', { name: 'Boutique Awa' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sac en cuir' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Zones de livraison de la boutique' })).toContainText('Dakar');
+  expect(policyRequests).toBe(1);
   await expect(page.getByText(/8\s?500/)).toBeVisible();
   await expect(page.getByText(/Panier et estimation disponibles/)).toBeVisible();
   await expect(page.getByRole('button', { name: /acheter|commander|payer/i })).toHaveCount(0);

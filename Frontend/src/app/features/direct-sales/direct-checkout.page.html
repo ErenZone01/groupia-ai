@@ -203,9 +203,24 @@
                     </label>
                   }
                 </div>
-                @if (deliveryPolicy()?.mode === 'DISABLED') {
+                @if (deliveryPolicy(); as policy) {
                   <div class="location-note" role="status">
-                    Cette boutique ne propose pas la livraison. Le retrait reste disponible.
+                    @if (policy.mode === 'DISABLED') {
+                      <strong>Livraison indisponible.</strong> Cette boutique propose uniquement le retrait.
+                    } @else if (policy.mode === 'ALL') {
+                      <strong>Zones proposées :</strong> les 14 régions du Sénégal.
+                      Le point choisi et les frais doivent être vérifiés avant la commande.
+                    } @else {
+                      <strong>Zones de livraison proposées :</strong>
+                      {{ policy.allowedRegions.join(' · ') }}.
+                      @if (fulfillment === 'DELIVERY') {
+                        Vérifiez votre point de livraison pour savoir s'il est dans une zone desservie.
+                      }
+                    }
+                  </div>
+                } @else {
+                  <div class="location-note" role="status">
+                    Zones non disponibles pour le moment : la livraison doit être vérifiée avant commande.
                   </div>
                 }
                 @if (fulfillment === 'DELIVERY') {
@@ -261,11 +276,15 @@
                         <small>Lieu estimé, possiblement imprécis. <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Powered by Geoapify</a> et OpenStreetMap.</small>
                       </div>
                     }
-                    <div class="location-note" role="status">
+                    <div class="location-note" role="status"
+                      [class.problem]="deliveryCoverage()?.status === 'OUTSIDE_ZONE' || deliveryCoverage()?.status === 'OUTSIDE_SENEGAL' || deliveryCoverage()?.status === 'DELIVERY_DISABLED'">
                       @if (coverageBusy()) {
-                        Vérification de la région choisie…
+                        Vérification de l'éligibilité de votre point de livraison…
                       } @else {
-                        {{ coverageMessage }}
+                        <strong>{{ deliveryCoverage()?.status === 'INSIDE_ZONE'
+                          ? '✓ Zone desservie' : deliveryCoverage()?.status === 'OUTSIDE_ZONE' || deliveryCoverage()?.status === 'OUTSIDE_SENEGAL' || deliveryCoverage()?.status === 'DELIVERY_DISABLED'
+                          ? 'Zone non desservie' : 'Zone à vérifier' }}</strong>
+                        <p>{{ coverageMessage }}</p>
                       }
                     </div>
                     <label>Point de repère <span class="optional">(facultatif)</span>

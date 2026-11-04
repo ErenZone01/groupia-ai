@@ -56,3 +56,9 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .workflow-actions .danger-button { color:var(--danger-text); border-color:var(--danger-text); }
 .action-notice { margin:0; padding:10px 12px; border-radius:8px; font-size:13px; border:1px solid var(--border); }
 .cancel-confirm { margin:0; font-size:13px; line-height:1.5; width:100%; }
+
+.delivery-map-links { display:flex; flex-wrap:wrap; gap:12px; margin:10px 0 5px; }
+.delivery-map-links a { display:inline-flex; align-items:center; min-height:44px;
+  padding:9px 13px; border:1px solid var(--border); border-radius:10px;
+  color:var(--primary); font-size:13px; font-weight:650; }
+.delivery-map-links a:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }

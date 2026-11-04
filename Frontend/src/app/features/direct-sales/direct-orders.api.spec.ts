@@ -60,6 +60,32 @@ describe('Commandes directes : accès commerçant', () => {
     expect(result.order.acceptedTotalXof).toBe(8800);
     expect(result.order.shippingFeeXof).toBe(0);
   });
+  it('récupère les coordonnées de livraison GPS uniquement depuis le détail privé', async () => {
+    const pending = api.get('boutique-1', 'commande-livraison');
+    const req = http.expectOne('/api/organizations/boutique-1/direct-orders/commande-livraison');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      order: {
+        id: 'commande-livraison', orderNumber: 'DIR-000000000005', status: 'PAYMENT_CONFIRMED',
+        fulfillmentMethod: 'DELIVERY', currency: 'XOF', goodsSubtotalXof: 10000,
+        platformFeeXof: 300, amountBeforeShippingXof: 10300, shippingFeeXof: 1500,
+        acceptedTotalXof: 11800, shippingRateVersion: 1, shippingQuoted: true,
+        placedAt: '2026-11-04T12:00:00Z', itemCount: 1,
+      },
+      contact: { firstName: 'Awa', lastName: 'Diop', phoneE164: '+221771234567', email: null },
+      deliveryAddress: {
+        country: 'SN', region: 'Dakar', city: null, commune: null, neighborhood: null,
+        details: 'Derrière la pharmacie', locationMethod: 'MAP',
+        coverageStatus: 'REGION_MATCHED', latitude: 14.6937, longitude: -17.4474,
+      },
+      platformFeeRule: { amount: '300' }, items: [],
+    });
+    const detail = await pending;
+    expect(detail.deliveryAddress?.latitude).toBe(14.6937);
+    expect(detail.deliveryAddress?.longitude).toBe(-17.4474);
+    expect(detail.deliveryAddress?.details).toBe('Derrière la pharmacie');
+  });
+
   it('conserve les anciens brouillons sans transformer des frais absents en gratuité', async () => {
     const pending = api.list('boutique-1', 0);
     const request = http.expectOne(

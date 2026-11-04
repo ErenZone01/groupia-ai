@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectSalesApi, DirectTrackingView, DirectCustomerFinancialStatus } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { money } from '../../shared/utils/display';
+import { safeBictorysCheckout } from '../customer-access/customer-shipping-payment';
 
 /**
  * A private capability link is held only in the URL fragment, never passed in a GET
@@ -21,7 +22,7 @@ import { money } from '../../shared/utils/display';
         } @else if (order(); as data) {
           <p class="tracking-ref">Référence : <strong>{{ data.orderNumber }}</strong></p>
           <h2>État de ma commande</h2>
-          <p>Le paiement et le suivi de la commande sont vérifiés côté serveur. Aucun paiement ne peut être lancé depuis cette page pour le moment.</p>
+          <p>Le paiement et le suivi de la commande sont vérifiés côté serveur. Votre commande n'est payée qu'après confirmation du prestataire.</p>
           <dl class="tracking-data">
             <div><dt>Statut</dt><dd>{{ orderLabel(data.status) }}</dd></div>
             <div><dt>Remise</dt><dd>{{ data.fulfillmentMethod === 'PICKUP'
@@ -36,6 +37,28 @@ import { money } from '../../shared/utils/display';
             }
             <div><dt>Paiement</dt><dd>{{ paymentLabel() }}</dd></div>
           </dl>
+          @if (canPay()) {
+            <button type="button" class="action-link" [disabled]="paymentBusy()" (click)="pay()">
+              Payer {{ money(data.acceptedTotalXof ?? undefined, data.currency) }} avec Bictorys
+            </button>
+          }
+          @if (paymentBusy()) {
+            <p role="status">Préparation du paiement sécurisé…</p>
+          }
+          @if (checkoutUrl(); as url) {
+            <p><a class="action-link" [href]="url" target="_blank" rel="noopener noreferrer"
+              referrerpolicy="no-referrer">Ouvrir le paiement sécurisé Bictorys</a></p>
+            <p>Le paiement s'ouvre dans un nouvel onglet. Revenez ici pour actualiser sa confirmation.</p>
+          }
+          @if (paymentWaiting()) {
+            <p class="notice" role="status">Initiation enregistrée. Le paiement n'est pas encore confirmé. Consultez le prestataire si un lien sécurisé est affiché, puis actualisez le statut.</p>
+          }
+          @if (paymentError()) {
+            <p role="alert">{{ paymentError() }}</p>
+          }
+          @if (!financial()?.paymentAvailable && financial()?.financialStatus === 'PREPARED') {
+            <p>Le paiement en ligne n'est pas encore ouvert pour cette commande.</p>
+          }
           @if (paymentProblem() || financial()?.financialStatus === 'REVIEW_REQUIRED') {
             <p class="notice" role="alert">Le paiement nécessite une vérification. Ne retirez pas les articles et n'organisez pas de livraison sur la base de cette page.</p>
           }
@@ -74,6 +97,7 @@ import { money } from '../../shared/utils/display';
     .action-link {display:inline-flex;align-items:center;justify-content:center;
       width:fit-content;min-height:44px;padding:10px 16px;border:0;border-radius:10px;
       background:var(--primary);color:var(--on-primary);cursor:pointer;font:inherit;font-weight:650}
+    .action-link:disabled {opacity:.55;cursor:wait}
     .back-link {font-size:13px;color:var(--primary);font-weight:650}
     @media(max-width:620px){.tracking-data{grid-template-columns:1fr}}
   `],
@@ -88,6 +112,11 @@ export class DirectOrderTrackingPage {
   readonly financial = signal<DirectCustomerFinancialStatus | null>(null);
   readonly paymentProblem = signal(false);
   readonly message = signal('');
+  readonly paymentBusy = signal(false);
+  readonly paymentWaiting = signal(false);
+  readonly paymentError = signal('');
+  readonly checkoutUrl = signal<string | null>(null);
+  private paymentKey: string | null = null;
   private token: string | null = null;
   private sequence = 0;
 
@@ -97,12 +126,22 @@ export class DirectOrderTrackingPage {
     });
     const fragment = this.route.fragment.subscribe((value) => {
       const token = value?.startsWith('access=') ? value.slice('access='.length) : '';
-      this.token = /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
+      const nextToken = /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
+      if (nextToken !== this.token) {
+        this.paymentKey = null;
+        this.paymentBusy.set(false);
+        this.paymentWaiting.set(false);
+        this.checkoutUrl.set(null);
+        this.paymentError.set('');
+      }
+      this.token = nextToken;
       void this.reload();
     });
     inject(DestroyRef).onDestroy(() => {
       this.sequence++;
       this.token = null;
+      this.paymentKey = null;
+      this.checkoutUrl.set(null);
       params.unsubscribe();
       fragment.unsubscribe();
     });
@@ -137,9 +176,66 @@ export class DirectOrderTrackingPage {
     }
   }
 
+  canPay(): boolean {
+    const order = this.order();
+    const status = this.financial();
+    return !this.busy() && !this.paymentBusy() && !this.paymentWaiting()
+      && !this.paymentProblem() && !!this.token
+      && order?.status === 'PENDING_PAYMENT_INTEGRATION'
+      && status?.financialStatus === 'PREPARED' && status.paymentAvailable === true
+      && order.currency === 'XOF' && status.currency === 'XOF'
+      && Number.isSafeInteger(order.acceptedTotalXof)
+      && (order.acceptedTotalXof ?? 0) > 0
+      && status.acceptedTotalXof === order.acceptedTotalXof;
+  }
+
+  async pay() {
+    if (!this.canPay() || !this.token) return;
+    const token = this.token;
+    const sequence = this.sequence;
+    this.paymentKey ??= crypto.randomUUID();
+    this.paymentBusy.set(true);
+    this.paymentError.set('');
+    this.checkoutUrl.set(null);
+    try {
+      const receipt = await this.api.initiateDirectPayment(token, this.paymentKey);
+      if (sequence !== this.sequence || token !== this.token) return;
+      if (receipt.currency !== 'XOF' || receipt.expectedAmount !== this.order()?.acceptedTotalXof) {
+        this.paymentWaiting.set(true);
+        this.paymentError.set('La réponse du paiement ne correspond pas au montant attendu. Aucune confirmation possible.');
+        return;
+      }
+      if (['FAILED', 'CANCELLED', 'EXPIRED'].includes(receipt.status)
+          && !receipt.reconciliationRequired) {
+        this.paymentKey = null;
+        this.paymentWaiting.set(false);
+        this.paymentError.set('Cette tentative a échoué. Actualisez le statut avant de réessayer.');
+        return;
+      }
+      this.paymentWaiting.set(true);
+      this.checkoutUrl.set(receipt.status === 'PENDING' && !receipt.reconciliationRequired
+        ? safeBictorysCheckout(receipt.checkoutUrl ?? undefined)
+        : null);
+    } catch {
+      if (sequence === this.sequence && token === this.token) {
+        // Network errors are ambiguous. Keep the same idempotency key for a retry,
+        // never claim a payment succeeded, and encourage checking the server first.
+        this.paymentError.set('Initiation non confirmée. Actualisez le statut. En cas de nouvel essai, la même clé de sécurité sera réutilisée.');
+      }
+    } finally {
+      if (sequence === this.sequence && token === this.token) this.paymentBusy.set(false);
+    }
+  }
+
   async reload() {
     const sequence = ++this.sequence;
     const token = this.token;
+    if (this.paymentBusy()) {
+      // A payment request can finish after this refresh. Do not reopen checkout
+      // or trust a response whose previous sequence has been superseded.
+      this.paymentWaiting.set(true);
+      this.paymentBusy.set(false);
+    }
     this.order.set(null);
     this.financial.set(null);
     this.paymentProblem.set(false);
@@ -163,6 +259,12 @@ export class DirectOrderTrackingPage {
         && payment.value.currency === order.value.currency
         && payment.value.acceptedTotalXof === order.value.acceptedTotalXof) {
         this.financial.set(payment.value);
+        if (payment.value.financialStatus === 'SETTLEMENT_VERIFIED') {
+          this.paymentWaiting.set(false);
+          this.paymentKey = null;
+          this.checkoutUrl.set(null);
+          this.paymentError.set('');
+        }
       } else {
         this.paymentProblem.set(true);
       }

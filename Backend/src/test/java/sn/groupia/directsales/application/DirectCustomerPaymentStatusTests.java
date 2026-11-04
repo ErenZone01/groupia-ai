@@ -135,6 +135,48 @@ class DirectCustomerPaymentStatusTests {
     }
 
     @Test
+    void enablementRequiresConfiguredBictorysAndCleanPreparedObligation() {
+        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L);
+        state(PaymentOperationalStatus.PENDING, null, false);
+        when(payments.providerAvailable("BICTORYS")).thenReturn(true);
+
+        var disabled = subject.lookup(TOKEN);
+        assertThat(disabled.paymentAvailable()).isFalse();
+        verify(payments, never()).providerAvailable(anyString());
+
+        var enabled =
+                new DirectCustomerPaymentStatus(
+                        jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
+        assertThat(enabled.lookup(TOKEN).financialStatus()).isEqualTo("PREPARED");
+        assertThat(enabled.lookup(TOKEN).paymentAvailable()).isTrue();
+        verify(payments, times(2)).providerAvailable("BICTORYS");
+
+        when(payments.providerAvailable("BICTORYS")).thenReturn(false);
+        assertThat(enabled.lookup(TOKEN).paymentAvailable()).isFalse();
+    }
+
+    @Test
+    void enabledModeStillBlocksReversedSettledAndUnpreparedPayments() {
+        var enabled =
+                new DirectCustomerPaymentStatus(
+                        jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
+        when(payments.providerAvailable("BICTORYS")).thenReturn(true);
+
+        snapshot("PENDING_PAYMENT_INTEGRATION", null, null, null);
+        assertThat(enabled.lookup(TOKEN).paymentAvailable()).isFalse();
+
+        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L);
+        state(PaymentOperationalStatus.REVIEW_REQUIRED, null, true);
+        assertThat(enabled.lookup(TOKEN).paymentAvailable()).isFalse();
+
+        snapshot("PAYMENT_CONFIRMED", requestId, paymentId, 10300L);
+        state(PaymentOperationalStatus.SETTLED, paymentId, false);
+        when(payments.settlementEvidence(organization, requestId)).thenReturn(proof(false));
+        assertThat(enabled.lookup(TOKEN).paymentAvailable()).isFalse();
+        verify(payments, never()).providerAvailable(anyString());
+    }
+
+    @Test
     void historicalOrderHasNoPaymentRequest() {
         snapshot("PENDING_PAYMENT_INTEGRATION", null, null, null);
         assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("NOT_PREPARED");

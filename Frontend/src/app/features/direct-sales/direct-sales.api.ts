@@ -89,10 +89,20 @@ export interface DirectCustomerFinancialStatus {
   currency: 'XOF';
   acceptedTotalXof: number | null;
   preparationStatus: string;
-  paymentAvailable: false;
+  paymentAvailable: boolean;
   financialStatus:
     | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
     | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+}
+
+export interface DirectPaymentAttempt {
+  id: string;
+  status: 'CREATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
+  expectedAmount: number;
+  currency: 'XOF';
+  reconciliationRequired: boolean;
+  initiatedAt: string;
+  checkoutUrl: string | null;
 }
 
 export interface DirectDraftReceipt {
@@ -267,6 +277,14 @@ export class DirectSalesApi {
       '/api/public/direct-orders/payment-status',
       { token },
     ).pipe(timeout(15000)));
+  }
+
+  initiateDirectPayment(token: string, idempotencyKey: string) {
+    return firstValueFrom(this.http.post<DirectPaymentAttempt>(
+      '/api/public/direct-orders/payments',
+      { token },
+      { headers: { 'Idempotency-Key': idempotencyKey } },
+    ).pipe(timeout(25000)));
   }
 
   publicStore(publicIdentifier: string) {

@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,11 +58,24 @@ public class DirectCustomerPaymentStatus {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final PaymentOperations payments;
+    private final boolean initiationEnabled;
 
-    public DirectCustomerPaymentStatus(JdbcTemplate jdbc, Clock clock, PaymentOperations payments) {
+    // Isolated test fixtures still default to strictly disabled.
+    DirectCustomerPaymentStatus(JdbcTemplate jdbc, Clock clock, PaymentOperations payments) {
+        this(jdbc, clock, payments, false);
+    }
+
+    @Autowired
+    public DirectCustomerPaymentStatus(
+            JdbcTemplate jdbc,
+            Clock clock,
+            PaymentOperations payments,
+            @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
+                    boolean initiationEnabled) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.payments = payments;
+        this.initiationEnabled = initiationEnabled;
     }
 
     public Status lookup(String token) {
@@ -105,12 +120,19 @@ public class DirectCustomerPaymentStatus {
         Snapshot saved = matches.getFirst();
         String financial = financialStatus(saved);
         String preparation = preparationStatus(financial);
+        // Read-only UI affordance, never permission to pay: the claim transaction independently
+        // rechecks every order snapshot, the active capability and financial risk under locks.
+        boolean paymentAvailable =
+                initiationEnabled
+                        && "PREPARED".equals(financial)
+                        && "PENDING_PAYMENT_INTEGRATION".equals(saved.orderStatus())
+                        && payments.providerAvailable("BICTORYS");
         return new Status(
                 saved.orderNumber(),
                 saved.currency(),
                 saved.acceptedTotalXof(),
                 preparation,
-                false,
+                paymentAvailable,
                 financial);
     }
 

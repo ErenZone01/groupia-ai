@@ -302,6 +302,20 @@ class DirectBictorysSandboxIntegrationTests {
         String payload = successPayload(UUID.randomUUID().toString(), 10300);
         webhook(payload, "fixture-webhook-secret").andExpect(status().isOk());
         await(() -> "PAYMENT_CONFIRMED".equals(orderStatus()));
+        // Canonical timestamps must survive the Java -> PostgreSQL -> event boundary
+        // exactly. Millisecond clocks alone would not catch this regression.
+        var paymentConfirmedAt =
+                jdbc.queryForObject(
+                        "select confirmed_at from payments where id=?",
+                        java.sql.Timestamp.class,
+                        payment).toInstant();
+        var orderConfirmedAt =
+                jdbc.queryForObject(
+                        "select payment_confirmed_at from direct_orders where id=?",
+                        java.sql.Timestamp.class,
+                        order).toInstant();
+        assertThat(orderConfirmedAt).isEqualTo(paymentConfirmedAt);
+        assertThat(paymentConfirmedAt.getNano() % 1000).isZero();
         assertThat(
                         jdbc.queryForObject(
                                 "select settled_payment_id from payment_requests where direct_order_id=?",

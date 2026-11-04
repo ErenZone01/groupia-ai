@@ -144,8 +144,9 @@ class DirectCustomerPaymentStatusTests {
         assertThat(disabled.paymentAvailable()).isFalse();
         verify(payments, never()).providerAvailable(anyString());
 
-        var enabled = new DirectCustomerPaymentStatus(
-                jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
+        var enabled =
+                new DirectCustomerPaymentStatus(
+                        jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
         assertThat(enabled.lookup(TOKEN).financialStatus()).isEqualTo("PREPARED");
         assertThat(enabled.lookup(TOKEN).paymentAvailable()).isTrue();
         verify(payments, times(2)).providerAvailable("BICTORYS");
@@ -156,8 +157,9 @@ class DirectCustomerPaymentStatusTests {
 
     @Test
     void enabledModeStillBlocksReversedSettledAndUnpreparedPayments() {
-        var enabled = new DirectCustomerPaymentStatus(
-                jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
+        var enabled =
+                new DirectCustomerPaymentStatus(
+                        jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
         when(payments.providerAvailable("BICTORYS")).thenReturn(true);
 
         snapshot("PENDING_PAYMENT_INTEGRATION", null, null, null);

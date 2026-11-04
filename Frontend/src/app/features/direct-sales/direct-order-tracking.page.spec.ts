@@ -147,6 +147,78 @@ describe('Vente directe : suivi client avec jeton secret', () => {
     expect(initiatePayment).toHaveBeenCalledTimes(1);
   });
 
+  it('actualise automatiquement un paiement Bictorys en attente sans recharger la page', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'PREPARED',
+      financialStatus: 'PREPARED', paymentAvailable: true,
+    });
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.canPay()).toBe(true));
+
+    vi.useFakeTimers();
+    try {
+      await page.pay();
+      expect(page.paymentWaiting()).toBe(true);
+      const firstReads = paymentStatus.mock.calls.length;
+      paymentStatus.mockResolvedValue({
+        orderNumber: 'DIR-000000000001', currency: 'XOF',
+        acceptedTotalXof: 9300, preparationStatus: 'UNAVAILABLE',
+        financialStatus: 'SETTLEMENT_VERIFIED', paymentAvailable: false,
+      });
+      request.mockResolvedValue({
+        orderNumber: 'DIR-000000000001', status: 'PAYMENT_CONFIRMED',
+        fulfillmentMethod: 'PICKUP', currency: 'XOF',
+        goodsSubtotalXof: 9000, platformFeeXof: 300,
+        amountBeforeShippingXof: 9300, shippingFeeXof: 0,
+        acceptedTotalXof: 9300, paymentAvailable: false,
+        placedAt: '2026-11-02T12:00:00Z',
+      });
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(paymentStatus).toHaveBeenCalledTimes(firstReads + 1);
+      expect(page.financial()?.financialStatus).toBe('SETTLEMENT_VERIFIED');
+      expect(page.order()?.status).toBe('PAYMENT_CONFIRMED');
+      expect(page.paymentWaiting()).toBe(false);
+      expect(page.checkoutUrl()).toBeNull();
+      expect(initiatePayment).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(paymentStatus).toHaveBeenCalledTimes(firstReads + 1);
+      expect(initiatePayment).toHaveBeenCalledTimes(1);
+    } finally {
+      TestBed.resetTestingModule();
+      vi.useRealTimers();
+    }
+  });
+
+  it('arrête la surveillance quand le jeton de suivi change', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'PREPARED',
+      financialStatus: 'PREPARED', paymentAvailable: true,
+    });
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.canPay()).toBe(true));
+
+    vi.useFakeTimers();
+    try {
+      await page.pay();
+      const previousReads = paymentStatus.mock.calls.length;
+      fragment.next(null);
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(page.message()).toContain('jeton');
+      expect(page.checkoutUrl()).toBeNull();
+      expect(paymentStatus).toHaveBeenCalledTimes(previousReads);
+      expect(initiatePayment).toHaveBeenCalledTimes(1);
+    } finally {
+      TestBed.resetTestingModule();
+      vi.useRealTimers();
+    }
+  });
+
   it('rejette un faux lien prestataire sans annoncer un règlement confirmé', async () => {
     paymentStatus.mockResolvedValue({
       orderNumber: 'DIR-000000000001', currency: 'XOF',

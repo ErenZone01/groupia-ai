@@ -257,7 +257,8 @@ describe('Vente directe : préparation des coordonnées', () => {
     page.confirmMapPoint();
     await vi.waitFor(() => expect(page.deliveryCoverage()?.region).toBe('Dakar'));
     expect(api.previewDeliveryCoverage).toHaveBeenCalledWith(shopA, 14.6937, -17.4474);
-    expect(page.coverageMessage).toContain('dans une région desservie');
+    expect(page.coverageMessage).toContain('Zone desservie : Dakar');
+    expect(page.coverageMessage).toContain('éligible');
     expect(page.locationReady).toBe(true);
   });
 
@@ -273,6 +274,7 @@ describe('Vente directe : préparation des coordonnées', () => {
     page.confirmMapPoint();
     await vi.waitFor(() => expect(page.deliveryCoverage()?.status).toBe('OUTSIDE_ZONE'));
     expect(page.locationReady).toBe(false);
+    expect(page.coverageMessage).toContain('Zone non desservie : Thiès');
     page.showReview();
     expect(page.review()).toBe(false);
     page.changeFulfillment('PICKUP');

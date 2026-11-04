@@ -170,6 +170,7 @@ class SecurityConfiguration {
                                             "/api/public/direct-stores/*/checkout",
                                             "/api/public/direct-orders/lookup",
                                             "/api/public/direct-orders/payment-status",
+                                            "/api/public/direct-orders/payments",
                                             "/api/public/orders/*/payments",
                                             "/api/payment/webhooks/*")
                                     .permitAll()

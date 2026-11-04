@@ -230,6 +230,12 @@ export class DirectOrderTrackingPage {
   async reload() {
     const sequence = ++this.sequence;
     const token = this.token;
+    if (this.paymentBusy()) {
+      // A payment request can finish after this refresh. Do not reopen checkout
+      // or trust a response whose previous sequence has been superseded.
+      this.paymentWaiting.set(true);
+      this.paymentBusy.set(false);
+    }
     this.order.set(null);
     this.financial.set(null);
     this.paymentProblem.set(false);

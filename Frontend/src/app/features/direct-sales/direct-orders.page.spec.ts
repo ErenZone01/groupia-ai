@@ -92,6 +92,19 @@ describe('Vente directe : actions de la gérante', () => {
     expect(api.markReady).not.toHaveBeenCalled();
   });
 
+  it('bloque annulation et préparation pendant une tentative Bictorys non confirmée', async () => {
+    financial = 'PAYMENT_IN_PROGRESS';
+    const page = await pageForCurrentOrder();
+    expect(page.financialLabel(financial)).toContain('Paiement en cours');
+    expect(page.reviewRequired()).toBe(false);
+    expect(page.canCancel()).toBe(false);
+    expect(page.canPrepare()).toBe(false);
+    await page.act('cancel');
+    await page.act('prepare');
+    expect(api.cancel).not.toHaveBeenCalled();
+    expect(api.startPreparation).not.toHaveBeenCalled();
+  });
+
   it('exige une double confirmation avant une annulation non payée', async () => {
     const page = await pageForCurrentOrder();
     expect(page.canCancel()).toBe(true);

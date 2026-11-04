@@ -81,9 +81,13 @@ class DirectMerchantPaymentReadinessTests {
     }
 
     private void state(PaymentOperationalStatus status, UUID settled) {
+        state(status, settled, false);
+    }
+
+    private void state(PaymentOperationalStatus status, UUID settled, boolean inProgress) {
         PaymentRequestView view = obligation(settled);
         when(payments.requestState(organization, requestId))
-                .thenReturn(new PaymentRequestState(view, status, false, false));
+                .thenReturn(new PaymentRequestState(view, status, inProgress, false));
     }
 
     private PaymentSettlementEvidence proof(boolean reversed) {
@@ -127,6 +131,16 @@ class DirectMerchantPaymentReadinessTests {
 
         assertThat(result.financialStatus()).isEqualTo("PREPARED");
         assertThat(result.acceptedTotalXof()).isEqualTo(10300L);
+        assertThat(result.fulfillmentAllowed()).isFalse();
+        verify(payments, never()).settlementEvidence(any(), any());
+    }
+
+    @Test
+    void merchantSeesUnpaidPendingCheckoutButCannotReleaseOrCancelAsPaid() {
+        snapshot(requestId, null, null);
+        state(PaymentOperationalStatus.PENDING, null, true);
+        var result = subject.get(organization, order);
+        assertThat(result.financialStatus()).isEqualTo("PAYMENT_IN_PROGRESS");
         assertThat(result.fulfillmentAllowed()).isFalse();
         verify(payments, never()).settlementEvidence(any(), any());
     }

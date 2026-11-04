@@ -127,6 +127,17 @@ public class DirectMerchantPaymentReadiness {
                             && saved.receiptAmount().compareTo(accepted) == 0;
             return status(saved, verified ? "SETTLEMENT_VERIFIED" : "REVIEW_REQUIRED");
         }
+        if (state.attemptInProgress()) {
+            // Merchant can track an initiated checkout but must neither re-charge nor
+            // release merchandise before immutable provider settlement is verified.
+            return status(
+                    saved,
+                    state.operationalStatus() == PaymentOperationalStatus.PENDING
+                                    && request.acceptanceStatus() == AcceptanceStatus.OPEN
+                                    && request.settledPaymentId() == null
+                            ? "PAYMENT_IN_PROGRESS"
+                            : "REVIEW_REQUIRED");
+        }
         if (state.operationalStatus() == PaymentOperationalStatus.SETTLED) {
             return status(saved, "SETTLEMENT_PROCESSING");
         }

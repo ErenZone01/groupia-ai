@@ -92,7 +92,7 @@ export interface DirectCustomerFinancialStatus {
   paymentAvailable: boolean;
   financialStatus:
     | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
-    | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+    | 'PAYMENT_IN_PROGRESS' | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
 }
 
 export interface DirectPaymentAttempt {

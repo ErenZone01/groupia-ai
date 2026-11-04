@@ -137,6 +137,9 @@
         <p class="error" role="alert">{{ financialError() }}</p>
       } @else if (financial(); as payment) {
         <p class="financial-state"><strong>{{ financialLabel(payment.financialStatus) }}</strong></p>
+        @if (payment.financialStatus === 'PAYMENT_IN_PROGRESS') {
+          <p class="meta" role="status">La cliente a initié un paiement Bictorys. Ne l’annulez pas et ne préparez aucune remise tant que la confirmation financière n’est pas vérifiée.</p>
+        }
         @if (reviewRequired()) {
           <p class="error" role="alert">Le règlement demande une vérification. Aucune préparation ou remise ne doit être effectuée.</p>
         }
@@ -180,8 +183,8 @@
       }
     </section>
     <div class="warning">
-      <strong>Encaissement de vente directe encore désactivé</strong>
-      <p>La connexion au paiement Bictorys sera activée dans une étape sécurisée distincte. Les actions ci-dessus ne simulent jamais un règlement et n'autorisent ni remise effective, ni livraison, ni reversement.</p>
+      <strong>Encaissement Bictorys sous activation contrôlée</strong>
+      <p>Le paiement direct reste désactivé par défaut et n’est ouvert qu’après autorisation serveur. Seule une preuve de règlement vérifiée permet la préparation, jamais une simple tentative. La remise, la livraison effective et le reversement ne sont pas encore activés.</p>
     </div>
   </section>
 }

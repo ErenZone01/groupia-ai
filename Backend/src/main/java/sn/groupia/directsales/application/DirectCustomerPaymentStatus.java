@@ -168,8 +168,7 @@ public class DirectCustomerPaymentStatus {
                 || saved.expectedAmount() == null
                 || saved.expectedAmount().compareTo(total) != 0
                 || state.operationalStatus() == PaymentOperationalStatus.REVIEW_REQUIRED
-                || state.reconciliationRequired()
-                || state.attemptInProgress()) {
+                || state.reconciliationRequired()) {
             return "REVIEW_REQUIRED";
         }
 
@@ -215,6 +214,15 @@ public class DirectCustomerPaymentStatus {
         }
         if (!"PENDING_PAYMENT_INTEGRATION".equals(saved.orderStatus())) {
             return "REVIEW_REQUIRED";
+        }
+        if (state.attemptInProgress()) {
+            // A real pending provider attempt is neither paid nor an anomaly by itself.
+            // No second payment can be offered while its outcome is unknown.
+            return state.operationalStatus() == PaymentOperationalStatus.PENDING
+                            && request.acceptanceStatus() == AcceptanceStatus.OPEN
+                            && request.settledPaymentId() == null
+                    ? "PAYMENT_IN_PROGRESS"
+                    : "REVIEW_REQUIRED";
         }
         if (state.operationalStatus() == PaymentOperationalStatus.SETTLED) {
             return "SETTLEMENT_PROCESSING";

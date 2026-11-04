@@ -160,8 +160,8 @@ describe('Vente directe : actions de la gérante', () => {
     expect(page.deliveryPoint(manual)).toBeNull();
     expect(page.deliveryMapUrl(manual)).toBeNull();
     expect(page.deliveryDirectionsUrl(manual)).toBeNull();
-    expect(page.deliveryPoint({ ...manual, locationMethod: 'MAP',
-      coverageStatus: 'REGION_MATCHED', latitude: 200, longitude: -17.5 })).toBeNull();
+    expect(page.deliveryPoint({ ...manual, locationMethod: 'MAP' as const,
+      coverageStatus: 'REGION_MATCHED' as const, latitude: 200, longitude: -17.5 })).toBeNull();
   });
 
   it('efface les informations confidentielles au changement de boutique', async () => {

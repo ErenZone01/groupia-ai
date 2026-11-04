@@ -57,7 +57,7 @@ class DirectBictorysPilotTests(unittest.TestCase):
         }
         for key, variable in config.items():
             with self.subTest(key=key):
-                self.assertIn(f"{key}=${{{variable}:false}}", app)
+                self.assertIn(key + "=$" + "{" + variable + ":false}", app)
                 self.assertIn(f"{variable}=false", env)
         self.assertIn("BICTORYS_ENABLED=false", env)
         self.assertIn("GROUPIA_BICTORYS_PAYOUTS_ENABLED=false", env)

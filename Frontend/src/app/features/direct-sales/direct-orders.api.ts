@@ -43,6 +43,8 @@ export interface DirectOrderDetail {
     details: string;
     locationMethod: 'MAP' | 'MANUAL' | null;
     coverageStatus: 'REGION_MATCHED' | 'UNVERIFIED_MANUAL' | null;
+    latitude: number | null;
+    longitude: number | null;
   } | null;
   platformFeeRule: Record<string, string>;
   items: {

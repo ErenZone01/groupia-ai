@@ -30,4 +30,5 @@ jobs:
           git add -- Backend/src/main/java/sn/groupia/directsales/application/DirectCustomerPaymentStatus.java Backend/src/test/java/sn/groupia/directsales/application/DirectCustomerPaymentStatusTests.java
           git diff --cached --check
           git commit -m "style(direct-sales): format server-gated customer payment status"
+          git pull --rebase origin direct-sales-customer-payment-ui-v1
           git push origin HEAD:direct-sales-customer-payment-ui-v1

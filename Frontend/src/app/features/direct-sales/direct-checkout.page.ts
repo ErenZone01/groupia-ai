@@ -293,10 +293,10 @@ export class DirectCheckoutPage {
       : 'La zone de livraison devra être confirmée.';
     switch (result.status) {
       case 'INSIDE_ZONE':
-        return 'Ce point se trouve dans une région desservie. Livraison et frais à confirmer.';
+        return `Zone desservie : ${result.region ?? 'région vérifiée'}. Votre point est éligible selon les zones de la boutique. Les frais sont revérifiés avant la commande.`;
       case 'OUTSIDE_ZONE':
       case 'OUTSIDE_SENEGAL':
-        return 'Cette boutique ne livre pas à cet endroit. Choisissez un autre lieu ou le retrait.';
+        return `Zone non desservie${result.region ? ' : ' + result.region : ''}. Impossible de commander en livraison à ce point : choisissez une autre destination ou le retrait.`;
       case 'DELIVERY_DISABLED':
         return 'Cette boutique ne propose pas la livraison à domicile.';
       default:

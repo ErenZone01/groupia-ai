@@ -82,6 +82,14 @@ class DirectCustomerPaymentStatusTests {
     }
 
     private void state(PaymentOperationalStatus operational, UUID settled, boolean reconciliation) {
+        state(operational, settled, reconciliation, false);
+    }
+
+    private void state(
+            PaymentOperationalStatus operational,
+            UUID settled,
+            boolean reconciliation,
+            boolean inProgress) {
         PaymentRequestView view = mock(PaymentRequestView.class);
         when(view.id()).thenReturn(requestId);
         when(view.organizationId()).thenReturn(organization);
@@ -94,7 +102,7 @@ class DirectCustomerPaymentStatusTests {
         when(view.settledPaymentId()).thenReturn(settled);
         when(view.expiresAt()).thenReturn(NOW.plusSeconds(3600));
         when(payments.requestState(organization, requestId))
-                .thenReturn(new PaymentRequestState(view, operational, false, reconciliation));
+                .thenReturn(new PaymentRequestState(view, operational, inProgress, reconciliation));
     }
 
     private PaymentSettlementEvidence proof(boolean reversed) {
@@ -181,6 +189,34 @@ class DirectCustomerPaymentStatusTests {
         snapshot("PENDING_PAYMENT_INTEGRATION", null, null, null);
         assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("NOT_PREPARED");
         verifyNoInteractions(payments);
+    }
+
+    @Test
+    void initiatedCheckoutIsInProgressRatherThanManualReviewAndNotPayableAgain() {
+        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L);
+        state(PaymentOperationalStatus.PENDING, null, false, true);
+        when(payments.providerAvailable("BICTORYS")).thenReturn(true);
+        var enabled =
+                new DirectCustomerPaymentStatus(
+                        jdbc, Clock.fixed(NOW, ZoneOffset.UTC), payments, true);
+
+        var result = enabled.lookup(TOKEN);
+        assertThat(result.financialStatus()).isEqualTo("PAYMENT_IN_PROGRESS");
+        assertThat(result.paymentAvailable()).isFalse();
+        assertThat(result.preparationStatus()).isEqualTo("UNAVAILABLE");
+        verify(payments, never()).providerAvailable(anyString());
+        verify(payments, never()).settlementEvidence(any(), any());
+    }
+
+    @Test
+    void pendingCheckoutWithFinancialRiskStillRequiresReview() {
+        snapshot("PENDING_PAYMENT_INTEGRATION", requestId, null, 10300L);
+        state(PaymentOperationalStatus.PENDING, null, true, true);
+        assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("REVIEW_REQUIRED");
+        state(PaymentOperationalStatus.REVIEW_REQUIRED, null, false, true);
+        assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("REVIEW_REQUIRED");
+        state(PaymentOperationalStatus.SETTLED, paymentId, false, true);
+        assertThat(subject.lookup(TOKEN).financialStatus()).isEqualTo("REVIEW_REQUIRED");
     }
 
     @Test

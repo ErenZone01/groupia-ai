@@ -1276,6 +1276,30 @@ class DirectStorefrontIntegrationTests {
         assertThat(acceptedMerchantDetail.at("/order/shippingRateVersion").asLong()).isEqualTo(1L);
         assertThat(acceptedMerchantDetail.at("/deliveryAddress/coverageStatus").asText())
                 .isEqualTo("REGION_MATCHED");
+        // Only merchant detail can recover the precise, immutable destination selected
+        // by the customer. No separate geocoding or personal GPS lookup is needed.
+        assertThat(acceptedMerchantDetail.at("/deliveryAddress/latitude").asDouble())
+                .isEqualTo(14.6937);
+        assertThat(acceptedMerchantDetail.at("/deliveryAddress/longitude").asDouble())
+                .isEqualTo(-17.4474);
+        assertThat(acceptedMerchantDetail.at("/deliveryAddress/details").asText())
+                .isEqualTo("Derrière la pharmacie");
+        assertThat(acceptedMerchantDetail.at("/deliveryAddress/locationMethod").asText())
+                .isEqualTo("MAP");
+        var manualOrderId =
+                jdbc.queryForObject(
+                        "select id from direct_orders where checkout_idempotency_key=?",
+                        UUID.class,
+                        "direct-valid-address-0001");
+        var manualDetail =
+                body(
+                        authorized(get(merchantOrdersPath + "/" + manualOrderId))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(manualDetail.at("/deliveryAddress/coverageStatus").asText())
+                .isEqualTo("UNVERIFIED_MANUAL");
+        assertThat(manualDetail.at("/deliveryAddress/latitude").isNull()).isTrue();
+        assertThat(manualDetail.at("/deliveryAddress/longitude").isNull()).isTrue();
         var acceptedMerchantList =
                 body(authorized(get(merchantOrdersPath)).andExpect(status().isOk()).andReturn());
         assertThat(acceptedMerchantList.path("items").toString())
@@ -1305,6 +1329,7 @@ class DirectStorefrontIntegrationTests {
         assertThat(tracked.has("phoneE164")).isFalse();
         assertThat(tracked.has("customerContact")).isFalse();
         assertThat(tracked.has("deliveryAddress")).isFalse();
+        assertThat(tracked.toString()).doesNotContain("-17.4474");
 
         var paymentStatus =
                 body(

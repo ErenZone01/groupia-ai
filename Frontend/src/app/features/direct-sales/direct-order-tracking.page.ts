@@ -166,6 +166,7 @@ export class DirectOrderTrackingPage {
     if (this.paymentProblem()) return 'État financier temporairement indisponible';
     switch (this.financial()?.financialStatus) {
       case 'SETTLEMENT_VERIFIED': return 'Règlement vérifié';
+      case 'PAYMENT_IN_PROGRESS': return 'Paiement en cours chez Bictorys — en attente de confirmation';
       case 'SETTLEMENT_PROCESSING': return 'Règlement en cours de confirmation';
       case 'REVIEW_REQUIRED': return 'Vérification manuelle nécessaire';
       case 'PREPARED': return 'Paiement non encore confirmé';

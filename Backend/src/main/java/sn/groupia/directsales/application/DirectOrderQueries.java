@@ -49,7 +49,9 @@ public class DirectOrderQueries {
             String neighborhood,
             String details,
             String locationMethod,
-            String coverageStatus) {}
+            String coverageStatus,
+            Double latitude,
+            Double longitude) {}
 
     public record Item(
             int lineNumber,
@@ -173,7 +175,9 @@ public class DirectOrderQueries {
                                                     value(address, "neighborhood"),
                                                     value(address, "details"),
                                                     value(address, "locationMethod"),
-                                                    value(address, "coverageStatus")),
+                                                    value(address, "coverageStatus"),
+                                                    coordinate(address, "latitude", true),
+                                                    coordinate(address, "longitude", false)),
                                     map(json.readTree(rs.getString("fee_json"))),
                                     List.of());
                         },
@@ -252,6 +256,24 @@ public class DirectOrderQueries {
         var values = new HashMap<String, String>();
         object.properties().forEach(entry -> values.put(entry.getKey(), entry.getValue().asText()));
         return Map.copyOf(values);
+    }
+
+    /**
+     * Never interpret a legacy/manual address or an untrusted text field as a verified
+     * delivery pin. Coordinates are exposed only in the tenant-scoped order detail.
+     */
+    private static Double coordinate(JsonNode address, String property, boolean latitude) {
+        if (!"MAP".equals(value(address, "locationMethod"))
+                || !"REGION_MATCHED".equals(value(address, "coverageStatus"))) {
+            return null;
+        }
+        JsonNode value = address.path(property);
+        if (!value.isNumber()) return null;
+        double result = value.asDouble();
+        return Double.isFinite(result)
+                        && (latitude ? result >= -90 && result <= 90 : result >= -180 && result <= 180)
+                ? result
+                : null;
     }
 
     private static String value(JsonNode node, String property) {

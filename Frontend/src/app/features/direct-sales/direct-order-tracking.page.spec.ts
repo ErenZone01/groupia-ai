@@ -10,6 +10,7 @@ describe('Vente directe : suivi client avec jeton secret', () => {
   let fragment: BehaviorSubject<string | null>;
   let request: ReturnType<typeof vi.fn>;
   let paymentStatus: ReturnType<typeof vi.fn>;
+  let initiatePayment: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     fragment = new BehaviorSubject<string | null>(null);
@@ -29,9 +30,15 @@ describe('Vente directe : suivi client avec jeton secret', () => {
       financialStatus: 'PREPARED',
       paymentAvailable: false,
     }));
+    initiatePayment = vi.fn(async () => ({
+      id: '22222222-2222-4222-8222-222222222222', status: 'PENDING',
+      expectedAmount: 9300, currency: 'XOF', reconciliationRequired: false,
+      initiatedAt: '2026-11-04T00:00:00Z',
+      checkoutUrl: 'https://pay.test.bictorys.com/checkout/example',
+    }));
     TestBed.configureTestingModule({
       providers: [
-        { provide: DirectSalesApi, useValue: { trackDirectOrder: request, directPaymentStatus: paymentStatus } },
+        { provide: DirectSalesApi, useValue: { trackDirectOrder: request, directPaymentStatus: paymentStatus, initiateDirectPayment: initiatePayment } },
         { provide: ActivatedRoute, useValue: {
           paramMap: new BehaviorSubject(convertToParamMap({ publicIdentifier: shop })),
           fragment,
@@ -93,6 +100,101 @@ describe('Vente directe : suivi client avec jeton secret', () => {
     expect(page.paymentProblem()).toBe(true);
     expect(page.paymentLabel()).toContain('indisponible');
     expect(page.orderLabel('READY_FOR_PICKUP')).toContain('suspendu');
+  });
+
+  it('n’envoie jamais une tentative quand le backend interdit le paiement', async () => {
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.financial()?.financialStatus).toBe('PREPARED'));
+    expect(page.canPay()).toBe(false);
+    await page.pay();
+    expect(initiatePayment).not.toHaveBeenCalled();
+  });
+
+  it('autorise le paiement uniquement sur lecture concordante et conserve le statut non payé', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'PREPARED',
+      financialStatus: 'PREPARED', paymentAvailable: true,
+    });
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.canPay()).toBe(true));
+    await page.pay();
+    expect(initiatePayment).toHaveBeenCalledTimes(1);
+    expect(initiatePayment).toHaveBeenCalledWith(token, expect.stringMatching(/^[0-9a-f-]{36}$/));
+    expect(page.paymentWaiting()).toBe(true);
+    expect(page.canPay()).toBe(false);
+    expect(page.checkoutUrl()).toBe('https://pay.test.bictorys.com/checkout/example');
+    expect(page.paymentLabel()).toBe('Paiement non encore confirmé');
+    await page.pay();
+    expect(initiatePayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejette un faux lien prestataire sans annoncer un règlement confirmé', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'PREPARED',
+      financialStatus: 'PREPARED', paymentAvailable: true,
+    });
+    initiatePayment.mockResolvedValue({
+      id: 'fake', status: 'PENDING', expectedAmount: 9300, currency: 'XOF',
+      reconciliationRequired: false, initiatedAt: '2026-11-04T00:00:00Z',
+      checkoutUrl: 'https://malicious.example/checkout',
+    });
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.canPay()).toBe(true));
+    await page.pay();
+    expect(page.checkoutUrl()).toBeNull();
+    expect(page.paymentWaiting()).toBe(true);
+    expect(page.paymentLabel()).not.toContain('vérifié');
+  });
+
+  it('réutilise la clé d’idempotence après erreur réseau et ne fabrique aucune réussite', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'PREPARED',
+      financialStatus: 'PREPARED', paymentAvailable: true,
+    });
+    initiatePayment.mockRejectedValueOnce(new Error('network failure'));
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.canPay()).toBe(true));
+    await page.pay();
+    expect(page.paymentWaiting()).toBe(false);
+    expect(page.paymentError()).toContain('non confirmée');
+    expect(page.canPay()).toBe(true);
+    await page.pay();
+    expect(initiatePayment).toHaveBeenCalledTimes(2);
+    expect(initiatePayment.mock.calls[0][1]).toBe(initiatePayment.mock.calls[1][1]);
+    expect(page.paymentLabel()).toBe('Paiement non encore confirmé');
+  });
+
+  it('ignore la tentative initiée sous un ancien jeton révoqué', async () => {
+    paymentStatus.mockResolvedValue({
+      orderNumber: 'DIR-000000000001', currency: 'XOF',
+      acceptedTotalXof: 9300, preparationStatus: 'PREPARED',
+      financialStatus: 'PREPARED', paymentAvailable: true,
+    });
+    let finish!: (v: {
+      id: string; status: string; expectedAmount: number; currency: string;
+      reconciliationRequired: boolean; initiatedAt: string; checkoutUrl: string;
+    }) => void;
+    initiatePayment.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    fragment.next('access=' + token);
+    const page = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
+    await vi.waitFor(() => expect(page.canPay()).toBe(true));
+    const pending = page.pay();
+    fragment.next('access=' + 'B'.repeat(43));
+    finish({
+      id: 'expired', status: 'PENDING', expectedAmount: 9300, currency: 'XOF',
+      reconciliationRequired: false, initiatedAt: '2026-11-04T00:00:00Z',
+      checkoutUrl: 'https://pay.test.bictorys.com/checkout/old',
+    });
+    await pending;
+    expect(page.checkoutUrl()).toBeNull();
+    expect(page.paymentWaiting()).toBe(false);
   });
 
   it('ignore une réponse ancienne après changement de jeton', async () => {

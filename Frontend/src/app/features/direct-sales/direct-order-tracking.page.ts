@@ -39,7 +39,7 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
           </dl>
           @if (canPay()) {
             <button type="button" class="action-link" [disabled]="paymentBusy()" (click)="pay()">
-              Payer {{ money(data.acceptedTotalXof, data.currency) }} avec Bictorys
+              Payer {{ money(data.acceptedTotalXof ?? undefined, data.currency) }} avec Bictorys
             </button>
           }
           @if (paymentBusy()) {

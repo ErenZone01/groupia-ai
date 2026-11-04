@@ -92,6 +92,8 @@ def verify_pair(tracking, payment):
         not isinstance(total, int)
         or isinstance(total, bool)
         or total <= 0
+        or not isinstance(other_total, int)
+        or isinstance(other_total, bool)
         or total != other_total
     ):
         raise UnsafePreflight("Total accepté incohérent.")

@@ -232,6 +232,7 @@ export class DirectOrdersPage {
       case 'PREPARED': return 'Paiement préparé, non confirmé';
       case 'EXPIRED': return 'Demande de paiement expirée';
       case 'UNAVAILABLE': return 'Paiement indisponible';
+      case 'PAYMENT_IN_PROGRESS': return 'Paiement en cours chez Bictorys — non confirmé';
       case 'SETTLEMENT_PROCESSING': return 'Vérification du règlement en cours';
       case 'SETTLEMENT_VERIFIED': return 'Règlement vérifié';
       case 'REVIEW_REQUIRED': return 'Vérification manuelle nécessaire';

@@ -59,7 +59,7 @@ export interface DirectOrderDetail {
 
 export type DirectFinancialState =
   | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
-  | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+  | 'PAYMENT_IN_PROGRESS' | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
 
 export interface DirectOrderPaymentStatus {
   orderNumber: string;

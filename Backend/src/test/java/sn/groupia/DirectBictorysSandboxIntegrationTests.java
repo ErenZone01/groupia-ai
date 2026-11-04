@@ -285,6 +285,10 @@ class DirectBictorysSandboxIntegrationTests {
         assertThat(outbound.path("customerObject").path("phone").asText())
                 .isEqualTo("+221771234567");
         assertThat(orderStatus()).isEqualTo("PENDING_PAYMENT_INTEGRATION");
+        financial(recovery)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("PAYMENT_IN_PROGRESS"))
+                .andExpect(jsonPath("$.paymentAvailable").value(false));
         assertThat(count("direct_order_verified_settlements")).isZero();
         assertThat(count("payments")).isEqualTo(1);
     }

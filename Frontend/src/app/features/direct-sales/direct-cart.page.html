@@ -47,24 +47,22 @@
       <section class="summary">
         <div class="subtotal"><span>Sous-total des articles</span>
           <strong>{{ money(preview.goodsSubtotalXof, preview.currency) }}</strong></div>
-        <p>Les éventuels frais de plateforme et de livraison ne sont pas inclus.
-          Le montant final sera présenté avant toute commande lorsque le checkout sera disponible.</p>
+        <p>Les éventuels frais de livraison seront calculés selon votre destination.
+          Le total définitif est présenté avant de confirmer la commande.</p>
       </section>
     }
     <aside class="notice" role="note">
-      <strong>Prochaine étape : finalisation des commandes</strong>
-      <p>Le panier est un aperçu, pas une réservation. Les prix seront revérifiés lors du futur checkout.
-        Le paiement Bictorys n'est pas encore activé pour les ventes directes.</p>
+      <strong>Vos prix sont vérifiés</strong>
+      <p>Le panier ne réserve pas le stock. Les tarifs et la disponibilité seront revérifiés avant la commande.</p>
     </aside>
     @if (quote() && !loading() && !error()) {
       <div class="checkout-preview-cta">
         <div>
-          <strong>Préparer vos coordonnées</strong>
-          <p>Vous pourrez vérifier vos informations avant la future activation de la commande.
-            Aucun paiement ni commande ne sera créé.</p>
+          <strong>Continuer vers la commande</strong>
+          <p>Vérifiez votre adresse, les frais éventuels et le total à accepter. Aucun débit à cette étape.</p>
         </div>
         <a class="go-back" [routerLink]="['/v', publicId(), 'coordonnees']">
-          Préparer mes coordonnées
+          Continuer
         </a>
       </div>
     }

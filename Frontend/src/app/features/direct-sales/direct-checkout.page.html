@@ -395,10 +395,12 @@
               <strong>{{ money(q.goodsSubtotalXof, q.currency) }}</strong>
             </div>
             @if (shippingPreview(); as fees) {
-              <div class="subtotal">
-                <span>Frais de plateforme</span>
-                <strong>{{ money(fees.platformFeeXof, fees.currency) }}</strong>
-              </div>
+              @if (fees.platformFeeXof > 0) {
+                <div class="subtotal">
+                  <span>Frais de plateforme</span>
+                  <strong>{{ money(fees.platformFeeXof, fees.currency) }}</strong>
+                </div>
+              }
               @if (fees.shippingQuoted && fees.shippingFeeXof !== null) {
                 <div class="subtotal">
                   <span>Livraison</span>
@@ -419,8 +421,8 @@
               Si les prix changent, une nouvelle acceptation sera nécessaire.</p>
           </div>
           <div class="payment-state" role="note">
-            <strong>Paiement non disponible</strong>
-            <p>Créer une commande ne réserve pas les articles et ne déclenche aucun débit.</p>
+            <strong>Paiement après confirmation</strong>
+            <p>La création de la commande ne débite rien. Consultez le suivi privé pour voir les moyens de paiement disponibles.</p>
           </div>
           <a class="back-to-cart" [routerLink]="['/v', publicId(), 'panier']">Modifier les articles</a>
         </aside>

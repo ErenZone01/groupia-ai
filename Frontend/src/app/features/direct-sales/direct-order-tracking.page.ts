@@ -28,6 +28,12 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
             <div><dt>Statut</dt><dd>{{ orderLabel(data.status) }}</dd></div>
             <div><dt>Remise</dt><dd>{{ data.fulfillmentMethod === 'PICKUP'
               ? 'Retrait en boutique' : 'Livraison' }}</dd></div>
+            @if (data.fulfillmentMethod === 'PICKUP') {
+              <div><dt>Adresse de retrait</dt><dd>{{ data.pickupAddress || 'À confirmer avec la boutique (ancienne commande)' }}</dd></div>
+              @if (data.pickupInstructions) {
+                <div><dt>Indications</dt><dd>{{ data.pickupInstructions }}</dd></div>
+              }
+            }
             <div><dt>Articles</dt><dd>{{ money(data.goodsSubtotalXof, data.currency) }}</dd></div>
             @if (data.platformFeeXof > 0) {
               <div><dt>Frais de plateforme</dt><dd>{{ money(data.platformFeeXof, data.currency) }}</dd></div>

@@ -29,7 +29,9 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
             <div><dt>Remise</dt><dd>{{ data.fulfillmentMethod === 'PICKUP'
               ? 'Retrait en boutique' : 'Livraison' }}</dd></div>
             <div><dt>Articles</dt><dd>{{ money(data.goodsSubtotalXof, data.currency) }}</dd></div>
-            <div><dt>Frais de plateforme</dt><dd>{{ money(data.platformFeeXof, data.currency) }}</dd></div>
+            @if (data.platformFeeXof > 0) {
+              <div><dt>Frais de plateforme</dt><dd>{{ money(data.platformFeeXof, data.currency) }}</dd></div>
+            }
             @if (data.shippingFeeXof !== null) {
               <div><dt>Livraison</dt><dd>{{ money(data.shippingFeeXof, data.currency) }}</dd></div>
             }

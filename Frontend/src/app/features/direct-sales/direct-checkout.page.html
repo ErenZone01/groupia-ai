@@ -76,8 +76,14 @@
                 }
                 <div>
                   <dt>Mode de remise</dt>
-                  <dd>{{ fulfillment === 'PICKUP' ? 'Retrait à convenir' : 'Livraison à organiser' }}</dd>
+                  <dd>{{ fulfillment === 'PICKUP' ? 'Retrait en boutique' : 'Livraison à organiser' }}</dd>
                 </div>
+                @if (fulfillment === 'PICKUP' && quote()?.pickupAddress) {
+                  <div><dt>Lieu de retrait</dt><dd>{{ quote()?.pickupAddress }}</dd></div>
+                  @if (quote()?.pickupInstructions) {
+                    <div><dt>Indications</dt><dd>{{ quote()?.pickupInstructions }}</dd></div>
+                  }
+                }
                 @if (fulfillment === 'DELIVERY' && locationMode() === 'CONFIRMED') {
                   <div><dt>Lieu de livraison</dt><dd>Position choisie sur la carte</dd></div>
                   <div><dt>Zone de livraison</dt><dd>{{ coverageMessage }}</dd></div>
@@ -190,11 +196,13 @@
                   </div>
                 </div>
                 <div class="fulfillment" role="group" aria-label="Mode de remise">
-                  <label class="mode" [class.selected]="fulfillment === 'PICKUP'">
-                    <input type="radio" name="fulfillment" [ngModel]="fulfillment"
-                      (ngModelChange)="changeFulfillment($event)" value="PICKUP" />
-                    <span><strong>Retrait</strong><small>Lieu et disponibilité à convenir.</small></span>
-                  </label>
+                  @if (pickupAvailable) {
+                    <label class="mode" [class.selected]="fulfillment === 'PICKUP'">
+                      <input type="radio" name="fulfillment" [ngModel]="fulfillment"
+                        (ngModelChange)="changeFulfillment($event)" value="PICKUP" />
+                      <span><strong>Retrait en boutique</strong><small>{{ quote()?.pickupAddress }}</small></span>
+                    </label>
+                  }
                   @if (deliveryAvailable) {
                     <label class="mode" [class.selected]="fulfillment === 'DELIVERY'">
                       <input type="radio" name="fulfillment" [ngModel]="fulfillment"
@@ -203,10 +211,18 @@
                     </label>
                   }
                 </div>
+                @if (!pickupAvailable && !deliveryAvailable) {
+                  <div class="location-note" role="status">
+                    Cette boutique ne dispose d'aucun mode de remise disponible. Contactez-la avant de commander.
+                  </div>
+                }
+                @if (fulfillment === 'PICKUP' && quote()?.pickupInstructions) {
+                  <p class="field-help">{{ quote()?.pickupInstructions }}</p>
+                }
                 @if (deliveryPolicy(); as policy) {
                   <div class="location-note" role="status">
                     @if (policy.mode === 'DISABLED') {
-                      <strong>Livraison indisponible.</strong> Cette boutique propose uniquement le retrait.
+                      <strong>Livraison indisponible.</strong> Vérifiez que le retrait est proposé par la boutique.
                     } @else if (policy.mode === 'ALL') {
                       <strong>Zones proposées :</strong> les 14 régions du Sénégal.
                       Le point choisi et les frais doivent être vérifiés avant la commande.

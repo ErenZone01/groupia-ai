@@ -55,7 +55,7 @@
       <strong>Vos prix sont vérifiés</strong>
       <p>Le panier ne réserve pas le stock. Les tarifs et la disponibilité seront revérifiés avant la commande.</p>
     </aside>
-    @if (quote() && !loading() && !error()) {
+    @if (quote()?.draftCreationAvailable && !loading() && !error()) {
       <div class="checkout-preview-cta">
         <div>
           <strong>Continuer vers la commande</strong>
@@ -65,6 +65,9 @@
           Continuer
         </a>
       </div>
+    }
+    @if (quote() && !quote()?.draftCreationAvailable && !loading() && !error()) {
+      <p role="status" class="notice">Cette boutique ne prend pas de nouvelles commandes pour le moment.</p>
     }
     <div class="footer-actions">
       <a class="go-back" [routerLink]="['/v', publicId()]">Continuer mes achats</a>

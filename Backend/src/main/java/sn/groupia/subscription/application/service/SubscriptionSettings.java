@@ -9,7 +9,7 @@ public class SubscriptionSettings {
     private boolean enabled = true;
     private boolean enforcementEnabled;
     private int trialMonths = 1;
-    private String monthlyXof = "";
+    private String monthlyXof = "10000";
     private boolean bictorysEnabled;
     private String bictorysPlanId = "";
 

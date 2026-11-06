@@ -50,9 +50,13 @@ public class DirectCartQuoteService {
             long goodsSubtotalXof,
             List<QuotedLine> lines,
             boolean checkoutAvailable,
-            boolean draftCreationAvailable) {}
+            boolean draftCreationAvailable,
+            String pickupAddress,
+            String pickupInstructions) {}
 
-    private record Shop(UUID id, UUID organizationId, String displayName) {}
+    private record Shop(
+            UUID id, UUID organizationId, String displayName,
+            String pickupAddress, String pickupInstructions) {}
 
     private record Offer(UUID id, UUID variantId, long priceXof, long revision) {}
 
@@ -73,12 +77,15 @@ public class DirectCartQuoteService {
         }
         var stores =
                 jdbc.query(
-                        "select id,organization_id,display_name from direct_storefronts where public_identifier=?",
+                        "select id,organization_id,display_name,pickup_address,pickup_instructions"
+                                + " from direct_storefronts where public_identifier=?",
                         (rs, rowNum) ->
                                 new Shop(
                                         rs.getObject("id", UUID.class),
                                         rs.getObject("organization_id", UUID.class),
-                                        rs.getString("display_name")),
+                                        rs.getString("display_name"),
+                                        rs.getString("pickup_address"),
+                                        rs.getString("pickup_instructions")),
                         publicIdentifier);
         if (stores.isEmpty() || !organizations.isActive(stores.getFirst().organizationId())) {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
@@ -144,7 +151,9 @@ public class DirectCartQuoteService {
                 total,
                 List.copyOf(quoteLines),
                 false,
-                draftCreationEnabled);
+                draftCreationEnabled,
+                store.pickupAddress(),
+                store.pickupInstructions());
     }
 
     private ApiException invalid() {

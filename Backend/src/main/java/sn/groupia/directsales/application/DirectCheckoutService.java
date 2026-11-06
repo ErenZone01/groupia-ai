@@ -98,7 +98,7 @@ public class DirectCheckoutService {
 
     public record Result(boolean created, Receipt receipt) {}
 
-    private record Store(UUID id, UUID organizationId) {}
+    private record Store(UUID id, UUID organizationId, String pickupAddress, String pickupInstructions) {}
 
     private record NormalizedContact(
             String firstName, String lastName, String phoneE164, String email) {}
@@ -115,6 +115,7 @@ public class DirectCheckoutService {
     private final ObjectMapper json;
     private final Clock clock;
     private final boolean enabled;
+    private final boolean pickupRequired;
     private final long platformFeeXof;
 
     DirectCheckoutService(
@@ -130,6 +131,7 @@ public class DirectCheckoutService {
             ObjectMapper json,
             Clock clock,
             @Value("${groupia.direct-sales.checkout.enabled:false}") boolean enabled,
+            @Value("${groupia.direct-sales.pickup-location-required:true}") boolean pickupRequired,
             CommercialRevenuePolicy pricing) {
         long platformFeeXof = pricing.transactionFeeXofLong();
         if (platformFeeXof < 0 || platformFeeXof > 99999999999999L) {
@@ -147,6 +149,7 @@ public class DirectCheckoutService {
         this.json = json;
         this.clock = clock;
         this.enabled = enabled;
+        this.pickupRequired = pickupRequired;
         this.platformFeeXof = pricing.transactionFeeXofLong();
     }
 
@@ -167,12 +170,14 @@ public class DirectCheckoutService {
         // also lock the storefront row. It also protects the idempotent insert race.
         var stores =
                 jdbc.query(
-                        "select id,organization_id from direct_storefronts"
-                                + " where public_identifier=? for update",
+                        "select id,organization_id,pickup_address,pickup_instructions"
+                                + " from direct_storefronts where public_identifier=? for update",
                         (rs, row) ->
                                 new Store(
                                         rs.getObject("id", UUID.class),
-                                        rs.getObject("organization_id", UUID.class)),
+                                        rs.getObject("organization_id", UUID.class),
+                                        rs.getString("pickup_address"),
+                                        rs.getString("pickup_instructions")),
                         publicIdentifier);
         if (stores.isEmpty() || !organizations.isActive(stores.getFirst().organizationId())) {
             throw new ApiException(404, "DIRECT_STORE_UNAVAILABLE", "Boutique indisponible.");
@@ -273,6 +278,15 @@ public class DirectCheckoutService {
                         "Cette clé a déjà servi à une autre commande.");
             }
             return new Result(false, (Receipt) saved[1]);
+        }
+
+        // New paid pickup orders must have a known destination. Historical orders and
+        // idempotent replays keep the information that was available when placed.
+        if (pickupRequired && "PICKUP".equals(method) && acceptedTotal != null
+                && (store.pickupAddress() == null || store.pickupAddress().isBlank())) {
+            throw new ApiException(
+                    409, "DIRECT_PICKUP_LOCATION_REQUIRED",
+                    "Cette boutique doit renseigner son lieu de retrait avant de proposer cette option.");
         }
 
         // Only new drafts consult the latest delivery rules. An idempotent replay
@@ -425,11 +439,12 @@ public class DirectCheckoutService {
                 "insert into direct_orders"
                         + " (id,organization_id,storefront_id,order_number,status,"
                         + "fulfillment_method,currency,customer_contact_snapshot,"
-                        + "delivery_address_snapshot,goods_subtotal_xof,platform_fee_xof,"
+                        + "delivery_address_snapshot,pickup_address_snapshot,pickup_instructions_snapshot,"
+                        + "goods_subtotal_xof,platform_fee_xof,"
                         + "platform_fee_rule_snapshot,amount_before_shipping_xof,"
                         + "shipping_quoted,shipping_fee_xof,accepted_total_xof,shipping_rate_version,"
                         + "checkout_idempotency_key,checkout_request_fingerprint,placed_at,recovery_token_hash)"
-                        + " values (?,?,?,?,?,?,?,cast(? as jsonb),cast(? as jsonb),?,?,"
+                        + " values (?,?,?,?,?,?,?,cast(? as jsonb),cast(? as jsonb),?,?,?,?,"
                         + "cast(? as jsonb),?,?,?,?,?,?,?,?,?)",
                 orderId,
                 store.organizationId(),
@@ -440,6 +455,8 @@ public class DirectCheckoutService {
                 "XOF",
                 json.writeValueAsString(contact),
                 pickup ? null : json.writeValueAsString(deliverySnapshot),
+                pickup ? store.pickupAddress() : null,
+                pickup ? store.pickupInstructions() : null,
                 quote.goodsSubtotalXof(),
                 platformFeeXof,
                 json.writeValueAsString(feeRule),

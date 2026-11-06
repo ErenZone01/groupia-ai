@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sn.groupia.organization.api.OrganizationAccess;
 import sn.groupia.organization.api.OrganizationPermission;
 import sn.groupia.shared.api.ApiException;
+import sn.groupia.subscription.api.CommercialRevenuePolicy;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -96,7 +97,7 @@ public class DirectShippingFeesService {
             DirectDeliveryPolicyService policies,
             DirectRegionGeometry boundaries,
             DirectCartQuoteService carts,
-            @Value("${groupia.ordering.platform-fee-xof}") long platformFeeXof) {
+            CommercialRevenuePolicy pricing) {
         this.jdbc = jdbc;
         this.json = json;
         this.clock = clock;
@@ -105,7 +106,7 @@ public class DirectShippingFeesService {
         this.policies = policies;
         this.boundaries = boundaries;
         this.carts = carts;
-        this.platformFeeXof = platformFeeXof;
+        this.platformFeeXof = pricing.transactionFeeXofLong();
     }
 
     @Transactional(readOnly = true)

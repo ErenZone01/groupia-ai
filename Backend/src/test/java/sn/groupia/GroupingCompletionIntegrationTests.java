@@ -30,7 +30,7 @@ import sn.groupia.payment.domain.repository.*;
 import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "groupia.commerce.transaction-fee-enabled=true")
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, PaymentTestConfiguration.class})
 class GroupingCompletionIntegrationTests {

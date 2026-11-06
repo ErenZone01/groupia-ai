@@ -112,8 +112,13 @@
           } @else if (address.coverageStatus === 'REGION_MATCHED') {
             <p class="meta">La région du point est vérifiée par Groupia ; l'adresse exacte reste celle choisie par la cliente.</p>
           }
+        } @else if (selected.pickupAddress) {
+          <p><strong>Point de retrait :</strong> {{ selected.pickupAddress }}</p>
+          @if (selected.pickupInstructions) {
+            <p><strong>Indications :</strong> {{ selected.pickupInstructions }}</p>
+          }
         } @else {
-          <p>Lieu de retrait à convenir avec la cliente.</p>
+          <p>Ancienne commande : lieu de retrait non enregistré. Contactez la cliente.</p>
         }
       </div>
     </div>

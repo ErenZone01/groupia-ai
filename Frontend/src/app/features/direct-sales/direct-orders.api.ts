@@ -49,6 +49,8 @@ export interface DirectOrderDetail {
   } | null;
   platformFeeRule: Record<string, string>;
   progress?: DirectOrderProgress;
+  pickupAddress?: string | null;
+  pickupInstructions?: string | null;
   items: {
     lineNumber: number;
     productName: string;

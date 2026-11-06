@@ -32,7 +32,7 @@ interface DirectCustomerContact {
 type FulfillmentMode = 'PICKUP' | 'DELIVERY';
 type LocationMode = 'CHOICE' | 'MAP' | 'MANUAL' | 'CONFIRMED';
 
-/** Customer-side direct draft creation. Payment is explicitly unavailable. */
+/** Customer-side direct order creation; payment occurs separately via private tracking. */
 @Component({
   selector: 'g-direct-checkout-page',
   imports: [FormsModule, RouterLink, PublicShell, Input, Select, DirectLocationMap],
@@ -82,8 +82,11 @@ export class DirectCheckoutPage {
     const policy = this.deliveryPolicy();
     return policy !== null && policy.mode !== 'DISABLED';
   }
+  get pickupAvailable(): boolean {
+    return !!this.quote()?.pickupAddress;
+  }
   get locationReady(): boolean {
-    if (this.fulfillment === 'PICKUP') return true;
+    if (this.fulfillment === 'PICKUP') return this.pickupAvailable;
     if (!this.deliveryAvailable) return false;
     if (this.locationMode() === 'CONFIRMED') {
       const status = this.deliveryCoverage()?.status;
@@ -158,6 +161,7 @@ export class DirectCheckoutPage {
 
   changeFulfillment(value: FulfillmentMode) {
     if (value === 'DELIVERY' && !this.deliveryAvailable) return;
+    if (value === 'PICKUP' && !this.pickupAvailable) return;
     this.fulfillment = value;
     this.review.set(false);
     if (value === 'PICKUP') {
@@ -544,6 +548,9 @@ export class DirectCheckoutPage {
       if (this.sequence === seq) {
         this.deliveryPolicy.set(policy);
         this.quote.set(quote);
+        if (!quote.pickupAddress && policy.mode !== 'DISABLED') {
+          this.fulfillment = 'DELIVERY';
+        }
         void this.updateShippingPreview();
       }
     } catch (error) {

@@ -30,7 +30,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "groupia.subscription.enforcement-enabled=true")
+@SpringBootTest(properties = {"groupia.subscription.enforcement-enabled=true",
+        "groupia.commerce.transaction-fee-enabled=true"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @RecordApplicationEvents

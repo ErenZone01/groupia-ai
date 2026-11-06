@@ -24,7 +24,8 @@ import tools.jackson.databind.ObjectMapper;
         properties = {
             "groupia.direct-sales.checkout.enabled=true",
             "groupia.direct-sales.payment-obligation.auto-prepare.enabled=true",
-            "groupia.commerce.transaction-fee-enabled=true"
+            "groupia.commerce.transaction-fee-enabled=true",
+            "groupia.direct-sales.pickup-location-required=false"
         })
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)

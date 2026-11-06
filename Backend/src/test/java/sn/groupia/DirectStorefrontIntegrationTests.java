@@ -23,7 +23,8 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(
         properties = {
             "groupia.direct-sales.checkout.enabled=true",
-            "groupia.direct-sales.payment-obligation.auto-prepare.enabled=true"
+            "groupia.direct-sales.payment-obligation.auto-prepare.enabled=true",
+            "groupia.commerce.transaction-fee-enabled=true"
         })
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)

@@ -24,6 +24,7 @@ import sn.groupia.catalog.api.CatalogVariants;
 import sn.groupia.organization.api.OrganizationAvailability;
 import sn.groupia.shared.api.ApiException;
 import sn.groupia.subscription.api.SubscriptionEntitlements;
+import sn.groupia.subscription.api.CommercialRevenuePolicy;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -129,7 +130,7 @@ public class DirectCheckoutService {
             ObjectMapper json,
             Clock clock,
             @Value("${groupia.direct-sales.checkout.enabled:false}") boolean enabled,
-            @Value("${groupia.ordering.platform-fee-xof}") long platformFeeXof) {
+            CommercialRevenuePolicy pricing) {
         if (platformFeeXof < 0 || platformFeeXof > 99999999999999L) {
             throw new IllegalArgumentException("Invalid direct sales platform fee");
         }
@@ -145,7 +146,7 @@ public class DirectCheckoutService {
         this.json = json;
         this.clock = clock;
         this.enabled = enabled;
-        this.platformFeeXof = platformFeeXof;
+        this.platformFeeXof = pricing.transactionFeeXofLong();
     }
 
     @Transactional(timeout = 15)

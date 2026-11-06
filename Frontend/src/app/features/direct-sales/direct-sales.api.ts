@@ -91,6 +91,8 @@ export interface DirectTrackingView {
   acceptedTotalXof: number | null;
   paymentAvailable: false;
   placedAt: string;
+  pickupAddress?: string | null;
+  pickupInstructions?: string | null;
 }
 
 export interface DirectCustomerFinancialStatus {
@@ -163,6 +165,8 @@ export interface DirectCartQuote {
   lines: DirectQuoteLine[];
   checkoutAvailable: boolean;
   draftCreationAvailable?: boolean;
+  pickupAddress?: string | null;
+  pickupInstructions?: string | null;
 }
 
 export interface DirectStorefront {
@@ -170,6 +174,9 @@ export interface DirectStorefront {
   displayName: string | null;
   currency: 'XOF';
   offers: DirectOffer[];
+  pickupAddress?: string | null;
+  pickupInstructions?: string | null;
+  pickupVersion?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -183,6 +190,15 @@ export class DirectSalesApi {
       this.http.get<DirectStorefront>(this.privatePath(organizationId)).pipe(timeout(15000)),
     );
   }
+  updatePickup(
+    organizationId: string, version: number, address: string | null, instructions: string | null,
+  ) {
+    return firstValueFrom(this.http.put<DirectStorefront>(
+      this.privatePath(organizationId) + '/pickup',
+      { version, address, instructions },
+    ).pipe(timeout(15000)));
+  }
+
   rename(organizationId: string, displayName: string) {
     return firstValueFrom(
       this.http.put<DirectStorefront>(this.privatePath(organizationId), { displayName }),

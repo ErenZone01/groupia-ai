@@ -23,6 +23,13 @@
       <div><g-icon name="shield" />
         <span><strong>Catalogue sans compte</strong><small>Consultez librement les produits</small></span></div>
     </section>
+    @if (shop.pickupAddress) {
+      <section class="delivery-coverage" aria-label="Lieu de retrait de la boutique">
+        <strong>Retrait en boutique</strong>
+        <p>{{ shop.pickupAddress }}</p>
+        @if (shop.pickupInstructions) { <p>{{ shop.pickupInstructions }}</p> }
+      </section>
+    }
     <section class="delivery-coverage" aria-label="Zones de livraison de la boutique">
       @if (deliveryPolicy(); as policy) {
         @if (policy.mode === 'DISABLED') {

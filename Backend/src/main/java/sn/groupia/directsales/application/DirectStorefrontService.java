@@ -59,9 +59,17 @@ public class DirectStorefrontService implements DirectSalesAvailability {
             String imageUrl) {}
 
     public record Storefront(
-            UUID publicIdentifier, String displayName, String currency, List<Offer> offers) {}
+            UUID publicIdentifier,
+            String displayName,
+            String currency,
+            List<Offer> offers,
+            String pickupAddress,
+            String pickupInstructions,
+            long pickupVersion) {}
 
-    private record Store(UUID id, UUID organizationId, UUID publicIdentifier, String name) {}
+    private record Store(
+            UUID id, UUID organizationId, UUID publicIdentifier, String name,
+            String pickupAddress, String pickupInstructions, long pickupVersion) {}
 
     private record OfferRow(UUID id, UUID variantId, long price, boolean published, long version) {}
 
@@ -71,7 +79,10 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                             rs.getObject("id", UUID.class),
                             rs.getObject("organization_id", UUID.class),
                             rs.getObject("public_identifier", UUID.class),
-                            rs.getString("display_name"));
+                            rs.getString("display_name"),
+                            rs.getString("pickup_address"),
+                            rs.getString("pickup_instructions"),
+                            rs.getLong("pickup_version"));
 
     private final org.springframework.jdbc.core.RowMapper<OfferRow> offerMapper =
             (rs, rowNum) ->
@@ -84,7 +95,8 @@ public class DirectStorefrontService implements DirectSalesAvailability {
 
     private List<Store> findByOrganization(UUID organizationId) {
         return jdbc.query(
-                "select id, organization_id, public_identifier, display_name"
+                "select id, organization_id, public_identifier, display_name,"
+                        + " pickup_address,pickup_instructions,pickup_version"
                         + " from direct_storefronts where organization_id = ?",
                 storeMapper,
                 organizationId);
@@ -102,7 +114,7 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         access.requirePermission(organizationId, OrganizationPermission.VIEW_CATALOG);
         var stores = findByOrganization(organizationId);
         return stores.isEmpty()
-                ? new Storefront(null, null, "XOF", List.of())
+                ? new Storefront(null, null, "XOF", List.of(), null, null, 0)
                 : project(stores.getFirst(), false);
     }
 
@@ -125,6 +137,56 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                 java.sql.Timestamp.from(now),
                 java.sql.Timestamp.from(now));
         return manager(organizationId);
+    }
+
+    /**
+     * Updates the public pickup destination with optimistic concurrency. Previously placed
+     * orders keep their own immutable location snapshot, never this current storefront value.
+     * Setting an empty address disables pickup for new orders.
+     */
+    @Transactional
+    public Storefront setPickup(
+            UUID organizationId, String rawAddress, String rawInstructions, long expectedVersion) {
+        access.requirePermission(organizationId, OrganizationPermission.MANAGE_CATALOG);
+        if (expectedVersion < 0) {
+            throw new ApiException(400, "INVALID_DIRECT_PICKUP", "Version de retrait invalide.");
+        }
+        var store = requireStore(organizationId, true);
+        String address = trimmedOrNull(rawAddress);
+        String instructions = trimmedOrNull(rawInstructions);
+        if (address != null && (address.length() < 5 || address.length() > 400)) {
+            throw new ApiException(400, "INVALID_DIRECT_PICKUP", "Adresse de retrait invalide.");
+        }
+        if (instructions != null && (address == null || instructions.length() > 500)) {
+            throw new ApiException(400, "INVALID_DIRECT_PICKUP", "Instructions de retrait invalides.");
+        }
+        if (containsControl(address) || containsControl(instructions)) {
+            throw new ApiException(400, "INVALID_DIRECT_PICKUP", "Caractères non autorisés.");
+        }
+        int updated =
+                jdbc.update(
+                        "update direct_storefronts set pickup_address=?,pickup_instructions=?,"
+                                + "pickup_version=pickup_version+1,updated_at=?"
+                                + " where organization_id=? and id=? and pickup_version=?",
+                        address,
+                        instructions,
+                        java.sql.Timestamp.from(clock.instant()),
+                        organizationId,
+                        store.id(),
+                        expectedVersion);
+        if (updated != 1) {
+            throw new ApiException(
+                    409, "DIRECT_PICKUP_VERSION_CONFLICT", "Le lieu de retrait a changé. Actualisez.");
+        }
+        return manager(organizationId);
+    }
+
+    private static String trimmedOrNull(String input) {
+        return input == null || input.isBlank() ? null : input.strip();
+    }
+
+    private static boolean containsControl(String value) {
+        return value != null && value.codePoints().anyMatch(Character::isISOControl);
     }
 
     @Transactional
@@ -215,7 +277,8 @@ public class DirectStorefrontService implements DirectSalesAvailability {
     public Storefront publicStore(UUID identifier) {
         var stores =
                 jdbc.query(
-                        "select id,organization_id,public_identifier,display_name"
+                        "select id,organization_id,public_identifier,display_name,"
+                                + " pickup_address,pickup_instructions,pickup_version"
                                 + " from direct_storefronts where public_identifier = ?",
                         storeMapper,
                         identifier);
@@ -268,13 +331,21 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                             variant != null && variant.usable(),
                             image));
         }
-        return new Storefront(store.publicIdentifier(), store.name(), "XOF", List.copyOf(views));
+        return new Storefront(
+                store.publicIdentifier(),
+                store.name(),
+                "XOF",
+                List.copyOf(views),
+                store.pickupAddress(),
+                store.pickupInstructions(),
+                store.pickupVersion());
     }
 
     private Store requireStore(UUID organizationId, boolean lock) {
         var stores =
                 jdbc.query(
-                        "select id,organization_id,public_identifier,display_name"
+                        "select id,organization_id,public_identifier,display_name,"
+                                + " pickup_address,pickup_instructions,pickup_version"
                                 + " from direct_storefronts where organization_id = ?"
                                 + (lock ? " for update" : ""),
                         storeMapper,

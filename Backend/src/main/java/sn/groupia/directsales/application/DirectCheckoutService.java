@@ -131,6 +131,7 @@ public class DirectCheckoutService {
             Clock clock,
             @Value("${groupia.direct-sales.checkout.enabled:false}") boolean enabled,
             CommercialRevenuePolicy pricing) {
+        long platformFeeXof = pricing.transactionFeeXofLong();
         if (platformFeeXof < 0 || platformFeeXof > 99999999999999L) {
             throw new IllegalArgumentException("Invalid direct sales platform fee");
         }

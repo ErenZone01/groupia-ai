@@ -33,6 +33,20 @@ describe('Vente directe : contrats HTTP', () => {
     expect((await pending).displayName).toBe('Boutique Awa');
   });
 
+  it('enregistre une nouvelle révision du lieu de retrait sans autorisation financière', async () => {
+    const pending = api.updatePickup(org, 3, 'Avenue Bourguiba, Dakar', 'Entrée principale');
+    const request = http.expectOne('/api/organizations/' + org + '/direct-store/pickup');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({
+      version: 3, address: 'Avenue Bourguiba, Dakar', instructions: 'Entrée principale',
+    });
+    request.flush({
+      ...storefront, pickupAddress: 'Avenue Bourguiba, Dakar',
+      pickupInstructions: 'Entrée principale', pickupVersion: 4,
+    });
+    await expect(pending).resolves.toMatchObject({ pickupVersion: 4 });
+  });
+
   it('conserve le prix fixe et la version dans une publication', async () => {
     const pending = api.update(org, '33333333-3333-4333-8333-333333333333', 7, 8500, true);
     const req = http.expectOne(

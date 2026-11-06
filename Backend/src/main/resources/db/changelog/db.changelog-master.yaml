@@ -131,3 +131,9 @@ databaseChangeLog:
   - include:
       file: 044-direct-order-ready.sql
       relativeToChangelogFile: true
+  - include:
+      file: 045-direct-order-fulfillment.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 046-direct-pickup-point.sql
+      relativeToChangelogFile: true

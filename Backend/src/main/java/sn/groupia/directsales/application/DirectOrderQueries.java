@@ -72,7 +72,10 @@ public class DirectOrderQueries {
             Contact contact,
             Address deliveryAddress,
             Map<String, String> platformFeeRule,
-            List<Item> items) {}
+            List<Item> items,
+            DirectOrderProgress progress,
+            String pickupAddress,
+            String pickupInstructions) {}
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
@@ -133,9 +136,11 @@ public class DirectOrderQueries {
                         "select d.id,d.order_number,d.status,d.fulfillment_method,d.currency,"
                                 + "d.goods_subtotal_xof,d.platform_fee_xof,d.amount_before_shipping_xof,"
                                 + "d.shipping_fee_xof,d.accepted_total_xof,d.shipping_rate_version,"
-                                + "d.shipping_quoted,d.placed_at,d.customer_contact_snapshot::text as contact_json,"
+                                + "d.shipping_quoted,d.placed_at,d.payment_confirmed_at,d.preparing_at,"
+                                + "d.ready_at,d.dispatched_at,d.completed_at,d.customer_contact_snapshot::text as contact_json,"
                                 + "d.delivery_address_snapshot::text as address_json,"
                                 + "d.platform_fee_rule_snapshot::text as fee_json,"
+                                + "d.pickup_address_snapshot,d.pickup_instructions_snapshot,"
                                 + "(select count(*) from direct_order_items i where i.organization_id=d.organization_id"
                                 + " and i.order_id=d.id) as item_count"
                                 + " from direct_orders d where d.organization_id=? and d.id=?",
@@ -179,7 +184,10 @@ public class DirectOrderQueries {
                                                     coordinate(address, "latitude", true),
                                                     coordinate(address, "longitude", false)),
                                     map(json.readTree(rs.getString("fee_json"))),
-                                    List.of());
+                                    List.of(),
+                                    DirectOrderProgress.read(rs),
+                                    rs.getString("pickup_address_snapshot"),
+                                    rs.getString("pickup_instructions_snapshot"));
                         },
                         organizationId,
                         orderId);
@@ -217,7 +225,10 @@ public class DirectOrderQueries {
                 detail.contact(),
                 detail.deliveryAddress(),
                 detail.platformFeeRule(),
-                List.copyOf(lines));
+                List.copyOf(lines),
+                detail.progress(),
+                detail.pickupAddress(),
+                detail.pickupInstructions());
     }
 
     private static Summary summary(

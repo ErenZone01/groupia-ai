@@ -17,8 +17,7 @@
     <div class="section-head">
       <div>
         <h2 id="direct-orders-heading">Commandes directes</h2>
-        <p>Retrouvez les brouillons de commande et leurs coordonnées, indépendamment des groupages.
-          Aucun paiement direct n'est encore activé.</p>
+        <p>Suivez les commandes, leurs paiements vérifiés et les remises effectives.</p>
       </div>
       <a gButton variant="secondary" routerLink="/app/vente-directe/commandes">
         Consulter les commandes
@@ -56,6 +55,30 @@
     }
   </section>
 
+  @if (store()?.publicIdentifier) {
+    <section class="ds-card" aria-labelledby="direct-pickup-heading">
+      <div class="section-head">
+        <div>
+          <h2 id="direct-pickup-heading">Point de retrait</h2>
+          <p>Cette adresse est montrée à la cliente avant sa commande et conservée dans celle-ci.</p>
+        </div>
+      </div>
+      <form class="delivery-settings" (ngSubmit)="savePickup()">
+        <label for="direct-pickup-address">Adresse de retrait</label>
+        <input id="direct-pickup-address" name="pickupAddress" [(ngModel)]="pickupAddress"
+          [disabled]="busy()" maxlength="400" placeholder="Ex. Boutique Awa, Avenue Bourguiba, Dakar" />
+        <label for="direct-pickup-instructions">Indications (facultatif)</label>
+        <textarea id="direct-pickup-instructions" name="pickupInstructions"
+          [(ngModel)]="pickupInstructions" [disabled]="busy()" maxlength="500" rows="2"
+          placeholder="Horaires, point de repère, accès…"></textarea>
+        <p class="note">Sans adresse, le retrait est indisponible pour les nouvelles commandes.</p>
+        <button gButton type="submit" [disabled]="busy() || pickupAddress.trim().length > 400 || (pickupAddress.trim().length > 0 && pickupAddress.trim().length < 5)">
+          Enregistrer le point de retrait
+        </button>
+      </form>
+    </section>
+  }
+
   @if (store()?.publicIdentifier && deliveryPolicy()) {
     <section class="ds-card" aria-labelledby="direct-delivery-heading">
       <div class="section-head">
@@ -92,8 +115,7 @@
             [disabled]="busy()" />
           <span><strong>Pas de livraison</strong><small>Les clientes devront choisir le retrait.</small></span>
         </label>
-        <p class="note">Les points de retrait et les zones de vente indépendantes seront configurés
-          dans une prochaine étape. Ce réglage concerne uniquement les livraisons.</p>
+        <p class="note">Les zones définies ici concernent les livraisons. Le retrait utilise l'adresse indiquée ci-dessus.</p>
         <button gButton type="submit"
           [disabled]="busy() || (deliveryMode === 'SELECTED' && !deliverySelected.length)">
           Enregistrer les zones
@@ -207,8 +229,7 @@
   </section>
 
   <p class="scope-note"><g-icon name="info" />
-    Étape actuelle : catalogue public et publication des prix.
-    La commande et le paiement intégrés en vente directe ne sont pas encore activés.
-    Vos groupages et leurs commandes restent inchangés.
+    Les ventes directes et les groupages disposent de commandes distinctes.
+    La prise de commande et le paiement dépendent des paramètres d'activation du service.
   </p>
 }

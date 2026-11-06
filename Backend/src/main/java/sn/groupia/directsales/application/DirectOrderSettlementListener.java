@@ -126,7 +126,10 @@ public class DirectOrderSettlementListener {
                         && !"PAYMENT_CONFIRMED".equals(order.status())
                         && !"PREPARING".equals(order.status())
                         && !"READY_FOR_PICKUP".equals(order.status())
-                        && !"READY_FOR_DISPATCH".equals(order.status()))
+                        && !"READY_FOR_DISPATCH".equals(order.status())
+                        && !"DISPATCHED".equals(order.status())
+                        && !"DELIVERED".equals(order.status())
+                        && !"PICKED_UP".equals(order.status()))
                 || !"XOF".equals(order.currency())
                 || proof.amount().compareTo(BigDecimal.valueOf(order.total())) != 0) {
             throw new IllegalStateException("Direct settlement order amount/status mismatch");

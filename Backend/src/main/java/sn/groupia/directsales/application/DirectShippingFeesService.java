@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sn.groupia.organization.api.OrganizationAccess;
 import sn.groupia.organization.api.OrganizationPermission;
 import sn.groupia.shared.api.ApiException;
+import sn.groupia.subscription.api.CommercialRevenuePolicy;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -86,6 +87,7 @@ public class DirectShippingFeesService {
     private final DirectRegionGeometry boundaries;
     private final DirectCartQuoteService carts;
     private final long platformFeeXof;
+    private final boolean pickupRequired;
 
     public DirectShippingFeesService(
             JdbcTemplate jdbc,
@@ -96,7 +98,8 @@ public class DirectShippingFeesService {
             DirectDeliveryPolicyService policies,
             DirectRegionGeometry boundaries,
             DirectCartQuoteService carts,
-            @Value("${groupia.ordering.platform-fee-xof}") long platformFeeXof) {
+            CommercialRevenuePolicy pricing,
+            @Value("${groupia.direct-sales.pickup-location-required:true}") boolean pickupRequired) {
         this.jdbc = jdbc;
         this.json = json;
         this.clock = clock;
@@ -105,7 +108,8 @@ public class DirectShippingFeesService {
         this.policies = policies;
         this.boundaries = boundaries;
         this.carts = carts;
-        this.platformFeeXof = platformFeeXof;
+        this.platformFeeXof = pricing.transactionFeeXofLong();
+        this.pickupRequired = pickupRequired;
     }
 
     @Transactional(readOnly = true)
@@ -182,6 +186,18 @@ public class DirectShippingFeesService {
         }
         if ("PICKUP".equals(request.fulfillmentMethod())) {
             if (request.region() != null || request.deliveryPoint() != null) throw invalid();
+            if (pickupRequired) {
+                Boolean configured =
+                        jdbc.queryForObject(
+                                "select exists(select 1 from direct_storefronts"
+                                        + " where public_identifier=? and pickup_address is not null)",
+                                Boolean.class,
+                                publicIdentifier);
+                if (!Boolean.TRUE.equals(configured)) {
+                    return unquoted(
+                            "PICKUP_UNAVAILABLE", null, "NONE", quote, platformFeeXof);
+                }
+            }
             return new Preview(
                     "QUOTED",
                     "XOF",

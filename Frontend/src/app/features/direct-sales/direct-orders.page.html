@@ -112,8 +112,13 @@
           } @else if (address.coverageStatus === 'REGION_MATCHED') {
             <p class="meta">La région du point est vérifiée par Groupia ; l'adresse exacte reste celle choisie par la cliente.</p>
           }
+        } @else if (selected.pickupAddress) {
+          <p><strong>Point de retrait :</strong> {{ selected.pickupAddress }}</p>
+          @if (selected.pickupInstructions) {
+            <p><strong>Indications :</strong> {{ selected.pickupInstructions }}</p>
+          }
         } @else {
-          <p>Lieu de retrait à convenir avec la cliente.</p>
+          <p>Ancienne commande : lieu de retrait non enregistré. Contactez la cliente.</p>
         }
       </div>
     </div>
@@ -186,20 +191,33 @@
             {{ selected.order.fulfillmentMethod === 'PICKUP' ? 'Marquer prête au retrait' : 'Marquer prête à expédier' }}
           </button>
         }
+        @if (handoffAction(); as action) {
+          @if (confirmHandoff() === action) {
+            <div class="handoff-confirm" role="group" [attr.aria-label]="handoffQuestion(action)">
+              <p>{{ handoffQuestion(action) }}</p>
+              <button type="button" class="primary-button" [disabled]="actionBusy()" (click)="act(action)">Oui, confirmer</button>
+              <button type="button" [disabled]="actionBusy()" (click)="confirmHandoff.set(null)">Pas encore</button>
+            </div>
+          } @else {
+            <button type="button" class="primary-button" [disabled]="actionBusy()" (click)="confirmHandoff.set(action)">{{ handoffLabel(action) }}</button>
+          }
+        }
         @if (actionBusy()) {
           <span class="meta" role="status">Vérification de la commande par le serveur…</span>
         }
       </div>
       @if (selected.order.status === 'READY_FOR_PICKUP' || selected.order.status === 'READY_FOR_DISPATCH') {
-        <p class="meta">Commande prête, mais aucune remise ou expédition effective n'est enregistrée à cette étape.</p>
+        <p class="meta">Confirmez l’étape suivante après la remise physique.</p>
+      }
+      @if (selected.progress?.dispatchedAt) {
+        <p class="meta">Expédiée le {{ selected.progress?.dispatchedAt | date:'dd/MM/yyyy à HH:mm' }}</p>
+      }
+      @if (selected.progress?.completedAt) {
+        <p class="action-notice">{{ selected.order.fulfillmentMethod === 'PICKUP' ? 'Retirée' : 'Livrée' }} le {{ selected.progress?.completedAt | date:'dd/MM/yyyy à HH:mm' }}</p>
       }
       @if (selected.order.status === 'CANCELLED') {
         <p class="meta">Cette commande est annulée. Aucun traitement supplémentaire ne peut être lancé.</p>
       }
     </section>
-    <div class="warning">
-      <strong>Encaissement Bictorys sous activation contrôlée</strong>
-      <p>Le paiement direct reste désactivé par défaut et n’est ouvert qu’après autorisation serveur. Seule une preuve de règlement vérifiée permet la préparation, jamais une simple tentative. La remise, la livraison effective et le reversement ne sont pas encore activés.</p>
-    </div>
   </section>
 }

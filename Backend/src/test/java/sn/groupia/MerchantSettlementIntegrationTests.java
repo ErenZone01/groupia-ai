@@ -32,7 +32,8 @@ import sn.groupia.settlement.application.service.*;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.*;
 
-@SpringBootTest(properties = "groupia.settlement.payouts.enabled=true")
+@SpringBootTest(properties = {"groupia.settlement.payouts.enabled=true",
+        "groupia.commerce.transaction-fee-enabled=true"})
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,

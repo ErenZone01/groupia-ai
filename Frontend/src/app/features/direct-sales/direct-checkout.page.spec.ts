@@ -14,6 +14,8 @@ const quoted: DirectCartQuote = {
   displayName: 'Boutique Awa',
   goodsSubtotalXof: 9000,
   checkoutAvailable: false,
+  pickupAddress: 'Avenue Bourguiba, Dakar',
+  pickupInstructions: 'Rendez-vous à la porte principale.',
   lines: [{
     offerId: 'offer-a',
     variantId: 'variant-a',
@@ -138,6 +140,16 @@ describe('Vente directe : préparation des coordonnées', () => {
     expect(page.location.region).toBe('');
     page.changeRegion('Dakar');
     expect(page.location.region).toBe('Dakar');
+  });
+
+  it('ne propose pas de retrait quand la gérante ne publie aucun lieu', async () => {
+    api.quote.mockResolvedValue({ ...quoted, pickupAddress: null, pickupInstructions: null });
+    const page = TestBed.runInInjectionContext(() => new DirectCheckoutPage());
+    await vi.waitFor(() => expect(page.quote()).not.toBeNull());
+    expect(page.pickupAvailable).toBe(false);
+    expect(page.fulfillment).toBe('DELIVERY');
+    page.changeFulfillment('PICKUP');
+    expect(page.fulfillment).toBe('DELIVERY');
   });
 
   it('ne permet pas la livraison si la gérante l’a désactivée', async () => {

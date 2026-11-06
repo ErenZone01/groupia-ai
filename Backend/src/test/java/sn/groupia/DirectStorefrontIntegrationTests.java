@@ -23,7 +23,9 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(
         properties = {
             "groupia.direct-sales.checkout.enabled=true",
-            "groupia.direct-sales.payment-obligation.auto-prepare.enabled=true"
+            "groupia.direct-sales.payment-obligation.auto-prepare.enabled=true",
+            "groupia.commerce.transaction-fee-enabled=true",
+            "groupia.direct-sales.pickup-location-required=false"
         })
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -52,6 +54,64 @@ class DirectStorefrontIntegrationTests {
                         + " organizations, user_accounts, event_publication CASCADE");
         bearer = token(account("+221771234567"));
         organizationId = organization(bearer, "Boutique Awa");
+    }
+
+    @Test
+    void merchantPickupAddressIsVersionedAndExposedOnlyWithPublishedStore() throws Exception {
+        var product = product(organizationId, bearer, "Retrait sac");
+        var variant = product.at("/variants/0/id").asText();
+        var store = body(
+                authorized(put(path()).contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("displayName", "Boutique Awa"))))
+                        .andExpect(status().isOk()).andReturn());
+        String publicId = store.path("publicIdentifier").asText();
+
+        mvc.perform(put(path() + "/pickup").contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")).andExpect(status().isUnauthorized());
+        authorized(put(path() + "/pickup").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "version", 0,
+                                "address", "Avenue Bourguiba, Dakar",
+                                "instructions", "Entrée principale"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pickupAddress").value("Avenue Bourguiba, Dakar"))
+                .andExpect(jsonPath("$.pickupVersion").value(1));
+        authorized(put(path() + "/pickup").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "version", 0, "address", "Ancienne adresse"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DIRECT_PICKUP_VERSION_CONFLICT"));
+        // A private draft storefront is never discoverable publicly.
+        mvc.perform(get(publicPath(publicId))).andExpect(status().isNotFound());
+
+        var offer = body(authorized(post(path() + "/offers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "variantId", variant, "priceXof", 8500))))
+                .andExpect(status().isOk()).andReturn());
+        String offerId = offer.at("/offers/0/id").asText();
+        authorized(put(path() + "/offers/" + offerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "version", 0, "priceXof", 8500, "published", true))))
+                .andExpect(status().isOk());
+        mvc.perform(get(publicPath(publicId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pickupAddress").value("Avenue Bourguiba, Dakar"))
+                .andExpect(jsonPath("$.pickupInstructions").value("Entrée principale"));
+        mvc.perform(post(publicPath(publicId) + "/quote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(
+                                Map.of("lines", List.of(Map.of("offerId", offerId, "quantity", 1))))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pickupAddress").value("Avenue Bourguiba, Dakar"));
+
+        authorized(put(path() + "/pickup").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "version", 1, "address", "", "instructions", ""))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pickupVersion").value(2))
+                .andExpect(jsonPath("$.pickupAddress").doesNotExist());
     }
 
     @Test

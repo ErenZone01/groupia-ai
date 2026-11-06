@@ -52,6 +52,8 @@ export class DirectSalesPage {
         label: (p.name ?? 'Produit') + ' · ' + variantLabel(v.attributes),
       }))));
   name = '';
+  pickupAddress = '';
+  pickupInstructions = '';
   selectedVariant = '';
   priceXof: number | null = null;
   readonly prices = signal<Record<string, number>>({});
@@ -70,6 +72,8 @@ export class DirectSalesPage {
         this.deliveryMode = 'ALL';
         this.deliverySelected = [];
         this.name = '';
+        this.pickupAddress = '';
+        this.pickupInstructions = '';
         this.selectedVariant = '';
         this.priceXof = null;
         this.busy.set(false);
@@ -90,6 +94,8 @@ export class DirectSalesPage {
   private setStore(next: DirectStorefront) {
     this.store.set(next);
     this.name = next.displayName ?? this.context.selected()?.name ?? '';
+    this.pickupAddress = next.pickupAddress ?? '';
+    this.pickupInstructions = next.pickupInstructions ?? '';
     this.prices.set(Object.fromEntries(next.offers.map((offer) => [offer.id, offer.priceXof])));
   }
 
@@ -266,6 +272,21 @@ export class DirectSalesPage {
 
   async saveName() {
     await this.mutate((id) => this.api.rename(id, this.name.trim()), 'Nom de boutique enregistré.');
+  }
+
+  async savePickup() {
+    const current = this.store();
+    if (!current?.publicIdentifier) return;
+    const address = this.pickupAddress.trim() || null;
+    const instructions = address ? (this.pickupInstructions.trim() || null) : null;
+    if (address && address.length < 5) {
+      this.error.set('Indiquez une adresse de retrait complète (au moins 5 caractères).');
+      return;
+    }
+    await this.mutate(
+      (id) => this.api.updatePickup(id, current.pickupVersion ?? 0, address, instructions),
+      address ? 'Lieu de retrait enregistré.' : 'Retrait désactivé pour les nouvelles commandes.',
+    );
   }
 
   async add() {

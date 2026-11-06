@@ -33,7 +33,7 @@ import sn.groupia.shared.api.ApiException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest
+@SpringBootTest(properties = "groupia.commerce.transaction-fee-enabled=true")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 class SupplierSummaryIntegrationTests {

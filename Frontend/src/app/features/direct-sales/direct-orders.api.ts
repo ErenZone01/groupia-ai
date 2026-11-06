@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, timeout } from 'rxjs';
+import type { DirectOrderProgress } from './direct-sales.api';
 
 export interface DirectOrderSummary {
   id: string;
@@ -47,6 +48,9 @@ export interface DirectOrderDetail {
     longitude: number | null;
   } | null;
   platformFeeRule: Record<string, string>;
+  progress?: DirectOrderProgress;
+  pickupAddress?: string | null;
+  pickupInstructions?: string | null;
   items: {
     lineNumber: number;
     productName: string;
@@ -78,6 +82,7 @@ export interface DirectOrderActionReceipt {
   cancelledAt?: string;
   preparingAt?: string;
   readyAt?: string;
+  occurredAt?: string;
 }
 
 /** Authenticated merchant reads and server-guarded fulfillment actions. */
@@ -118,6 +123,13 @@ export class DirectOrdersApi {
 
   markReady(organizationId: string, orderId: string) {
     return this.command(organizationId, orderId, 'mark-ready');
+  }
+
+  fulfill(organizationId: string, orderId: string, action: 'dispatch' | 'deliver' | 'pick-up') {
+    return firstValueFrom(this.http.post<DirectOrderActionReceipt>(
+      this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/' + action,
+      { confirmed: true },
+    ).pipe(timeout(15000)));
   }
 
   private command(organizationId: string, orderId: string, action: string) {

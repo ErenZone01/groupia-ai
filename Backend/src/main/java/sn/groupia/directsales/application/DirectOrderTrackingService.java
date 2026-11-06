@@ -24,7 +24,10 @@ public class DirectOrderTrackingService {
             Long shippingFeeXof,
             Long acceptedTotalXof,
             boolean paymentAvailable,
-            Instant placedAt) {}
+            Instant placedAt,
+            DirectOrderProgress progress,
+            String pickupAddress,
+            String pickupInstructions) {}
 
     private final JdbcTemplate jdbc;
 
@@ -38,7 +41,9 @@ public class DirectOrderTrackingService {
                 jdbc.query(
                         "select order_number,status,fulfillment_method,currency,"
                                 + "goods_subtotal_xof,platform_fee_xof,amount_before_shipping_xof,"
-                                + "shipping_fee_xof,accepted_total_xof,placed_at"
+                                + "shipping_fee_xof,accepted_total_xof,placed_at,"
+                                + "payment_confirmed_at,preparing_at,ready_at,dispatched_at,completed_at,"
+                                + "pickup_address_snapshot,pickup_instructions_snapshot"
                                 + " from direct_orders where recovery_token_hash=?",
                         (rs, row) ->
                                 new Tracking(
@@ -52,7 +57,10 @@ public class DirectOrderTrackingService {
                                         rs.getObject("shipping_fee_xof", Long.class),
                                         rs.getObject("accepted_total_xof", Long.class),
                                         false,
-                                        rs.getTimestamp("placed_at").toInstant()),
+                                        rs.getTimestamp("placed_at").toInstant(),
+                                        DirectOrderProgress.read(rs),
+                                        rs.getString("pickup_address_snapshot"),
+                                        rs.getString("pickup_instructions_snapshot")),
                         hash);
         if (found.isEmpty()) {
             throw new ApiException(404, "DIRECT_ORDER_NOT_FOUND", "Commande introuvable.");

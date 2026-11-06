@@ -39,7 +39,8 @@ import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "groupia.ordering.expiration.batch-size=1")
+@SpringBootTest(properties = {"groupia.ordering.expiration.batch-size=1",
+        "groupia.commerce.transaction-fee-enabled=true"})
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, PaymentTestConfiguration.class})
 @RecordApplicationEvents

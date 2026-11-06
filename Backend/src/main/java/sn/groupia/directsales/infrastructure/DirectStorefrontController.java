@@ -35,6 +35,9 @@ class DirectStorefrontController {
             @NotNull @Min(1) @Max(999999999999L) Long priceXof,
             @NotNull Boolean published) {}
 
+    record PickupInput(
+            @NotNull @Min(0) Long version, String address, String instructions) {}
+
     @GetMapping("/api/organizations/{organizationId}/direct-store")
     DirectStorefrontService.Storefront manager(@PathVariable UUID organizationId) {
         return direct.manager(organizationId);
@@ -63,6 +66,16 @@ class DirectStorefrontController {
                 request.version(),
                 request.priceXof(),
                 request.published());
+    }
+
+    @PutMapping("/api/organizations/{organizationId}/direct-store/pickup")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "updateDirectStorePickupPoint")
+    ResponseEntity<DirectStorefrontService.Storefront> pickup(
+            @PathVariable UUID organizationId, @Valid @RequestBody PickupInput request) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(direct.setPickup(
+                        organizationId, request.address(), request.instructions(), request.version()));
     }
 
     @GetMapping("/api/organizations/{organizationId}/direct-store/delivery-policy")

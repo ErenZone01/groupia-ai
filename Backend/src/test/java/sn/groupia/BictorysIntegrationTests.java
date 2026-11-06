@@ -42,7 +42,8 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(
         properties = {
             "groupia.ordering.expiration.batch-size=1",
-            "groupia.subscription.monthly-xof=10000"
+            "groupia.subscription.monthly-xof=10000",
+            "groupia.commerce.transaction-fee-enabled=true"
         })
 @AutoConfigureMockMvc
 @Import({

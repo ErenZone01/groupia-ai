@@ -22,7 +22,7 @@ import { money, variantLabel, dateLabel } from '../../shared/utils/display';
           <dt>Articles</dt>
           <dd>{{ money(r.goodsSubtotal, r.currency) }}</dd>
         </div>
-        @if (r.platformFeeAmount > 0) {
+        @if ((r.platformFeeAmount ?? 0) > 0) {
           <div>
             <dt>Frais de service</dt>
             <dd>{{ money(r.platformFeeAmount, r.currency) }}</dd>

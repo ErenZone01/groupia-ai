@@ -73,7 +73,9 @@ public class DirectOrderQueries {
             Address deliveryAddress,
             Map<String, String> platformFeeRule,
             List<Item> items,
-            DirectOrderProgress progress) {}
+            DirectOrderProgress progress,
+            String pickupAddress,
+            String pickupInstructions) {}
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
@@ -138,6 +140,7 @@ public class DirectOrderQueries {
                                 + "d.ready_at,d.dispatched_at,d.completed_at,d.customer_contact_snapshot::text as contact_json,"
                                 + "d.delivery_address_snapshot::text as address_json,"
                                 + "d.platform_fee_rule_snapshot::text as fee_json,"
+                                + "d.pickup_address_snapshot,d.pickup_instructions_snapshot,"
                                 + "(select count(*) from direct_order_items i where i.organization_id=d.organization_id"
                                 + " and i.order_id=d.id) as item_count"
                                 + " from direct_orders d where d.organization_id=? and d.id=?",
@@ -182,7 +185,9 @@ public class DirectOrderQueries {
                                                     coordinate(address, "longitude", false)),
                                     map(json.readTree(rs.getString("fee_json"))),
                                     List.of(),
-                                    DirectOrderProgress.read(rs));
+                                    DirectOrderProgress.read(rs),
+                                    rs.getString("pickup_address_snapshot"),
+                                    rs.getString("pickup_instructions_snapshot"));
                         },
                         organizationId,
                         orderId);
@@ -221,7 +226,9 @@ public class DirectOrderQueries {
                 detail.deliveryAddress(),
                 detail.platformFeeRule(),
                 List.copyOf(lines),
-                detail.progress());
+                detail.progress(),
+                detail.pickupAddress(),
+                detail.pickupInstructions());
     }
 
     private static Summary summary(

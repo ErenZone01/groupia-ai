@@ -161,7 +161,7 @@ export class DirectCheckoutPage {
 
   changeFulfillment(value: FulfillmentMode) {
     if (value === 'DELIVERY' && !this.deliveryAvailable) return;
-    if (value === 'PICKUP' && !this.pickupAvailable) return;
+    if (value === 'PICKUP' && !this.pickupAvailable && this.fulfillment !== 'PICKUP') return;
     this.fulfillment = value;
     this.review.set(false);
     if (value === 'PICKUP') {
@@ -281,6 +281,7 @@ export class DirectCheckoutPage {
     if (this.shippingError()) return 'Tarif indisponible pour le moment. Aucun paiement ne sera demandé.';
     const preview = this.shippingPreview();
     if (!preview) return 'Choisissez votre mode de remise pour connaître les frais.';
+    if (preview.status === 'PICKUP_UNAVAILABLE') return 'La boutique doit renseigner son point de retrait avant toute commande en retrait.';
     if (preview.status === 'FEE_UNCONFIGURED') return 'La gérante doit encore confirmer le tarif de cette région.';
     if (preview.status === 'OUTSIDE_ZONE' || preview.status === 'OUTSIDE_SENEGAL'
         || preview.status === 'DELIVERY_DISABLED') return 'Livraison indisponible à cet endroit.';

@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DirectSalesApi, DirectTrackingView, DirectCustomerFinancialStatus } from './direct-sales.api';
@@ -11,7 +12,7 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
  */
 @Component({
   selector: 'g-direct-order-tracking',
-  imports: [PublicShell, RouterLink],
+  imports: [PublicShell, RouterLink, DatePipe],
   template: `
     <g-public-shell [wide]="false">
       <section class="direct-tracking" aria-labelledby="tracking-heading">
@@ -26,7 +27,7 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
           <dl class="tracking-data">
             <div><dt>Statut</dt><dd>{{ orderLabel(data.status) }}</dd></div>
             <div><dt>Remise</dt><dd>{{ data.fulfillmentMethod === 'PICKUP'
-              ? 'Retrait à convenir' : 'Livraison à confirmer' }}</dd></div>
+              ? 'Retrait en boutique' : 'Livraison' }}</dd></div>
             <div><dt>Articles</dt><dd>{{ money(data.goodsSubtotalXof, data.currency) }}</dd></div>
             <div><dt>Frais de plateforme</dt><dd>{{ money(data.platformFeeXof, data.currency) }}</dd></div>
             @if (data.shippingFeeXof !== null) {
@@ -37,6 +38,16 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
             }
             <div><dt>Paiement</dt><dd>{{ paymentLabel() }}</dd></div>
           </dl>
+          @if (data.progress; as progress) {
+            <ol class="progress" aria-label="Historique de la commande">
+              <li><strong>Commande enregistrée</strong><time>{{ data.placedAt | date:'dd MMM à HH:mm' }}</time></li>
+              @if (progress.paymentConfirmedAt) { <li><strong>Paiement confirmé</strong><time>{{ progress.paymentConfirmedAt | date:'dd MMM à HH:mm' }}</time></li> }
+              @if (progress.preparingAt) { <li><strong>En préparation</strong><time>{{ progress.preparingAt | date:'dd MMM à HH:mm' }}</time></li> }
+              @if (progress.readyAt) { <li><strong>Commande prête</strong><time>{{ progress.readyAt | date:'dd MMM à HH:mm' }}</time></li> }
+              @if (progress.dispatchedAt) { <li><strong>Confiée au livreur</strong><time>{{ progress.dispatchedAt | date:'dd MMM à HH:mm' }}</time></li> }
+              @if (progress.completedAt) { <li><strong>{{ data.fulfillmentMethod === 'PICKUP' ? 'Commande retirée' : 'Commande livrée' }}</strong><time>{{ progress.completedAt | date:'dd MMM à HH:mm' }}</time></li> }
+            </ol>
+          }
           @if (canPay()) {
             <button type="button" class="action-link" [disabled]="paymentBusy()" (click)="pay()">
               Payer {{ money(data.acceptedTotalXof ?? undefined, data.currency) }} avec Bictorys
@@ -86,6 +97,9 @@ import { safeBictorysCheckout } from '../customer-access/customer-shipping-payme
     h1 {font-size:clamp(24px,4vw,34px);letter-spacing:-.035em}
     h2 {font-size:18px}
     p {font-size:14px;line-height:1.6;color:var(--muted)}
+    .progress {list-style:none;padding:0;margin:0;display:grid;gap:16px}
+    .progress li {border-left:3px solid var(--primary);padding-left:16px;display:grid;gap:4px}
+    .progress time {font-size:13px;color:var(--muted)}
     .tracking-ref strong {color:var(--text);overflow-wrap:anywhere}
     .tracking-data {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
       gap:16px;margin:0}
@@ -214,6 +228,9 @@ export class DirectOrderTrackingPage {
   orderLabel(value: string) {
     if (value === 'CANCELLED') return 'Commande annulée';
     if (value === 'PENDING_PAYMENT_INTEGRATION') return 'En attente de règlement';
+    if (value === 'DISPATCHED') return 'En cours de livraison';
+    if (value === 'DELIVERED') return 'Commande livrée';
+    if (value === 'PICKED_UP') return 'Commande retirée';
     if (this.financial()?.financialStatus !== 'SETTLEMENT_VERIFIED') {
       return 'Traitement suspendu : règlement à vérifier';
     }

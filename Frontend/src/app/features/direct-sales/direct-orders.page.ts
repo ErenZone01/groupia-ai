@@ -14,7 +14,8 @@ import {
 } from './direct-orders.api';
 import { DirectGeoPoint, DirectLocationMap, validDirectGeoPoint } from './direct-location-map';
 
-type MerchantAction = 'cancel' | 'prepare' | 'ready';
+type HandoffAction = 'dispatch' | 'deliver' | 'pick-up';
+type MerchantAction = 'cancel' | 'prepare' | 'ready' | HandoffAction;
 
 @Component({
   selector: 'g-direct-orders-page',
@@ -39,6 +40,7 @@ export class DirectOrdersPage {
   readonly actionError = signal('');
   readonly actionNotice = signal('');
   readonly confirmCancellation = signal(false);
+  readonly confirmHandoff = signal<HandoffAction | null>(null);
   readonly money = money;
   readonly variantLabel = variantLabel;
   readonly currentPage = signal(0);
@@ -53,6 +55,15 @@ export class DirectOrdersPage {
     && this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED');
   readonly canReady = computed(() => this.detail()?.order.status === 'PREPARING'
     && this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED');
+  readonly handoffAction = computed<HandoffAction | null>(() => {
+    if (this.financial()?.financialStatus !== 'SETTLEMENT_VERIFIED') return null;
+    switch (this.detail()?.order.status) {
+      case 'READY_FOR_DISPATCH': return 'dispatch';
+      case 'DISPATCHED': return 'deliver';
+      case 'READY_FOR_PICKUP': return 'pick-up';
+      default: return null;
+    }
+  });
   readonly reviewRequired = computed(() => ['REVIEW_REQUIRED', 'SETTLEMENT_PROCESSING']
     .includes(this.financial()?.financialStatus ?? ''));
   private request = 0;
@@ -95,6 +106,7 @@ export class DirectOrdersPage {
     this.actionError.set('');
     this.actionNotice.set('');
     this.confirmCancellation.set(false);
+    this.confirmHandoff.set(null);
     this.detailLoading.set(false);
     this.financialLoading.set(false);
     this.actionBusy.set(false);
@@ -165,6 +177,8 @@ export class DirectOrdersPage {
     if (action === 'prepare' && !this.canPrepare()) return;
     if (action === 'ready' && !this.canReady()) return;
     if (action === 'cancel' && !this.confirmCancellation()) return;
+    const handoff = action === 'dispatch' || action === 'deliver' || action === 'pick-up';
+    if (handoff && (this.handoffAction() !== action || this.confirmHandoff() !== action)) return;
 
     const detailSeq = ++this.detailRequest;
     const listSeq = this.request;
@@ -173,13 +187,18 @@ export class DirectOrdersPage {
     this.actionError.set('');
     this.actionNotice.set('');
     this.confirmCancellation.set(false);
+    this.confirmHandoff.set(null);
     try {
       if (action === 'cancel') await this.api.cancel(id, order.id);
       else if (action === 'prepare') await this.api.startPreparation(id, order.id);
-      else await this.api.markReady(id, order.id);
+      else if (action === 'ready') await this.api.markReady(id, order.id);
+      else await this.api.fulfill(id, order.id, action);
       if (!this.currentDetail(id, listSeq, generation, detailSeq)) return;
       this.actionNotice.set(action === 'cancel' ? 'Commande annulée.'
-        : action === 'prepare' ? 'Préparation démarrée.' : 'Commande marquée comme prête.');
+        : action === 'prepare' ? 'Préparation démarrée.'
+        : action === 'ready' ? 'Commande marquée comme prête.'
+        : action === 'dispatch' ? 'Expédition enregistrée.'
+        : action === 'deliver' ? 'Livraison enregistrée.' : 'Retrait enregistré.');
 
       // Re-read authoritative state, including the payment risk. Never trust the response
       // to a mutation as an authorization for another step.
@@ -223,8 +242,22 @@ export class DirectOrdersPage {
       case 'PREPARING': return 'En préparation';
       case 'READY_FOR_PICKUP': return 'Prête pour le retrait';
       case 'READY_FOR_DISPATCH': return 'Prête pour l’expédition';
+      case 'DISPATCHED': return 'En cours de livraison';
+      case 'DELIVERED': return 'Livrée';
+      case 'PICKED_UP': return 'Retirée';
       default: return 'Statut indisponible';
     }
+  }
+
+  handoffLabel(action: HandoffAction) {
+    return action === 'dispatch' ? 'Confirmer l’expédition'
+      : action === 'deliver' ? 'Confirmer la livraison' : 'Confirmer le retrait';
+  }
+
+  handoffQuestion(action: HandoffAction) {
+    return action === 'dispatch' ? 'La commande a-t-elle été confiée au livreur ?'
+      : action === 'deliver' ? 'La cliente a-t-elle reçu toute sa commande ?'
+        : 'Avez-vous remis toute la commande à la cliente ?';
   }
 
   financialLabel(value: string) {

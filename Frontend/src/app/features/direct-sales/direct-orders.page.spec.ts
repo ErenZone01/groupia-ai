@@ -35,6 +35,7 @@ describe('Vente directe : actions de la gérante', () => {
     cancel: ReturnType<typeof vi.fn>;
     startPreparation: ReturnType<typeof vi.fn>;
     markReady: ReturnType<typeof vi.fn>;
+    fulfill: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -62,6 +63,7 @@ describe('Vente directe : actions de la gérante', () => {
       cancel: vi.fn(async () => { status = 'CANCELLED'; return { status }; }),
       startPreparation: vi.fn(async () => { status = 'PREPARING'; return { status }; }),
       markReady: vi.fn(async () => { status = 'READY_FOR_PICKUP'; return { status }; }),
+      fulfill: vi.fn(async () => { status = 'PICKED_UP'; return { status }; }),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -127,6 +129,30 @@ describe('Vente directe : actions de la gérante', () => {
     expect(api.markReady).toHaveBeenCalledWith('org-a', 'order-1');
     expect(page.detail()?.order.status).toBe('READY_FOR_PICKUP');
     expect(page.canReady()).toBe(false);
+  });
+
+  it('exige une confirmation physique avant le retrait puis relit le statut serveur', async () => {
+    status = 'READY_FOR_PICKUP';
+    financial = 'SETTLEMENT_VERIFIED';
+    const page = await pageForCurrentOrder();
+    expect(page.handoffAction()).toBe('pick-up');
+    await page.act('pick-up');
+    expect(api.fulfill).not.toHaveBeenCalled();
+    page.confirmHandoff.set('pick-up');
+    await page.act('pick-up');
+    expect(api.fulfill).toHaveBeenCalledWith('org-a', 'order-1', 'pick-up');
+    expect(page.detail()?.order.status).toBe('PICKED_UP');
+    expect(page.handoffAction()).toBeNull();
+  });
+
+  it('interdit une remise malgré une ancienne confirmation si le paiement est en revue', async () => {
+    status = 'READY_FOR_PICKUP';
+    financial = 'REVIEW_REQUIRED';
+    const page = await pageForCurrentOrder();
+    page.confirmHandoff.set('pick-up');
+    await page.act('pick-up');
+    expect(page.handoffAction()).toBeNull();
+    expect(api.fulfill).not.toHaveBeenCalled();
   });
 
   it('montre le point GPS sauvegardé à la gérante et génère un lien d’itinéraire sûr', async () => {

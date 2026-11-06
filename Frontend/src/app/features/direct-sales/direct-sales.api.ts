@@ -70,7 +70,16 @@ export interface DirectQuoteLine {
   attributes: Record<string, string>;
 }
 
+export interface DirectOrderProgress {
+  paymentConfirmedAt: string | null;
+  preparingAt: string | null;
+  readyAt: string | null;
+  dispatchedAt: string | null;
+  completedAt: string | null;
+}
+
 export interface DirectTrackingView {
+  progress?: DirectOrderProgress;
   orderNumber: string;
   status: string;
   fulfillmentMethod: 'PICKUP' | 'DELIVERY';

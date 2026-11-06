@@ -207,7 +207,10 @@ public class DirectCustomerPaymentStatus {
                     || !"PAYMENT_CONFIRMED".equals(saved.orderStatus())
                             && !"PREPARING".equals(saved.orderStatus())
                             && !"READY_FOR_PICKUP".equals(saved.orderStatus())
-                            && !"READY_FOR_DISPATCH".equals(saved.orderStatus())) {
+                            && !"READY_FOR_DISPATCH".equals(saved.orderStatus())
+                            && !"DISPATCHED".equals(saved.orderStatus())
+                            && !"DELIVERED".equals(saved.orderStatus())
+                            && !"PICKED_UP".equals(saved.orderStatus())) {
                 return "REVIEW_REQUIRED";
             }
             return "SETTLEMENT_VERIFIED";

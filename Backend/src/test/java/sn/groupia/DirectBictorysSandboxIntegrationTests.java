@@ -341,6 +341,46 @@ class DirectBictorysSandboxIntegrationTests {
                 .andExpect(status().isConflict());
     }
 
+    private ResultActions merchantStep(String action, String confirmation) throws Exception {
+        return mvc.perform(post("/api/organizations/" + org + "/direct-orders/" + order + "/" + action)
+                .header("Authorization", "Bearer " + bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(confirmation));
+    }
+
+    private void payAndPrepare() throws Exception {
+        queueCharge();
+        initiate(recovery, CHECKOUT_KEY).andExpect(status().isOk());
+        webhook(successPayload(UUID.randomUUID().toString(), 10300), "fixture-webhook-secret")
+                .andExpect(status().isOk());
+        await(() -> "PAYMENT_CONFIRMED".equals(orderStatus()));
+        merchantStep("start-preparation", "{}").andExpect(status().isOk());
+        merchantStep("mark-ready", "{}").andExpect(status().isOk());
+    }
+
+    @Test
+    void paidPickupCompletesOnceAndKeepsItsFinancialAndPublicHistory() throws Exception {
+        merchantStep("pick-up", "{\"confirmed\":true}").andExpect(status().isConflict());
+        payAndPrepare();
+        merchantStep("pick-up", "{\"confirmed\":false}").andExpect(status().isBadRequest());
+        var first = body(merchantStep("pick-up", "{\"confirmed\":true}")
+                .andExpect(status().isOk()).andReturn());
+        assertThat(orderStatus()).isEqualTo("PICKED_UP");
+        var replay = body(merchantStep("pick-up", "{\"confirmed\":true}")
+                .andExpect(status().isOk()).andReturn());
+        assertThat(replay).isEqualTo(first);
+        assertThat(count("direct_order_fulfillment_events")).isEqualTo(1);
+        financial(recovery).andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("SETTLEMENT_VERIFIED"));
+        mvc.perform(post("/api/public/direct-orders/lookup").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("token", recovery))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PICKED_UP"))
+                .andExpect(jsonPath("$.progress.completedAt").exists())
+                .andExpect(jsonPath("$.progress.completedBy").doesNotExist());
+        assertThatThrownBy(() -> jdbc.update("delete from direct_order_fulfillment_events where direct_order_id=?", order))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        merchantStep("dispatch", "{\"confirmed\":true}").andExpect(status().isConflict());
+    }
+
     @Test
     void forgedWebhookAndAmountNeverMakeOrderPaid() throws Exception {
         queueCharge();

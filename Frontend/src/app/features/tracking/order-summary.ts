@@ -22,10 +22,12 @@ import { money, variantLabel, dateLabel } from '../../shared/utils/display';
           <dt>Articles</dt>
           <dd>{{ money(r.goodsSubtotal, r.currency) }}</dd>
         </div>
-        <div>
-          <dt>Frais de service</dt>
-          <dd>{{ money(r.platformFeeAmount, r.currency) }}</dd>
-        </div>
+        @if (r.platformFeeAmount > 0) {
+          <div>
+            <dt>Frais de service</dt>
+            <dd>{{ money(r.platformFeeAmount, r.currency) }}</dd>
+          </div>
+        }
         <div>
           <dt>Transport maintenant</dt>
           <dd>{{ money(r.initialShippingChargeAmount, r.currency) }}</dd>

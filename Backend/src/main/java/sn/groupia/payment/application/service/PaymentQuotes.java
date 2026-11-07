@@ -32,9 +32,11 @@ public class PaymentQuotes implements PaymentQuoteOperations {
     public java.util.List<PaymentFeeQuoteView> quotes(UUID org, UUID requestId) {
         if (!providers.available("SASPAY")) return java.util.List.of();
         var request = transactions.request(org, requestId);
-        // First collection slice: group orders only. Subscription and direct checkout stay
-        // separate.
-        if (request.purpose() != PaymentPurpose.INITIAL_ORDER
+        // Order and monthly subscription obligations can share the SasPay quote contract.
+        // Authorization is performed by the calling order/subscription service.
+        // Direct orders remain explicitly excluded until their token guard is extended.
+        if ((request.purpose() != PaymentPurpose.INITIAL_ORDER
+                        && request.purpose() != PaymentPurpose.SUBSCRIPTION_MONTHLY)
                 || request.feeAmount().signum() != 0
                 || request.acceptanceStatus() != AcceptanceStatus.OPEN
                 || request.expiresAt() == null

@@ -25,6 +25,21 @@ class SaspayContractTests {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"100000000000000", "99999999999999"})
+    void rejectsAmountsOrTotalsOutsideTheVerificationRange(String amount) {
+        var rates = json.readTree(SaspayTestConfiguration.rates());
+        var tier =
+                (tools.jackson.databind.node.ObjectNode)
+                        rates.get(0).path("payin").path("tiers").get(0);
+        tier.putNull("max_amount");
+        tier.put("percent", "0.00");
+        tier.put("fixed", "1.00");
+        assertThatThrownBy(
+                        () -> SaspayPricing.quote(rates, new BigDecimal(amount), "XOF", "wave_sn"))
+                .hasMessage("SASPAY_UNSUPPORTED_QUOTE");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"DEDUCTED", "UNKNOWN"})
     void refusesOtherFeeModes(String mode) {
         var rates = json.readTree(SaspayTestConfiguration.rates().replace("ADD_ON", mode));

@@ -63,7 +63,8 @@ class MerchantBictorysIntegrationTests {
         jdbc.update(
                 "update grouping_campaigns set status='CLOSED',closed_at=now() where id=?",
                 f.campaign());
-        jdbc.update("update orders set status='CONFIRMED' where id=?", f.order());
+        // Payout eligibility now checks the persisted collection provider.
+        var collection = MerchantSettlementFixtures.settled(jdbc, f, "INITIAL_ORDER");
         jdbc.update(
                 """
             insert into merchant_ledger_entries(id,organization_id,campaign_id,order_id,type,direction,amount,currency,platform_fee_amount,business_reference,source_type,source_id,recorded_at)
@@ -74,7 +75,7 @@ class MerchantBictorysIntegrationTests {
                 f.campaign(),
                 f.order(),
                 "fixture:" + key,
-                UUID.randomUUID());
+                collection);
         token =
                 encoder.encode(
                                 JwtEncoderParameters.from(

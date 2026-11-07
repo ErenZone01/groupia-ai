@@ -6,10 +6,13 @@ import sn.groupia.payment.domain.service.ProviderFee;
 import tools.jackson.databind.JsonNode;
 
 final class SaspayPricing {
+    private static final BigDecimal MONEY_LIMIT = new BigDecimal("100000000000000");
+
     static ProviderFee quote(JsonNode rates, BigDecimal amount, String currency, String network) {
         if (!"XOF".equals(currency)
                 || amount == null
                 || amount.signum() <= 0
+                || amount.compareTo(MONEY_LIMIT) >= 0
                 || amount.stripTrailingZeros().scale() > 0
                 || network == null
                 || !network.matches("[a-z0-9_]{1,64}")
@@ -54,6 +57,9 @@ final class SaspayPricing {
         } catch (ArithmeticException ex) {
             throw new SaspayException("SASPAY_XOF_ROUNDING_UNCONFIRMED");
         }
+        // Keep every quoted value within the verifier's exact decimal range and JS safe integers.
+        if (amount.add(fee).compareTo(MONEY_LIMIT) >= 0)
+            throw new SaspayException("SASPAY_UNSUPPORTED_QUOTE");
         return new ProviderFee("SN", network, network, fee);
     }
 

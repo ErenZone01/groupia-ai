@@ -61,3 +61,26 @@ Le job existant de reprise des webhooks doit être actif. L'inspection des paiem
 4. Marketplace/payout : uniquement après autorisation fournisseur écrite et validation contractuelle du net vendeuse et des frais ; PR distincte.
 
 Tests automatisés : fournisseur HTTP loopback synthétique, clés fictives, SasPay désactivé globalement dans Surefire, scénarios navigateur interceptés. Aucun paiement réel ni paiement sandbox externe n'est déclenché. Les essais opérateur, KYC, domaines de redirection et validation du contrat réel restent non vérifiés. La CI doit être verte avant toute fusion ; un quota GitHub Actions épuisé n'est pas présumé et ne permet pas de contourner ce verrou.
+
+
+## Résultats de validation locale — 7 novembre 2026
+
+| Contrôle | Résultat |
+|---|---|
+| Backend `mvnw.cmd -q verify` | 1 324 tests, aucun échec, erreur ou test ignoré ; architecture, PostgreSQL, migrations et formatage inclus |
+| Régression préalable `mvnw.cmd -q -Dtest=MerchantBictorysIntegrationTests,MerchantSettlementIntegrationTests,SaspayIntegrationTests,SaspayContractTests,ModularityTests test` | 127 tests réussis |
+| Frontend `npm test` | 49 fichiers, 512 tests réussis |
+| Frontend `npm run lint`, build de production | Réussis ; avertissements de compilation existants conservés |
+| E2E `npm run test:e2e` | Suite complète : 379 scénarios réussis ; après la dernière correction du parcours, les 4 scénarios SasPay ont été relancés et réussissent, dont le nouveau cas de réponse perdue |
+| `python -m unittest discover -s tools -p 'test_*.py'` | 15 tests réussis |
+| `python tools/check_migrations.py` | 22 migrations historiques gelées conformes |
+| `python tools/scan_secrets.py` | 0 détection ; aucune valeur de secret affichée |
+| actionlint et `git diff --check` | Réussis |
+| `npm audit --audit-level=high` | Réussi ; 15 vulnérabilités modérées préexistantes, dépendances inchangées |
+| Snapshot OpenAPI Angular / export backend | Égalité JSON vérifiée, 112 routes |
+
+Les fixtures de migration vérifient la conservation des anciennes valeurs et la nouvelle liaison de devis nulle sur les paiements historiques. Les fixtures de payout Bictorys portent désormais une preuve de paiement source au lieu d'une référence aléatoire : le contrôle de provenance SasPay reste actif sans affaiblir les tests de payout.
+
+Les devis refusent aussi tout montant ou total dépassant la plage de 14 chiffres du validateur monétaire, afin de rester vérifiables et représentables exactement côté navigateur. Il s'agit d'une limite applicative prudente, pas d'un plafond attribué au fournisseur.
+
+CI distante : le [job security de la PR #86](https://github.com/ErenZone01/groupia-ai/actions/runs/42378628760/job/128421336226) n'a pas démarré. L'annotation transmise par l'utilisateur indique des paiements du compte GitHub en échec ou un plafond de dépenses à augmenter. Les jobs backend/frontend ont été ignorés par dépendance. Les contrôles locaux ne remplacent pas l'exigence de CI verte avant fusion ; la PR reste en brouillon, sans fusion ni déploiement.

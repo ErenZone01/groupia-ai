@@ -10,16 +10,39 @@ import sn.groupia.payment.api.dto.PaymentAttemptView;
 public class SubscriptionPayments {
     private final SubscriptionInvoiceService invoices;
     private final PaymentOperations payments;
+    private final sn.groupia.payment.api.PaymentQuoteOperations quotes;
 
-    SubscriptionPayments(SubscriptionInvoiceService invoices, PaymentOperations payments) {
+    SubscriptionPayments(
+            SubscriptionInvoiceService invoices,
+            PaymentOperations payments,
+            sn.groupia.payment.api.PaymentQuoteOperations quotes) {
         this.invoices = invoices;
         this.payments = payments;
+        this.quotes = quotes;
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public java.util.List<sn.groupia.payment.api.dto.PaymentFeeQuoteView> quotes(
+            UUID org, UUID invoice) {
+        // Checkout verifies organization permission, subscription status and invoice expiry.
+        var checkout = invoices.checkout(org, invoice);
+        return quotes.quotes(org, checkout.paymentRequestId());
     }
 
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiate(UUID org, UUID invoice, String provider, String key) {
+        return initiate(org, invoice, provider, key, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(
+            UUID org, UUID invoice, String provider, String key, UUID feeQuoteId) {
         var checkout = invoices.checkout(org, invoice);
         return payments.initiateRequest(
-                org, checkout.paymentRequestId(), provider, key, checkout.context());
+                org,
+                checkout.paymentRequestId(),
+                provider,
+                key,
+                feeQuoteId == null ? checkout.context() : checkout.context().withFeeQuote(feeQuoteId));
     }
 }

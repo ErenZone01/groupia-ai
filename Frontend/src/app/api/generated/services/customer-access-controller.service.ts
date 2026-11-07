@@ -33,12 +33,18 @@ import { LogoutCustomer$Params } from '../fn/customer-access-controller/logout-c
 import { MyOrdersPage } from '../models/my-orders-page';
 import { OrderTrackingView } from '../models/order-tracking-view';
 import { OtpRequested } from '../models/otp-requested';
+import { Page } from '../models/page';
 import { requestCustomerOtp } from '../fn/customer-access-controller/request-customer-otp';
 import { RequestCustomerOtp$Params } from '../fn/customer-access-controller/request-customer-otp';
 import { resendCustomerLink } from '../fn/customer-access-controller/resend-customer-link';
 import { ResendCustomerLink$Params } from '../fn/customer-access-controller/resend-customer-link';
 import { revokeCustomerLink } from '../fn/customer-access-controller/revoke-customer-link';
 import { RevokeCustomerLink$Params } from '../fn/customer-access-controller/revoke-customer-link';
+import { Rotated } from '../models/rotated';
+import { rotateDirectLink } from '../fn/customer-access-controller/rotate-direct-link';
+import { RotateDirectLink$Params } from '../fn/customer-access-controller/rotate-direct-link';
+import { verifiedDirectOrders } from '../fn/customer-access-controller/verified-direct-orders';
+import { VerifiedDirectOrders$Params } from '../fn/customer-access-controller/verified-direct-orders';
 import { verifyCustomerOtp } from '../fn/customer-access-controller/verify-customer-otp';
 import { VerifyCustomerOtp$Params } from '../fn/customer-access-controller/verify-customer-otp';
 
@@ -237,6 +243,33 @@ export class CustomerAccessControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `rotateDirectLink()` */
+  static readonly RotateDirectLinkPath = '/api/public/customer-access/direct-orders/{orderNumber}/rotate-link';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `rotateDirectLink()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  rotateDirectLink$Response(params: RotateDirectLink$Params, context?: HttpContext): Observable<StrictHttpResponse<Rotated>> {
+    const obs = rotateDirectLink(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `rotateDirectLink$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  rotateDirectLink(params: RotateDirectLink$Params, context?: HttpContext): Observable<Rotated> {
+    const resp = this.rotateDirectLink$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Rotated>): Rotated => r.body)
+    );
+  }
+
   /** Path part for operation `customerSession()` */
   static readonly CustomerSessionPath = '/api/public/customer-access/session';
 
@@ -342,6 +375,33 @@ export class CustomerAccessControllerService extends BaseService {
     const resp = this.customerOrderCapabilities$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CustomerOrderCapabilities>): CustomerOrderCapabilities => r.body)
+    );
+  }
+
+  /** Path part for operation `verifiedDirectOrders()` */
+  static readonly VerifiedDirectOrdersPath = '/api/public/customer-access/direct-orders';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `verifiedDirectOrders()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  verifiedDirectOrders$Response(params?: VerifiedDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<Page>> {
+    const obs = verifiedDirectOrders(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `verifiedDirectOrders$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  verifiedDirectOrders(params?: VerifiedDirectOrders$Params, context?: HttpContext): Observable<Page> {
+    const resp = this.verifiedDirectOrders$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Page>): Page => r.body)
     );
   }
 

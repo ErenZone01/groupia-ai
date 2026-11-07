@@ -76,6 +76,13 @@ public class Payment {
     @Column(length = 4096)
     private String checkoutUrl;
 
+    @Column(updatable = false)
+    private UUID feeQuoteId;
+
+    public UUID getFeeQuoteId() {
+        return feeQuoteId;
+    }
+
     @Version private Long version;
 
     protected Payment() {}
@@ -102,6 +109,7 @@ public class Payment {
     public void checkoutContext(PaymentCheckoutContext context) {
         if (context != null) {
             paymentReference = context.businessReference();
+            feeQuoteId = context.feeQuoteId();
         }
     }
 
@@ -213,7 +221,8 @@ public class Payment {
                 currency,
                 paymentReference == null
                         ? null
-                        : new PaymentCheckoutContext(paymentReference, null, null, null),
+                        : new PaymentCheckoutContext(
+                                paymentReference, null, null, null, feeQuoteId),
                 r.getTarget());
     }
 

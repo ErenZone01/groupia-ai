@@ -3,4 +3,5 @@
 
 export interface InitiatePayment {
   provider?: string;
+  quoteId?: string;
 }

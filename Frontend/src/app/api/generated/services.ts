@@ -7,7 +7,15 @@ export { ProductMediaControllerService } from './services/product-media-controll
 export { MerchantSettlementControllerService } from './services/merchant-settlement-controller.service';
 export { GroupingControllerService } from './services/grouping-controller.service';
 export { CampaignLogisticsControllerService } from './services/campaign-logistics-controller.service';
+export { DirectStorefrontControllerService } from './services/direct-storefront-controller.service';
+export { DirectShippingFeesControllerService } from './services/direct-shipping-fees-controller.service';
 export { OrderingControllerService } from './services/ordering-controller.service';
+export { DirectReverseGeocodeControllerService } from './services/direct-reverse-geocode-controller.service';
+export { DirectDeliveryCoverageControllerService } from './services/direct-delivery-coverage-controller.service';
+export { DirectCheckoutControllerService } from './services/direct-checkout-controller.service';
+export { DirectCustomerPaymentInitiationControllerService } from './services/direct-customer-payment-initiation-controller.service';
+export { DirectCustomerPaymentStatusControllerService } from './services/direct-customer-payment-status-controller.service';
+export { DirectOrderTrackingControllerService } from './services/direct-order-tracking-controller.service';
 export { CustomerAccessControllerService } from './services/customer-access-controller.service';
 export { PaymentControllerService } from './services/payment-controller.service';
 export { OrganizationControllerService } from './services/organization-controller.service';
@@ -18,6 +26,7 @@ export { SupplierOrderControllerService } from './services/supplier-order-contro
 export { OrderShippingControllerService } from './services/order-shipping-controller.service';
 export { OrderFulfillmentControllerService } from './services/order-fulfillment-controller.service';
 export { GroupingCompletionControllerService } from './services/grouping-completion-controller.service';
+export { DirectOrderManagementControllerService } from './services/direct-order-management-controller.service';
 export { AuthControllerService } from './services/auth-controller.service';
 export { LocalMediaControllerService } from './services/local-media-controller.service';
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';

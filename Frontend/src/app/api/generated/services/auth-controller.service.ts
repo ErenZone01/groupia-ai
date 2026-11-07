@@ -11,13 +11,13 @@ import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
 import { AccessToken } from '../models/access-token';
-import { MeProfile } from '../models/me-profile';
-import { me } from '../fn/auth-controller/me';
-import { Me$Params } from '../fn/auth-controller/me';
 import { login } from '../fn/auth-controller/login';
 import { Login$Params } from '../fn/auth-controller/login';
 import { logout } from '../fn/auth-controller/logout';
 import { Logout$Params } from '../fn/auth-controller/logout';
+import { me } from '../fn/auth-controller/me';
+import { Me$Params } from '../fn/auth-controller/me';
+import { MeProfile } from '../models/me-profile';
 import { refresh } from '../fn/auth-controller/refresh';
 import { Refresh$Params } from '../fn/auth-controller/refresh';
 import { register } from '../fn/auth-controller/register';
@@ -27,24 +27,6 @@ import { Register$Params } from '../fn/auth-controller/register';
 export class AuthControllerService extends BaseService {
   constructor(config: ApiConfiguration, http: HttpClient) {
     super(config, http);
-  }
-
-  /** Path part for operation `me()` */
-  static readonly MePath = '/api/auth/me';
-
-  /**
-   * This method provides access to the full `HttpResponse`.
-   */
-  me$Response(params?: Me$Params, context?: HttpContext): Observable<StrictHttpResponse<MeProfile>> {
-    return me(this.http, this.rootUrl, params, context);
-  }
-
-  /**
-   * Returns the minimal authenticated current-user profile.
-   */
-  me(params?: Me$Params, context?: HttpContext): Observable<MeProfile> {
-    const resp = this.me$Response(params, context);
-    return resp.pipe(map((r: StrictHttpResponse<MeProfile>): MeProfile => r.body));
   }
 
   /** Path part for operation `register()` */
@@ -160,6 +142,33 @@ export class AuthControllerService extends BaseService {
     const resp = this.login$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<AccessToken>): AccessToken => r.body)
+    );
+  }
+
+  /** Path part for operation `me()` */
+  static readonly MePath = '/api/auth/me';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `me()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  me$Response(params?: Me$Params, context?: HttpContext): Observable<StrictHttpResponse<MeProfile>> {
+    const obs = me(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `me$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  me(params?: Me$Params, context?: HttpContext): Observable<MeProfile> {
+    const resp = this.me$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<MeProfile>): MeProfile => r.body)
     );
   }
 

@@ -5,7 +5,20 @@ package sn.groupia.payment.api.dto;
  * input.
  */
 public record PaymentCheckoutContext(
-        String businessReference, String customerName, String phone, String email) {
+        String businessReference,
+        String customerName,
+        String phone,
+        String email,
+        java.util.UUID feeQuoteId) {
+    public PaymentCheckoutContext(
+            String businessReference, String customerName, String phone, String email) {
+        this(businessReference, customerName, phone, email, null);
+    }
+
+    public PaymentCheckoutContext withFeeQuote(java.util.UUID id) {
+        return new PaymentCheckoutContext(businessReference, customerName, phone, email, id);
+    }
+
     @Override
     public String toString() {
         return "PaymentCheckoutContext[redacted]";

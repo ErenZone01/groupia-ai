@@ -27,6 +27,7 @@ public class PaymentTransactions {
     private final sn.groupia.payment.domain.repository.PaymentReviewStore reviews;
     private final ObjectProvider<DirectPaymentClaimGuard> directGuard;
     private final boolean directPaymentEnabled;
+    private final sn.groupia.payment.domain.repository.PaymentQuoteStore quotes;
 
     // Preserve isolated unit tests: their default remains strictly disabled.
     PaymentTransactions(
@@ -39,6 +40,27 @@ public class PaymentTransactions {
         this(store, events, clock, providers, refunds, reviews, null, false);
     }
 
+    PaymentTransactions(
+            FinancialStore store,
+            ApplicationEventPublisher events,
+            Clock clock,
+            ProviderRegistry providers,
+            sn.groupia.payment.domain.repository.RefundStore refunds,
+            sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
+            ObjectProvider<DirectPaymentClaimGuard> directGuard,
+            boolean directPaymentEnabled) {
+        this(
+                store,
+                events,
+                clock,
+                providers,
+                refunds,
+                reviews,
+                directGuard,
+                directPaymentEnabled,
+                null);
+    }
+
     @Autowired
     PaymentTransactions(
             FinancialStore store,
@@ -49,7 +71,9 @@ public class PaymentTransactions {
             sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
             ObjectProvider<DirectPaymentClaimGuard> directGuard,
             @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
-                    boolean directPaymentEnabled) {
+                    boolean directPaymentEnabled,
+            sn.groupia.payment.domain.repository.PaymentQuoteStore quotes) {
+        this.quotes = quotes;
         this.store = store;
         this.events = events;
         this.clock = clock;
@@ -170,6 +194,10 @@ public class PaymentTransactions {
                         "PAYMENT_INITIATION_CONFLICT",
                         "Cette clé désigne une autre initiation.");
             }
+            if (!Objects.equals(
+                    payment.getFeeQuoteId(), context == null ? null : context.feeQuoteId()))
+                throw new ApiException(
+                        409, "PAYMENT_INITIATION_CONFLICT", "Cette clé désigne un autre devis.");
             return new Claim(false, payment.instruction(request), payment.view());
         }
         UUID target = request.getId();
@@ -187,6 +215,32 @@ public class PaymentTransactions {
                     "PAYMENT_INITIATION_CONFLICT",
                     "Une tentative est déjà en cours ou doit être réconciliée.");
         }
+        if ("SASPAY".equals(provider)) {
+            var q =
+                    quotes.find(context == null ? null : context.feeQuoteId())
+                            .orElseThrow(
+                                    () ->
+                                            new ApiException(
+                                                    409,
+                                                    "PAYMENT_QUOTE_REQUIRED",
+                                                    "Acceptez le devis avant de payer."));
+            if (!q.organizationId().equals(org)
+                    || !q.requestId().equals(requestId)
+                    || !q.provider().equals(provider)
+                    || !q.account().equals(account)
+                    || q.amount().compareTo(request.getExpectedAmount()) != 0
+                    || !q.currency().equals(request.getCurrency())
+                    || !clock.instant().isBefore(q.expiresAt())
+                    || request.getPurpose() != PaymentPurpose.INITIAL_ORDER
+                    || request.view().feeAmount().signum() != 0)
+                throw new ApiException(
+                        409,
+                        "PAYMENT_QUOTE_INVALID",
+                        "Le devis est expiré ou incompatible. Actualisez les frais.");
+        }
+        if (!"SASPAY".equals(provider) && context != null && context.feeQuoteId() != null)
+            throw new ApiException(
+                    409, "PAYMENT_QUOTE_INVALID", "Ce devis ne correspond pas au fournisseur.");
         var payment = Payment.create(request, provider, account, key, clock.instant());
         payment.checkoutContext(context);
         store.add(payment);
@@ -536,10 +590,15 @@ public class PaymentTransactions {
 
     private Optional<Payment> resolved(PaymentWebhookEvent e) {
         var o = e.getObservation();
-        if (o == null || o.merchantReference() == null) {
-            return Optional.empty();
-        }
-        return store.byMerchant(o.merchantReference());
+        if (o == null) return Optional.empty();
+        if ("SASPAY".equals(e.getProvider())
+                && o.merchantReference() == null
+                && o.providerTransactionId() != null)
+            return store.byProviderTransaction(
+                    e.getProvider(), e.getProviderAccountReference(), o.providerTransactionId());
+        return o.merchantReference() == null
+                ? Optional.empty()
+                : store.byMerchant(o.merchantReference());
     }
 
     private boolean matchesReceipt(PaymentWebhookEvent e, Payment p) {
@@ -560,7 +619,8 @@ public class PaymentTransactions {
         }
         var candidate = resolved(e);
         if (candidate.isEmpty()) {
-            e.finish("REVIEW_REQUIRED", "UNKNOWN_REFERENCE", clock.instant());
+            if ("SASPAY".equals(e.getProvider())) e.retry("UNKNOWN_REFERENCE", clock.instant());
+            else e.finish("REVIEW_REQUIRED", "UNKNOWN_REFERENCE", clock.instant());
             return;
         }
         var r = store.lockRequest(candidate.get().getPaymentRequestId());
@@ -620,6 +680,19 @@ public class PaymentTransactions {
                 e.retry("PROVIDER_STATE_UNCERTAIN", clock.instant());
                 return;
             }
+        }
+        if ("SASPAY".equals(e.getProvider())) {
+            // Even a signed FAILED notification cannot reopen a paid obligation: verify first.
+            if (verificationFailed
+                    || verified == null
+                    || !Objects.equals(
+                            raw.providerTransactionId(), verified.providerTransactionId())
+                    || validate(r, p, verified) != null) {
+                p.review("PROVIDER_STATE_UNCERTAIN");
+                e.retry("PROVIDER_STATE_UNCERTAIN", clock.instant());
+                return;
+            }
+            raw = verified;
         }
         String result = apply(r, p, raw, decisionAt);
         e.finish(result == null ? "PROCESSED" : "REVIEW_REQUIRED", result, clock.instant());

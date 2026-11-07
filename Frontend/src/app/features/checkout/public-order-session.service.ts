@@ -7,6 +7,7 @@ export interface PublicOrderSession {
   receipt?: OrderReceipt;
   payment?: PaymentAttemptView;
   paymentKey?: string;
+  paymentQuoteId?: string;
   shippingLater: boolean;
 }
 export function safeCheckoutUrl(raw?: string): string | null {

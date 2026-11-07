@@ -94,7 +94,15 @@ public record ProviderObservation(
         return new ProviderObservation(
                 provider,
                 providerAccountReference,
-                merchantReference,
+                merchantReference == null
+                                && "SASPAY".equals(provider)
+                                && provider.equals(i.provider())
+                                && java.util.Objects.equals(
+                                        providerAccountReference, i.providerAccountReference())
+                                && providerTransactionId != null
+                                && providerTransactionId.equals(i.providerTransactionId())
+                        ? i.merchantReference()
+                        : merchantReference,
                 providerTransactionId,
                 i.paymentRequestId(),
                 i.orderId(),

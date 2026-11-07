@@ -122,7 +122,9 @@ class SubscriptionBillingMigrationTests {
                                     "select (to_jsonb(p)-'subscription_invoice_id'-'payment_request_id'-'payment_id'-'provider_account_reference')::text from subscription_periods p",
                                     String.class))
                     .isEqualTo(periodsBefore);
-            assertThat(j.queryForList("select * from payments")).isEqualTo(paymentsBefore);
+            var paymentsAfter = j.queryForList("select * from payments");
+            for (var row : paymentsAfter) assertThat(row.remove("fee_quote_id")).isNull();
+            assertThat(paymentsAfter).isEqualTo(paymentsBefore);
             assertThat(j.queryForList("select * from payment_reviews")).isEqualTo(reviewsBefore);
             MigrationHistoryAssertions.assertPreserved(j, sums);
             assertThat(

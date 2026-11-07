@@ -172,6 +172,7 @@ class SecurityConfiguration {
                                             "/api/public/direct-orders/payment-status",
                                             "/api/public/direct-orders/payments",
                                             "/api/public/orders/*/payments",
+                                            "/api/public/orders/*/payment-quotes",
                                             "/api/payment/webhooks/*")
                                     .permitAll()
                                     .anyRequest()

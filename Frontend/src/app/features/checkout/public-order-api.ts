@@ -17,10 +17,19 @@ export class PublicOrderApi {
       })),
     );
   }
-  initiate(orderNumber: string, token: string, key: string) {
+  quotes(orderNumber: string, token: string) {
+    return this.api
+      .quoteOrderPayment({ orderNumber }, new HttpContext().set(ORDER_TRACKING_TOKEN, token))
+      .pipe(timeout(15000));
+  }
+  initiate(orderNumber: string, token: string, key: string, quoteId?: string) {
     return this.api
       .initiate(
-        { orderNumber, 'Idempotency-Key': key, body: { provider: 'bictorys' } },
+        {
+          orderNumber,
+          'Idempotency-Key': key,
+          body: quoteId ? { provider: 'SASPAY', quoteId } : { provider: 'bictorys' },
+        },
         new HttpContext().set(ORDER_TRACKING_TOKEN, token),
       )
       .pipe(timeout(20000));

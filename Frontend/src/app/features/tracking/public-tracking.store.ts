@@ -13,7 +13,7 @@ import {
   takeWhile,
   timer,
 } from 'rxjs';
-import { OrderTrackingView } from '../../api/generated/models';
+import { OrderTrackingView, PaymentFeeQuoteView } from '../../api/generated/models';
 import { PublicOrderApi } from '../checkout/public-order-api';
 import {
   PublicOrderSessionService,
@@ -33,6 +33,44 @@ export class PublicTrackingStore {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly unavailable = signal(false);
+  readonly feeQuotes = signal<PaymentFeeQuoteView[]>([]);
+  readonly quoteLoading = signal(false);
+  readonly quoteMessage = signal('');
+  quoteExpired(quote: PaymentFeeQuoteView) {
+    return !quote.expiresAt || Date.parse(quote.expiresAt) <= Date.now();
+  }
+  async loadQuotes() {
+    const s = this.session.current();
+    if (
+      !s?.trackingToken ||
+      s.payment ||
+      s.paymentKey ||
+      this.busy() ||
+      this.quoteLoading() ||
+      this.order()?.status !== 'PENDING_PAYMENT'
+    )
+      return;
+    this.quoteLoading.set(true);
+    this.quoteMessage.set('');
+    try {
+      const quotes = await firstValueFrom(this.api.quotes(s.orderNumber, s.trackingToken));
+      if (
+        this.session.current()?.trackingToken !== s.trackingToken ||
+        this.order()?.status !== 'PENDING_PAYMENT'
+      )
+        return;
+      this.feeQuotes.set(quotes);
+      if (!quotes.length)
+        this.quoteMessage.set('Aucun autre moyen de paiement disponible pour cette commande.');
+    } catch {
+      this.feeQuotes.set([]);
+      this.quoteMessage.set(
+        'Les frais ne peuvent pas être confirmés actuellement. Réessayez plus tard.',
+      );
+    } finally {
+      this.quoteLoading.set(false);
+    }
+  }
   private subscription?: Subscription;
   constructor() {
     this.start();
@@ -93,7 +131,11 @@ export class PublicTrackingStore {
     if (e instanceof HttpErrorResponse && [401, 403, 404].includes(e.status))
       this.unavailable.set(true);
   }
-  async initiate() {
+  async resumeInitiation() {
+    const s = this.session.current();
+    if (s?.paymentKey && s.paymentQuoteId) await this.initiate(undefined, true);
+  }
+  async initiate(quote?: PaymentFeeQuoteView, resume = false) {
     const s = this.session.current();
     if (
       this.busy() ||
@@ -107,12 +149,24 @@ export class PublicTrackingStore {
       this.error.set('Le délai de paiement est dépassé. Actualisez le suivi.');
       return;
     }
+    if (resume && (!s.paymentKey || !s.paymentQuoteId)) return;
+    const quoteId = resume ? s.paymentQuoteId : quote?.id;
+    if (quote && (!quote.id || !this.feeQuotes().includes(quote) || this.quoteExpired(quote))) {
+      this.error.set('Le devis a expiré. Actualisez les frais avant de payer.');
+      return;
+    }
+    if (s.paymentKey && s.paymentQuoteId !== quoteId) {
+      this.error.set('Une tentative existe déjà. Réutilisez le même moyen de paiement.');
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try {
       const key = s.paymentKey ?? crypto.randomUUID();
-      this.session.update({ paymentKey: key });
-      const payment = await firstValueFrom(this.api.initiate(s.orderNumber, s.trackingToken, key));
+      this.session.update({ paymentKey: key, paymentQuoteId: quoteId });
+      const payment = await firstValueFrom(
+        this.api.initiate(s.orderNumber, s.trackingToken, key, quoteId),
+      );
       if (this.session.current()?.orderNumber === s.orderNumber)
         this.session.update({
           payment: { ...payment, checkoutUrl: safeCheckoutUrl(payment.checkoutUrl) ?? undefined },

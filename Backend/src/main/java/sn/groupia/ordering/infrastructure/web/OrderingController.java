@@ -55,7 +55,25 @@ class OrderingController {
                 .body(result.body());
     }
 
-    record InitiatePayment(String provider) {}
+    record InitiatePayment(String provider, UUID quoteId) {
+        @com.fasterxml.jackson.annotation.JsonAnySetter
+        public void reject(String name, Object value) {
+            throw new sn.groupia.shared.api.ApiException(
+                    400, "INVALID_REQUEST", "Champ de paiement non autorisé.");
+        }
+    }
+
+    @PostMapping("/api/public/orders/{orderNumber}/payment-quotes")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "quoteOrderPayment")
+    ResponseEntity<java.util.List<sn.groupia.payment.api.dto.PaymentFeeQuoteView>> quotes(
+            @PathVariable String orderNumber,
+            @RequestHeader(value = "X-Order-Tracking-Token", required = false) String token,
+            HttpServletRequest request) {
+        attempts.check(request.getRemoteAddr());
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(payments.quotes(orderNumber, token));
+    }
 
     @PostMapping("/api/public/orders/{orderNumber}/payments")
     ResponseEntity<sn.groupia.payment.api.dto.PaymentAttemptView> initiate(
@@ -67,7 +85,9 @@ class OrderingController {
         attempts.check(request.getRemoteAddr());
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store")
-                .body(payments.initiate(orderNumber, token, input.provider(), key));
+                .body(
+                        payments.initiate(
+                                orderNumber, token, input.provider(), key, input.quoteId()));
     }
 
     @GetMapping("/api/public/orders/track")

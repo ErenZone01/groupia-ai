@@ -105,13 +105,11 @@ describe('Suivi et paiement publics', () => {
   it('reconciliationRequired interdit une autre initiation et masque le lien', async () => {
     await start();
     const p = store.initiate();
-    http
-      .expectOne('/api/public/orders/GRP-1/payments')
-      .flush({
-        status: 'PENDING',
-        reconciliationRequired: true,
-        checkoutUrl: 'https://pay.example',
-      });
+    http.expectOne('/api/public/orders/GRP-1/payments').flush({
+      status: 'PENDING',
+      reconciliationRequired: true,
+      checkoutUrl: 'https://pay.example',
+    });
     await p;
     await store.initiate();
     http.expectNone('/api/public/orders/GRP-1/payments');
@@ -142,6 +140,68 @@ describe('Suivi et paiement publics', () => {
     await vi.advanceTimersByTimeAsync(10000);
     http.expectNone('/api/public/orders/track');
     await store.initiate();
+    http.expectNone('/api/public/orders/GRP-1/payments');
+  });
+  it('présente le devis serveur et transmet seulement son identifiant après accord', async () => {
+    await start();
+    const loading = store.loadQuotes();
+    const req = http.expectOne('/api/public/orders/GRP-1/payment-quotes');
+    expect(req.request.headers.get('X-Order-Tracking-Token')).toBe('secret-test');
+    const quote = {
+      id: 'quote-1',
+      provider: 'SASPAY',
+      network: 'wave_sn',
+      networkLabel: 'Wave',
+      saleAmount: 5000,
+      collectionFee: 125,
+      totalCharged: 5125,
+      merchantNet: 5000,
+      groupiaCommission: 0,
+      currency: 'XOF',
+      expiresAt: new Date(Date.now() + 120000).toISOString(),
+    };
+    req.flush([quote]);
+    await loading;
+    http.expectNone('/api/public/orders/GRP-1/payments');
+    const paying = store.initiate(store.feeQuotes()[0]);
+    const payment = http.expectOne('/api/public/orders/GRP-1/payments');
+    expect(payment.request.body).toEqual({ provider: 'SASPAY', quoteId: 'quote-1' });
+    payment.flush({ status: 'PENDING', reconciliationRequired: false });
+    await paying;
+    expect(store.order()?.status).toBe('PENDING_PAYMENT');
+    expect(cart.count()).toBe(1);
+  });
+  it('retrouve la même intention SasPay après rechargement sans nouveau devis', async () => {
+    await start();
+    session.update({ paymentKey: 'persisted-key', paymentQuoteId: 'accepted-quote' });
+    await store.loadQuotes();
+    http.expectNone('/api/public/orders/GRP-1/payment-quotes');
+    await store.initiate();
+    http.expectNone('/api/public/orders/GRP-1/payments');
+    const retry = store.resumeInitiation();
+    const req = http.expectOne('/api/public/orders/GRP-1/payments');
+    expect(req.request.headers.get('Idempotency-Key')).toBe('persisted-key');
+    expect(req.request.body).toEqual({ provider: 'SASPAY', quoteId: 'accepted-quote' });
+    req.flush({ status: 'PENDING', reconciliationRequired: false });
+    await retry;
+    expect(store.order()?.status).toBe('PENDING_PAYMENT');
+  });
+  it('refuse un devis expiré et ne calcule jamais un montant de remplacement', async () => {
+    await start();
+    const quote = { id: 'expired', expiresAt: new Date(Date.now() - 1000).toISOString() };
+    store.feeQuotes.set([quote]);
+    await store.initiate(quote);
+    http.expectNone('/api/public/orders/GRP-1/payments');
+    expect(store.error()).toContain('expiré');
+  });
+  it('un échec de récupération des frais ne déclenche aucun paiement', async () => {
+    await start();
+    const loading = store.loadQuotes();
+    http
+      .expectOne('/api/public/orders/GRP-1/payment-quotes')
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    await loading;
+    expect(store.feeQuotes()).toEqual([]);
     http.expectNone('/api/public/orders/GRP-1/payments');
   });
 });

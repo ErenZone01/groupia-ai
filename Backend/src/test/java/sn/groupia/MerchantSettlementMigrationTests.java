@@ -97,6 +97,9 @@ class MerchantSettlementMigrationTests {
                         assertThat(row.remove("direct_order_id")).isNull();
                     }
                 }
+                if (table.equals("payments")) {
+                    for (var row : rows) assertThat(row.remove("fee_quote_id")).isNull();
+                }
                 assertThat(rows).isEqualTo(originals.get(table));
             }
             MigrationHistoryAssertions.assertPreserved(j, checksums);

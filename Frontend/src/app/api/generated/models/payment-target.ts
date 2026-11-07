@@ -3,5 +3,5 @@
 
 export interface PaymentTarget {
   id?: string;
-  type?: 'ORDER' | 'SUBSCRIPTION_INVOICE';
+  type?: 'ORDER' | 'SUBSCRIPTION_INVOICE' | 'DIRECT_ORDER';
 }

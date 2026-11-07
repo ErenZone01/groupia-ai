@@ -12,7 +12,7 @@ import { PaymentRequestsPageView } from '../../models/payment-requests-page-view
 export interface ListPaymentRequests$Params {
   organizationId: string;
   operationalStatus?: 'PENDING' | 'SETTLED' | 'REVIEW_REQUIRED' | 'TERMINAL_UNPAID';
-  purpose?: 'INITIAL_ORDER' | 'SHIPPING_BALANCE' | 'SUBSCRIPTION_MONTHLY';
+  purpose?: 'INITIAL_ORDER' | 'SHIPPING_BALANCE' | 'SUBSCRIPTION_MONTHLY' | 'DIRECT_ORDER_INITIAL';
   orderId?: string;
   page?: number;
   size?: number;

@@ -170,6 +170,11 @@ public class SubscriptionInvoiceService {
 
     @Transactional(readOnly = true)
     public Checkout checkout(UUID org, UUID id) {
+        return checkout(org, id, false);
+    }
+
+    @Transactional(readOnly = true)
+    public Checkout checkout(UUID org, UUID id, boolean currentPayer) {
         access.requirePermission(org, OrganizationPermission.MANAGE_SUBSCRIPTION);
         if (!settings.isEnabled())
             throw new ApiException(
@@ -180,6 +185,26 @@ public class SubscriptionInvoiceService {
                     409,
                     "SUBSCRIPTION_INVOICE_NOT_PAYABLE",
                     "Cette échéance ne peut plus être payée.");
+        // The issued invoice retains its billing snapshot. A payer may update her server-owned
+        // contact before a new SasPay attempt; no financial invoice value is rewritten.
+        if (currentPayer) {
+            var contact =
+                    subscriptions
+                            .findBillingContact(org)
+                            .orElseThrow(
+                                    () ->
+                                            new ApiException(
+                                                    409,
+                                                    "SUBSCRIPTION_BILLING_CONTACT_REQUIRED",
+                                                    "Renseignez les coordonnées du payeur."));
+            return new Checkout(
+                    invoice.paymentRequestId(),
+                    new PaymentCheckoutContext(
+                            invoice.reference(),
+                            contact.name(),
+                            contact.phoneE164(),
+                            contact.email()));
+        }
         return new Checkout(
                 invoice.paymentRequestId(),
                 new PaymentCheckoutContext(
@@ -222,14 +247,21 @@ public class SubscriptionInvoiceService {
                 i.billingTimezone(),
                 i.amount(),
                 i.currency(),
-                i.status(),
+                i.status().equals("OPEN")
+                                && !now().isBefore(i.periodEnd())
+                                && state.request().settledPaymentId() == null
+                        ? "EXPIRED"
+                        : i.status(),
                 i.paymentRequestId(),
                 state.request().settledPaymentId(),
                 i.paidAt(),
                 state.operationalStatus(),
                 state.attemptInProgress(),
                 state.reconciliationRequired(),
-                canPay);
+                canPay,
+                access.hasPermission(i.organizationId(), OrganizationPermission.MANAGE_SUBSCRIPTION)
+                        ? payments.latestAttempt(i.organizationId(), i.paymentRequestId())
+                        : null);
     }
 
     private BigDecimal amount() {

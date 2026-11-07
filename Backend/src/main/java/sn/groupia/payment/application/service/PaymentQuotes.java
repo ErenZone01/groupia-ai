@@ -34,9 +34,10 @@ public class PaymentQuotes implements PaymentQuoteOperations {
         var request = transactions.request(org, requestId);
         // Order and monthly subscription obligations can share the SasPay quote contract.
         // Authorization is performed by the calling order/subscription service.
-        // Direct orders remain explicitly excluded until their token guard is extended.
+        // Direct order callers resolve their capability; claim rechecks it under order locks.
         if ((request.purpose() != PaymentPurpose.INITIAL_ORDER
-                        && request.purpose() != PaymentPurpose.SUBSCRIPTION_MONTHLY)
+                        && request.purpose() != PaymentPurpose.SUBSCRIPTION_MONTHLY
+                        && request.purpose() != PaymentPurpose.DIRECT_ORDER_INITIAL)
                 || request.feeAmount().signum() != 0
                 || request.acceptanceStatus() != AcceptanceStatus.OPEN
                 || request.expiresAt() == null

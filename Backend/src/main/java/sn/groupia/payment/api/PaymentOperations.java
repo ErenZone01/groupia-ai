@@ -4,6 +4,9 @@ import java.util.UUID;
 import sn.groupia.payment.api.dto.*;
 
 public interface PaymentOperations {
+    /** Caller must authorize this organization and obligation before exposing the checkout URL. */
+    PaymentAttemptRecoveryView latestAttempt(UUID organizationId, UUID paymentRequestId);
+
     PaymentSettlementEvidence settlementEvidence(UUID organizationId, UUID paymentRequestId);
 
     boolean providerAvailable(String provider);

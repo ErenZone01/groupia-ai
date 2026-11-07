@@ -3,11 +3,14 @@
 
 import { SubscriptionAccessView } from '../models/subscription-access-view';
 import { SubscriptionBillingContactView } from '../models/subscription-billing-contact-view';
+import { SubscriptionRenewalView } from '../models/subscription-renewal-view';
 export interface SubscriptionDetails {
   access?: SubscriptionAccessView;
+  availableProviders?: Array<string>;
   billingContact?: SubscriptionBillingContactView;
   billingProviderAvailable?: boolean;
   billingProviderSetupPending?: boolean;
   canManageSubscription?: boolean;
   planConfigured?: boolean;
+  renewal?: SubscriptionRenewalView;
 }

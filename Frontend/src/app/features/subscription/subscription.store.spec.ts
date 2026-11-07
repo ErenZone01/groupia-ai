@@ -43,6 +43,110 @@ describe('SubscriptionStore', () => {
       .flush({ amount: 10000, currency: 'XOF' });
   }
 
+  const quote = {
+    id: 'fee-quote',
+    provider: 'SASPAY',
+    network: 'wave_sn',
+    networkLabel: 'Wave',
+    saleAmount: 10000,
+    collectionFee: 250,
+    totalCharged: 10250,
+    merchantNet: 10000,
+    groupiaCommission: 0,
+    currency: 'XOF',
+    expiresAt: '2099-12-01T00:00:00Z',
+  };
+  async function saspay() {
+    await load();
+    store.details.set({ ...details, availableProviders: ['SASPAY', 'BICTORYS'] });
+    store.invoices.set([invoice]);
+  }
+  it('prépare un devis serveur sans initier de paiement', async () => {
+    await saspay();
+    const pending = store.prepareSaspay();
+    const request = http.expectOne(base + '/invoices/invoice/payment-quotes');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    request.flush([quote]);
+    await pending;
+    expect(store.quotes()).toEqual([quote]);
+    http.expectNone((r) => r.url.endsWith('/payment'));
+  });
+  it('refuse un devis inconnu ou expiré et un fournisseur indisponible', async () => {
+    await saspay();
+    await store.pay(quote);
+    store.quotes.set([{ ...quote, expiresAt: '2020-01-01T00:00:00Z' }]);
+    await store.pay(store.quotes()[0]);
+    expect(store.error()).toContain('expiré');
+    store.details.set({ ...details, availableProviders: ['BICTORYS'] });
+    store.quotes.set([quote]);
+    await store.pay(quote);
+    http.expectNone((r) => r.method === 'POST');
+  });
+  it('envoie uniquement le devis accepté et garde la même intention après une réponse perdue', async () => {
+    await saspay();
+    store.quotes.set([quote]);
+    const first = store.pay(quote);
+    const request = http.expectOne(base + '/invoices/invoice/payment');
+    const key = request.request.headers.get('Idempotency-Key');
+    expect(request.request.body).toEqual({ provider: 'SASPAY', feeQuoteId: quote.id });
+    request.flush({}, { status: 503, statusText: 'Unavailable' });
+    await vi.waitFor(() => flush());
+    await first;
+    store.details.set({ ...details, availableProviders: ['SASPAY', 'BICTORYS'] });
+    store.invoices.set([invoice]);
+    await store.pay();
+    http.expectNone((r) => r.url.endsWith('/payment'));
+    expect(store.error()).toContain('déjà demandé');
+    const retry = store.pay(quote);
+    const repeated = http.expectOne(base + '/invoices/invoice/payment');
+    expect(repeated.request.headers.get('Idempotency-Key')).toBe(key);
+    expect(repeated.request.body).toEqual(request.request.body);
+    repeated.flush({ status: 'PENDING' });
+    await vi.waitFor(() => flush());
+    await retry;
+  });
+  it.each([true, false])(
+    'récupère le checkout ou le push SasPay uniquement pour la propriétaire (%s)',
+    async (checkout) => {
+      const pending = store.load('shop');
+      http.expectOne(base).flush({ ...details, availableProviders: ['SASPAY'] });
+      http.expectOne(base + '/history').flush([]);
+      http.expectOne(base + '/invoice-preview').flush({});
+      http
+        .expectOne(base + '/invoices')
+        .flush([
+          {
+            ...invoice,
+            canPay: false,
+            attemptInProgress: true,
+            latestAttempt: {
+              provider: 'SASPAY',
+              quote,
+              attempt: {
+                status: 'PENDING',
+                checkoutUrl: checkout ? 'https://pay.saspay.me/session' : null,
+              },
+            },
+          },
+        ]);
+      await pending;
+      expect(store.checkoutUrl()).toBe(checkout ? 'https://pay.saspay.me/session' : null);
+      expect(store.phoneConfirmation()).toBe(!checkout);
+      expect(store.acceptedQuote()).toEqual(quote);
+      const reload = store.refresh();
+      http.expectOne(base).flush({ ...details, canManageSubscription: false });
+      http.expectOne(base + '/history').flush([]);
+      http.expectOne(base + '/invoice-preview').flush({});
+      http
+        .expectOne(base + '/invoices')
+        .flush([{ ...invoice, canPay: false, attemptInProgress: true }]);
+      await reload;
+      expect(store.checkoutUrl()).toBeNull();
+      expect(store.acceptedQuote()).toBeNull();
+    },
+  );
+
   it('charge les détails et l’historique une fois pour les appels concurrents', async () => {
     const first = store.load('shop');
     const second = store.load('shop');

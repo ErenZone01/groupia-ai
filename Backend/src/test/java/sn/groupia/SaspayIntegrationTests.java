@@ -32,7 +32,7 @@ import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest
+@SpringBootTest(properties = "groupia.direct-sales.payment-initiation.enabled=true")
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,
@@ -397,6 +397,341 @@ class SaspayIntegrationTests {
         assertThat(http.requests).hasSize(2);
         assertThat(http.requests).allMatch(r -> r.method().equals("GET"));
         initiate(key()).andExpect(status().isConflict());
+    }
+
+    @Autowired sn.groupia.directsales.application.DirectPaymentObligations directObligations;
+
+    record DirectFixture(UUID orderId, String token, UUID requestId) {}
+
+    private DirectFixture directFixture() throws Exception {
+        UUID storefront = UUID.randomUUID();
+        jdbc.update(
+                "insert into direct_storefronts"
+                        + " (id,organization_id,public_identifier,display_name,created_at,updated_at)"
+                        + " values (?,?,?,'Direct Sandbox',current_timestamp,current_timestamp)",
+                storefront,
+                org,
+                UUID.randomUUID());
+
+        UUID order = UUID.randomUUID();
+        String number = "DIR-000000000001";
+        byte[] secret = new byte[32];
+        new java.security.SecureRandom().nextBytes(secret);
+        String recovery = Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
+        jdbc.update(
+                "insert into direct_orders"
+                        + " (id,organization_id,storefront_id,order_number,status,"
+                        + "fulfillment_method,currency,customer_contact_snapshot,"
+                        + "delivery_address_snapshot,goods_subtotal_xof,platform_fee_xof,"
+                        + "platform_fee_rule_snapshot,amount_before_shipping_xof,shipping_quoted,"
+                        + "shipping_fee_xof,accepted_total_xof,checkout_idempotency_key,"
+                        + "checkout_request_fingerprint,placed_at,recovery_token_hash)"
+                        + " values (?,?,?,?,'PENDING_PAYMENT_INTEGRATION','PICKUP','XOF',"
+                        + "cast(? as jsonb),null,10000,0,cast(? as jsonb),10000,true,0,10000,"
+                        + "?, ?,current_timestamp,?)",
+                order,
+                org,
+                storefront,
+                number,
+                json.writeValueAsString(
+                        Map.of(
+                                "firstName",
+                                "Awa",
+                                "lastName",
+                                "Ndiaye",
+                                "phoneE164",
+                                "+221771234567",
+                                "email",
+                                "awa@example.test")),
+                "{\"type\":\"FIXED\",\"amount\":\"0\"}",
+                "sandbox-checkout-key-0001",
+                "a".repeat(64),
+                sn.groupia.directsales.application.DirectAccessTokens.hashForCreate(recovery));
+        jdbc.update(
+                "insert into direct_order_items"
+                        + " (id,organization_id,order_id,offer_id_snapshot,product_id_snapshot,"
+                        + "product_variant_id_snapshot,product_name_snapshot,"
+                        + "variant_attributes_snapshot,line_number,quantity,unit_price_xof,"
+                        + "line_total_xof,price_revision_snapshot)"
+                        + " values (?,?,?,?,?,?,'Article démo','{}',1,1,10000,10000,0)",
+                UUID.randomUUID(),
+                org,
+                order,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID());
+
+        jdbc.update(
+                "update direct_orders set placed_at=? where id=?",
+                java.sql.Timestamp.from(clock.instant()),
+                order);
+        var prepared = directObligations.prepare(org, order);
+        assertThat(prepared.expectedAmount())
+                .isEqualByComparingTo(java.math.BigDecimal.valueOf(10000));
+        return new DirectFixture(order, recovery, prepared.id());
+    }
+
+    private ResultActions directPost(String route, Map<String, Object> body, String key)
+            throws Exception {
+        return mvc.perform(
+                post("/api/public/direct-orders/" + route)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(body)));
+    }
+
+    @Test
+    void directSaspayUsesPrivateTokenAndVerifiedNetWithoutTouchingGroupageOrSubscription()
+            throws Exception {
+        var direct = directFixture();
+        directPost(
+                        "payment-quotes",
+                        Map.of("token", direct.orderId().toString()),
+                        "invalid-token-key")
+                .andExpect(status().isNotFound());
+        assertThat(http.requests).isEmpty();
+        http.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates());
+        var quotes =
+                read(
+                        directPost(
+                                        "payment-quotes",
+                                        Map.of("token", direct.token()),
+                                        "quote-key-0000001")
+                                .andExpect(status().isOk())
+                                .andExpect(header().string("Cache-Control", "no-store"))
+                                .andReturn());
+        String fee = quotes.get(0).path("id").asText();
+        assertThat(quotes.get(0).path("merchantNet").decimalValue()).isEqualByComparingTo("10000");
+        assertThat(quotes.get(0).path("totalCharged").decimalValue()).isEqualByComparingTo("10250");
+        queueInitiation();
+        var body = Map.<String, Object>of("token", direct.token(), "feeQuoteId", fee);
+        directPost("payments", body, "direct-saspay-key-0001").andExpect(status().isOk());
+        directPost("payments", body, "direct-saspay-key-0001").andExpect(status().isOk());
+        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count())
+                .isEqualTo(1);
+        directPost("payment-status", Map.of("token", direct.token()), "status-key-00001")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestAttempt.provider").value("SASPAY"))
+                .andExpect(jsonPath("$.financialStatus").value("PAYMENT_IN_PROGRESS"));
+        deliver(subscriptionAmounts(event("SUCCESS")));
+        deliver(subscriptionAmounts(event("SUCCESS")));
+        http.reply(200, subscriptionAmounts(verification("SUCCESS")));
+        webhooks.retryPending();
+        await(
+                () ->
+                        jdbc.queryForObject(
+                                        "select count(*) from direct_order_verified_settlements where direct_order_id=?",
+                                        Long.class,
+                                        direct.orderId())
+                                == 1);
+        directPost("payment-status", Map.of("token", direct.token()), "status-key-00001")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("SETTLEMENT_VERIFIED"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from direct_orders where id=?",
+                                String.class,
+                                direct.orderId()))
+                .isEqualTo("PAYMENT_CONFIRMED");
+        assertThat(jdbc.queryForObject("select count(*) from subscription_periods", Long.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from orders where status='CONFIRMED'", Long.class))
+                .isZero();
+    }
+
+    @Test
+    void directSaspayRejectsAnotherTargetsQuoteAndChangedHistoricalAmount() throws Exception {
+        var direct = directFixture();
+        String foreign = quote();
+        directPost(
+                        "payments",
+                        Map.of("token", direct.token(), "feeQuoteId", foreign),
+                        "direct-cross-quote-01")
+                .andExpect(status().isConflict());
+        http.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates());
+        var quotes =
+                read(
+                        directPost(
+                                        "payment-quotes",
+                                        Map.of("token", direct.token()),
+                                        "quote-key-0000001")
+                                .andExpect(status().isOk())
+                                .andReturn());
+        jdbc.update(
+                "update direct_order_items set unit_price_xof=11000,line_total_xof=11000 where order_id=?",
+                direct.orderId());
+        directPost(
+                        "payments",
+                        Map.of(
+                                "token",
+                                direct.token(),
+                                "feeQuoteId",
+                                quotes.get(0).path("id").asText()),
+                        "direct-changed-amount")
+                .andExpect(status().isConflict());
+        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count()).isZero();
+    }
+
+    private String subscriptionBase() {
+        return "/api/organizations/" + org + "/subscription";
+    }
+
+    private JsonNode subscriptionInvoice() throws Exception {
+        auth(
+                        put(subscriptionBase() + "/billing-contact"),
+                        Map.of(
+                                "name",
+                                "Awa Diop",
+                                "phoneE164",
+                                "+221771234567",
+                                "email",
+                                "awa@example.test"))
+                .andExpect(status().isOk());
+        return read(
+                auth(post(subscriptionBase() + "/invoices").header("Idempotency-Key", key()))
+                        .andExpect(status().isOk())
+                        .andReturn());
+    }
+
+    private String subscriptionQuote(JsonNode invoice) throws Exception {
+        http.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates());
+        var quotes =
+                read(
+                        auth(post(
+                                        subscriptionBase()
+                                                + "/invoices/"
+                                                + invoice.path("id").asText()
+                                                + "/payment-quotes"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(quotes.get(0).path("saleAmount").decimalValue()).isEqualByComparingTo("10000");
+        assertThat(quotes.get(0).path("totalCharged").decimalValue()).isEqualByComparingTo("10250");
+        return quotes.get(0).path("id").asText();
+    }
+
+    private ResultActions paySubscription(JsonNode invoice, String quote, String key)
+            throws Exception {
+        return auth(
+                post(subscriptionBase() + "/invoices/" + invoice.path("id").asText() + "/payment")
+                        .header("Idempotency-Key", key),
+                Map.of("provider", "SASPAY", "feeQuoteId", quote));
+    }
+
+    private String subscriptionAmounts(String payload) {
+        return payload.replace("2050.00", "10250.00")
+                .replace("2000.00", "10000.00")
+                .replace("\"50.00\"", "\"250.00\"");
+    }
+
+    @Test
+    void subscriptionSaspayActivatesOnceAndDoesNotConfirmAnOrder() throws Exception {
+        var details = read(auth(get(subscriptionBase())).andExpect(status().isOk()).andReturn());
+        assertThat(details.path("availableProviders").toString()).contains("SASPAY");
+        var trialEnd = Instant.parse(details.path("access").path("trialEndsAt").asText());
+        clock.advance(Duration.between(clock.instant(), trialEnd).plusSeconds(1));
+        var invoice = subscriptionInvoice();
+        var quote = subscriptionQuote(invoice);
+        queueInitiation();
+        var attemptKey = key();
+        paySubscription(invoice, quote, attemptKey).andExpect(status().isOk());
+        paySubscription(invoice, quote, attemptKey).andExpect(status().isOk());
+        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count())
+                .isEqualTo(1);
+        var recovery =
+                read(
+                        auth(get(subscriptionBase() + "/invoices/" + invoice.path("id").asText()))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(recovery.path("latestAttempt").path("feeQuoteId").asText()).isEqualTo(quote);
+        assertThat(recovery.path("latestAttempt").path("attempt").path("checkoutUrl").asText())
+                .isEqualTo("https://pay.saspay.me/test-checkout");
+        deliver(subscriptionAmounts(event("SUCCESS")));
+        deliver(subscriptionAmounts(event("SUCCESS")));
+        http.reply(200, subscriptionAmounts(verification("SUCCESS")));
+        webhooks.retryPending();
+        await(
+                () ->
+                        jdbc.queryForObject(
+                                        "select count(*) from subscription_periods where organization_id=?",
+                                        Long.class,
+                                        org)
+                                == 1);
+        var active = read(auth(get(subscriptionBase())).andExpect(status().isOk()).andReturn());
+        assertThat(active.path("access").path("status").asText()).isEqualTo("ACTIVE");
+        assertThat(active.path("renewal").path("manualRenewal").asBoolean()).isTrue();
+        assertThat(jdbc.queryForObject("select status from orders", String.class))
+                .isEqualTo("PENDING_PAYMENT");
+        assertThat(jdbc.queryForObject("select count(*) from merchant_ledger_entries", Long.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("select status from subscription_invoices", String.class))
+                .isEqualTo("PAID");
+        paySubscription(invoice, quote, key()).andExpect(status().isConflict());
+    }
+
+    @Test
+    void subscriptionQuoteCannotPayAnOrderOrAnInvoiceInAnotherOrganization() throws Exception {
+        var invoice = subscriptionInvoice();
+        quoteId = subscriptionQuote(invoice);
+        initiate(key()).andExpect(status().isConflict());
+        var other =
+                read(auth(post("/api/organizations"), Map.of("name", "Autre boutique"))
+                                .andExpect(status().isCreated())
+                                .andReturn())
+                        .path("id")
+                        .asText();
+        auth(post(
+                        "/api/organizations/"
+                                + other
+                                + "/subscription/invoices/"
+                                + invoice.path("id").asText()
+                                + "/payment-quotes"))
+                .andExpect(status().isNotFound());
+        assertThat(http.requests).hasSize(1);
+    }
+
+    @Test
+    void subscriptionQuoteRequiresPayerContactAndDoesNotRewriteIssuedInvoice() throws Exception {
+        auth(
+                        put(subscriptionBase() + "/billing-contact"),
+                        Map.of("name", "Boutique", "phoneE164", "+221771234567"))
+                .andExpect(status().isOk());
+        var invoice =
+                read(
+                        auth(post(subscriptionBase() + "/invoices")
+                                        .header("Idempotency-Key", key()))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        var path =
+                subscriptionBase() + "/invoices/" + invoice.path("id").asText() + "/payment-quotes";
+        assertThat(read(auth(post(path)).andExpect(status().isOk()).andReturn()).size()).isZero();
+        assertThat(http.requests).isEmpty();
+        auth(
+                        put(subscriptionBase() + "/billing-contact"),
+                        Map.of(
+                                "name",
+                                "Awa Diop",
+                                "phoneE164",
+                                "+221771234567",
+                                "email",
+                                "awa@example.test"))
+                .andExpect(status().isOk());
+        subscriptionQuote(invoice);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select billing_name from subscription_invoices", String.class))
+                .isEqualTo("Boutique");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select billing_email from subscription_invoices", String.class))
+                .isNull();
     }
 
     private void await(BooleanSupplier condition) throws Exception {

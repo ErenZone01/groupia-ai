@@ -13,6 +13,9 @@ import { StrictHttpResponse } from '../strict-http-response';
 import { initiateDirectOrderPaymentByToken } from '../fn/direct-customer-payment-initiation-controller/initiate-direct-order-payment-by-token';
 import { InitiateDirectOrderPaymentByToken$Params } from '../fn/direct-customer-payment-initiation-controller/initiate-direct-order-payment-by-token';
 import { PaymentAttemptView } from '../models/payment-attempt-view';
+import { PaymentFeeQuoteView } from '../models/payment-fee-quote-view';
+import { quoteDirectOrderPaymentByToken } from '../fn/direct-customer-payment-initiation-controller/quote-direct-order-payment-by-token';
+import { QuoteDirectOrderPaymentByToken$Params } from '../fn/direct-customer-payment-initiation-controller/quote-direct-order-payment-by-token';
 
 @Injectable({ providedIn: 'root' })
 export class DirectCustomerPaymentInitiationControllerService extends BaseService {
@@ -44,6 +47,33 @@ export class DirectCustomerPaymentInitiationControllerService extends BaseServic
     const resp = this.initiateDirectOrderPaymentByToken$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<PaymentAttemptView>): PaymentAttemptView => r.body)
+    );
+  }
+
+  /** Path part for operation `quoteDirectOrderPaymentByToken()` */
+  static readonly QuoteDirectOrderPaymentByTokenPath = '/api/public/direct-orders/payment-quotes';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteDirectOrderPaymentByToken()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  quoteDirectOrderPaymentByToken$Response(params: QuoteDirectOrderPaymentByToken$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PaymentFeeQuoteView>>> {
+    const obs = quoteDirectOrderPaymentByToken(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteDirectOrderPaymentByToken$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  quoteDirectOrderPaymentByToken(params: QuoteDirectOrderPaymentByToken$Params, context?: HttpContext): Observable<Array<PaymentFeeQuoteView>> {
+    const resp = this.quoteDirectOrderPaymentByToken$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<PaymentFeeQuoteView>>): Array<PaymentFeeQuoteView> => r.body)
     );
   }
 

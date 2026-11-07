@@ -108,11 +108,13 @@ public class DirectPaymentClaimAuthorization implements DirectPaymentClaimGuard 
 
         PaymentCheckoutContext canonical =
                 new PaymentCheckoutContext(
-                        contact.number(),
-                        contact.firstName() + " " + contact.lastName(),
-                        contact.phone(),
-                        contact.email());
-        if (!canonical.equals(checkoutContext)) throw blocked();
+                                contact.number(),
+                                contact.firstName() + " " + contact.lastName(),
+                                contact.phone(),
+                                contact.email())
+                        .withFeeQuote(checkoutContext.feeQuoteId());
+        if (!canonical.equals(checkoutContext)
+                || (canonical.feeQuoteId() != null && !canonical.saspayEligible())) throw blocked();
         return canonical;
     }
 

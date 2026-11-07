@@ -120,7 +120,7 @@ class SubscriptionController {
                 .body(invoices.create(organizationId, key));
     }
 
-    @GetMapping("/invoices/{invoiceId}/payment-quotes")
+    @PostMapping("/invoices/{invoiceId}/payment-quotes")
     @io.swagger.v3.oas.annotations.Operation(operationId = "quoteSubscriptionInvoicePayment")
     ResponseEntity<List<sn.groupia.payment.api.dto.PaymentFeeQuoteView>> invoicePaymentQuotes(
             @PathVariable UUID organizationId, @PathVariable UUID invoiceId) {
@@ -138,11 +138,16 @@ class SubscriptionController {
             @Valid @RequestBody SubscriptionPaymentInput input) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(payments.initiate(organizationId, invoiceId, input.provider(), key, input.feeQuoteId()));
+                .body(
+                        payments.initiate(
+                                organizationId,
+                                invoiceId,
+                                input.provider(),
+                                key,
+                                input.feeQuoteId()));
     }
 
-    record SubscriptionPaymentInput(
-            @NotBlank @Size(max = 64) String provider, UUID feeQuoteId) {
+    record SubscriptionPaymentInput(@NotBlank @Size(max = 64) String provider, UUID feeQuoteId) {
         @com.fasterxml.jackson.annotation.JsonAnySetter
         public void reject(String key, Object value) {
             throw new sn.groupia.shared.api.ApiException(

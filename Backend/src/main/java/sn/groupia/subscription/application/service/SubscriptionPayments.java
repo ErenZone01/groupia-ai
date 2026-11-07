@@ -25,7 +25,8 @@ public class SubscriptionPayments {
     public java.util.List<sn.groupia.payment.api.dto.PaymentFeeQuoteView> quotes(
             UUID org, UUID invoice) {
         // Checkout verifies organization permission, subscription status and invoice expiry.
-        var checkout = invoices.checkout(org, invoice);
+        var checkout = invoices.checkout(org, invoice, true);
+        if (!checkout.context().saspayEligible()) return java.util.List.of();
         return quotes.quotes(org, checkout.paymentRequestId());
     }
 
@@ -37,12 +38,20 @@ public class SubscriptionPayments {
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiate(
             UUID org, UUID invoice, String provider, String key, UUID feeQuoteId) {
-        var checkout = invoices.checkout(org, invoice);
+        boolean saspay = "SASPAY".equalsIgnoreCase(provider);
+        var checkout = invoices.checkout(org, invoice, saspay);
+        if (saspay && !checkout.context().saspayEligible())
+            throw new sn.groupia.shared.api.ApiException(
+                    409,
+                    "SASPAY_PAYER_REQUIRED",
+                    "Renseignez le prénom, le nom, le téléphone sénégalais et le courriel du payeur.");
         return payments.initiateRequest(
                 org,
                 checkout.paymentRequestId(),
                 provider,
                 key,
-                feeQuoteId == null ? checkout.context() : checkout.context().withFeeQuote(feeQuoteId));
+                feeQuoteId == null
+                        ? checkout.context()
+                        : checkout.context().withFeeQuote(feeQuoteId));
     }
 }

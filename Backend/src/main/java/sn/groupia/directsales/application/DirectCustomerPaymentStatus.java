@@ -35,7 +35,9 @@ public class DirectCustomerPaymentStatus {
             Long acceptedTotalXof,
             String preparationStatus,
             boolean paymentAvailable,
-            String financialStatus) {}
+            String financialStatus,
+            List<String> availableProviders,
+            sn.groupia.payment.api.dto.PaymentAttemptRecoveryView latestAttempt) {}
 
     record Snapshot(
             UUID organizationId,
@@ -122,18 +124,26 @@ public class DirectCustomerPaymentStatus {
         String preparation = preparationStatus(financial);
         // Read-only UI affordance, never permission to pay: the claim transaction independently
         // rechecks every order snapshot, the active capability and financial risk under locks.
-        boolean paymentAvailable =
+        List<String> providers =
                 initiationEnabled
-                        && "PREPARED".equals(financial)
-                        && "PENDING_PAYMENT_INTEGRATION".equals(saved.orderStatus())
-                        && payments.providerAvailable("BICTORYS");
+                                && "PREPARED".equals(financial)
+                                && "PENDING_PAYMENT_INTEGRATION".equals(saved.orderStatus())
+                        ? java.util.stream.Stream.of("BICTORYS", "SASPAY")
+                                .filter(payments::providerAvailable)
+                                .toList()
+                        : List.of();
+        boolean paymentAvailable = !providers.isEmpty();
         return new Status(
                 saved.orderNumber(),
                 saved.currency(),
                 saved.acceptedTotalXof(),
                 preparation,
                 paymentAvailable,
-                financial);
+                financial,
+                providers,
+                saved.requestId() != null && "PAYMENT_IN_PROGRESS".equals(financial)
+                        ? payments.latestAttempt(saved.organizationId(), saved.requestId())
+                        : null);
     }
 
     private String financialStatus(Snapshot saved) {

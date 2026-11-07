@@ -154,7 +154,7 @@ public class PaymentTransactions {
             // Provider calls remain outside this transactional claim.
             if (!directPaymentEnabled
                     || directGuard == null
-                    || !"BICTORYS".equals(provider)
+                    || !("BICTORYS".equals(provider) || "SASPAY".equals(provider))
                     || request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
                     || recoveryTokenHash == null
                     || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
@@ -235,7 +235,10 @@ public class PaymentTransactions {
                                     && request.getTarget().type() == PaymentTargetType.ORDER)
                             || (request.getPurpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY
                                     && request.getTarget().type()
-                                            == PaymentTargetType.SUBSCRIPTION_INVOICE))
+                                            == PaymentTargetType.SUBSCRIPTION_INVOICE)
+                            || (request.getPurpose() == PaymentPurpose.DIRECT_ORDER_INITIAL
+                                    && request.getTarget().type()
+                                            == PaymentTargetType.DIRECT_ORDER))
                     || request.view().feeAmount().signum() != 0)
                 throw new ApiException(
                         409,
@@ -763,6 +766,19 @@ public class PaymentTransactions {
                 p.getConfirmedAt(),
                 r.getExpiresAt(),
                 "PROVIDER_REVERSAL".equals(p.getReconciliationReason()));
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentAttemptRecoveryView latestAttempt(UUID org, UUID id) {
+        scopedRequest(org, id);
+        var attempts = store.attempts(id);
+        if (attempts.isEmpty()) return null;
+        var p = attempts.getLast();
+        var quote =
+                quotes == null
+                        ? null
+                        : quotes.find(p.getFeeQuoteId()).map(q -> q.view()).orElse(null);
+        return new PaymentAttemptRecoveryView(p.getProvider(), p.getFeeQuoteId(), p.view(), quote);
     }
 
     @Transactional(readOnly = true)

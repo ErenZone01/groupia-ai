@@ -18,6 +18,11 @@ public class PaymentService implements PaymentOperations {
     }
 
     @Override
+    public PaymentAttemptRecoveryView latestAttempt(UUID org, UUID request) {
+        return transactions.latestAttempt(org, request);
+    }
+
+    @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public PaymentRequestView createRequest(CreatePaymentRequest command) {
         return transactions.create(command);
@@ -110,7 +115,13 @@ public class PaymentService implements PaymentOperations {
             String key,
             String recoveryTokenHash,
             PaymentCheckoutContext context) {
-        return initiateRequestInternal(org, requestId, "BICTORYS", key, context, recoveryTokenHash);
+        return initiateRequestInternal(
+                org,
+                requestId,
+                context != null && context.feeQuoteId() != null ? "SASPAY" : "BICTORYS",
+                key,
+                context,
+                recoveryTokenHash);
     }
 
     private PaymentAttemptView initiateRequestInternal(

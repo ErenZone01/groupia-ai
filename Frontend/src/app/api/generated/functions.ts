@@ -23,6 +23,8 @@ export type { PreviewSubscriptionInvoice$Params as PreviewSubscriptionInvoice$Pa
 export { previewSubscriptionInvoice as previewSubscriptionInvoice } from './fn/subscription-controller/preview-subscription-invoice';
 export type { History$Params as History$Params } from './fn/subscription-controller/history';
 export { history as history } from './fn/subscription-controller/history';
+export type { QuoteSubscriptionInvoicePayment$Params as QuoteSubscriptionInvoicePayment$Params } from './fn/subscription-controller/quote-subscription-invoice-payment';
+export { quoteSubscriptionInvoicePayment as quoteSubscriptionInvoicePayment } from './fn/subscription-controller/quote-subscription-invoice-payment';
 export type { Get$Params as Get$Params } from './fn/catalog-controller/get';
 export { get as get } from './fn/catalog-controller/get';
 export type { Update$Params as Update$Params } from './fn/catalog-controller/update';
@@ -145,6 +147,8 @@ export type { Checkout1$Params as Checkout1$Params } from './fn/direct-checkout-
 export { checkout1 as checkout1 } from './fn/direct-checkout-controller/checkout-1';
 export type { InitiateDirectOrderPaymentByToken$Params as InitiateDirectOrderPaymentByToken$Params } from './fn/direct-customer-payment-initiation-controller/initiate-direct-order-payment-by-token';
 export { initiateDirectOrderPaymentByToken as initiateDirectOrderPaymentByToken } from './fn/direct-customer-payment-initiation-controller/initiate-direct-order-payment-by-token';
+export type { QuoteDirectOrderPaymentByToken$Params as QuoteDirectOrderPaymentByToken$Params } from './fn/direct-customer-payment-initiation-controller/quote-direct-order-payment-by-token';
+export { quoteDirectOrderPaymentByToken as quoteDirectOrderPaymentByToken } from './fn/direct-customer-payment-initiation-controller/quote-direct-order-payment-by-token';
 export type { ReadDirectPaymentPreparationByToken$Params as ReadDirectPaymentPreparationByToken$Params } from './fn/direct-customer-payment-status-controller/read-direct-payment-preparation-by-token';
 export { readDirectPaymentPreparationByToken as readDirectPaymentPreparationByToken } from './fn/direct-customer-payment-status-controller/read-direct-payment-preparation-by-token';
 export type { ReadCustomerDirectOrderByToken$Params as ReadCustomerDirectOrderByToken$Params } from './fn/direct-order-tracking-controller/read-customer-direct-order-by-token';

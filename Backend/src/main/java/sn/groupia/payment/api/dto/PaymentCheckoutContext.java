@@ -19,6 +19,16 @@ public record PaymentCheckoutContext(
         return new PaymentCheckoutContext(businessReference, customerName, phone, email, id);
     }
 
+    /** SasPay requires a Senegalese phone, email and both customer names. */
+    public boolean saspayEligible() {
+        return customerName != null
+                && customerName.strip().split("\\s+", 2).length == 2
+                && phone != null
+                && phone.matches("\\+221[0-9]{9}")
+                && email != null
+                && email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+");
+    }
+
     @Override
     public String toString() {
         return "PaymentCheckoutContext[redacted]";

@@ -13683,6 +13683,188 @@
           }
         ]
       }
+    },
+    "/api/public/direct-orders/payment-quotes": {
+      "post": {
+        "tags": [
+          "direct-customer-payment-initiation-controller"
+        ],
+        "operationId": "quoteDirectOrderPaymentByToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentFeeQuoteView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/organizations/{organizationId}/subscription/invoices/{invoiceId}/payment-quotes": {
+      "post": {
+        "tags": [
+          "subscription-controller"
+        ],
+        "operationId": "quoteSubscriptionInvoicePayment",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentFeeQuoteView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -15303,6 +15485,10 @@
         "properties": {
           "token": {
             "type": "string"
+          },
+          "feeQuoteId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -15335,6 +15521,15 @@
           },
           "financialStatus": {
             "type": "string"
+          },
+          "availableProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "latestAttempt": {
+            "$ref": "#/components/schemas/PaymentAttemptRecoveryView"
           }
         }
       },
@@ -15971,6 +16166,15 @@
           },
           "billingContact": {
             "$ref": "#/components/schemas/SubscriptionBillingContactView"
+          },
+          "availableProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "renewal": {
+            "$ref": "#/components/schemas/SubscriptionRenewalView"
           }
         }
       },
@@ -16040,6 +16244,9 @@
           },
           "canPay": {
             "type": "boolean"
+          },
+          "latestAttempt": {
+            "$ref": "#/components/schemas/PaymentAttemptRecoveryView"
           }
         }
       },
@@ -16053,6 +16260,10 @@
             "maxLength": 64,
             "minLength": 0,
             "type": "string"
+          },
+          "feeQuoteId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -18922,6 +19133,47 @@
           "details": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      },
+      "PaymentAttemptRecoveryView": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "feeQuoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attempt": {
+            "$ref": "#/components/schemas/PaymentAttemptView"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/PaymentFeeQuoteView"
+          }
+        }
+      },
+      "QuoteRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "SubscriptionRenewalView": {
+        "type": "object",
+        "properties": {
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reminder": {
+            "type": "string"
+          },
+          "manualRenewal": {
+            "type": "boolean"
           }
         }
       }

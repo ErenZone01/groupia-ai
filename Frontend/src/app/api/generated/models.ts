@@ -91,6 +91,7 @@ export type { OtpInput } from './models/otp-input';
 export type { OtpRequested } from './models/otp-requested';
 export type { Page } from './models/page';
 export type { PaymentAttemptReadView } from './models/payment-attempt-read-view';
+export type { PaymentAttemptRecoveryView } from './models/payment-attempt-recovery-view';
 export type { PaymentAttemptView } from './models/payment-attempt-view';
 export type { PaymentDashboardSummaryView } from './models/payment-dashboard-summary-view';
 export type { PaymentFeeQuoteView } from './models/payment-fee-quote-view';
@@ -119,6 +120,7 @@ export type { PublicProductImageView } from './models/public-product-image-view'
 export type { Quote } from './models/quote';
 export type { QuotedLine } from './models/quoted-line';
 export type { QuoteInput } from './models/quote-input';
+export type { QuoteRequest } from './models/quote-request';
 export type { Receipt } from './models/receipt';
 export type { RecordShippingMeasurement } from './models/record-shipping-measurement';
 export type { RefundReviewView } from './models/refund-review-view';
@@ -150,6 +152,7 @@ export type { SubscriptionInvoicePreview } from './models/subscription-invoice-p
 export type { SubscriptionInvoiceView } from './models/subscription-invoice-view';
 export type { SubscriptionPaymentInput } from './models/subscription-payment-input';
 export type { SubscriptionPeriodView } from './models/subscription-period-view';
+export type { SubscriptionRenewalView } from './models/subscription-renewal-view';
 export type { Suggestion } from './models/suggestion';
 export type { Summary } from './models/summary';
 export type { SupplierOrderResponse } from './models/supplier-order-response';

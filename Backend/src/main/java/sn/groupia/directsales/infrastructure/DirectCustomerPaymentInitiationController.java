@@ -15,12 +15,35 @@ import sn.groupia.payment.api.dto.PaymentAttemptView;
  */
 @RestController
 class DirectCustomerPaymentInitiationController {
-    public record InitiationRequest(String token) {}
+    public record InitiationRequest(String token, java.util.UUID feeQuoteId) {
+        @Override
+        public String toString() {
+            return "InitiationRequest[redacted]";
+        }
+    }
+
+    public record QuoteRequest(String token) {
+        @Override
+        public String toString() {
+            return "QuoteRequest[redacted]";
+        }
+    }
 
     private final DirectCustomerPaymentInitiation initiation;
 
     DirectCustomerPaymentInitiationController(DirectCustomerPaymentInitiation initiation) {
         this.initiation = initiation;
+    }
+
+    @PostMapping("/api/public/direct-orders/payment-quotes")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "quoteDirectOrderPaymentByToken")
+    ResponseEntity<java.util.List<sn.groupia.payment.api.dto.PaymentFeeQuoteView>> quotes(
+            @RequestBody QuoteRequest request) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
+                .header("X-Robots-Tag", "noindex, nofollow")
+                .body(initiation.quotes(request == null ? null : request.token()));
     }
 
     @PostMapping("/api/public/direct-orders/payments")
@@ -29,7 +52,10 @@ class DirectCustomerPaymentInitiationController {
             @RequestBody InitiationRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         PaymentAttemptView attempt =
-                initiation.initiate(request == null ? null : request.token(), idempotencyKey);
+                initiation.initiate(
+                        request == null ? null : request.token(),
+                        idempotencyKey,
+                        request == null ? null : request.feeQuoteId());
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header("Referrer-Policy", "no-referrer")

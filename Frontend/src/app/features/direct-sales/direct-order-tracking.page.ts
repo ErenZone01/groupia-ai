@@ -7,6 +7,7 @@ import {
 } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { money } from '../../shared/utils/display';
+import { rejectedFeeQuote } from '../../core/http/api-error';
 import type { PaymentFeeQuoteView } from '../../api/generated/models';
 import { safeBictorysCheckout } from '../customer-access/customer-shipping-payment';
 
@@ -643,8 +644,20 @@ export class DirectOrderTrackingPage {
       );
       this.pollAttempts = 0;
       this.schedulePoll();
-    } catch {
+    } catch (error) {
       if (sequence === this.sequence && token === this.token) {
+        if (rejectedFeeQuote(error)) {
+          this.paymentKey = null;
+          this.rememberCommand();
+          this.commandProvider = undefined;
+          this.commandQuote = undefined;
+          this.quotes.set([]);
+          this.acceptedQuote.set(null);
+          this.paymentError.set(
+            'Le devis ne peut plus être utilisé. Actualisez les frais avant de payer.',
+          );
+          return;
+        }
         // Network errors are ambiguous. Keep the same idempotency key for a retry,
         // never claim a payment succeeded, and encourage checking the server first.
         this.paymentError.set(

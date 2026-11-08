@@ -13,6 +13,7 @@ import { StrictHttpResponse } from '../strict-http-response';
 import { CsrfView } from '../models/csrf-view';
 import { customerCsrf } from '../fn/customer-access-controller/customer-csrf';
 import { CustomerCsrf$Params } from '../fn/customer-access-controller/customer-csrf';
+import { CustomerFeeQuote } from '../models/customer-fee-quote';
 import { customerOrder } from '../fn/customer-access-controller/customer-order';
 import { CustomerOrder$Params } from '../fn/customer-access-controller/customer-order';
 import { customerOrderCapabilities } from '../fn/customer-access-controller/customer-order-capabilities';
@@ -21,9 +22,12 @@ import { CustomerOrderCapabilities$Params } from '../fn/customer-access-controll
 import { customerOrders } from '../fn/customer-access-controller/customer-orders';
 import { CustomerOrders$Params } from '../fn/customer-access-controller/customer-orders';
 import { CustomerPaymentAttempt } from '../models/customer-payment-attempt';
+import { CustomerPaymentOptions } from '../models/customer-payment-options';
 import { customerSession } from '../fn/customer-access-controller/customer-session';
 import { CustomerSession$Params } from '../fn/customer-access-controller/customer-session';
 import { CustomerSessionView } from '../models/customer-session-view';
+import { customerShippingPaymentOptions } from '../fn/customer-access-controller/customer-shipping-payment-options';
+import { CustomerShippingPaymentOptions$Params } from '../fn/customer-access-controller/customer-shipping-payment-options';
 import { exchangeCustomerLink } from '../fn/customer-access-controller/exchange-customer-link';
 import { ExchangeCustomerLink$Params } from '../fn/customer-access-controller/exchange-customer-link';
 import { initiateCustomerShippingPayment } from '../fn/customer-access-controller/initiate-customer-shipping-payment';
@@ -34,6 +38,8 @@ import { MyOrdersPage } from '../models/my-orders-page';
 import { OrderTrackingView } from '../models/order-tracking-view';
 import { OtpRequested } from '../models/otp-requested';
 import { Page } from '../models/page';
+import { quoteCustomerShippingPayment } from '../fn/customer-access-controller/quote-customer-shipping-payment';
+import { QuoteCustomerShippingPayment$Params } from '../fn/customer-access-controller/quote-customer-shipping-payment';
 import { requestCustomerOtp } from '../fn/customer-access-controller/request-customer-otp';
 import { RequestCustomerOtp$Params } from '../fn/customer-access-controller/request-customer-otp';
 import { resendCustomerLink } from '../fn/customer-access-controller/resend-customer-link';
@@ -429,6 +435,60 @@ export class CustomerAccessControllerService extends BaseService {
     const resp = this.customerCsrf$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CsrfView>): CsrfView => r.body)
+    );
+  }
+
+  /** Path part for operation `quoteCustomerShippingPayment()` */
+  static readonly QuoteCustomerShippingPaymentPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-quotes';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteCustomerShippingPayment()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteCustomerShippingPayment$Response(params: QuoteCustomerShippingPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<CustomerFeeQuote>>> {
+    const obs = quoteCustomerShippingPayment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteCustomerShippingPayment$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteCustomerShippingPayment(params: QuoteCustomerShippingPayment$Params, context?: HttpContext): Observable<Array<CustomerFeeQuote>> {
+    const resp = this.quoteCustomerShippingPayment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<CustomerFeeQuote>>): Array<CustomerFeeQuote> => r.body)
+    );
+  }
+
+  /** Path part for operation `customerShippingPaymentOptions()` */
+  static readonly CustomerShippingPaymentOptionsPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-options';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `customerShippingPaymentOptions()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  customerShippingPaymentOptions$Response(params: CustomerShippingPaymentOptions$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerPaymentOptions>> {
+    const obs = customerShippingPaymentOptions(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `customerShippingPaymentOptions$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  customerShippingPaymentOptions(params: CustomerShippingPaymentOptions$Params, context?: HttpContext): Observable<CustomerPaymentOptions> {
+    const resp = this.customerShippingPaymentOptions$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CustomerPaymentOptions>): CustomerPaymentOptions => r.body)
     );
   }
 

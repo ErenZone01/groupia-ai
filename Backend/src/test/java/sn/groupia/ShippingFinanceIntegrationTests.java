@@ -34,6 +34,7 @@ import tools.jackson.databind.ObjectMapper;
     TestcontainersConfiguration.class,
     PaymentTestConfiguration.class,
     sn.groupia.payment.infrastructure.provider.bictorys.BictorysTestServerConfiguration.class,
+    sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.class,
     CustomerAccessIntegrationTests.DeliveryConfig.class
 })
 class ShippingFinanceIntegrationTests {
@@ -62,6 +63,7 @@ class ShippingFinanceIntegrationTests {
         jdbc.execute(
                 "TRUNCATE TABLE outgoing_provider_operations,order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events, payments, payment_requests, order_items, orders, customers, grouping_changes, grouping_offers, grouping_campaigns, product_variants, products, organization_members, organizations, user_accounts, event_publication CASCADE");
         http.reset();
+        saspay.reset();
         clock.reset();
         delivery.links.clear();
         delivery.codes.clear();
@@ -239,6 +241,113 @@ class ShippingFinanceIntegrationTests {
                                                         "timestamp",
                                                         clock.instant().toString()))))
                 .andExpect(status().isOk());
+    }
+
+    @Autowired sn.groupia.payment.infrastructure.provider.saspay.SaspayHttpStub saspay;
+    @Autowired sn.groupia.payment.application.service.PaymentWebhooks paymentWebhooks;
+
+    private String saspayShippingQuote() throws Exception {
+        jdbc.update(
+                "update orders set customer_contact_snapshot=jsonb_set(customer_contact_snapshot,'{email}','\"awa@example.test\"') where id=?",
+                orderId());
+        saspay.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates());
+        var quotes =
+                read(
+                        postAccess(
+                                        payPath().replace("/payments", "/payment-quotes"),
+                                        Map.of(),
+                                        cookie,
+                                        null)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(quotes.get(0).path("saleAmount").decimalValue()).isEqualByComparingTo("5000");
+        assertThat(quotes.get(0).path("totalCharged").decimalValue()).isEqualByComparingTo("5125");
+        assertThat(quotes.get(0).path("merchantNet").decimalValue()).isEqualByComparingTo("5000");
+        return quotes.get(0).path("id").asText();
+    }
+
+    @Test
+    void saspayShippingAcceptsExactFeesAndVerifiesBeforeSettling() throws Exception {
+        finalizeAmount(8000).andExpect(status().isOk());
+        String quote = saspayShippingQuote(), key = UUID.randomUUID().toString();
+        String transaction = "9c3f2a10-4b7e-4f1a-9d2e-9b6a7c1e4a02";
+        saspay.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates());
+        saspay.reply(
+                201,
+                "{\"id\":\""
+                        + transaction
+                        + "\",\"status\":\"PENDING\",\"checkout_url\":\"https://pay.saspay.me/shipping\"}");
+        var body = Map.of("provider", "SASPAY", "feeQuoteId", quote);
+        postAccess(payPath(), body, cookie, key).andExpect(status().isOk());
+        postAccess(payPath(), body, cookie, key).andExpect(status().isOk());
+        assertThat(saspay.requests.stream().filter(q -> q.method().equals("POST")).count())
+                .isEqualTo(1);
+        assertThat(balance().path("status").asText()).isEqualTo("BALANCE_DUE");
+        mvc.perform(get(ACCESS + payPath().replace("/payments", "/payment-options")).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestAttempt.provider").value("SASPAY"))
+                .andExpect(jsonPath("$.latestAttempt.quote.totalCharged").value(5125));
+        finalizeAmount(7000).andExpect(status().isConflict());
+        var raw =
+                ("""
+            {"event":"transaction.success","data":{"id":"%s","type":"PAIEMENT","status":"SUCCESS",
+            "amount":"5000.00","fee":"125.00","charged":"5125.00","net_amount":"5000.00","fee_charge_mode":"ADD_ON","currency":"XOF"}}
+            """)
+                        .formatted(transaction)
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var timestamp = Long.toString(clock.instant().getEpochSecond());
+        for (int i = 0; i < 2; i++)
+            mvc.perform(
+                            post("/api/payment/webhooks/saspay")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(raw)
+                                    .header("X-Webhook-Timestamp", timestamp)
+                                    .header(
+                                            "X-Webhook-Signature",
+                                            sn.groupia.payment.infrastructure.provider.saspay
+                                                    .SaspayTestConfiguration.signature(
+                                                    raw, timestamp)))
+                    .andExpect(status().isAccepted());
+        saspay.reply(
+                200,
+                ("""
+            {"id":"%s","merchant":"6f1e2b3a-8c4d-4a2f-9e1b-2d3c4f5a6b7c","transaction_type":"PAIEMENT",
+            "flow_direction":"INBOUND","requested_amount":"5000.00","fee_charge_mode":"ADD_ON",
+            "client_fee":"125.00","debited_amount":"5125.00","net_amount":"5000.00","currency":"XOF","status":"SUCCESS"}
+            """)
+                        .formatted(transaction));
+        paymentWebhooks.retryPending();
+        await().atMost(java.time.Duration.ofSeconds(10))
+                .untilAsserted(
+                        () -> assertThat(balance().path("status").asText()).isEqualTo("SETTLED"));
+        assertThat(balance().path("additionalShippingPaidAmount").decimalValue())
+                .isEqualByComparingTo("5000");
+        assertThat(http.requests).isEmpty();
+    }
+
+    @Test
+    void saspayShippingQuotesRequireSessionCsrfScopeAndCurrentAssessment() throws Exception {
+        finalizeAmount(8000).andExpect(status().isOk());
+        var path = payPath().replace("/payments", "/payment-quotes");
+        postAccess(path, Map.of(), null, null).andExpect(status().isUnauthorized());
+        mvc.perform(post(ACCESS + path).cookie(cookie)).andExpect(status().isForbidden());
+        postAccess(path.replace(orderNumber, "GRP-999999999999"), Map.of(), cookie, null)
+                .andExpect(status().isNotFound());
+        assertThat(saspay.requests).isEmpty();
+        String quote = saspayShippingQuote();
+        finalizeAmount(7000).andExpect(status().isOk());
+        postAccess(
+                        payPath(),
+                        Map.of("provider", "SASPAY", "feeQuoteId", quote),
+                        cookie,
+                        UUID.randomUUID().toString())
+                .andExpect(status().isConflict());
+        assertThat(saspay.requests.stream().filter(q -> q.method().equals("POST")).count())
+                .isZero();
     }
 
     @Test

@@ -13865,6 +13865,240 @@
           }
         ]
       }
+    },
+    "/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-quotes": {
+      "post": {
+        "tags": [
+          "customer-access-controller"
+        ],
+        "operationId": "quoteCustomerShippingPayment",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerFeeQuote"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Customer session or link unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phone verification or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Customer access disabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CustomerSession": [],
+            "CustomerCsrf": []
+          }
+        ]
+      }
+    },
+    "/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-options": {
+      "get": {
+        "tags": [
+          "customer-access-controller"
+        ],
+        "operationId": "customerShippingPaymentOptions",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPaymentOptions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Customer session or link unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Phone verification or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Customer access disabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CustomerSession": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -15651,8 +15885,12 @@
         "properties": {
           "provider": {
             "minLength": 1,
-            "pattern": "(?i)BICTORYS",
+            "pattern": "(?i)BICTORYS|SASPAY",
             "type": "string"
+          },
+          "feeQuoteId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -19174,6 +19412,74 @@
           },
           "manualRenewal": {
             "type": "boolean"
+          }
+        }
+      },
+      "CustomerFeeQuote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "networkLabel": {
+            "type": "string"
+          },
+          "saleAmount": {
+            "type": "number"
+          },
+          "collectionFee": {
+            "type": "number"
+          },
+          "totalCharged": {
+            "type": "number"
+          },
+          "merchantNet": {
+            "type": "number"
+          },
+          "groupiaCommission": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CustomerPaymentOptions": {
+        "type": "object",
+        "properties": {
+          "availableProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "latestAttempt": {
+            "$ref": "#/components/schemas/Recovery"
+          }
+        }
+      },
+      "Recovery": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "attempt": {
+            "$ref": "#/components/schemas/CustomerPaymentAttempt"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/CustomerFeeQuote"
           }
         }
       }

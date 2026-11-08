@@ -22,9 +22,12 @@ const due: ShippingSettlementView = {
   paymentInProgress: false,
 };
 describe('Paiement du transport', () => {
-  const api = { payShipping: vi.fn() };
+  const api = { payShipping: vi.fn(), quoteShipping: vi.fn(), shippingPaymentOptions: vi.fn() };
   const navigate = vi.fn();
   beforeEach(() => {
+    sessionStorage.clear();
+    api.quoteShipping.mockReset();
+    api.shippingPaymentOptions.mockResolvedValue({ availableProviders: ['BICTORYS'] });
     api.payShipping.mockReset();
     navigate.mockReset();
     TestBed.configureTestingModule({
@@ -41,6 +44,58 @@ describe('Paiement du transport', () => {
     f.detectChanges();
     return f;
   }
+  it('SasPay présente les frais serveur avant consentement et envoie seulement le devis', async () => {
+    api.shippingPaymentOptions.mockResolvedValue({ availableProviders: ['SASPAY'] });
+    const quote = {
+      id: 'fee',
+      provider: 'SASPAY',
+      networkLabel: 'Wave',
+      saleAmount: 5000,
+      collectionFee: 125,
+      totalCharged: 5125,
+      merchantNet: 5000,
+      groupiaCommission: 0,
+      currency: 'XOF',
+      expiresAt: '2099-01-01T00:00:00Z',
+    };
+    api.quoteShipping.mockResolvedValue([quote]);
+    api.payShipping.mockResolvedValue({ status: 'PENDING', checkoutUrl: null });
+    const f = setup();
+    await vi.waitFor(() => expect(f.componentInstance.providers()).toEqual(['SASPAY']));
+    await f.componentInstance.prepareSaspay();
+    f.detectChanges();
+    expect(f.nativeElement.textContent).toMatch(/5.?125/);
+    expect(api.payShipping).not.toHaveBeenCalled();
+    await f.componentInstance.pay(quote);
+    expect(api.payShipping).toHaveBeenCalledWith('GRP-1', expect.any(String), 'fee');
+    expect(f.componentInstance.message()).toContain('téléphone');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(f.componentInstance.value()?.status).toBe('BALANCE_DUE');
+    f.destroy();
+  });
+  it('reprend le checkout SasPay autorisé sans nouvelle charge après rechargement', async () => {
+    api.shippingPaymentOptions.mockResolvedValue({
+      availableProviders: [],
+      latestAttempt: {
+        provider: 'SASPAY',
+        attempt: {
+          status: 'PENDING',
+          expectedAmount: 5000,
+          currency: 'XOF',
+          checkoutUrl: 'https://pay.saspay.me/shipping',
+        },
+        quote: { id: 'fee', totalCharged: 5125 },
+      },
+    });
+    const f = setup({ ...due, paymentInProgress: true });
+    await vi.waitFor(() =>
+      expect(f.componentInstance.checkoutUrl()).toBe('https://pay.saspay.me/shipping'),
+    );
+    expect(f.componentInstance.acceptedQuote()?.totalCharged).toBe(5125);
+    await f.componentInstance.pay();
+    expect(api.payShipping).not.toHaveBeenCalled();
+    f.destroy();
+  });
   for (const [status, label] of [
     ['BALANCE_DUE', 'Reste à payer'],
     ['SETTLED', 'Transport réglé'],

@@ -20,3 +20,10 @@ Implémenté : tarif par défaut 10 000 XOF configurable, fournisseurs d'abonnem
 
 Validation ciblée : 23 tests d'intégration SasPay réussis (dont abonnements/direct), suites abonnements et Modulith/OpenAPI réussies. Le lancement élargi de 75 tests avait 3 échecs de comptage des consultations des fournisseurs ; code corrigé, les 12 tests DirectCustomerPaymentStatusTests repassent tous. Non-régression DirectBictorysSandboxIntegrationTests réussie. Frontend : 26 tests abonnement et 16 tests suivi direct réussis ; 12 E2E abonnement et 2 E2E direct réussis, avec build production ; lint et diff-check réussis. Les suites complètes restent à exécuter après les prochains lots.
 
+
+## Lot transport SasPay — validé le 7 novembre, enregistré le 8 novembre 2026
+
+Solde transport : devis ADD_ON, conservation du net, session cliente et CSRF, contrôle de la révision financière, reprise autorisée par le serveur et clés persistantes côté navigateur. Une correction du transport invalide le devis précédent. Les erreurs explicites de devis avant création de tentative permettent un nouveau devis ; les erreurs réseau ambiguës conservent la même intention.
+
+Validation : 25 tests ShippingFinanceIntegrationTests et Modulith réussis ; 57 tests frontend ciblés, puis 27 tests abonnements après ajout du cas de devis refusé ; 12 E2E transport incluant SasPay, lint et diff-check réussis. Fournisseurs HTTP simulés uniquement. Validation globale toujours à exécuter après tous les lots.
+

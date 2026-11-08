@@ -1,4 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
+/** These errors are raised before a durable financial attempt exists. */
+export function rejectedFeeQuote(error: unknown): boolean {
+  return (
+    error instanceof HttpErrorResponse &&
+    error.status === 409 &&
+    ['PAYMENT_QUOTE_INVALID', 'PAYMENT_QUOTE_REQUIRED', 'SASPAY_PAYER_REQUIRED'].includes(
+      error.error?.code,
+    )
+  );
+}
 const messages: Record<string, string> = {
   MEDIA_DISABLED: 'Les images ne sont pas encore disponibles pour cette boutique.',
   MEDIA_LIMIT_REACHED: 'Un produit peut contenir cinq images maximum.',
@@ -14,7 +24,7 @@ const messages: Record<string, string> = {
   MEDIA_INVALID_IMAGE: 'Cette image est illisible ou corrompue. Choisissez un autre fichier.',
   MEDIA_ANIMATION_UNSUPPORTED: 'Les images animées ne sont pas prises en charge.',
   SUBSCRIPTION_REQUIRED:
-    "L'essai gratuit est terminé. Un abonnement actif est requis pour créer ou ouvrir un nouveau groupage.",
+    "L'essai gratuit est terminé. Un abonnement actif est requis pour ouvrir de nouvelles ventes directes ou de nouveaux groupages.",
   SUBSCRIPTION_BILLING_UNAVAILABLE:
     "Le paiement d'abonnement n'est pas encore disponible. Aucun paiement n'a été initié.",
   SUBSCRIPTION_BILLING_CONTACT_REQUIRED:

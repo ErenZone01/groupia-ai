@@ -37,11 +37,13 @@ public class PaymentQuotes implements PaymentQuoteOperations {
         // Direct order callers resolve their capability; claim rechecks it under order locks.
         if ((request.purpose() != PaymentPurpose.INITIAL_ORDER
                         && request.purpose() != PaymentPurpose.SUBSCRIPTION_MONTHLY
-                        && request.purpose() != PaymentPurpose.DIRECT_ORDER_INITIAL)
+                        && request.purpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
+                        && request.purpose() != PaymentPurpose.SHIPPING_BALANCE)
                 || request.feeAmount().signum() != 0
                 || request.acceptanceStatus() != AcceptanceStatus.OPEN
-                || request.expiresAt() == null
-                || !clock.instant().isBefore(request.expiresAt()))
+                || (request.expiresAt() == null
+                        && request.purpose() != PaymentPurpose.SHIPPING_BALANCE)
+                || (request.expiresAt() != null && !clock.instant().isBefore(request.expiresAt())))
             throw new ApiException(
                     409,
                     "SASPAY_ORDER_NOT_ELIGIBLE",
@@ -58,7 +60,8 @@ public class PaymentQuotes implements PaymentQuoteOperations {
         }
         var result = new java.util.ArrayList<PaymentFeeQuoteView>();
         var expiry = clock.instant().plusSeconds(120);
-        if (request.expiresAt().isBefore(expiry)) expiry = request.expiresAt();
+        if (request.expiresAt() != null && request.expiresAt().isBefore(expiry))
+            expiry = request.expiresAt();
         for (var fee : fees) {
             var quote =
                     new PaymentFeeQuote(

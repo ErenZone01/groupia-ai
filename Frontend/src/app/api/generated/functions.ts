@@ -181,6 +181,10 @@ export type { VerifiedDirectOrders$Params as VerifiedDirectOrders$Params } from 
 export { verifiedDirectOrders as verifiedDirectOrders } from './fn/customer-access-controller/verified-direct-orders';
 export type { CustomerCsrf$Params as CustomerCsrf$Params } from './fn/customer-access-controller/customer-csrf';
 export { customerCsrf as customerCsrf } from './fn/customer-access-controller/customer-csrf';
+export type { QuoteCustomerShippingPayment$Params as QuoteCustomerShippingPayment$Params } from './fn/customer-access-controller/quote-customer-shipping-payment';
+export { quoteCustomerShippingPayment as quoteCustomerShippingPayment } from './fn/customer-access-controller/quote-customer-shipping-payment';
+export type { CustomerShippingPaymentOptions$Params as CustomerShippingPaymentOptions$Params } from './fn/customer-access-controller/customer-shipping-payment-options';
+export { customerShippingPaymentOptions as customerShippingPaymentOptions } from './fn/customer-access-controller/customer-shipping-payment-options';
 export type { Webhook$Params as Webhook$Params } from './fn/payment-controller/webhook';
 export { webhook as webhook } from './fn/payment-controller/webhook';
 export type { ListPaymentRequests$Params as ListPaymentRequests$Params } from './fn/payment-controller/list-payment-requests';

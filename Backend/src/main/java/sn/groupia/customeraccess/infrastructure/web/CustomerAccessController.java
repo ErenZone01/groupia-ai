@@ -139,7 +139,20 @@ class CustomerAccessController {
     }
 
     public record ShippingPaymentInput(
-            @NotBlank @Pattern(regexp = "(?i)BICTORYS") String provider) {}
+            @NotBlank @Pattern(regexp = "(?i)BICTORYS|SASPAY") String provider,
+            java.util.UUID feeQuoteId) {}
+
+    @PostMapping("/orders/{orderNumber}/shipping-balance/payment-quotes")
+    java.util.List<sn.groupia.ordering.api.dto.CustomerFeeQuote> quoteCustomerShippingPayment(
+            HttpServletRequest request, @PathVariable String orderNumber) {
+        return payments.quotes(cookie(request), orderNumber);
+    }
+
+    @GetMapping("/orders/{orderNumber}/shipping-balance/payment-options")
+    sn.groupia.ordering.api.dto.CustomerPaymentOptions customerShippingPaymentOptions(
+            HttpServletRequest request, @PathVariable String orderNumber) {
+        return payments.options(cookie(request), orderNumber);
+    }
 
     @PostMapping("/orders/{orderNumber}/shipping-balance/payments")
     CustomerPaymentAttempt initiateCustomerShippingPayment(
@@ -147,7 +160,8 @@ class CustomerAccessController {
             @PathVariable String orderNumber,
             @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody ShippingPaymentInput body) {
-        return payments.initiate(cookie(request), orderNumber, body.provider(), key);
+        return payments.initiate(
+                cookie(request), orderNumber, body.provider(), key, body.feeQuoteId());
     }
 
     @GetMapping("/orders/{orderNumber}/capabilities")

@@ -10,7 +10,7 @@ import type {
 } from '../../api/generated/models';
 import { SubscriptionControllerService } from '../../api/generated/services';
 import { AuthService } from '../../core/auth/auth.service';
-import { apiMessage } from '../../core/http/api-error';
+import { apiMessage, rejectedFeeQuote } from '../../core/http/api-error';
 
 interface PaymentCommand {
   creationKey: string;
@@ -413,7 +413,19 @@ export class SubscriptionStore {
       )
         command.paymentKey = crypto.randomUUID();
     } catch (error) {
-      if (this.current(org, generation, session)) failure = apiMessage(error);
+      if (this.current(org, generation, session)) {
+        failure = apiMessage(error);
+        if (rejectedFeeQuote(error)) {
+          command.started = false;
+          command.knownAttempt = false;
+          command.quote = undefined;
+          command.provider = undefined;
+          command.paymentKey = crypto.randomUUID();
+          this.remember(org, command);
+          this.quotes.set([]);
+          this.acceptedQuote.set(null);
+        }
+      }
     } finally {
       if (this.current(org, generation, session)) {
         await this.load(org, true);

@@ -231,7 +231,9 @@ public class PaymentTransactions {
                     || q.amount().compareTo(request.getExpectedAmount()) != 0
                     || !q.currency().equals(request.getCurrency())
                     || !clock.instant().isBefore(q.expiresAt())
-                    || !((request.getPurpose() == PaymentPurpose.INITIAL_ORDER
+                    || !(((request.getPurpose() == PaymentPurpose.INITIAL_ORDER
+                                            || request.getPurpose()
+                                                    == PaymentPurpose.SHIPPING_BALANCE)
                                     && request.getTarget().type() == PaymentTargetType.ORDER)
                             || (request.getPurpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY
                                     && request.getTarget().type()

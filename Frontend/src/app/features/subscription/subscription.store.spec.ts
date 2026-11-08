@@ -72,6 +72,23 @@ describe('SubscriptionStore', () => {
     expect(store.quotes()).toEqual([quote]);
     http.expectNone((r) => r.url.endsWith('/payment'));
   });
+  it('un devis refusé avant création de tentative permet de demander un nouveau devis', async () => {
+    await saspay();
+    store.quotes.set([quote]);
+    const action = store.pay(quote);
+    http
+      .expectOne(base + '/invoices/invoice/payment')
+      .flush({ code: 'PAYMENT_QUOTE_INVALID' }, { status: 409, statusText: 'Conflict' });
+    await vi.waitFor(() => flush());
+    await action;
+    expect(store.quotes()).toEqual([]);
+    store.details.set({ ...details, availableProviders: ['SASPAY'] });
+    store.invoices.set([invoice]);
+    const refresh = store.prepareSaspay();
+    http.expectOne(base + '/invoices/invoice/payment-quotes').flush([{ ...quote, id: 'new-fee' }]);
+    await refresh;
+    expect(store.quotes()[0].id).toBe('new-fee');
+  });
   it('refuse un devis inconnu ou expiré et un fournisseur indisponible', async () => {
     await saspay();
     await store.pay(quote);
@@ -113,23 +130,21 @@ describe('SubscriptionStore', () => {
       http.expectOne(base).flush({ ...details, availableProviders: ['SASPAY'] });
       http.expectOne(base + '/history').flush([]);
       http.expectOne(base + '/invoice-preview').flush({});
-      http
-        .expectOne(base + '/invoices')
-        .flush([
-          {
-            ...invoice,
-            canPay: false,
-            attemptInProgress: true,
-            latestAttempt: {
-              provider: 'SASPAY',
-              quote,
-              attempt: {
-                status: 'PENDING',
-                checkoutUrl: checkout ? 'https://pay.saspay.me/session' : null,
-              },
+      http.expectOne(base + '/invoices').flush([
+        {
+          ...invoice,
+          canPay: false,
+          attemptInProgress: true,
+          latestAttempt: {
+            provider: 'SASPAY',
+            quote,
+            attempt: {
+              status: 'PENDING',
+              checkoutUrl: checkout ? 'https://pay.saspay.me/session' : null,
             },
           },
-        ]);
+        },
+      ]);
       await pending;
       expect(store.checkoutUrl()).toBe(checkout ? 'https://pay.saspay.me/session' : null);
       expect(store.phoneConfirmation()).toBe(!checkout);

@@ -125,11 +125,14 @@ class DistributionChecksumUpgradeTests {
                                                 null))
                         .isInstanceOf(DataIntegrityViolationException.class);
             }
-            assertThat(
-                            jdbc.queryForList("select * from orders order by id").stream()
-                                    .map(MigrationHistoryAssertions::historicalOrder)
-                                    .toList())
-                    .isEqualTo(orders);
+            var afterOrders = jdbc.queryForList("select * from orders order by id");
+            if (version.equals("unknown")) {
+                afterOrders.forEach(
+                        row -> assertThat(row).doesNotContainKey("cancellation_case_id"));
+            } else {
+                afterOrders.forEach(MigrationHistoryAssertions::historicalOrder);
+            }
+            assertThat(afterOrders).isEqualTo(orders);
             MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
         }
     }

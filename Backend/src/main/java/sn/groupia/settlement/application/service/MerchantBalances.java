@@ -14,6 +14,7 @@ import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 @Transactional(readOnly = true)
 public class MerchantBalances {
     private final MerchantFinanceStore store;
+    private final sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider;
     private final MerchantCampaignFacts campaigns;
     private final MerchantOrderFacts orders;
     private final sn.groupia.payment.api.PaymentOperations payments;
@@ -22,7 +23,9 @@ public class MerchantBalances {
             MerchantFinanceStore s,
             MerchantCampaignFacts c,
             MerchantOrderFacts o,
-            sn.groupia.payment.api.PaymentOperations payments) {
+            sn.groupia.payment.api.PaymentOperations payments,
+            sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider) {
+        this.payoutProvider = payoutProvider;
         store = s;
         campaigns = c;
         orders = o;
@@ -56,16 +59,23 @@ public class MerchantBalances {
                     if (e.direction().equals("CREDIT")) {
                         gross = gross.add(e.amount());
                         fees = fees.add(e.platformFeeAmount());
-                        // SasPay collections remain recorded in full, but cannot fund any payout
-                        // adapter.
-                        // This hold is derived from the persisted payment, even after disabling
-                        // SasPay.
+                        // A payout account can only spend collections attributed to that exact
+                        // source.
+                        var source = payments.settlementEvidence(org, e.sourceId());
+                        var sourceState = payments.requestState(org, e.sourceId());
                         if (campaign.available()
+                                && !source.reversal()
+                                && sourceState.operationalStatus()
+                                        == sn.groupia.payment.api.PaymentOperationalStatus.SETTLED
+                                && !sourceState.reconciliationRequired()
+                                && !sourceState.attemptInProgress()
                                 && orders.read(org, e.orderId()).accepted()
-                                && !"SASPAY"
-                                        .equals(
-                                                payments.settlementEvidence(org, e.sourceId())
-                                                        .provider()))
+                                && !"SASPAY".equals(source.provider())
+                                && Objects.equals(
+                                        source.provider(), payoutProvider.fundingProvider())
+                                && Objects.equals(
+                                        source.providerAccountReference(),
+                                        payoutProvider.fundingAccount()))
                             eligible = eligible.add(e.amount());
                     } else {
                         if (e.type().equals("MERCHANT_PAYOUT")) paid = paid.add(e.amount());

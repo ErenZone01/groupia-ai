@@ -16,6 +16,15 @@ public interface MerchantPayoutProvider {
 
     String account();
 
+    /** One persisted collection account funds this adapter; no cross-provider conversion. */
+    default String fundingProvider() {
+        return name();
+    }
+
+    default String fundingAccount() {
+        return account();
+    }
+
     String initiate(MerchantPayout payout);
 
     Proof verify(MerchantPayout payout);

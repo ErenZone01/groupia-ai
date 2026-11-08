@@ -137,3 +137,9 @@ databaseChangeLog:
   - include:
       file: 046-direct-order-fulfillment.sql
       relativeToChangelogFile: true
+  - include:
+      file: 047-provider-collection-ledger.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 048-marketplace-simulations.sql
+      relativeToChangelogFile: true

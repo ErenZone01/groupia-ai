@@ -14333,6 +14333,668 @@
           }
         ]
       }
+    },
+    "/api/organizations/{organizationId}/provider-collections/{collectionId}/simulations": {
+      "get": {
+        "tags": [
+          "marketplace-simulation-controller"
+        ],
+        "operationId": "marketplaceSimulationHistory",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketplaceSimulationView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "marketplace-simulation-controller"
+        ],
+        "operationId": "startMarketplaceSimulation",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique logical-operation key; reuse unchanged on retry. Changed request content with the same key returns 409.",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketplaceSimulationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/provider-collections/refresh": {
+      "post": {
+        "tags": [
+          "provider-collection-controller"
+        ],
+        "summary": "Rattraper les règlements historiques, sans appel fournisseur",
+        "operationId": "refreshProviderCollections",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionRefresh"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/marketplace-simulations/{simulationId}/reconcile": {
+      "post": {
+        "tags": [
+          "marketplace-simulation-controller"
+        ],
+        "operationId": "reconcileMarketplaceSimulation",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "simulationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketplaceSimulationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/provider-collections": {
+      "get": {
+        "tags": [
+          "provider-collection-controller"
+        ],
+        "summary": "Encaissements vérifiés par fournisseur et compte",
+        "operationId": "providerCollections",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
+    },
+    "/api/organizations/{organizationId}/provider-collections/{collectionId}/simulation-quote": {
+      "get": {
+        "tags": [
+          "marketplace-simulation-controller"
+        ],
+        "operationId": "marketplaceSimulationQuote",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, fields or business input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or private tracking access unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency or business state conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure without sensitive details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Organization membership or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerJWT": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -19737,6 +20399,195 @@
           "occurredAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SimulationCommand": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "quoteReference": {
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MarketplaceSimulationView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "collectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "sourceProvider": {
+            "type": "string"
+          },
+          "accountReference": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "recipientNet": {
+            "type": "number"
+          },
+          "fee": {
+            "type": "number"
+          },
+          "simulatedCompanyFunding": {
+            "type": "number"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CollectionRefresh": {
+        "type": "object",
+        "properties": {
+          "recorded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nextCursor": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CollectionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderCollectionView"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canSimulatePayout": {
+            "type": "boolean"
+          },
+          "canSimulateRefund": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProviderCollectionView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetType": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "accountReference": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "sellerPrincipal": {
+            "type": "number"
+          },
+          "platformFee": {
+            "type": "number"
+          },
+          "collectionFee": {
+            "type": "number"
+          },
+          "customerCharged": {
+            "type": "number"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "financialStatus": {
+            "type": "string"
+          },
+          "payoutStatus": {
+            "type": "string"
+          }
+        }
+      },
+      "SimulationQuote": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "collectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "recipientNet": {
+            "type": "number"
+          },
+          "fee": {
+            "type": "number"
+          },
+          "simulatedCompanyFunding": {
+            "type": "number"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "realOperationsEnabled": {
+            "type": "boolean"
           }
         }
       }

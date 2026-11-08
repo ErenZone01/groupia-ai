@@ -64,7 +64,8 @@ class MerchantBictorysIntegrationTests {
                 "update grouping_campaigns set status='CLOSED',closed_at=now() where id=?",
                 f.campaign());
         // Payout eligibility now checks the persisted collection provider.
-        var collection = MerchantSettlementFixtures.settled(jdbc, f, "INITIAL_ORDER");
+        var collection =
+                MerchantSettlementFixtures.settled(jdbc, f, "INITIAL_ORDER", "BICTORYS", "sandbox");
         jdbc.update(
                 """
             insert into merchant_ledger_entries(id,organization_id,campaign_id,order_id,type,direction,amount,currency,platform_fee_amount,business_reference,source_type,source_id,recorded_at)

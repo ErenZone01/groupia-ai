@@ -169,6 +169,11 @@ export const routes: Routes = [
       },
       { path: 'commandes', redirectTo: 'orders', pathMatch: 'full' },
       {
+        path: 'encaissements-fournisseurs',
+        title: 'Encaissements par fournisseur · Groupia',
+        loadComponent: () => import('./features/settlements/provider-collections.page').then(m => m.ProviderCollectionsPage),
+      },
+      {
         path: 'versements',
         title: 'Mes versements · Groupia',
         loadComponent: () =>

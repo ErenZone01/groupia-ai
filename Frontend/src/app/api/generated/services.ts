@@ -32,3 +32,5 @@ export { LocalMediaControllerService } from './services/local-media-controller.s
 export { PublicGroupingControllerService } from './services/public-grouping-controller.service';
 export { SupplierSummaryControllerService } from './services/supplier-summary-controller.service';
 export { BusinessAnalyticsControllerService } from './services/business-analytics-controller.service';
+export { MarketplaceSimulationControllerService } from './services/marketplace-simulation-controller.service';
+export { ProviderCollectionControllerService } from './services/provider-collection-controller.service';

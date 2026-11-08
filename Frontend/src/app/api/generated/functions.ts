@@ -269,3 +269,15 @@ export type { SupplierSummary$Params as SupplierSummary$Params } from './fn/supp
 export { supplierSummary as supplierSummary } from './fn/supplier-summary-controller/supplier-summary';
 export type { BusinessAnalytics$Params as BusinessAnalytics$Params } from './fn/business-analytics-controller/business-analytics';
 export { businessAnalytics as businessAnalytics } from './fn/business-analytics-controller/business-analytics';
+export type { MarketplaceSimulationHistory$Params as MarketplaceSimulationHistory$Params } from './fn/marketplace-simulation-controller/marketplace-simulation-history';
+export { marketplaceSimulationHistory as marketplaceSimulationHistory } from './fn/marketplace-simulation-controller/marketplace-simulation-history';
+export type { StartMarketplaceSimulation$Params as StartMarketplaceSimulation$Params } from './fn/marketplace-simulation-controller/start-marketplace-simulation';
+export { startMarketplaceSimulation as startMarketplaceSimulation } from './fn/marketplace-simulation-controller/start-marketplace-simulation';
+export type { ReconcileMarketplaceSimulation$Params as ReconcileMarketplaceSimulation$Params } from './fn/marketplace-simulation-controller/reconcile-marketplace-simulation';
+export { reconcileMarketplaceSimulation as reconcileMarketplaceSimulation } from './fn/marketplace-simulation-controller/reconcile-marketplace-simulation';
+export type { MarketplaceSimulationQuote$Params as MarketplaceSimulationQuote$Params } from './fn/marketplace-simulation-controller/marketplace-simulation-quote';
+export { marketplaceSimulationQuote as marketplaceSimulationQuote } from './fn/marketplace-simulation-controller/marketplace-simulation-quote';
+export type { RefreshProviderCollections$Params as RefreshProviderCollections$Params } from './fn/provider-collection-controller/refresh-provider-collections';
+export { refreshProviderCollections as refreshProviderCollections } from './fn/provider-collection-controller/refresh-provider-collections';
+export type { ProviderCollections$Params as ProviderCollections$Params } from './fn/provider-collection-controller/provider-collections';
+export { providerCollections as providerCollections } from './fn/provider-collection-controller/provider-collections';

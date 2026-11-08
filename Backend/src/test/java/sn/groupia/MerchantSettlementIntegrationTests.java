@@ -68,7 +68,7 @@ class MerchantSettlementIntegrationTests {
                                                         Integer.class))
                                         .isZero());
         j.execute(
-                "TRUNCATE payment_fee_quotes,direct_order_verified_settlements,direct_shipping_fee_settings,direct_delivery_policies,direct_order_items,direct_orders,direct_offers,direct_storefronts,product_media,product_media_galleries,auth_refresh_tokens,auth_sessions,outgoing_provider_operations,payment_reviews,subscription_invoices,subscription_periods,subscription_billing_contacts,organization_subscriptions,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,refund_webhook_receipts,payment_refunds,order_fulfillment_events,shipping_calculations,shipping_measurements,shipping_assessments,customer_access_sessions,otp_challenges,order_access_links,customer_access_limits,shipment_facts,shipments,supplier_order_anomalies,supplier_orders,payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
+                "TRUNCATE marketplace_simulation_events,marketplace_simulated_provider_receipts,marketplace_simulations,provider_collections,direct_order_fulfillment_events,payment_fee_quotes,direct_order_verified_settlements,direct_shipping_fee_settings,direct_delivery_policies,direct_order_items,direct_orders,direct_offers,direct_storefronts,product_media,product_media_galleries,auth_refresh_tokens,auth_sessions,outgoing_provider_operations,payment_reviews,subscription_invoices,subscription_periods,subscription_billing_contacts,organization_subscriptions,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,refund_webhook_receipts,payment_refunds,order_fulfillment_events,shipping_calculations,shipping_measurements,shipping_assessments,customer_access_sessions,otp_challenges,order_access_links,customer_access_limits,shipment_facts,shipments,supplier_order_anomalies,supplier_orders,payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
         provider.reset();
         paymentProvider.reset();
         clock.reset();
@@ -118,6 +118,45 @@ class MerchantSettlementIntegrationTests {
                                                         "select count(*) from merchant_ledger_entries",
                                                         Integer.class))
                                         .isEqualTo(1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"provider", "account"})
+    void anotherFundingSourceCannotSpendHistoricalCollections(String changed) throws Exception {
+        paid();
+        closed();
+        var d = destination();
+        if (changed.equals("provider")) provider.sourceProvider = "DIFFERENT";
+        else provider.sourceAccount = "different-account";
+        var b =
+                read(
+                        auth(get(base() + "/merchant-balance"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(b.path("grossMerchantCollections").decimalValue()).isEqualByComparingTo("25000");
+        assertThat(b.path("availableForPayout").decimalValue()).isZero();
+        request(d, UUID.randomUUID(), Map.of()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
+    }
+
+    @Test
+    void collectionUnderReconciliationCannotFundPayout() throws Exception {
+        paid();
+        closed();
+        var d = destination();
+        j.update(
+                "update payments set reconciliation_required=true,reconciliation_reason='PROVIDER_STATE_UNCERTAIN' where payment_request_id=?",
+                requestId);
+        var balance =
+                read(
+                        auth(get(base() + "/merchant-balance"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(balance.path("grossMerchantCollections").decimalValue())
+                .isEqualByComparingTo("25000");
+        assertThat(balance.path("availableForPayout").decimalValue()).isZero();
+        request(d, UUID.randomUUID(), Map.of()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
     }
 
     private void closed() {

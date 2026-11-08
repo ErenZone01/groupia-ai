@@ -261,6 +261,22 @@ class SaspayIntegrationTests {
         assertThat(balance.collectedBalance()).isEqualByComparingTo("2000");
         assertThat(balance.availableForPayout()).isZero();
         assertThat(balance.eligibleBalance()).isZero();
+        await(
+                () ->
+                        jdbc.queryForObject("select count(*) from provider_collections", Long.class)
+                                == 1);
+        var collection = jdbc.queryForMap("select * from provider_collections");
+        assertThat((java.math.BigDecimal) collection.get("seller_principal"))
+                .isEqualByComparingTo("2000");
+        assertThat((java.math.BigDecimal) collection.get("collection_fee"))
+                .isEqualByComparingTo("50");
+        assertThat((java.math.BigDecimal) collection.get("customer_charged"))
+                .isEqualByComparingTo("2050");
+        assertThat(collection.get("provider")).isEqualTo("SASPAY");
+        auth(post("/api/organizations/" + org + "/provider-collections/refresh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("recorded").value(0));
+
         deliver(event("PENDING"));
         webhooks.retryPending();
         assertThat(jdbc.queryForObject("select status from payments", String.class))
@@ -673,6 +689,12 @@ class SaspayIntegrationTests {
                 .isZero();
         assertThat(jdbc.queryForObject("select status from subscription_invoices", String.class))
                 .isEqualTo("PAID");
+        auth(post("/api/organizations/" + org + "/provider-collections/refresh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("recorded").value(0));
+        assertThat(jdbc.queryForObject("select count(*) from provider_collections", Long.class))
+                .isZero();
+
         paySubscription(invoice, quote, key()).andExpect(status().isConflict());
     }
 

@@ -49,7 +49,7 @@ class OrderingMigrationUpgradeTests {
             var order = seedOrder(jdbc);
             String before =
                     jdbc.queryForObject(
-                            "select (to_jsonb(o)-'ready_for_pickup_at')::text from orders o where id=?",
+                            "select (to_jsonb(o)-'ready_for_pickup_at'-'cancellation_case_id')::text from orders o where id=?",
                             String.class,
                             order);
             try (var resources = new ClassLoaderResourceAccessor()) {
@@ -57,10 +57,17 @@ class OrderingMigrationUpgradeTests {
             }
             assertThat(
                             jdbc.queryForObject(
-                                    "select (to_jsonb(o)-'ready_for_pickup_at')::text from orders o where id=?",
+                                    "select (to_jsonb(o)-'ready_for_pickup_at'-'cancellation_case_id')::text from orders o where id=?",
                                     String.class,
                                     order))
                     .isEqualTo(before);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select cancellation_case_id from orders where id=?",
+                                    UUID.class,
+                                    order))
+                    .as("Migration must not invent an historical cancellation")
+                    .isNull();
             assertThat(
                             jdbc.queryForObject(
                                     "select md5sum from databasechangelog where id='006-ordering'",

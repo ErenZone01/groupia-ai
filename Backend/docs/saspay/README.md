@@ -2,6 +2,8 @@
 
 Audit du 7 novembre 2026, base Groupia `8f99fb8`.
 
+**Document historique du premier lot.** Les parcours abonnements, vente directe, transport, remise et annulation ont depuis été ajoutés dans la même PR #86. Voir [le bilan courant](FINAL_VALIDATION.md), [le journal des lots](FOLLOWUP.md), [les simulations marketplace](MARKETPLACE.md) et [les annulations](CANCELLATIONS.md). Les résultats du 7 novembre ci-dessous ne valident pas à eux seuls ces ajouts.
+
 ## Sources et contrats
 
 - [Index officiel](https://docs.saspay.me/llms.txt)
@@ -58,7 +60,7 @@ Le job existant de reprise des webhooks doit être actif. L'inspection des paiem
 1. Ce lot : audit, devis et encaissement de test pour commandes de groupage, vérification serveur, webhooks, UI et tests.
 2. Abonnements SasPay : devis de facture, permissions vendeuse, activation sur preuve vérifiée, aucune hypothèse de prélèvement récurrent non documenté.
 3. Ventes directes : étendre explicitement les guards, le choix serveur du fournisseur et les tests de courses avec annulation ; conserver le token privé.
-4. Marketplace/payout : uniquement après autorisation fournisseur écrite et validation contractuelle du net vendeuse et des frais ; PR distincte.
+4. Marketplace/payout : préparation simulée dans la même PR #86 ; activation réelle uniquement après autorisation fournisseur écrite et validation contractuelle du net vendeuse et des frais.
 
 Tests automatisés : fournisseur HTTP loopback synthétique, clés fictives, SasPay désactivé globalement dans Surefire, scénarios navigateur interceptés. Aucun paiement réel ni paiement sandbox externe n'est déclenché. Les essais opérateur, KYC, domaines de redirection et validation du contrat réel restent non vérifiés. La CI doit être verte avant toute fusion ; un quota GitHub Actions épuisé n'est pas présumé et ne permet pas de contourner ce verrou.
 

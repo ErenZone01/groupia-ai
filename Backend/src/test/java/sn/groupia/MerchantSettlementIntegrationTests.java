@@ -102,9 +102,9 @@ class MerchantSettlementIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 300})
-    void externalCommercialRefundPreservesSellerNetAndHoldsHistoricalFeeCompensation(int fee)
-            throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({"0,false", "300,false", "0,true", "300,true"})
+    void externalCommercialRefundPreservesSellerNetAndHoldsHistoricalFeeCompensation(
+            int fee, boolean delayedLedger) throws Exception {
         // Adjust the synthetic, not-yet-paid fixture before any historical settlement exists.
         if (fee == 0) {
             j.update(
@@ -114,7 +114,47 @@ class MerchantSettlementIntegrationTests {
                     "update payment_requests set fee_amount=0,expected_amount=25000 where id=?",
                     requestId);
         }
-        paid();
+        if (delayedLedger) {
+            j.execute(
+                    "alter table merchant_ledger_entries add constraint fixture_ledger_failure check(false)");
+            try {
+                var payment =
+                        payments.initiateInitial(
+                                f.org(), f.order(), "SIMULATED", UUID.randomUUID().toString());
+                var reference =
+                        j.queryForObject(
+                                "select merchant_reference from payments where id=?",
+                                String.class,
+                                payment.id());
+                paymentProvider.status(reference, PaymentStatus.SUCCEEDED);
+                incoming.reconcile(payment.id());
+                await().atMost(Duration.ofSeconds(15))
+                        .untilAsserted(
+                                () ->
+                                        assertThat(
+                                                        j.queryForObject(
+                                                                "select status from orders where id=?",
+                                                                String.class,
+                                                                f.order()))
+                                                .isEqualTo("CONFIRMED"));
+                TestEventDrain.awaitIdle(j);
+                assertThat(
+                                j.queryForObject(
+                                        "select count(*) from merchant_ledger_entries",
+                                        Integer.class))
+                        .isZero();
+                assertThat(
+                                j.queryForObject(
+                                        "select count(*) from event_publication where status='FAILED' and listener_id like '%MerchantLedgerListeners%'",
+                                        Integer.class))
+                        .isPositive();
+            } finally {
+                j.execute(
+                        "alter table merchant_ledger_entries drop constraint fixture_ledger_failure");
+            }
+        } else {
+            paid();
+        }
         TestEventDrain.awaitIdle(j);
         long version =
                 j.queryForObject("select version from orders where id=?", Long.class, f.order());
@@ -159,6 +199,25 @@ class MerchantSettlementIntegrationTests {
                 .andExpect(jsonPath("refund.amountDue").value(25000 + fee))
                 .andExpect(jsonPath("historicalFeeCompensationDue").value(fee));
         TestEventDrain.awaitIdle(j);
+        var replay =
+                new CommercialRefundRecorded(
+                        UUID.randomUUID(),
+                        clock.instant(),
+                        f.org(),
+                        new PaymentTarget(PaymentTargetType.ORDER, f.order()),
+                        UUID.fromString(id),
+                        new BigDecimal(25000 + fee),
+                        "XOF");
+        new TransactionTemplate(tx).executeWithoutResult(s -> events.publishEvent(replay));
+        failed.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO));
+        TestEventDrain.awaitIdle(j);
+        assertThat(j.queryForObject("select count(*) from merchant_ledger_entries", Integer.class))
+                .isEqualTo(1);
+        assertThat(
+                        j.queryForObject(
+                                "select count(*) from event_publication where completion_date is null",
+                                Integer.class))
+                .isZero();
         var balance =
                 read(
                         auth(get(base() + "/merchant-balance"))

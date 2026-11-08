@@ -35,6 +35,9 @@ public interface CommercialRefunds {
 
     CaseView find(UUID organizationId, PaymentTarget target);
 
+    /** Immutable collection sources for an organization-scoped cancellation case. */
+    java.util.List<UUID> sourceRequests(UUID organizationId, UUID caseId);
+
     /**
      * Seller-funded external refunds leave a reimbursement obligation on the original collection
      * account.

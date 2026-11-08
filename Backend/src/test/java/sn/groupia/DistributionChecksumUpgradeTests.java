@@ -125,7 +125,11 @@ class DistributionChecksumUpgradeTests {
                                                 null))
                         .isInstanceOf(DataIntegrityViolationException.class);
             }
-            assertThat(jdbc.queryForList("select * from orders order by id")).isEqualTo(orders);
+            assertThat(
+                            jdbc.queryForList("select * from orders order by id").stream()
+                                    .map(MigrationHistoryAssertions::historicalOrder)
+                                    .toList())
+                    .isEqualTo(orders);
             MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
         }
     }

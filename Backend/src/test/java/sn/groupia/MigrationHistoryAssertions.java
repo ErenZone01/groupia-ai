@@ -20,6 +20,15 @@ final class MigrationHistoryAssertions {
 
     private MigrationHistoryAssertions() {}
 
+    /** Explicitly validate the additive nullable field, then compare every old column unchanged. */
+    static java.util.Map<String, Object> historicalOrder(java.util.Map<String, Object> row) {
+        assertThat(row).containsKey("cancellation_case_id");
+        assertThat(row.remove("cancellation_case_id"))
+                .as("Historical orders must not acquire an invented cancellation case")
+                .isNull();
+        return row;
+    }
+
     static List<Entry> snapshot(JdbcTemplate jdbc) {
         return jdbc.query(
                 "select id, author, filename, md5sum, orderexecuted, exectype from databasechangelog order by orderexecuted",

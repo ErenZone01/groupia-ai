@@ -74,6 +74,9 @@ class PaymentReviewMigrationTests {
                                                         assertThat(row.remove("fee_quote_id"))
                                                                 .isNull();
                                                     }
+                                                    if (entry.getKey().equals("orders"))
+                                                        MigrationHistoryAssertions.historicalOrder(
+                                                                row);
                                                     return row;
                                                 })
                                         .toList())

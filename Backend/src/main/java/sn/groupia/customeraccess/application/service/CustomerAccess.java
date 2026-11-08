@@ -190,7 +190,7 @@ public class CustomerAccess implements NotificationContentSource {
         var order = authorized(s, number);
         return new CustomerOrderCapabilities(
                 s.scope() == AccessScope.PHONE_VERIFIED
-                        && List.of("CONFIRMED", "COMPLETED").contains(order.status())
+                        && trackablePaidOrder(order)
                         && !archived(order));
     }
 
@@ -229,8 +229,13 @@ public class CustomerAccess implements NotificationContentSource {
         rotate(order, NotificationType.ORDER_CONFIRMED);
     }
 
+    private boolean trackablePaidOrder(CustomerOrderIdentity order) {
+        return List.of("CONFIRMED", "COMPLETED", "REFUND_PENDING", "REFUNDED")
+                .contains(order.status());
+    }
+
     private void rotate(CustomerOrderIdentity order, NotificationType type) {
-        if (!List.of("CONFIRMED", "COMPLETED").contains(order.status()))
+        if (!trackablePaidOrder(order))
             throw new ApiException(
                     409,
                     "ORDER_ACCESS_NOT_AVAILABLE",

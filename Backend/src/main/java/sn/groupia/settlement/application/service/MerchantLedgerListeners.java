@@ -18,13 +18,19 @@ public class MerchantLedgerListeners {
     private final PaymentOperations payments;
     private final RefundOperations refunds;
     private final MerchantOrderFacts orders;
+    private final CommercialRefunds commercialRefunds;
 
     MerchantLedgerListeners(
-            MerchantFinanceStore s, PaymentOperations p, RefundOperations r, MerchantOrderFacts o) {
+            MerchantFinanceStore s,
+            PaymentOperations p,
+            RefundOperations r,
+            MerchantOrderFacts o,
+            CommercialRefunds c) {
         store = s;
         payments = p;
         refunds = r;
         orders = o;
+        commercialRefunds = c;
     }
 
     @ApplicationModuleListener
@@ -51,7 +57,31 @@ public class MerchantLedgerListeners {
         if (request.acceptanceStatus() == AcceptanceStatus.CLOSED) collect(request);
     }
 
+    @ApplicationModuleListener
+    public void commercialRefunded(CommercialRefundRecorded e) {
+        if (e.target().type() != PaymentTargetType.ORDER) return;
+        var cancellation = commercialRefunds.find(e.organizationId(), e.target());
+        if (cancellation == null
+                || !cancellation.id().equals(e.caseId())
+                || !"EXTERNALLY_RECORDED".equals(cancellation.status())
+                || !cancellation.currency().equals(e.currency())
+                || cancellation.amountDue().compareTo(e.amount()) != 0)
+            throw new IllegalStateException("Merchant commercial refund event mismatch");
+        // Cancellation can precede the collection projection. Restore the original seller
+        // receivable after her external refund; COLLECTION identity prevents double credit.
+        for (var requestId : commercialRefunds.sourceRequests(e.organizationId(), e.caseId())) {
+            var request = payments.request(e.organizationId(), requestId);
+            if (!request.target().equals(e.target()))
+                throw new IllegalStateException("Merchant commercial refund source mismatch");
+            collect(request, true);
+        }
+    }
+
     private void collect(PaymentRequestView r) {
+        collect(r, false);
+    }
+
+    private void collect(PaymentRequestView r, boolean externallyReimbursed) {
         if (r.target().type() != PaymentTargetType.ORDER
                 || (r.purpose() != PaymentPurpose.INITIAL_ORDER
                         && r.purpose() != PaymentPurpose.SHIPPING_BALANCE))
@@ -64,7 +94,7 @@ public class MerchantLedgerListeners {
         var o = orders.read(r.organizationId(), r.orderId());
         // INITIAL_ORDER's consumer may run before ordering's confirmation. Its durable acceptance
         // event finishes attribution.
-        if (!o.accepted()) {
+        if (!o.accepted() && !externallyReimbursed) {
             if (r.purpose() == PaymentPurpose.INITIAL_ORDER) return;
             throw new IllegalStateException("Merchant shipping order not accepted");
         }

@@ -100,6 +100,8 @@ class MerchantSettlementMigrationTests {
                 if (table.equals("payments")) {
                     for (var row : rows) assertThat(row.remove("fee_quote_id")).isNull();
                 }
+                if (table.equals("orders"))
+                    rows.forEach(MigrationHistoryAssertions::historicalOrder);
                 assertThat(rows).isEqualTo(originals.get(table));
             }
             MigrationHistoryAssertions.assertPreserved(j, checksums);

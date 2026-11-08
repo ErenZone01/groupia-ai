@@ -68,6 +68,7 @@ class ShippingMigrationUpgradeTests {
             }
             var upgraded = jdbc.queryForMap("select * from orders where id=?", order);
             assertThat(upgraded.remove("ready_for_pickup_at")).isNull();
+            MigrationHistoryAssertions.historicalOrder(upgraded);
             assertThat(upgraded).isEqualTo(before);
             assertThat(jdbc.queryForList("select * from shipment_facts")).isEqualTo(facts);
             assertThat(jdbc.queryForList("select * from shipments")).isEqualTo(shipments);

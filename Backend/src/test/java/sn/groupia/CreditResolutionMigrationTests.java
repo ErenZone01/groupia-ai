@@ -49,7 +49,11 @@ class CreditResolutionMigrationTests {
             try (var resources = new ClassLoaderResourceAccessor()) {
                 migrations.migrate(db, resources);
             }
-            assertThat(jdbc.queryForList("select * from orders order by id")).isEqualTo(before);
+            assertThat(
+                            jdbc.queryForList("select * from orders order by id").stream()
+                                    .map(MigrationHistoryAssertions::historicalOrder)
+                                    .toList())
+                    .isEqualTo(before);
             assertThat(
                             jdbc.queryForList(
                                     "select * from order_fulfillment_events order by recording_sequence"))

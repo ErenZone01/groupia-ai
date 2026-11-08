@@ -638,14 +638,37 @@ class DirectBictorysSandboxIntegrationTests {
     @Test
     void refundIntentionCannotBeReusedWithAmbiguousReferenceAndNoteDelimiters() throws Exception {
         readyForPickup();
-        var id = body(paidCancel(directVersion(), UUID.randomUUID(), true).andExpect(status().isOk()).andReturn()).path("caseId").asText();
+        var id =
+                body(paidCancel(directVersion(), UUID.randomUUID(), true)
+                                .andExpect(status().isOk())
+                                .andReturn())
+                        .path("caseId")
+                        .asText();
         var key = UUID.randomUUID();
         for (int attempt = 0; attempt < 2; attempt++) {
-            var result = mvc.perform(post("/api/organizations/" + org + "/commercial-refunds/" + id + "/external-declaration")
-                    .header("Authorization", "Bearer " + bearer).header("Idempotency-Key", key)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(json.writeValueAsString(Map.of("version", 0, "externalMethod", "WAVE", "confirmed", true,
-                            "reference", attempt == 0 ? "a|b" : "a", "note", attempt == 0 ? "c" : "b|c"))));
+            var result =
+                    mvc.perform(
+                            post("/api/organizations/"
+                                            + org
+                                            + "/commercial-refunds/"
+                                            + id
+                                            + "/external-declaration")
+                                    .header("Authorization", "Bearer " + bearer)
+                                    .header("Idempotency-Key", key)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            json.writeValueAsString(
+                                                    Map.of(
+                                                            "version",
+                                                            0,
+                                                            "externalMethod",
+                                                            "WAVE",
+                                                            "confirmed",
+                                                            true,
+                                                            "reference",
+                                                            attempt == 0 ? "a|b" : "a",
+                                                            "note",
+                                                            attempt == 0 ? "c" : "b|c"))));
             if (attempt == 0) result.andExpect(status().isOk());
             else result.andExpect(status().isConflict());
         }

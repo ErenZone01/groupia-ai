@@ -22,6 +22,10 @@ Le montant à restituer ne comprend pas des frais pay-in dont le remboursement n
 
 Après restitution sur les fonds propres de la vendeuse, le principal retenu peut redevenir disponible dans le compte fournisseur d’origine, selon les protections existantes. Les fonds SasPay restent exclus des payouts réels. Les anciens frais Groupia sont affichés comme une compensation distincte due par Groupia ; tant que cette compensation n’est pas réglée par un processus financier validé, ce dossier historique reste bloquant pour le reversement et la clôture financière. Aucune perte vendeuse n’est masquée. Le flux ne crée pas automatiquement une écriture de compensation non justifiée.
 
+Le consommateur de remboursement externe rattrape aussi une projection d’encaissement absente : il relit le dossier canonique et ses sources immuables, puis écrit le crédit d’origine avec la même identité COLLECTION. Les doublons et la reprise des anciens événements ne peuvent donc pas créditer la vendeuse deux fois. Cette reprise conserve le fournisseur, les montants et la date du règlement d’origine.
+
+La cliente authentifiée par téléphone conserve la possibilité de recevoir un lien privé en REFUND_PENDING ou REFUNDED, dans la durée d’archivage existante. Une confirmation de commande retardée ne produit pas un nouveau message « commande confirmée » après annulation. Aucun de ces états ne rouvre le paiement.
+
 ## Migrations et audit
 
 049 : dossiers, sources et journal immuables. 050 : états de remboursement, référence de dossier sur les commandes et acteur de l’annulation de campagne. Les migrations 001–022 gelées restent inchangées. Le démarrage avec le profil prod refuse toute commission de commande non nulle ; les fixtures historiques hors production conservent leurs montants de 300 XOF.

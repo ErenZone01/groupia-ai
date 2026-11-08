@@ -201,6 +201,15 @@ public class CommercialRefundService implements CommercialRefunds {
     }
 
     @Transactional(readOnly = true)
+    public List<UUID> sourceRequests(UUID org, UUID id) {
+        caseById(org, id, false);
+        return jdbc.queryForList(
+                "select payment_request_id from commercial_refund_sources where case_id=? order by payment_request_id",
+                UUID.class,
+                id);
+    }
+
+    @Transactional(readOnly = true)
     public RefundCaseDetail detail(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
         var found = caseById(org, id, false);
@@ -235,7 +244,13 @@ public class CommercialRefundService implements CommercialRefunds {
                     "REFUND_EVIDENCE_REQUIRED",
                     "Indiquez la référence externe, ou une note pour les espèces.");
         var fingerprint =
-                digest(declaration.version() + "|" + method + "|" + fingerprintField(reference) + fingerprintField(note));
+                digest(
+                        declaration.version()
+                                + "|"
+                                + method
+                                + "|"
+                                + fingerprintField(reference)
+                                + fingerprintField(note));
         var found = caseById(org, id, true);
         var prior =
                 jdbc.queryForMap(

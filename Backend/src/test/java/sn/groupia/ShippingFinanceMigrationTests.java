@@ -63,6 +63,7 @@ class ShippingFinanceMigrationTests {
                     .isZero();
             var upgraded = jdbc.queryForList("select * from orders");
             upgraded.forEach(r -> assertThat(r.remove("ready_for_pickup_at")).isNull());
+            upgraded.forEach(MigrationHistoryAssertions::historicalOrder);
             assertThat(upgraded).isEqualTo(orders);
             MigrationHistoryAssertions.assertPreserved(jdbc, checksums);
             assertThatThrownBy(

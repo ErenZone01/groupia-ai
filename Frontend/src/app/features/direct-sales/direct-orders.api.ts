@@ -27,6 +27,7 @@ export interface DirectOrdersPage {
 }
 
 export interface DirectOrderDetail {
+  version?: number;
   order: DirectOrderSummary;
   contact: {
     firstName: string;
@@ -58,10 +59,15 @@ export interface DirectOrderDetail {
   }[];
 }
 
-
 export type DirectFinancialState =
-  | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
-  | 'PAYMENT_IN_PROGRESS' | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+  | 'NOT_PREPARED'
+  | 'PREPARED'
+  | 'EXPIRED'
+  | 'UNAVAILABLE'
+  | 'PAYMENT_IN_PROGRESS'
+  | 'SETTLEMENT_PROCESSING'
+  | 'SETTLEMENT_VERIFIED'
+  | 'REVIEW_REQUIRED';
 
 export interface DirectOrderPaymentStatus {
   orderNumber: string;
@@ -80,6 +86,12 @@ export interface DirectOrderActionReceipt {
   readyAt?: string;
 }
 
+export interface DirectFulfillmentEvent {
+  id: string;
+  fromStatus: string;
+  toStatus: string;
+  occurredAt: string;
+}
 /** Authenticated merchant reads and server-guarded fulfillment actions. */
 @Injectable({ providedIn: 'root' })
 export class DirectOrdersApi {
@@ -91,20 +103,46 @@ export class DirectOrdersApi {
 
   list(organizationId: string, page: number, size = 20) {
     const params = new HttpParams().set('page', page).set('size', size);
-    return firstValueFrom(this.http.get<DirectOrdersPage>(
-      this.path(organizationId), { params },
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http.get<DirectOrdersPage>(this.path(organizationId), { params }).pipe(timeout(15000)),
+    );
   }
 
   get(organizationId: string, orderId: string) {
-    return firstValueFrom(this.http.get<DirectOrderDetail>(
-      this.path(organizationId) + '/' + encodeURIComponent(orderId),
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .get<DirectOrderDetail>(this.path(organizationId) + '/' + encodeURIComponent(orderId))
+        .pipe(timeout(15000)),
+    );
+  }
+  fulfillmentHistory(organizationId: string, orderId: string) {
+    return firstValueFrom(
+      this.http
+        .get<DirectFulfillmentEvent[]>(
+          this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/fulfillment-history',
+        )
+        .pipe(timeout(15000)),
+    );
+  }
+  fulfill(organizationId: string, orderId: string, action: string, version: number, key: string) {
+    return firstValueFrom(
+      this.http
+        .post<DirectFulfillmentEvent>(
+          this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/fulfillment',
+          { action, version, confirmed: true },
+          { headers: { 'Idempotency-Key': key } },
+        )
+        .pipe(timeout(20000)),
+    );
   }
   paymentStatus(organizationId: string, orderId: string) {
-    return firstValueFrom(this.http.get<DirectOrderPaymentStatus>(
-      this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/payment-status',
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .get<DirectOrderPaymentStatus>(
+          this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/payment-status',
+        )
+        .pipe(timeout(15000)),
+    );
   }
 
   /** No financial data or target state is accepted from the browser. */
@@ -121,8 +159,13 @@ export class DirectOrdersApi {
   }
 
   private command(organizationId: string, orderId: string, action: string) {
-    return firstValueFrom(this.http.post<DirectOrderActionReceipt>(
-      this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/' + action, {},
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectOrderActionReceipt>(
+          this.path(organizationId) + '/' + encodeURIComponent(orderId) + '/' + action,
+          {},
+        )
+        .pipe(timeout(15000)),
+    );
   }
 }

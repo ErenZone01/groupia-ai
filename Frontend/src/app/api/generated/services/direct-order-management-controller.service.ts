@@ -13,6 +13,11 @@ import { StrictHttpResponse } from '../strict-http-response';
 import { cancelDirectUnpaidOrder } from '../fn/direct-order-management-controller/cancel-direct-unpaid-order';
 import { CancelDirectUnpaidOrder$Params } from '../fn/direct-order-management-controller/cancel-direct-unpaid-order';
 import { Detail } from '../models/detail';
+import { Event } from '../models/event';
+import { fulfill } from '../fn/direct-order-management-controller/fulfill';
+import { Fulfill$Params } from '../fn/direct-order-management-controller/fulfill';
+import { fulfillmentHistory } from '../fn/direct-order-management-controller/fulfillment-history';
+import { FulfillmentHistory$Params } from '../fn/direct-order-management-controller/fulfillment-history';
 import { getDirectOrder } from '../fn/direct-order-management-controller/get-direct-order';
 import { GetDirectOrder$Params } from '../fn/direct-order-management-controller/get-direct-order';
 import { getDirectOrderPaymentReadiness } from '../fn/direct-order-management-controller/get-direct-order-payment-readiness';
@@ -192,6 +197,60 @@ export class DirectOrderManagementControllerService extends BaseService {
     const resp = this.getDirectOrderPaymentReadiness$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<Status>): Status => r.body)
+    );
+  }
+
+  /** Path part for operation `fulfill()` */
+  static readonly FulfillPath = '/api/organizations/{organizationId}/direct-orders/{orderId}/fulfillment';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `fulfill()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  fulfill$Response(params: Fulfill$Params, context?: HttpContext): Observable<StrictHttpResponse<Event>> {
+    const obs = fulfill(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `fulfill$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  fulfill(params: Fulfill$Params, context?: HttpContext): Observable<Event> {
+    const resp = this.fulfill$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Event>): Event => r.body)
+    );
+  }
+
+  /** Path part for operation `fulfillmentHistory()` */
+  static readonly FulfillmentHistoryPath = '/api/organizations/{organizationId}/direct-orders/{orderId}/fulfillment-history';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `fulfillmentHistory()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  fulfillmentHistory$Response(params: FulfillmentHistory$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<Event>>> {
+    const obs = fulfillmentHistory(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `fulfillmentHistory$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  fulfillmentHistory(params: FulfillmentHistory$Params, context?: HttpContext): Observable<Array<Event>> {
+    const resp = this.fulfillmentHistory$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<Event>>): Array<Event> => r.body)
     );
   }
 

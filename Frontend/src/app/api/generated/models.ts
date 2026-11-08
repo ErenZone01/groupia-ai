@@ -45,6 +45,7 @@ export type { Destination } from './models/destination';
 export type { DestinationChange } from './models/destination-change';
 export type { Detail } from './models/detail';
 export type { Entry } from './models/entry';
+export type { Event } from './models/event';
 export type { FinalShipping } from './models/final-shipping';
 export type { FulfillmentBatch } from './models/fulfillment-batch';
 export type { FulfillmentCounts } from './models/fulfillment-counts';

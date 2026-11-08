@@ -521,6 +521,14 @@ export class DirectOrderTrackingPage {
       return 'Traitement suspendu : règlement à vérifier';
     }
     switch (value) {
+      case 'DISPATCHED':
+        return 'Commande expédiée';
+      case 'PICKED_UP':
+        return 'Commande retirée';
+      case 'DELIVERED':
+        return 'Commande livrée';
+      case 'COMPLETED':
+        return 'Commande clôturée';
       case 'PAYMENT_CONFIRMED':
         return 'Règlement confirmé';
       case 'PREPARING':

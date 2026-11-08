@@ -13,4 +13,5 @@ export interface Detail {
   platformFeeRule?: {
 [key: string]: string;
 };
+  version?: number;
 }

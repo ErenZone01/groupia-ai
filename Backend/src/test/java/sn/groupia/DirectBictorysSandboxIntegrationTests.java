@@ -442,4 +442,147 @@ class DirectBictorysSandboxIntegrationTests {
         initiate(fresh, CHECKOUT_KEY).andExpect(status().isOk());
         assertThat(bictorys.requests).hasSize(1);
     }
+
+    private String merchantOrderPath() {
+        return "/api/organizations/" + org + "/direct-orders/" + order;
+    }
+
+    private long directVersion() {
+        return jdbc.queryForObject(
+                "select version from direct_orders where id=?", Long.class, order);
+    }
+
+    private void readyForPickup() throws Exception {
+        queueCharge();
+        initiate(recovery, CHECKOUT_KEY).andExpect(status().isOk());
+        webhook(successPayload(UUID.randomUUID().toString(), 10300), "fixture-webhook-secret")
+                .andExpect(status().isOk());
+        await(() -> "PAYMENT_CONFIRMED".equals(orderStatus()));
+        mvc.perform(
+                        post(merchantOrderPath() + "/start-preparation")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk());
+        mvc.perform(
+                        post(merchantOrderPath() + "/mark-ready")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk());
+    }
+
+    private ResultActions handoff(String action, long version, String key, boolean confirmed)
+            throws Exception {
+        return mvc.perform(
+                post(merchantOrderPath() + "/fulfillment")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                json.writeValueAsString(
+                                        Map.of(
+                                                "action",
+                                                action,
+                                                "version",
+                                                version,
+                                                "confirmed",
+                                                confirmed))));
+    }
+
+    @Test
+    void directPickupAndClosureRequireExplicitConfirmationAndKeepImmutableIdempotentHistory()
+            throws Exception {
+        handoff("PICKUP", directVersion(), "handoff-unpaid-0001", true)
+                .andExpect(status().isConflict());
+        readyForPickup();
+        long version = directVersion();
+        handoff("PICKUP", version, "handoff-pickup-0001", false).andExpect(status().isBadRequest());
+        handoff("DELIVER", version, "handoff-deliver-0001", true).andExpect(status().isConflict());
+        var first =
+                body(
+                        handoff("PICKUP", version, "handoff-pickup-0001", true)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        var repeated =
+                body(
+                        handoff("PICKUP", version, "handoff-pickup-0001", true)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(repeated).isEqualTo(first);
+        assertThat(orderStatus()).isEqualTo("PICKED_UP");
+        handoff("COMPLETE", version, "handoff-old-version", true).andExpect(status().isConflict());
+        handoff("COMPLETE", directVersion(), "handoff-complete-001", true)
+                .andExpect(status().isOk());
+        assertThat(orderStatus()).isEqualTo("COMPLETED");
+        financial(recovery)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("SETTLEMENT_VERIFIED"));
+        mvc.perform(
+                        get(merchantOrderPath() + "/fulfillment-history")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+        assertThat(count("direct_order_fulfillment_events")).isEqualTo(2);
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "delete from direct_order_fulfillment_events where direct_order_id=?",
+                                        order))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(bictorys.requests.stream().filter(q -> q.method().equals("POST")).count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void concurrentHandoversProduceOnePhysicalTransitionAndViewerCannotAct() throws Exception {
+        readyForPickup();
+        long version = directVersion();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var start = new CountDownLatch(1);
+            var a =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                return handoff("PICKUP", version, "handoff-concurrent-a", true)
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+                            });
+            var b =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                return handoff("PICKUP", version, "handoff-concurrent-b", true)
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+                            });
+            start.countDown();
+            assertThat(List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(200, 409);
+        }
+        assertThat(count("direct_order_fulfillment_events")).isEqualTo(1);
+        jdbc.update("update organization_members set role='VIEWER' where organization_id=?", org);
+        handoff("COMPLETE", directVersion(), "handoff-viewer-00001", true)
+                .andExpect(status().isForbidden());
+        assertThat(orderStatus()).isEqualTo("PICKED_UP");
+    }
+
+    @Test
+    void reconciliationBlocksHandoverAndAnotherOrganizationCannotReadHistory() throws Exception {
+        readyForPickup();
+        jdbc.update(
+                "update payments set reconciliation_required=true,reconciliation_reason='PROVIDER_STATE_UNCERTAIN' where payment_request_id in (select id from payment_requests where direct_order_id=?)",
+                order);
+        handoff("PICKUP", directVersion(), "handoff-review-00001", true)
+                .andExpect(status().isConflict());
+        assertThat(orderStatus()).isEqualTo("READY_FOR_PICKUP");
+        assertThat(count("direct_order_fulfillment_events")).isZero();
+        mvc.perform(
+                        get("/api/organizations/"
+                                        + UUID.randomUUID()
+                                        + "/direct-orders/"
+                                        + order
+                                        + "/fulfillment-history")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ORGANIZATION_ACCESS_DENIED"));
+    }
 }

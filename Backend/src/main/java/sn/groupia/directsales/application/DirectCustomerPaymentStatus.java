@@ -217,7 +217,10 @@ public class DirectCustomerPaymentStatus {
                     || !"PAYMENT_CONFIRMED".equals(saved.orderStatus())
                             && !"PREPARING".equals(saved.orderStatus())
                             && !"READY_FOR_PICKUP".equals(saved.orderStatus())
-                            && !"READY_FOR_DISPATCH".equals(saved.orderStatus())) {
+                            && !"READY_FOR_DISPATCH".equals(saved.orderStatus())
+                            && !java.util.List.of(
+                                            "DISPATCHED", "PICKED_UP", "DELIVERED", "COMPLETED")
+                                    .contains(saved.orderStatus())) {
                 return "REVIEW_REQUIRED";
             }
             return "SETTLEMENT_VERIFIED";

@@ -247,6 +247,10 @@ export type { GetDirectOrder$Params as GetDirectOrder$Params } from './fn/direct
 export { getDirectOrder as getDirectOrder } from './fn/direct-order-management-controller/get-direct-order';
 export type { GetDirectOrderPaymentReadiness$Params as GetDirectOrderPaymentReadiness$Params } from './fn/direct-order-management-controller/get-direct-order-payment-readiness';
 export { getDirectOrderPaymentReadiness as getDirectOrderPaymentReadiness } from './fn/direct-order-management-controller/get-direct-order-payment-readiness';
+export type { Fulfill$Params as Fulfill$Params } from './fn/direct-order-management-controller/fulfill';
+export { fulfill as fulfill } from './fn/direct-order-management-controller/fulfill';
+export type { FulfillmentHistory$Params as FulfillmentHistory$Params } from './fn/direct-order-management-controller/fulfillment-history';
+export { fulfillmentHistory as fulfillmentHistory } from './fn/direct-order-management-controller/fulfillment-history';
 export type { Register$Params as Register$Params } from './fn/auth-controller/register';
 export { register as register } from './fn/auth-controller/register';
 export type { Refresh$Params as Refresh$Params } from './fn/auth-controller/refresh';

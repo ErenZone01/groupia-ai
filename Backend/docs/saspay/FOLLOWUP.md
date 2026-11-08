@@ -27,3 +27,9 @@ Solde transport : devis ADD_ON, conservation du net, session cliente et CSRF, co
 
 Validation : 25 tests ShippingFinanceIntegrationTests et Modulith réussis ; 57 tests frontend ciblés, puis 27 tests abonnements après ajout du cas de devis refusé ; 12 E2E transport incluant SasPay, lint et diff-check réussis. Fournisseurs HTTP simulés uniquement. Validation globale toujours à exécuter après tous les lots.
 
+
+## Lot remise et clôture directes — 8 novembre 2026
+
+Retrait, expédition, livraison et clôture après règlement canonique vérifié. Confirmation explicite, permission MANAGE_FULFILLMENT, version optimiste et intention persistante. Historique immuable isolé par organisation ; doublons et concurrence protégés. Migration additive 046, contrat OpenAPI et client régénérés. Les anciens paiements Bictorys restent utilisables.
+
+Validation ciblée : 10 nouveaux tests unitaires ; les 9 scénarios DirectBictorysSandboxIntegrationTests validés avec reprise ciblée après correction des fixtures (contrainte reconciliation_reason et politique existante 403 interorganisation). Modulith, OpenAPI, préparation et readiness validés. Frontend : 10 tests gestion directe et 16 suivi client ; 2 nouveaux E2E retrait/livraison ; lint et diff-check réussis. Les suites globales restent à exécuter après les prochains lots.

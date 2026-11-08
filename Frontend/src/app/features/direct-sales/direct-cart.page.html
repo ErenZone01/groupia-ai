@@ -47,21 +47,21 @@
       <section class="summary">
         <div class="subtotal"><span>Sous-total des articles</span>
           <strong>{{ money(preview.goodsSubtotalXof, preview.currency) }}</strong></div>
-        <p>Les éventuels frais de plateforme et de livraison ne sont pas inclus.
-          Le montant final sera présenté avant toute commande lorsque le checkout sera disponible.</p>
+        <p>Les frais de livraison et d’encaissement seront présentés séparément avant paiement.
+          Groupia ne prélève aucune commission sur les commandes.</p>
       </section>
     }
     <aside class="notice" role="note">
-      <strong>Prochaine étape : finalisation des commandes</strong>
-      <p>Le panier est un aperçu, pas une réservation. Les prix seront revérifiés lors du futur checkout.
-        Le paiement Bictorys n'est pas encore activé pour les ventes directes.</p>
+      <strong>Prochaine étape : coordonnées et livraison</strong>
+      <p>Le panier est un aperçu, pas une réservation. Les prix et la disponibilité seront
+        revérifiés avant la confirmation de votre commande.</p>
     </aside>
     @if (quote() && !loading() && !error()) {
       <div class="checkout-preview-cta">
         <div>
           <strong>Préparer vos coordonnées</strong>
-          <p>Vous pourrez vérifier vos informations avant la future activation de la commande.
-            Aucun paiement ni commande ne sera créé.</p>
+          <p>Renseignez vos coordonnées, choisissez le retrait ou la livraison,
+            puis vérifiez le récapitulatif avant de confirmer votre commande.</p>
         </div>
         <a class="go-back" [routerLink]="['/v', publicId(), 'coordonnees']">
           Préparer mes coordonnées

@@ -1,3 +1,4 @@
+import { CommercialCancellationPanel } from '../orders/commercial-cancellation-panel';
 import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -20,7 +21,7 @@ type MerchantAction = 'cancel' | 'prepare' | 'ready' | HandoffAction;
 
 @Component({
   selector: 'g-direct-orders-page',
-  imports: [RouterLink, DatePipe, DirectLocationMap],
+  imports: [CommercialCancellationPanel, RouterLink, DatePipe, DirectLocationMap],
   templateUrl: './direct-orders.page.html',
   styleUrl: './direct-orders.page.scss',
 })
@@ -321,6 +322,8 @@ export class DirectOrdersPage {
     switch (value) {
       case 'PENDING_PAYMENT_INTEGRATION':
         return 'En attente de paiement';
+      case 'REFUND_PENDING': return 'Annulée · remboursement à traiter';
+      case 'REFUNDED': return 'Remboursement externe déclaré';
       case 'CANCELLED':
         return 'Annulée';
       case 'PAYMENT_CONFIRMED':

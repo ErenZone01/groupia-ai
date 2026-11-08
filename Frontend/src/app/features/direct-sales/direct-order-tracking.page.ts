@@ -515,6 +515,8 @@ export class DirectOrderTrackingPage {
   }
 
   orderLabel(value: string) {
+    if (value === 'REFUND_PENDING') return 'Commande annulée · remboursement à traiter avec la boutique';
+    if (value === 'REFUNDED') return 'Remboursement externe déclaré par la boutique';
     if (value === 'CANCELLED') return 'Commande annulée';
     if (value === 'PENDING_PAYMENT_INTEGRATION') return 'En attente de règlement';
     if (this.financial()?.financialStatus !== 'SETTLEMENT_VERIFIED') {

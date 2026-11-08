@@ -219,7 +219,12 @@ public class DirectCustomerPaymentStatus {
                             && !"READY_FOR_PICKUP".equals(saved.orderStatus())
                             && !"READY_FOR_DISPATCH".equals(saved.orderStatus())
                             && !java.util.List.of(
-                                            "DISPATCHED", "PICKED_UP", "DELIVERED", "COMPLETED")
+                                            "DISPATCHED",
+                                            "PICKED_UP",
+                                            "DELIVERED",
+                                            "COMPLETED",
+                                            "REFUND_PENDING",
+                                            "REFUNDED")
                                     .contains(saved.orderStatus())) {
                 return "REVIEW_REQUIRED";
             }

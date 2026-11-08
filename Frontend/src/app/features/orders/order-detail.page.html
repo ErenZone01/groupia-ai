@@ -47,6 +47,9 @@
       </div>
     </header>
 
+    @if (view.id && view.organizationId) {
+      <g-commercial-cancellation [organizationId]="view.organizationId" [orderId]="view.id" (changed)="reload()" />
+    }
     <nav class="section-nav" aria-label="Sections du détail de commande">
       <a href="#order-products">Produits</a>
       <a href="#order-payment">Paiement</a>

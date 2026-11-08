@@ -14,6 +14,7 @@ import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 @Transactional(readOnly = true)
 public class MerchantBalances {
     private final MerchantFinanceStore store;
+    private final sn.groupia.payment.api.CommercialRefunds refunds;
     private final sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider;
     private final MerchantCampaignFacts campaigns;
     private final MerchantOrderFacts orders;
@@ -24,7 +25,9 @@ public class MerchantBalances {
             MerchantCampaignFacts c,
             MerchantOrderFacts o,
             sn.groupia.payment.api.PaymentOperations payments,
-            sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider) {
+            sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider,
+            sn.groupia.payment.api.CommercialRefunds refunds) {
+        this.refunds = refunds;
         this.payoutProvider = payoutProvider;
         store = s;
         campaigns = c;
@@ -63,13 +66,25 @@ public class MerchantBalances {
                         // source.
                         var source = payments.settlementEvidence(org, e.sourceId());
                         var sourceState = payments.requestState(org, e.sourceId());
-                        if (campaign.available()
+                        var cancellation =
+                                refunds.find(
+                                        org,
+                                        sn.groupia.payment.api.PaymentTarget.order(e.orderId()));
+                        // A seller who returned the customer principal outside Groupia may recover
+                        // the original retained funds. Historical platform-fee compensation needs
+                        // a separate resolution; never silently reimburse less than the
+                        // declaration.
+                        boolean reimbursable =
+                                cancellation != null
+                                        && cancellation.status().equals("EXTERNALLY_RECORDED")
+                                        && cancellation.legacyPlatformFee().signum() == 0;
+                        if (((campaign.available() && orders.read(org, e.orderId()).accepted())
+                                        || reimbursable)
                                 && !source.reversal()
                                 && sourceState.operationalStatus()
                                         == sn.groupia.payment.api.PaymentOperationalStatus.SETTLED
                                 && !sourceState.reconciliationRequired()
                                 && !sourceState.attemptInProgress()
-                                && orders.read(org, e.orderId()).accepted()
                                 && !"SASPAY".equals(source.provider())
                                 && Objects.equals(
                                         source.provider(), payoutProvider.fundingProvider())

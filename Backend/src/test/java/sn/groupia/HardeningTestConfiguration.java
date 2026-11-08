@@ -37,7 +37,7 @@ class HardeningTestConfiguration {
             registry.add("groupia.ordering.expiration.enabled", () -> "false");
             registry.add("groupia.events.recovery.enabled", () -> "false");
             registry.add("groupia.payment.webhook-retry.enabled", () -> "false");
-            registry.add("groupia.ordering.platform-fee-xof", () -> "300");
+            registry.add("groupia.ordering.platform-fee-xof", () -> "0");
             registry.add("groupia.ordering.payment-window-minutes", () -> "30");
             registry.add("groupia.ordering.tracking-lifetime-days", () -> "180");
             registry.add("groupia.security.jwt.secret-base64", () -> encoded);

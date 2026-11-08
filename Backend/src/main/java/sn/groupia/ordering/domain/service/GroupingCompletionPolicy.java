@@ -12,10 +12,24 @@ public final class GroupingCompletionPolicy {
 
     public static List<Blocker> evaluate(
             Order o, OrderPaymentCompletionFacts facts, ShippingSettlementView shipping) {
+        return evaluate(o, facts, shipping, false);
+    }
+
+    public static List<Blocker> evaluate(
+            Order o,
+            OrderPaymentCompletionFacts facts,
+            ShippingSettlementView shipping,
+            boolean commercialRefundRecorded) {
         var codes = new LinkedHashSet<String>();
+        boolean refunded = o.getStatus() == OrderStatus.REFUNDED && commercialRefundRecorded;
+        if (o.getStatus() == OrderStatus.REFUND_PENDING) codes.add("COMMERCIAL_REFUND_DUE");
+        if (o.getStatus() == OrderStatus.REFUNDED && !refunded)
+            codes.add("COMMERCIAL_REFUND_UNVERIFIED");
         boolean executed = o.getStatus() == OrderStatus.COMPLETED;
         boolean terminal =
-                o.getStatus() == OrderStatus.EXPIRED || o.getStatus() == OrderStatus.CANCELLED;
+                o.getStatus() == OrderStatus.EXPIRED
+                        || o.getStatus() == OrderStatus.CANCELLED
+                        || refunded;
         if (!executed && !terminal) codes.add("ORDER_NOT_COMPLETED");
         if (o.getFulfillmentStatus() == FulfillmentStatus.READY_FOR_PICKUP)
             codes.add("ORDER_PICKUP_REQUIRED");
@@ -60,11 +74,13 @@ public final class GroupingCompletionPolicy {
                     && (p.acceptanceStatus() != AcceptanceStatus.CLOSED
                             || p.settledPaymentId() == null))
                 codes.add("INITIAL_PAYMENT_NOT_SETTLED");
-            if (terminal && p.settledPaymentId() != null) codes.add("TERMINAL_ORDER_PAID");
+            if (terminal && !refunded && p.settledPaymentId() != null)
+                codes.add("TERMINAL_ORDER_PAID");
         }
         for (var refund : facts.refunds()) {
-            if (terminal || !refund.status().equals("SUCCEEDED") || refund.reconciliationRequired())
-                codes.add("REFUND_UNRESOLVED");
+            if ((terminal && !refunded)
+                    || !refund.status().equals("SUCCEEDED")
+                    || refund.reconciliationRequired()) codes.add("REFUND_UNRESOLVED");
         }
         return codes.stream().map(c -> new Blocker(c, o.getId(), o.getOrderNumber())).toList();
     }

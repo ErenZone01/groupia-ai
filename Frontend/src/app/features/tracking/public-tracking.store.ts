@@ -124,7 +124,7 @@ export class PublicTrackingStore {
     if (order.status === 'CONFIRMED') this.cart.clear(this.session.current()!.publicIdentifier);
   }
   private final(order: OrderTrackingView) {
-    return ['CONFIRMED', 'COMPLETED', 'EXPIRED', 'CANCELLED'].includes(order.status ?? '');
+    return ['CONFIRMED', 'COMPLETED', 'EXPIRED', 'CANCELLED', 'REFUND_PENDING', 'REFUNDED'].includes(order.status ?? '');
   }
   private handleError(e: unknown) {
     this.error.set(publicMessage(e));

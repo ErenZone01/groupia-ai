@@ -26,6 +26,7 @@ public class PaymentTransactions {
     private final sn.groupia.payment.domain.repository.RefundStore refunds;
     private final sn.groupia.payment.domain.repository.PaymentReviewStore reviews;
     private final ObjectProvider<DirectPaymentClaimGuard> directGuard;
+    private final ObjectProvider<OrderPaymentClaimGuard> orderGuard;
     private final boolean directPaymentEnabled;
     private final sn.groupia.payment.domain.repository.PaymentQuoteStore quotes;
 
@@ -61,7 +62,6 @@ public class PaymentTransactions {
                 null);
     }
 
-    @Autowired
     PaymentTransactions(
             FinancialStore store,
             ApplicationEventPublisher events,
@@ -73,6 +73,33 @@ public class PaymentTransactions {
             @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
                     boolean directPaymentEnabled,
             sn.groupia.payment.domain.repository.PaymentQuoteStore quotes) {
+        this(
+                store,
+                events,
+                clock,
+                providers,
+                refunds,
+                reviews,
+                directGuard,
+                directPaymentEnabled,
+                quotes,
+                null);
+    }
+
+    @Autowired
+    PaymentTransactions(
+            FinancialStore store,
+            ApplicationEventPublisher events,
+            Clock clock,
+            ProviderRegistry providers,
+            sn.groupia.payment.domain.repository.RefundStore refunds,
+            sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
+            ObjectProvider<DirectPaymentClaimGuard> directGuard,
+            @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
+                    boolean directPaymentEnabled,
+            sn.groupia.payment.domain.repository.PaymentQuoteStore quotes,
+            ObjectProvider<OrderPaymentClaimGuard> orderGuard) {
+        this.orderGuard = orderGuard;
         this.quotes = quotes;
         this.store = store;
         this.events = events;
@@ -179,6 +206,13 @@ public class PaymentTransactions {
                             context,
                             recoveryTokenHash);
         }
+        boolean orderPayable = true;
+        if (request.getTarget().type() == PaymentTargetType.ORDER && orderGuard != null) {
+            var guard = orderGuard.getIfAvailable();
+            if (guard == null) throw new IllegalStateException("Missing commercial payment guard");
+            orderPayable =
+                    guard.lockAndCanInitiate(org, request.getTarget().id(), request.getPurpose());
+        }
         List<PaymentObligationView> shippingStates = List.of();
         if (request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE) {
             shippingStates = lockShippingRequests(org, request.getOrderId());
@@ -200,6 +234,11 @@ public class PaymentTransactions {
                         409, "PAYMENT_INITIATION_CONFLICT", "Cette clé désigne un autre devis.");
             return new Claim(false, payment.instruction(request), payment.view());
         }
+        if (!orderPayable)
+            throw new ApiException(
+                    409,
+                    "ORDER_NOT_PAYABLE",
+                    "La commande ou le groupage est annulé et ne permet plus un nouveau paiement.");
         UUID target = request.getId();
         if (shippingStates.stream()
                 .anyMatch(s -> !s.request().id().equals(target) && s.paymentInProgress())) {

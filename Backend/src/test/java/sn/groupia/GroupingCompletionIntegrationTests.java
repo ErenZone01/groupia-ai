@@ -57,7 +57,9 @@ class GroupingCompletionIntegrationTests {
     @BeforeEach
     void setup() {
         f = MerchantSettlementFixtures.seed(jdbc);
-        initial = MerchantSettlementFixtures.settled(jdbc, f, "INITIAL_ORDER");
+        initial =
+                MerchantSettlementFixtures.settled(
+                        jdbc, f, "INITIAL_ORDER", "SIMULATED", "fixture");
         jdbc.update(
                 "update grouping_campaigns set status='DISTRIBUTING',closed_at=now() where id=?",
                 f.campaign());

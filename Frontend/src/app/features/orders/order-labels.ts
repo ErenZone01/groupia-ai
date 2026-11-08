@@ -3,6 +3,8 @@ export const orderFilters = [
   { value: 'CONFIRMED', label: 'Payées', empty: 'Aucune commande payée.' },
   { value: 'PENDING_PAYMENT', label: 'En attente', empty: 'Aucune commande en attente.' },
   { value: 'EXPIRED', label: 'Expirées', empty: 'Aucune commande expirée.' },
+  { value: 'REFUND_PENDING', label: 'À rembourser', empty: 'Aucun remboursement en attente.' },
+  { value: 'REFUNDED', label: 'Remboursements déclarés', empty: 'Aucun remboursement déclaré.' },
   { value: 'CANCELLED', label: 'Annulées', empty: 'Aucune commande annulée.' },
 ] as const;
 export function orderFilter(value: string | null | undefined) {
@@ -20,6 +22,8 @@ export function orderLabel(status?: string) {
         CONFIRMED: 'Payée',
         EXPIRED: 'Expirée',
         CANCELLED: 'Annulée',
+        REFUND_PENDING: 'Annulée · remboursement à traiter',
+        REFUNDED: 'Remboursement externe déclaré',
         COMPLETED: 'Terminée',
       } as Record<string, string>
     )[status ?? ''] ?? 'Statut indisponible'
@@ -42,6 +46,8 @@ export function paymentLabel(status?: string) {
         CONFIRMED: 'Paiement confirmé',
         EXPIRED: 'Paiement expiré',
         CANCELLED: 'Commande annulée',
+        REFUND_PENDING: 'Paiement reçu · remboursement à traiter',
+        REFUNDED: 'Paiement reçu · remboursement externe déclaré',
         COMPLETED: 'Commande terminée',
       } as Record<string, string>
     )[status ?? ''] ?? 'Information indisponible'
@@ -61,6 +67,8 @@ export function fulfillmentLabel(value?: string) {
         READY_FOR_PICKUP: 'Prête à récupérer',
         PICKED_UP: 'Récupérée',
         CANCELLED: 'Annulée',
+        REFUND_PENDING: 'Annulée · remboursement à traiter',
+        REFUNDED: 'Remboursement externe déclaré',
       } as Record<string, string>
     )[value ?? ''] ?? 'Information indisponible'
   );

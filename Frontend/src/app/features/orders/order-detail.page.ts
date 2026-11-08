@@ -1,3 +1,4 @@
+import { CommercialCancellationPanel } from './commercial-cancellation-panel';
 import { Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -25,7 +26,7 @@ import { OrderLineCard } from './order-line-card';
 
 @Component({
   selector: 'g-order-detail',
-  imports: [RouterLink, Button, Badge, Skeleton, OrderLineCard],
+  imports: [CommercialCancellationPanel, RouterLink, Button, Badge, Skeleton, OrderLineCard],
   templateUrl: './order-detail.page.html',
   styleUrl: './order-detail.page.scss',
 })

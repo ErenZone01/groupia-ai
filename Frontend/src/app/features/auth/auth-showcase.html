@@ -15,7 +15,7 @@
       <h2>{{ slides[active()].title }}</h2>
       <p>{{ slides[active()].description }}</p>
       @if (active() === 1) {
-        <span class="slide-status">Fonctionnalité prévue prochainement</span>
+        <span class="slide-status">Catalogue et commandes directes</span>
       }
     </div>
     <div class="slide-art" aria-hidden="true">
@@ -31,7 +31,7 @@
             <div class="phone-button">Voir le groupage</div>
           }
           @case (1) {
-            <div class="phone-badge">À venir</div>
+            <div class="phone-badge">Vente directe</div>
             <div class="phone-illustration"><g-icon name="store" /></div>
             <div class="phone-line wide"></div><div class="phone-line short"></div>
             <div class="phone-amount">Mes produits</div>
@@ -52,7 +52,7 @@
       </div>
       <div class="float-card float-right">
         <g-icon name="check" />
-        <span>{{ active() === 2 ? 'Sans compte client' : active() === 1 ? 'À venir' : 'Lien partageable' }}</span>
+        <span>{{ active() === 2 ? 'Sans compte client' : active() === 1 ? 'Vente directe' : 'Lien partageable' }}</span>
       </div>
       <div class="art-box one"><g-icon name="box" /></div>
       <div class="art-box two"><g-icon name="bag" /></div>

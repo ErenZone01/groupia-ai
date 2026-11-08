@@ -241,7 +241,7 @@
         </p>
         @if (payment.financialStatus === 'PAYMENT_IN_PROGRESS') {
           <p class="meta" role="status">
-            La cliente a initié un paiement Bictorys. Ne l’annulez pas et ne préparez aucune remise
+            La cliente a initié un paiement chez le prestataire. Ne l’annulez pas et ne préparez aucune remise
             tant que la confirmation financière n’est pas vérifiée.
           </p>
         }
@@ -362,12 +362,16 @@
         </p>
       }
     </section>
+    @if (context.selectedId(); as org) {
+      @if (selected.order.status !== 'PENDING_PAYMENT_INTEGRATION' && selected.order.status !== 'CANCELLED') {
+        <g-commercial-cancellation [organizationId]="org" [orderId]="selected.order.id" target="DIRECT_ORDER" (changed)="open(selected.order)" />
+      }
+    }
     <div class="warning">
-      <strong>Encaissement Bictorys sous activation contrôlée</strong>
+      <strong>Préparation après paiement vérifié</strong>
       <p>
-        Le paiement direct reste désactivé par défaut et n’est ouvert qu’après autorisation serveur.
-        Seule une preuve de règlement vérifiée permet la préparation, jamais une simple tentative.
-        La remise, la livraison effective et le reversement ne sont pas encore activés.
+        Le règlement doit être vérifié avant la préparation. La remise et la livraison nécessitent
+        une confirmation explicite de leur réalisation.
       </p>
     </div>
   </section>

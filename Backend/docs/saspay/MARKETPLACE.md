@@ -46,6 +46,6 @@ Même avec ces variables activées, `realOperationsEnabled` reste false. Les op�
 
 Tests ciblés : PostgreSQL, idempotence, comptes/fournisseurs distincts, reprise après coupure, budget séparé, concurrence, preuves altérées, permissions, immutabilité, encaissements SasPay sous stub HTTP et non-régression Bictorys. Tests Angular et E2E pour devis/confirmation/reprise des deux types de simulation. Les résultats sont consignés dans FOLLOWUP.md après exécution ; la validation globale finale reste nécessaire.
 
-## Suite métier encore nécessaire
+## Annulations commerciales
 
-L'audit a confirmé que l'annulation d'une campagne n'annule pas encore ses commandes payées et ne crée pas de dossier de remboursement. Ce parcours est le lot suivant : il doit conserver le règlement original, bloquer la remise, isoler les montants déjà restitués, gérer les paiements encore incertains et distinguer remboursement externe attesté, simulation et preuve fournisseur. Aucun seuil minimum d'objectif de campagne n'est actuellement défini dans le modèle ; un seuil financier ou de quantité ne doit pas être inventé implicitement.
+Le suivi des annulations et remboursements est désormais décrit dans [CANCELLATIONS.md](CANCELLATIONS.md). Il conserve les règlements et ne confond pas une déclaration externe avec une preuve fournisseur ou une simulation. Les cas historiques avec commission exigent une compensation distincte avant libération du solde concerné.

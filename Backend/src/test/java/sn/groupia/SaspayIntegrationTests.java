@@ -756,6 +756,163 @@ class SaspayIntegrationTests {
                 .isNull();
     }
 
+    private UUID commercialOrderId() {
+        return jdbc.queryForObject(
+                "select id from orders where order_number=?",
+                UUID.class,
+                checkout.path("orderNumber").asText());
+    }
+
+    private void settleCommercialOrder() throws Exception {
+        quote();
+        queueInitiation();
+        initiate(key()).andExpect(status().isOk());
+        deliver(event("SUCCESS"));
+        http.reply(200, verification("SUCCESS"));
+        webhooks.retryPending();
+        await(
+                () ->
+                        "CONFIRMED"
+                                .equals(
+                                        jdbc.queryForObject(
+                                                "select status from orders where id=?",
+                                                String.class,
+                                                commercialOrderId())));
+    }
+
+    @Test
+    void cancelledPaidGroupageKeepsSaspayProofAndSeparatesExternalRefundFromProviderFees()
+            throws Exception {
+        settleCommercialOrder();
+        var order = commercialOrderId();
+        var path = "/api/organizations/" + org + "/orders/" + order + "/cancellation";
+        long version =
+                jdbc.queryForObject("select version from orders where id=?", Long.class, order);
+        var key = UUID.randomUUID();
+        var command = Map.of("version", version, "reason", "Demande cliente", "confirmed", true);
+        int calls = http.requests.size();
+        var result =
+                read(
+                        auth(post(path).header("Idempotency-Key", key), command)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        auth(post(path).header("Idempotency-Key", key), command).andExpect(status().isOk());
+        var id = result.path("caseId").asText();
+        var refundPath = "/api/organizations/" + org + "/commercial-refunds/" + id;
+        auth(get(refundPath))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("refund.amountDue").value(2000))
+                .andExpect(jsonPath("refund.legacyPlatformFee").value(0))
+                .andExpect(jsonPath("providerRefundAvailable").value(false));
+        auth(
+                        post(refundPath + "/external-declaration")
+                                .header("Idempotency-Key", UUID.randomUUID()),
+                        Map.of(
+                                "version",
+                                0,
+                                "externalMethod",
+                                "CASH",
+                                "note",
+                                "Restitution fictive pour test local",
+                                "confirmed",
+                                true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("historicalFeeCompensationDue").value(0));
+        await(
+                () ->
+                        "REFUNDED"
+                                .equals(
+                                        jdbc.queryForObject(
+                                                "select status from orders where id=?",
+                                                String.class,
+                                                order)));
+        assertThat(http.requests).hasSize(calls);
+        assertThat(jdbc.queryForObject("select status from payments", String.class))
+                .isEqualTo("SUCCEEDED");
+        assertThat(jdbc.queryForObject("select count(*) from commercial_refund_cases", Long.class))
+                .isEqualTo(1);
+        assertThat(
+                        balances.calculate(
+                                        org,
+                                        UUID.fromString(campaign.path("id").asText()),
+                                        true,
+                                        true,
+                                        true)
+                                .availableForPayout())
+                .isZero();
+        initiate(key()).andExpect(status().isConflict());
+    }
+
+    @Test
+    void campaignCancellationCreatesUnpaidCasesAndRejectsNewPaymentClaims() throws Exception {
+        quote();
+        var path =
+                "/api/organizations/" + org + "/grouping-campaigns/" + campaign.path("id").asText();
+        auth(
+                        post(path + "/cancel"),
+                        Map.of(
+                                "version",
+                                campaign.path("version").asLong(),
+                                "reason",
+                                "Annulation test"))
+                .andExpect(status().isOk());
+        await(
+                () ->
+                        jdbc.queryForObject(
+                                        "select count(*) from commercial_refund_cases", Long.class)
+                                == 1);
+        assertThat(jdbc.queryForObject("select status from commercial_refund_cases", String.class))
+                .isEqualTo("NO_REFUND_DUE");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from orders where id=?",
+                                String.class,
+                                commercialOrderId()))
+                .isEqualTo("CANCELLED");
+        int calls = http.requests.size();
+        initiate(key()).andExpect(status().isConflict());
+        assertThat(http.requests).hasSize(calls);
+    }
+
+    @Test
+    void uncertainCollectionOnCancelledCampaignResolvesToRefundAfterVerifiedLateSuccess()
+            throws Exception {
+        quote();
+        queueInitiation();
+        initiate(key()).andExpect(status().isOk());
+        var path =
+                "/api/organizations/" + org + "/grouping-campaigns/" + campaign.path("id").asText();
+        auth(
+                        post(path + "/cancel"),
+                        Map.of(
+                                "version",
+                                campaign.path("version").asLong(),
+                                "reason",
+                                "Annulation test"))
+                .andExpect(status().isOk());
+        TestEventDrain.awaitIdle(jdbc);
+        assertThat(jdbc.queryForObject("select count(*) from commercial_refund_cases", Long.class))
+                .isZero();
+        deliver(event("SUCCESS"));
+        http.reply(200, verification("SUCCESS"));
+        webhooks.retryPending();
+        await(
+                () ->
+                        "REFUND_PENDING"
+                                .equals(
+                                        jdbc.queryForObject(
+                                                "select status from orders where id=?",
+                                                String.class,
+                                                commercialOrderId())));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select amount_due from commercial_refund_cases",
+                                java.math.BigDecimal.class))
+                .isEqualByComparingTo("2000");
+        assertThat(jdbc.queryForObject("select status from payments", String.class))
+                .isEqualTo("SUCCEEDED");
+    }
+
     private void await(BooleanSupplier condition) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(20);

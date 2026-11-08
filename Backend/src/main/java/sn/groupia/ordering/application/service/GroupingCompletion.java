@@ -11,7 +11,7 @@ import sn.groupia.ordering.domain.model.*;
 import sn.groupia.ordering.domain.repository.Orders;
 import sn.groupia.ordering.domain.service.GroupingCompletionPolicy;
 import sn.groupia.organization.api.*;
-import sn.groupia.payment.api.PaymentCompletionFacts;
+import sn.groupia.payment.api.*;
 import sn.groupia.shared.api.ApiException;
 
 @Service
@@ -22,13 +22,16 @@ public class GroupingCompletion {
     private final OrganizationAccess access;
     private final PaymentCompletionFacts payments;
     private final ShippingFinance shipping;
+    private final CommercialRefunds refunds;
 
     public GroupingCompletion(
             CampaignCompletion campaigns,
             Orders orders,
             OrganizationAccess access,
             PaymentCompletionFacts payments,
-            ShippingFinance shipping) {
+            ShippingFinance shipping,
+            CommercialRefunds refunds) {
+        this.refunds = refunds;
         this.campaigns = campaigns;
         this.orders = orders;
         this.access = access;
@@ -91,13 +94,25 @@ public class GroupingCompletion {
             blockers.add(new Blocker("GROUPING_COMPLETION_INCONSISTENT_STATE", null, null));
         for (var o : all) {
             var facts = payments.read(org, o.getId());
+            var cancellation = refunds.find(org, PaymentTarget.order(o.getId()));
+            if (cancellation != null
+                    && cancellation.status().equals("EXTERNALLY_RECORDED")
+                    && cancellation.legacyPlatformFee().signum() > 0)
+                blockers.add(
+                        new Blocker(
+                                "PLATFORM_FEE_COMPENSATION_DUE", o.getId(), o.getOrderNumber()));
             try {
                 var position =
                         o.getStatus() == OrderStatus.COMPLETED
                                         || o.getStatus() == OrderStatus.CONFIRMED
                                 ? shipping.read(o)
                                 : null;
-                blockers.addAll(GroupingCompletionPolicy.evaluate(o, facts, position));
+                blockers.addAll(
+                        GroupingCompletionPolicy.evaluate(
+                                o,
+                                facts,
+                                position,
+                                refunds.externallyRecorded(org, PaymentTarget.order(o.getId()))));
             } catch (IllegalStateException ex) {
                 blockers.add(
                         new Blocker(
@@ -118,7 +133,8 @@ public class GroupingCompletion {
                         .filter(
                                 o ->
                                         o.getStatus() == OrderStatus.EXPIRED
-                                                || o.getStatus() == OrderStatus.CANCELLED)
+                                                || o.getStatus() == OrderStatus.CANCELLED
+                                                || o.getStatus() == OrderStatus.REFUNDED)
                         .count(),
                 blockers.stream()
                         .collect(

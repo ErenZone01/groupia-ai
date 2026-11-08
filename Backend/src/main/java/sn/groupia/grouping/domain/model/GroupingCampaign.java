@@ -41,6 +41,7 @@ public class GroupingCampaign {
     private Instant closedAt;
     private Instant completedAt;
     private Instant cancelledAt;
+    private UUID cancelledBy;
 
     @Column(length = 500)
     private String cancellationReason;
@@ -192,6 +193,15 @@ public class GroupingCampaign {
         if (status != GroupingCampaignStatus.IN_TRANSIT) throw invalidTransition();
         status = GroupingCampaignStatus.ARRIVED;
         touch(now);
+    }
+
+    public void cancelBy(UUID actor, String reason, Instant now) {
+        cancel(reason, now);
+        cancelledBy = java.util.Objects.requireNonNull(actor);
+    }
+
+    public UUID getCancelledBy() {
+        return cancelledBy;
     }
 
     public void cancel(String reason, Instant now) {

@@ -127,7 +127,13 @@ public class DirectOrderSettlementListener {
                         && !"PREPARING".equals(order.status())
                         && !"READY_FOR_PICKUP".equals(order.status())
                         && !"READY_FOR_DISPATCH".equals(order.status())
-                        && !java.util.List.of("DISPATCHED", "PICKED_UP", "DELIVERED", "COMPLETED")
+                        && !java.util.List.of(
+                                        "DISPATCHED",
+                                        "PICKED_UP",
+                                        "DELIVERED",
+                                        "COMPLETED",
+                                        "REFUND_PENDING",
+                                        "REFUNDED")
                                 .contains(order.status()))
                 || !"XOF".equals(order.currency())
                 || proof.amount().compareTo(BigDecimal.valueOf(order.total())) != 0) {

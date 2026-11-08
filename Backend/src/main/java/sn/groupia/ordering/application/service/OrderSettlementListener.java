@@ -51,6 +51,11 @@ public class OrderSettlementListener {
                 || request.expectedAmount().compareTo(event.amount()) != 0) {
             throw new IllegalStateException("Settlement contract inconsistent");
         }
+        // A cancellation preserves the original verified collection; late delivery of its durable
+        // event must neither reconfirm the order nor create a poison publication.
+        if (order.getStatus() == sn.groupia.ordering.domain.model.OrderStatus.REFUND_PENDING
+                || order.getStatus() == sn.groupia.ordering.domain.model.OrderStatus.REFUNDED)
+            return;
         if (event.purpose() == PaymentPurpose.SHIPPING_BALANCE) {
             if (order.getStatus() != sn.groupia.ordering.domain.model.OrderStatus.CONFIRMED
                     && order.getStatus() != sn.groupia.ordering.domain.model.OrderStatus.COMPLETED)
@@ -70,7 +75,9 @@ public class OrderSettlementListener {
                             order.getCampaignId(),
                             order.getId()));
         } else {
-            if (order.getStatus() != sn.groupia.ordering.domain.model.OrderStatus.CONFIRMED) {
+            if (order.getStatus() != sn.groupia.ordering.domain.model.OrderStatus.CONFIRMED
+                    && order.getStatus()
+                            != sn.groupia.ordering.domain.model.OrderStatus.COMPLETED) {
                 LoggerFactory.getLogger(getClass())
                         .error("Settlement cannot confirm ineligible order {}", event.orderId());
             }

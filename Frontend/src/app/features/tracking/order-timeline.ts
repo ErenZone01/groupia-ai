@@ -8,7 +8,11 @@ import { dateLabel } from '../../shared/utils/display';
   template: `
     <section aria-labelledby="order-progress-title">
       <h2 id="order-progress-title">Votre commande, étape par étape</h2>
-      @if (order().groupingProgress?.status === 'CANCELLED') {
+      @if (order().status === 'REFUND_PENDING') {
+        <p role="status">Commande annulée. Le remboursement est à traiter avec votre boutique.</p>
+      } @else if (order().status === 'REFUNDED') {
+        <p role="status">Votre boutique a déclaré le remboursement hors Groupia. Contactez-la si vous ne l’avez pas reçu.</p>
+      } @else if (order().groupingProgress?.status === 'CANCELLED') {
         <p role="status">Le groupage a été annulé. Contactez votre boutique pour la suite.</p>
       } @else {
         <ol>

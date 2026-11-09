@@ -91,7 +91,12 @@ public class DirectCustomerPaymentInitiation {
         String tokenHash = DirectAccessTokens.hashForLookup(token);
         requireEnabled();
         Order order = lookup(tokenHash);
-        if (!context(order).saspayEligible()) return List.of();
+        if (!context(order).saspayEligible())
+            throw new ApiException(
+                    409,
+                    "SASPAY_PAYER_REQUIRED",
+                    "Pour SasPay, prénom, nom, téléphone sénégalais et email valides sont requis.");
+
         return quotes.quotes(order.organizationId(), order.requestId());
     }
 

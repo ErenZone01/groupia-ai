@@ -175,6 +175,30 @@ class SaspayContractTests {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void livePilotQuoteIsCappedIncludingProviderFeesAndLimitedToOneOrganization() throws Exception {
+        var p = SaspayTestConfiguration.properties();
+        UUID organizationId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        var live = new SaspayProperties(
+                true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
+                p.checkoutHosts(), null, null, true, organizationId, new BigDecimal("2000"));
+        try (var stub = new SaspayHttpStub()) {
+            var adapter = new SaspayPaymentProvider(
+                    new SaspayClient(
+                            SaspayClient.builder(live).baseUrl(stub.url() + "/api/v1").build(),
+                            json, clock),
+                    live, null, json, clock);
+            assertThat(adapter.canQuoteForOrganization(organizationId)).isTrue();
+            assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isFalse();
+            stub.reply(200, SaspayTestConfiguration.rates());
+            assertThat(adapter.quote(new BigDecimal("1000"), "XOF", "wave_sn").fee())
+                    .isEqualByComparingTo("25");
+            stub.reply(200, SaspayTestConfiguration.rates());
+            assertThatThrownBy(() -> adapter.quote(new BigDecimal("2000"), "XOF", "wave_sn"))
+                    .hasMessage("SASPAY_LIVE_PILOT_LIMIT");
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {401, 403, 404, 409, 422, 429, 500})
     void httpErrorsAreSanitizedAndNeverAutomaticallyRetried(int status) throws Exception {

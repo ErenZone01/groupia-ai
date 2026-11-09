@@ -24,6 +24,45 @@ class SaspayContractTests {
                 .hasMessage("SASPAY_XOF_ROUNDING_UNCONFIRMED");
     }
 
+    @Test
+    void acceptsNumericJsonRateFieldsAsExactDecimalsWithoutGuessingXofRounding() {
+        var numericRates =
+                json.readTree(
+                        SaspayTestConfiguration.rates()
+                                .replace("\"min_amount\":\"0.00\"", "\"min_amount\":0.00")
+                                .replace("\"max_amount\":\"500000.00\"", "\"max_amount\":500000.00")
+                                .replace("\"percent\":\"2.500\"", "\"percent\":2.500")
+                                .replace("\"fixed\":\"0.00\"", "\"fixed\":0.00"));
+
+        assertThat(SaspayPricing.quote(numericRates, new BigDecimal("1000"), "XOF", "wave_sn").fee())
+                .isEqualByComparingTo("25");
+        assertThatThrownBy(
+                        () -> SaspayPricing.quote(numericRates, new BigDecimal("1100"), "XOF", "wave_sn"))
+                .hasMessage("SASPAY_XOF_ROUNDING_UNCONFIRMED");
+    }
+
+    @Test
+    void rejectsInvalidNumericShapesAndExcessivePrecision() {
+        var rates = json.readTree(SaspayTestConfiguration.rates());
+        var tier = (tools.jackson.databind.node.ObjectNode)
+                rates.get(0).path("payin").path("tiers").get(0);
+
+        tier.put("min_amount", -1);
+        assertThatThrownBy(
+                        () -> SaspayPricing.quote(rates, new BigDecimal("1000"), "XOF", "wave_sn"))
+                .hasMessage("SASPAY_INVALID_MONEY");
+
+        tier.put("min_amount", true);
+        assertThatThrownBy(
+                        () -> SaspayPricing.quote(rates, new BigDecimal("1000"), "XOF", "wave_sn"))
+                .hasMessage("SASPAY_INVALID_MONEY");
+
+        tier.put("min_amount", "0.0000001");
+        assertThatThrownBy(
+                        () -> SaspayPricing.quote(rates, new BigDecimal("1000"), "XOF", "wave_sn"))
+                .hasMessage("SASPAY_INVALID_MONEY");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"100000000000000", "99999999999999"})
     void rejectsAmountsOrTotalsOutsideTheVerificationRange(String amount) {

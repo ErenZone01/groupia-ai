@@ -23,6 +23,11 @@ public interface PaymentProvider {
     /** Server-selected merchant account, never trusted from public input. */
     String accountReference();
 
+    /** Allows limiting a live provider to a designated pilot organization. */
+    default boolean canQuoteForOrganization(java.util.UUID organizationId) {
+        return true;
+    }
+
     /** Static adapter metadata; financial validation remains mandatory for either policy. */
     default WebhookSuccessEvidence webhookSuccessEvidence() {
         return WebhookSuccessEvidence.SERVER_VERIFICATION;

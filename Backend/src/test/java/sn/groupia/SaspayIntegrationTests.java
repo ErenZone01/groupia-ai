@@ -576,6 +576,23 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void incompatibleDirectNetworkIsReportedRatherThanReturningSilentEmptyQuotes()
+            throws Exception {
+        var direct = directFixture();
+        http.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates()
+                        .replace("\"otp_required\":false", "\"otp_required\":true"));
+        directPost(
+                        "payment-quotes",
+                        Map.of("token", direct.token()),
+                        "direct-no-compatible-network")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SASPAY_NO_COMPATIBLE_QUOTE"));
+        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count()).isZero();
+    }
+
+    @Test
     void directSaspayRejectsAnotherTargetsQuoteAndChangedHistoricalAmount() throws Exception {
         var direct = directFixture();
         String foreign = quote();

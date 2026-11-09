@@ -14,9 +14,11 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import UUID
+from urllib.parse import urlsplit
 
 BASE = "https://api.saspay.me/api/v1"
-PATHS = ("/merchant-balances/", "/pricing/my-rates/")
+PATHS = ("/merchant-balances/", "/pricing/my-rates/",
+         "/merchant-webhooks/", "/merchant-webhook-subscriptions/")
 
 
 def load_env_file(path: str) -> dict[str, str]:
@@ -193,8 +195,49 @@ def print_quote_diagnostic(rates, amount, max_total, suggest_amounts=False):
                 print("    Aucun montant compatible trouvé entre 200 XOF et le plafond pilote.")
 
 
+def diagnose_webhooks(env, key):
+    """GET-only webhook configuration overview; never fetches delivery payloads or signing secrets."""
+    print("Webhook : secret configuré localement : " +
+          ("OUI" if env.get("SASPAY_WEBHOOK_SECRET", "").strip() else "NON"))
+    endpoints = data_rows(read_only_get("/merchant-webhooks/", key))
+    subscriptions = data_rows(read_only_get("/merchant-webhook-subscriptions/", key))
+    if not endpoints:
+        print("Aucun point de réception webhook listé sur cette page du compte.")
+    for hook in endpoints:
+        if not isinstance(hook, dict):
+            continue
+        address = urlsplit(str(hook.get("url") or ""))
+        # Never print URL queries or credentials; keep only scheme, hostname and path.
+        host = address.hostname or "hôte-invalide"
+        path = address.path or "/"
+        if not re.fullmatch(r"[a-zA-Z0-9.-]{1,250}", host):
+            host = "hôte-invalide"
+        if not re.fullmatch(r"/[a-zA-Z0-9/_.-]{0,250}", path):
+            path = "chemin-non-reconnu"
+        matches_path = path == "/api/payment/webhooks/saspay"
+        environment = hook.get("environment")
+        enabled = hook.get("is_active") is True
+        hook_id = hook.get("id")
+        events = sorted({
+            row["event_type"]
+            for row in subscriptions
+            if isinstance(row, dict) and row.get("webhook") == hook_id
+            and isinstance(row.get("event_type"), str)
+            and re.fullmatch(r"[a-z_]+(?:\.[a-z_]+)?", row["event_type"])
+        })
+        print("  Endpoint: HTTPS=" + ("OUI" if address.scheme == "https" else "NON") +
+              ", hôte=" + host + ", chemin=" + path)
+        print("    Environnement=" + (str(environment) if environment in ("LIVE", "TEST") else "INCONNU") +
+              ", actif=" + ("OUI" if enabled else "NON") +
+              ", chemin Groupia attendu=" + ("OUI" if matches_path else "NON"))
+        print("    Événements abonnés (première page) : " + (", ".join(events) or "aucun constaté"))
+    print("Important : GET ne renvoie jamais signing_secret. Pour un HTTP 401 HMAC,")
+    print("comparer le secret du webhook LIVE dans le dashboard avec SASPAY_WEBHOOK_SECRET.")
+    print("Si perdu : faire une rotation depuis le dashboard et mettre à jour le backend.")
+
+
 def diagnose(env: dict[str, str], amount=None, organization_id=None,
-             suggest_amounts=False):
+             suggest_amounts=False, check_webhooks=False):
     key = env.get("SASPAY_API_KEY", "")
     if not (key.startswith("sk_live_") or key.startswith("sk_test_")):
         print("SASPAY_API_KEY manquante ou de format inconnu.")
@@ -242,6 +285,8 @@ def diagnose(env: dict[str, str], amount=None, organization_id=None,
                                        suggest_amounts=suggest_amounts)
         if not senegal:
             print("Aucun tarif pay-in compatible constaté; ne pas activer les paiements.")
+        if check_webhooks:
+            diagnose_webhooks(env, key)
         return 0
     except HTTPError as e:
         print("Requête SasPay refusée (HTTP " + str(e.code) + "). Vérifier la clé et ses droits.")
@@ -259,6 +304,8 @@ if __name__ == "__main__":
     parser.add_argument("--organization-id", help="UUID Groupia de la boutique test")
     parser.add_argument("--suggest-amounts", action="store_true",
                         help="Cherche seulement des montants fictifs éligibles par réseau (lecture seule)")
+    parser.add_argument("--check-webhooks", action="store_true",
+                        help="Vérifie URL et abonnements des webhooks LIVE via GET seulement")
     args = parser.parse_args()
     if args.amount_xof is not None and args.amount_xof <= 0:
         parser.error("--amount-xof doit être positif")
@@ -267,4 +314,4 @@ if __name__ == "__main__":
     if args.suggest_amounts and args.amount_xof is None:
         parser.error("--suggest-amounts nécessite --amount-xof")
     raise SystemExit(diagnose(variables, args.amount_xof, args.organization_id,
-                              args.suggest_amounts))
+                              args.suggest_amounts, args.check_webhooks))

@@ -142,7 +142,28 @@ def quote_reason(rate, amount, max_total):
     except (TypeError, InvalidOperation, KeyError, AttributeError):
         return "tarif incomplet ou structure incohérente"
 
-def print_quote_diagnostic(rates, amount, max_total):
+
+def compatible_amounts(rate, reference_amount, max_total, limit=3):
+    """Find sample integer XOF order amounts. Read-only and never promises bookability."""
+    if not isinstance(rate, dict) or max_total <= 0:
+        return []
+    code, name = rate.get("network_code"), rate.get("network_name")
+    if not isinstance(code, str) or not re.fullmatch(r"[a-z0-9_]{1,64}", code):
+        return []
+    if not isinstance(name, str) or not name.strip() or len(name) > 120:
+        return []
+    # Keep exploration inside the existing pilot ceiling including calculated fees.
+    upper = min(5000, int(max_total))
+    if upper < 200:
+        return []
+    possible = []
+    for amount in range(200, upper + 1):
+        reason = quote_reason(rate, Decimal(amount), max_total)
+        if reason.startswith("devis théoriquement compatible"):
+            possible.append(amount)
+    return sorted(possible, key=lambda amount: (abs(Decimal(amount) - reference_amount), amount))[:limit]
+
+def print_quote_diagnostic(rates, amount, max_total, suggest_amounts=False):
     if amount <= 0:
         raise ValueError("invalid amount")
     print(f"Analyse locale et indicative : commande {amount} XOF, plafond {max_total} XOF.")
@@ -163,9 +184,17 @@ def print_quote_diagnostic(rates, amount, max_total):
         else:
             reason = quote_reason(rate, amount, max_total)
         print("  " + label + ": " + reason)
+        if suggest_amounts and reason != "devis théoriquement compatible avec les règles locales":
+            examples = compatible_amounts(rate, amount, max_total)
+            if examples:
+                print("    Montants d'exemple théoriquement compatibles (XOF) : " +
+                      ", ".join(map(str, examples)))
+            else:
+                print("    Aucun montant compatible trouvé entre 200 XOF et le plafond pilote.")
 
 
-def diagnose(env: dict[str, str], amount=None, organization_id=None):
+def diagnose(env: dict[str, str], amount=None, organization_id=None,
+             suggest_amounts=False):
     key = env.get("SASPAY_API_KEY", "")
     if not (key.startswith("sk_live_") or key.startswith("sk_test_")):
         print("SASPAY_API_KEY manquante ou de format inconnu.")
@@ -209,7 +238,8 @@ def diagnose(env: dict[str, str], amount=None, organization_id=None):
             if not raw_cap.isdigit() or not 1 <= int(raw_cap) <= 5000:
                 print("Plafond pilote absent ou invalide : refus de simuler un devis.")
             else:
-                print_quote_diagnostic(rates, Decimal(amount), Decimal(raw_cap))
+                print_quote_diagnostic(rates, Decimal(amount), Decimal(raw_cap),
+                                       suggest_amounts=suggest_amounts)
         if not senegal:
             print("Aucun tarif pay-in compatible constaté; ne pas activer les paiements.")
         return 0
@@ -227,9 +257,14 @@ if __name__ == "__main__":
     parser.add_argument("--env-file", help="Chemin local du fichier .env (jamais affiché)")
     parser.add_argument("--amount-xof", type=int, help="Montant de commande, sans frais")
     parser.add_argument("--organization-id", help="UUID Groupia de la boutique test")
+    parser.add_argument("--suggest-amounts", action="store_true",
+                        help="Cherche seulement des montants fictifs éligibles par réseau (lecture seule)")
     args = parser.parse_args()
     if args.amount_xof is not None and args.amount_xof <= 0:
         parser.error("--amount-xof doit être positif")
     variables = dict(load_env_file(args.env_file)) if args.env_file else {}
     variables.update(os.environ)
-    raise SystemExit(diagnose(variables, args.amount_xof, args.organization_id))
+    if args.suggest_amounts and args.amount_xof is None:
+        parser.error("--suggest-amounts nécessite --amount-xof")
+    raise SystemExit(diagnose(variables, args.amount_xof, args.organization_id,
+                              args.suggest_amounts))

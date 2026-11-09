@@ -34,7 +34,10 @@ public class SaspayTestConfiguration {
                 UUID.fromString(MERCHANT),
                 Set.of("pay.saspay.me"),
                 Duration.ofSeconds(1),
-                Duration.ofSeconds(2));
+                Duration.ofSeconds(2),
+                false,
+                null,
+                null);
     }
 
     @Bean

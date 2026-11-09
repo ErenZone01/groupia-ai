@@ -1,5 +1,5 @@
 import unittest
-from saspay_diagnostics import data_rows, load_env_file, read_only_get
+from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +11,33 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
                          [{"merchant": "a"}])
         self.assertEqual(data_rows({"count": 0, "results": []}), [])
         self.assertEqual(data_rows([{"country_code": "SN"}]), [{"country_code": "SN"}])
+
+    def test_quote_reason_for_exact_and_fractional_fees(self):
+        from decimal import Decimal
+        rate = {"payin": {"available": True, "otp_required": False, "tiers": [{
+            "min_amount": "0.00", "max_amount": "500000.00",
+            "currency": "XOF", "fee_charge_mode": "ADD_ON",
+            "percent": "2.500", "fixed": "0.00",
+            "floor_amount": None, "cap_amount": None
+        }]}}
+        self.assertIn("compatible", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        self.assertIn("fractionnaires", quote_reason(rate, Decimal(1100), Decimal(2000)))
+        self.assertIn("plafond", quote_reason(rate, Decimal(2000), Decimal(2000)))
+        rate["payin"]["otp_required"] = True
+        self.assertIn("OTP", quote_reason(rate, Decimal(1000), Decimal(2000)))
+
+    def test_requires_add_on_and_textual_money(self):
+        from decimal import Decimal
+        rate = {"payin": {"available": True, "otp_required": False, "tiers": [{
+            "min_amount": "0.00", "max_amount": "500000.00",
+            "currency": "XOF", "fee_charge_mode": "DEDUCTED",
+            "percent": "2.500", "fixed": "0.00",
+            "floor_amount": None, "cap_amount": None
+        }]}}
+        self.assertIn("ADD_ON", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        rate["payin"]["tiers"][0]["fee_charge_mode"] = "ADD_ON"
+        rate["payin"]["tiers"][0]["percent"] = 2.5
+        self.assertIn("format", quote_reason(rate, Decimal(1000), Decimal(2000)))
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

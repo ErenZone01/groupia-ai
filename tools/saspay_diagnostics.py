@@ -66,6 +66,27 @@ def _money(value):
     return Decimal(value)
 
 
+def _tariff_field(tier, field, *, nullable=False):
+    """Identify the exact incompatible tariff field without revealing merchant rates."""
+    if not isinstance(tier, dict):
+        raise ValueError("palier non structuré comme un objet JSON")
+    if field not in tier:
+        raise ValueError("champ tarifaire '" + field + "' absent")
+    value = tier[field]
+    if value is None and nullable:
+        return None
+    if not isinstance(value, str):
+        typename = (
+            "nombre" if isinstance(value, (int, float)) and not isinstance(value, bool)
+            else type(value).__name__
+        )
+        raise ValueError("champ '" + field + "' de type " + typename + " (texte décimal attendu)")
+    try:
+        return _money(value)
+    except (ValueError, InvalidOperation):
+        raise ValueError("champ '" + field + "' : format décimal non reconnu") from None
+
+
 def quote_reason(rate, amount, max_total):
     """Classify a network locally. Never initiates payment or guesses rounding."""
     payin = rate.get("payin", {})
@@ -75,13 +96,12 @@ def quote_reason(rate, amount, max_total):
         return "OTP ou autorisation non compatible avec le parcours actuel"
     tiers = payin.get("tiers")
     if not isinstance(tiers, list):
-        return "tarifs incomplets"
+        return "champ 'payin.tiers' absent ou non structuré en liste"
     try:
         matched = []
         for tier in tiers:
-            low = _money(tier["min_amount"])
-            high = tier.get("max_amount")
-            high = _money(high) if high is not None else None
+            low = _tariff_field(tier, "min_amount")
+            high = _tariff_field(tier, "max_amount", nullable=True)
             if amount >= low and (high is None or amount <= high):
                 matched.append(tier)
         if len(matched) != 1:
@@ -89,20 +109,25 @@ def quote_reason(rate, amount, max_total):
         tier = matched[0]
         if tier.get("currency") != "XOF" or tier.get("fee_charge_mode") != "ADD_ON":
             return "frais à la charge du client (ADD_ON) non confirmés"
-        fee = amount * _money(tier["percent"]) / Decimal("100") + _money(tier["fixed"])
-        floor, cap = tier.get("floor_amount"), tier.get("cap_amount")
+        fee = (amount * _tariff_field(tier, "percent") / Decimal("100")
+               + _tariff_field(tier, "fixed"))
+        floor = _tariff_field(tier, "floor_amount", nullable=True)
+        cap = _tariff_field(tier, "cap_amount", nullable=True)
+        if floor is not None and cap is not None and floor > cap:
+            return "plancher tarifaire supérieur au plafond de frais"
         if floor is not None:
-            fee = max(fee, _money(floor))
+            fee = max(fee, floor)
         if cap is not None:
-            fee = min(fee, _money(cap))
+            fee = min(fee, cap)
         if fee != fee.to_integral_value():
             return "frais fractionnaires XOF : règle d'arrondi non confirmée"
         if amount + fee > max_total:
             return "total frais inclus supérieur au plafond pilote"
         return "devis théoriquement compatible avec les règles locales"
-    except (ValueError, TypeError, InvalidOperation, KeyError, AttributeError):
-        return "tarif incomplet ou format non accepté par Groupia"
-
+    except ValueError as e:
+        return str(e)
+    except (TypeError, InvalidOperation, KeyError, AttributeError):
+        return "tarif incomplet ou structure incohérente"
 
 def print_quote_diagnostic(rates, amount, max_total):
     if amount <= 0:

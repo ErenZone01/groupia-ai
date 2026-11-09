@@ -11,6 +11,8 @@ import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.*;
 
 public final class SaspayPaymentProvider implements PaymentProvider {
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(SaspayPaymentProvider.class);
     private final SaspayClient client;
     private final SaspayProperties properties;
     private final PaymentQuoteStore quotes;
@@ -69,13 +71,22 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                     || !currency.equals(text(rate, "currency"))) continue;
             var network = text(rate, "network_code");
             var label = text(rate, "network_name");
-            if (label == null || label.isBlank() || label.length() > 120) continue;
+            // Log only validated provider identifiers and internal error codes; never rates or PII.
+            var safeNetwork =
+                    network != null && network.matches("[a-z0-9_]{1,64}")
+                            ? network
+                            : "(invalid-network-code)";
+            if (label == null || label.isBlank() || label.length() > 120) {
+                log.debug("SasPay quote skipped for network {}: INVALID_NETWORK_LABEL", safeNetwork);
+                continue;
+            }
             try {
                 var fee = SaspayPricing.quote(rates, amount, currency, network);
                 enforceLivePilotLimit(amount, fee.fee());
                 result.add(new ProviderFee(fee.country(), fee.network(), label, fee.fee()));
             } catch (SaspayException unsupported) {
-                /* Unsupported/ambiguous rates must never become payable. */
+                // Only fixed internal error codes are retained; do not log external rate values.
+                log.debug("SasPay quote skipped for network {}: {}", safeNetwork, unsupported.getMessage());
             }
         }
         return List.copyOf(result);

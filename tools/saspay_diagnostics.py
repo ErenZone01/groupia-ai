@@ -146,7 +146,14 @@ def print_quote_diagnostic(rates, amount, max_total):
         label = str(rate.get("network_code") or "unknown")
         if not re.fullmatch(r"[a-z0-9_]{1,64}", label):
             label = "reseau_non_reconnu"
-        print("  " + label + ": " + quote_reason(rate, amount, max_total))
+        name = rate.get("network_name")
+        if not re.fullmatch(r"[a-z0-9_]{1,64}", label):
+            reason = "network_code absent ou invalide : rejet côté Java"
+        elif not isinstance(name, str) or not name.strip() or len(name) > 120:
+            reason = "network_name absent ou invalide : réseau ignoré côté Java"
+        else:
+            reason = quote_reason(rate, amount, max_total)
+        print("  " + label + ": " + reason)
 
 
 def diagnose(env: dict[str, str], amount=None, organization_id=None):

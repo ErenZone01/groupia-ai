@@ -7,7 +7,7 @@ import {
 } from './direct-sales.api';
 import { PublicShell } from '../checkout/public-shell';
 import { money } from '../../shared/utils/display';
-import { rejectedFeeQuote } from '../../core/http/api-error';
+import { apiCode, apiMessage, rejectedFeeQuote } from '../../core/http/api-error';
 import type { PaymentFeeQuoteView } from '../../api/generated/models';
 import { safeBictorysCheckout } from '../customer-access/customer-shipping-payment';
 
@@ -390,9 +390,20 @@ export class DirectOrderTrackingPage {
         this.paymentError.set(
           'Aucun moyen SasPay disponible pour les coordonnées de cette commande.',
         );
-    } catch {
-      if (sequence === this.sequence)
-        this.paymentError.set('Les frais sont indisponibles. Réessayez plus tard.');
+    } catch (error) {
+      if (sequence === this.sequence) {
+        const code = apiCode(error);
+        const expected = [
+          'SASPAY_PAYER_REQUIRED',
+          'SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED',
+          'SASPAY_NO_COMPATIBLE_QUOTE',
+        ];
+        this.paymentError.set(
+          expected.includes(code)
+            ? apiMessage(error)
+            : 'Les frais sont indisponibles. Réessayez plus tard.',
+        );
+      }
     } finally {
       if (sequence === this.sequence) this.paymentBusy.set(false);
     }

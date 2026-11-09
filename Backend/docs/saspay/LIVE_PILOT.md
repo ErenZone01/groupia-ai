@@ -277,3 +277,94 @@ règle d'arrondi côté pay-in, mode `ADD_ON` appliqué au compte, correspondanc
 des tests contractuels sur cette réponse. **Ne pas inventer CEILING/FLOOR/HALF_UP**.
 Le fournisseur peut ignorer `fee_charge_mode` sur les opérations softpay si
 l'option `ALLOW_CLIENT_OVERRIDE` n'est pas active (voir documentation SasPay).
+
+## Retour pilote live et correction diagnostic webhook — 9 novembre 2026
+
+L'utilisateur a déclenché une initiation réelle Expresso pour
+`DIR-000000000011`. Le tableau de bord SasPay montre une transaction
+**PENDING** et un mode `ADD_ON` :
+montant demandé 1000 XOF ; frais gateway 24 XOF ; frais SasPay plateforme
+115 XOF ; frais client totaux 139 XOF ; montant débité **prévu**
+1139 XOF ; net **prévu** 1000 XOF. Les deux tentatives de livraison du
+webhook `transaction.created` ont renvoyé **HTTP 401**. « Tentative
+réussie » signifie que la demande a été transmise au réseau, **pas
+que l'encaissement est confirmé**. Aucun payout vendeur n'a été démontré.
+
+### Documentation et fichiers réellement lus
+
+Le dépôt contient déjà `skills/saspay-integration/SKILL.md` et
+`skills/saspay-integration/AGENTS.MD`, références complètes de
+l'intégration ; ils sont documentés par
+https://docs.saspay.me/llms.txt. Le contrat OpenAPI conservé
+`Backend/docs/saspay/openapi.json` contient les routes
+`GET /merchant-webhooks/`, `GET /merchant-webhook-subscriptions/`,
+`GET /payments/{payment_id}/verify/` et
+`POST /checkout-sessions/`. Il ne définit pas d'endpoint de pré-devis
+garanti pour chaque réseau et n'indique pas la règle d'arrondi des
+frais XOF fractionnaires. Ne pas en inventer.
+
+Guide webhook : https://docs.saspay.me/api-reference/webhooks
+Signature : HMAC SHA-256 sur octets bruts `timestamp.body`,
+`X-Webhook-Signature` en hex minuscule,
+`X-Webhook-Timestamp` en secondes, tolérance ±300 s.
+Le `signing_secret` est **distinct** de `sk_live_...`.
+Il appartient au **point de réception** et ne peut pas être relu via GET
+SasPay. Seules création/rotation depuis le dashboard le montrent.
+Les reprises sont automatiques selon la politique SasPay mais peuvent
+être relancées manuellement après correction.
+
+### Diagnostic sans transfert ni débit
+
+```powershell
+# Racine du dépôt, après récupération de la dernière branche
+python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95a0515-1bcf-4740-8417-c594d02f211e --amount-xof 1000 --check-webhooks
+python -m unittest discover -s tools -p test_saspay_diagnostics.py
+```
+
+Ce script ne fait que des GET sur la liste des points de réception
+et de leurs abonnements (pas les payloads des livraisons). Il n'affiche
+que les hôtes/chemins des URL, les indicateurs LIVE/actif et les types
+d'événement, jamais les paramètres d'URL, la clé API ou le signing secret.
+La présence d'un secret local n'implique **pas** qu'il correspond à celui
+du point de réception LIVE.
+
+Le backend fournit désormais deux traces DEBUG (activer seulement le
+paquet `sn.groupia.payment.infrastructure`) :
+- `SasPay webhook reached Spring payment controller` : le POST atteint Spring.
+- `SasPay webhook authentication rejected: <REASON>` : une signature est refusée
+  pour code fixe `HMAC_MISMATCH`, `TIMESTAMP_OUTSIDE_300S_WINDOW`,
+  `SIGNATURE_HEADER_MISSING_OR_DUPLICATE`, `INVALID_SIGNATURE_FORMAT`, etc.
+
+Si SasPay voit HTTP 401 et **aucune première trace**, chercher une couche
+Cloudflare/reverse-proxy/access-control/routage en amont (ou une instance
+non redémarrée). Si les deux traces apparaissent et le code
+`HMAC_MISMATCH`, vérifier le secret de signature du webhook **LIVE**
+à l'aide du tableau de bord SasPay ; en cas de doute, **faire une
+rotation** depuis le tableau de bord et recharger uniquement la variable
+`SASPAY_WEBHOOK_SECRET` côté serveur. Ne pas désactiver la vérification.
+Si l'horodatage est hors fenêtre, synchroniser l'horloge ; si un header
+est absent, vérifier le proxy. Ne pas afficher les corps ou headers.
+
+Une fois corrigé, envoyer uniquement le **webhook de test** depuis le
+tableau de bord ou retransmettre un événement légitime qui était
+refusé — aucune nouvelle initiation de paiement. Le test donne une
+réponse 2xx si la vérification HMAC passe et que la réception peut
+être persistée. `transaction.created` conserve l'état PENDING ;
+seul `GET /payments/{id}/verify/` avec SUCCESS et contrôles financiers
+permet d'avancer l'état de la commande. Un débit en attente ne doit
+jamais être considéré comme réussi. Le solde du marchand SasPay n'est
+pas un versement au compte de la vendeuse.
+
+### Réseaux restants
+
+Wave, Orange et Free Money retournent des frais fractionnaires dans
+les conditions tarifaires du compte à 1000 XOF. Djamo et PayDunya
+n'ont pas de palier compatible jusqu'au plafond actuel de 2000 XOF,
+frais inclus. Le tarif public du marchand et le payload `fee_charge_mode`
+ne garantissent pas l'arrondi final. Les seules options validées ici
+sont l'affichage de devis exacts et refus des devis non sûrs.
+Un parcours alternatif de checkout **hébergé** (`POST /checkout-sessions/`)
+est documenté mais doit être conçu avec son propre consentement client,
+idempotence, plafond, anti-doublon et vérification d'état ; il n'est
+pas ajouté automatiquement dans cette PR pour ne pas contourner les
+contrôles financiers.

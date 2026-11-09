@@ -146,3 +146,51 @@ Si les tests et le devis sont positifs, vérifier depuis l'interface seulement
 Ne pas initier de paiement live avant revue du contrat financier et validation du
 workflow de confirmation. Les changements ci-dessus n'ont pas été exécutés sur
 Maven/CI dans cet environnement.
+
+## Résolution du contexte de tests et diagnostic du devis live (9 novembre, soir)
+
+L'échec de `SaspayIntegrationTests` provient de `ProductionCommercePolicy` : une
+valeur historique `groupia.ordering.platform-fee-xof=300` injectée par
+`TestcontainersConfiguration` a activé la protection de production quand le profil
+`prod` du local `.env` a été récupéré par le contexte de test. Les tests d'intégration
+sont maintenant annotés `@ActiveProfiles("test")` afin de ne **jamais charger les
+politiques de production** pendant les tests qui créent/tronquent leur base
+Testcontainers. Le serveur réel doit rester en `prod` pour sa clé `sk_live_`.
+
+Un véritable appel `POST /api/public/direct-orders/payment-quotes` a renvoyé
+`409 SASPAY_NO_COMPATIBLE_QUOTE`, même après correction du parsing numérique.
+Ce n'est pas une raison pour lever le refus ni abaisser les protections.
+
+Le diagnostic de tarifs Python compare désormais aussi `network_name` et le code
+réseau aux exigences Java. En mode logging DEBUG de
+`sn.groupia.payment.infrastructure.provider.saspay.SaspayPaymentProvider`, chaque
+réseau rejeté est indiqué par son identifiant validé et son **code d'erreur interne
+uniquement** ; aucune clé, détail de client, taux ou réponse brute du fournisseur
+n'est journalisé.
+
+Pour reproduire sans payer :
+
+```powershell
+# Racine projet : remplacer 1000 par accepted_total_xof EXACT de la commande
+python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95a0515-1bcf-4740-8417-c594d02f211e --amount-xof 1000
+# Backend dans un terminal séparé des tests : ajouter un logging limité lors du démarrage
+$env:LOGGING_LEVEL_SN_GROUPIA_PAYMENT_INFRASTRUCTURE_PROVIDER_SASPAY_SASPAYPAYMENTPROVIDER = "DEBUG"
+# Ou option JVM Spring : --logging.level.sn.groupia.payment.infrastructure.provider.saspay.SaspayPaymentProvider=DEBUG
+```
+
+Sur PowerShell, pour les noms de propriétés Spring complexes, privilégier plutôt une
+option de lancement Spring `--logging.level.sn.groupia.payment.infrastructure.provider.saspay=DEBUG`
+que le nom d'une variable d'environnement créé à la main. Ne jamais augmenter
+le niveau de logs HTTP ou afficher les en-têtes Authorization.
+
+Avant de reproduire, relever le montant réel de la commande :
+
+```sql
+SELECT order_number, accepted_total_xof
+FROM direct_orders
+WHERE order_number IN ('DIR-000000000008','DIR-000000000009');
+```
+
+Tests manuels et Maven complets toujours à exécuter sur le nouveau HEAD. Les tests
+SasPay restent isolés par un fournisseur HTTP simulé et une base temporaire,
+mais la recette de la vraie clé et des devis SasPay est une procédure distincte.

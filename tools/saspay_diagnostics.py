@@ -61,14 +61,23 @@ def read_only_get(path: str, api_key: str):
 
 
 def _money(value):
-    """Accept precise decimal strings or JSON numbers; preserve numeric exactness."""
+    """Parse textual decimals strictly and JSON numeric decimals by exact value."""
     if isinstance(value, bool) or not isinstance(value, (str, int, Decimal)):
         raise ValueError("invalid decimal rate")
-    literal = str(value)
-    if not re.fullmatch(r"[0-9]{1,14}(?:\.[0-9]{1,6})?", literal):
-        raise ValueError("invalid decimal rate")
-    return Decimal(literal)
-
+    if isinstance(value, str):
+        # Strings must use the documented fixed-point representation.
+        if not re.fullmatch(r"[0-9]{1,14}(?:\.[0-9]{1,6})?", value):
+            raise ValueError("invalid decimal rate")
+        result = Decimal(value)
+    else:
+        # Exponent notation such as 0E-12 is legitimate for JSON numbers,
+        # provided the value is within the original range and precision bounds.
+        result = Decimal(value)
+        if result < 0 or result >= Decimal("100000000000000"):
+            raise ValueError("invalid decimal rate")
+        if result.normalize().as_tuple().exponent < -6:
+            raise ValueError("invalid decimal rate")
+    return result
 
 def _tariff_field(tier, field, *, nullable=False):
     """Identify an incompatible field without revealing confidential rate values."""

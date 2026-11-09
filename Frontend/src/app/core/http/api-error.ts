@@ -23,6 +23,12 @@ const messages: Record<string, string> = {
   MEDIA_CONTENT_TYPE_MISMATCH: 'Le format réel du fichier ne correspond pas au format annoncé.',
   MEDIA_INVALID_IMAGE: 'Cette image est illisible ou corrompue. Choisissez un autre fichier.',
   MEDIA_ANIMATION_UNSUPPORTED: 'Les images animées ne sont pas prises en charge.',
+  SASPAY_PAYER_REQUIRED:
+    'Pour utiliser SasPay, créez une commande avec prénom, nom, téléphone sénégalais et email valides.',
+  SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED:
+    "Le paiement pilote SasPay n'est pas encore autorisé pour cette boutique.",
+  SASPAY_NO_COMPATIBLE_QUOTE:
+    "Aucun moyen SasPay compatible avec ce montant. Les frais ou les limites du pilote peuvent en être la cause.",
   SUBSCRIPTION_REQUIRED:
     "L'essai gratuit est terminé. Un abonnement actif est requis pour ouvrir de nouvelles ventes directes ou de nouveaux groupages.",
   SUBSCRIPTION_BILLING_UNAVAILABLE:

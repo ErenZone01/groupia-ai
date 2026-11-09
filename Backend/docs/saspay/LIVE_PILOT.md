@@ -194,3 +194,46 @@ WHERE order_number IN ('DIR-000000000008','DIR-000000000009');
 Tests manuels et Maven complets toujours à exécuter sur le nouveau HEAD. Les tests
 SasPay restent isolés par un fournisseur HTTP simulé et une base temporaire,
 mais la recette de la vraie clé et des devis SasPay est une procédure distincte.
+
+## Diagnostic Java numérique en notation scientifique — 9 novembre, 20h22 UTC
+
+Après la première correction de lecture des nombres JSON, le vrai devis
+`/api/public/direct-orders/payment-quotes` retournait encore
+`409 SASPAY_NO_COMPATIBLE_QUOTE` avec le scan Java suivant :
+`rates=64, countryCurrencyMatches=7, acceptedNetworks=0`.
+Les réseaux Wave/Orange/Expresso/FreeMoney/Wizall étaient exclus par
+`SASPAY_INVALID_MONEY`, alors que les tests Python en lecture seule
+trouvaient Expresso et Wizall théoriquement compatibles pour **1000 XOF**.
+
+Cause technique probable : `SaspayPricing.decimal` appliquait une expression
+régulière au résultat de `JsonNode.asText()`, y compris aux nombres JSON.
+Le texte produit par le parseur peut employer une notation scientifique
+légitime (`0E-8` ou `1E+3`), qui ne correspond pas à la forme décimale
+attendue par la regex. Les chaînes JSON restent strictement validées ;
+les **nombres** JSON utilisent désormais `JsonNode.decimalValue()` puis
+des bornes par valeur (`0 <= amount < 1e14`, au plus six décimales non nulles).
+Aucune conversion en float, approximation du taux, ou règle d'arrondi XOF
+n'a été ajoutée.
+
+Les tests contractuels couvrent les notations numériques exponentielles,
+les montants invalides/excessifs, les chaînes exponentielles interdites et
+le refus d'arrondir 27,5 FCFA de frais. Le diagnostic Python suit les mêmes
+bornes. Pour les refus restants, une ligne DEBUG indique le **nom du champ**
+`min_amount`/`max_amount`/`percent`/`fixed`/`floor_amount`/`cap_amount`
+et le type JSON, jamais sa valeur.
+
+Le rapport utilisateur précédent confirme **48 tests réussis, BUILD SUCCESS**
+pour les commits antérieurs, mais pas encore pour le présent correctif.
+
+Validation avant paiement live :
+```powershell
+git pull --ff-only origin saspay-payin-v1
+cd Backend
+$env:SPRING_PROFILES_ACTIVE = "test"
+.\mvnw.cmd "-Dtest=SaspayContractTests,SaspayIntegrationTests" test
+```
+Puis dans un terminal **distinct**, redémarrer le vrai backend `prod`
+avec les variables SasPay habituelles (et logging DEBUG restreint
+au paquet `sn.groupia.payment.infrastructure.provider.saspay`) et
+cliquer uniquement sur « Voir les frais SasPay » pour une commande
+de 1000 XOF. Examiner `payment-quotes` sans effectuer d'encaissement.

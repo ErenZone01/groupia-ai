@@ -49,6 +49,7 @@ public class PaymentQuotes implements PaymentQuoteOperations {
                     "SASPAY_ORDER_NOT_ELIGIBLE",
                     "Cette commande ne permet pas ce paiement sans commission.");
         var provider = providers.require("SASPAY");
+        if (!provider.canQuoteForOrganization(org)) return java.util.List.of();
         java.util.List<sn.groupia.payment.domain.service.ProviderFee> fees;
         try {
             fees = provider.quotes(request.expectedAmount(), request.currency());

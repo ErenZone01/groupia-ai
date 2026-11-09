@@ -92,6 +92,16 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
             print_quote_diagnostic([rate], Decimal(1000), Decimal(2000))
         self.assertIn("compatible", buf.getvalue())
 
+    def test_numeric_exponent_notation_is_exact_and_bounded(self):
+        from decimal import Decimal
+        from saspay_diagnostics import _money
+        self.assertEqual(_money(Decimal("0E-12")), Decimal(0))
+        self.assertEqual(_money(Decimal("1E+3")), Decimal(1000))
+        self.assertEqual(_money(Decimal("2.500")), Decimal("2.500"))
+        for value in (Decimal("0.0000001"), Decimal("-1"), Decimal("1E+14"), "2.5E+0"):
+            with self.subTest(value=str(value)), self.assertRaises(ValueError):
+                _money(value)
+
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):
             read_only_get("/payouts/initialize/", "sk_test_dummy")

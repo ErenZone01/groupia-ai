@@ -37,7 +37,24 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertIn("ADD_ON", quote_reason(rate, Decimal(1000), Decimal(2000)))
         rate["payin"]["tiers"][0]["fee_charge_mode"] = "ADD_ON"
         rate["payin"]["tiers"][0]["percent"] = 2.5
-        self.assertIn("format", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        self.assertIn("type nombre", quote_reason(rate, Decimal(1000), Decimal(2000)))
+
+    def test_reports_exact_missing_tariff_field_without_amounts(self):
+        from decimal import Decimal
+        rate = {"payin": {"available": True, "otp_required": False, "tiers": [{
+            "min_amount": "0.00", "max_amount": "500000.00",
+            "currency": "XOF", "fee_charge_mode": "ADD_ON",
+            "percent": "2.500", "fixed": "0.00",
+            "floor_amount": None, "cap_amount": None
+        }]}}
+        del rate["payin"]["tiers"][0]["floor_amount"]
+        cause = quote_reason(rate, Decimal(1000), Decimal(2000))
+        self.assertIn("'floor_amount' absent", cause)
+        self.assertNotIn("2.500", cause)
+        rate["payin"]["tiers"][0]["floor_amount"] = None
+        rate["payin"]["tiers"][0]["min_amount"] = 0
+        self.assertIn("min_amount", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        self.assertIn("type nombre", quote_reason(rate, Decimal(1000), Decimal(2000)))
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

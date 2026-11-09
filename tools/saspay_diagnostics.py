@@ -56,18 +56,22 @@ def read_only_get(path: str, api_key: str):
         method="GET",
     )
     with urlopen(request, timeout=12) as reply:
-        return json.load(reply)
+        # JSON decimal numbers must retain their exact value, never binary-float rounding.
+        return json.load(reply, parse_float=Decimal)
 
 
 def _money(value):
-    """Mimic the Java quote parser: amounts must be decimal strings."""
-    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,14}(?:\.[0-9]{1,6})?", value):
+    """Accept precise decimal strings or JSON numbers; preserve numeric exactness."""
+    if isinstance(value, bool) or not isinstance(value, (str, int, Decimal)):
         raise ValueError("invalid decimal rate")
-    return Decimal(value)
+    literal = str(value)
+    if not re.fullmatch(r"[0-9]{1,14}(?:\.[0-9]{1,6})?", literal):
+        raise ValueError("invalid decimal rate")
+    return Decimal(literal)
 
 
 def _tariff_field(tier, field, *, nullable=False):
-    """Identify the exact incompatible tariff field without revealing merchant rates."""
+    """Identify an incompatible field without revealing confidential rate values."""
     if not isinstance(tier, dict):
         raise ValueError("palier non structuré comme un objet JSON")
     if field not in tier:
@@ -75,12 +79,12 @@ def _tariff_field(tier, field, *, nullable=False):
     value = tier[field]
     if value is None and nullable:
         return None
-    if not isinstance(value, str):
+    if isinstance(value, bool) or not isinstance(value, (str, int, Decimal)):
         typename = (
-            "nombre" if isinstance(value, (int, float)) and not isinstance(value, bool)
+            "nombre flottant non exact" if isinstance(value, float)
             else type(value).__name__
         )
-        raise ValueError("champ '" + field + "' de type " + typename + " (texte décimal attendu)")
+        raise ValueError("champ '" + field + "' de type " + typename + " non accepté")
     try:
         return _money(value)
     except (ValueError, InvalidOperation):

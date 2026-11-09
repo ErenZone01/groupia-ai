@@ -65,7 +65,10 @@ final class SaspayPricing {
 
     static BigDecimal decimal(JsonNode node, String field) {
         var value = node.path(field);
-        if (!value.isTextual() || !value.asText().matches("[0-9]{1,14}(?:\\.[0-9]{1,6})?"))
+        // SasPay can return JSON numbers even though the public examples use strings.
+        // Convert the JSON decimal representation directly, never via double arithmetic.
+        if ((!value.isTextual() && !value.isNumber())
+                || !value.asText().matches("[0-9]{1,14}(?:\\.[0-9]{1,6})?"))
             throw new SaspayException("SASPAY_INVALID_MONEY");
         return new BigDecimal(value.asText());
     }

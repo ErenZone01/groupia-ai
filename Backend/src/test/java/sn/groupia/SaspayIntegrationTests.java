@@ -560,6 +560,22 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void missingDirectBuyerEmailIsExplicitlyRejectedBeforeRequestingSaspayRates()
+            throws Exception {
+        var direct = directFixture();
+        jdbc.update(
+                "update direct_orders set customer_contact_snapshot = customer_contact_snapshot - 'email' where id=?",
+                direct.orderId());
+        directPost(
+                        "payment-quotes",
+                        Map.of("token", direct.token()),
+                        "direct-missing-email")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SASPAY_PAYER_REQUIRED"));
+        assertThat(http.requests).isEmpty();
+    }
+
+    @Test
     void directSaspayRejectsAnotherTargetsQuoteAndChangedHistoricalAmount() throws Exception {
         var direct = directFixture();
         String foreign = quote();

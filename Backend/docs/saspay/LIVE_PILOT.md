@@ -88,6 +88,16 @@ Les scénarios frontend existants n'affichent SasPay que si le serveur annonce l
 
 **Statut : code pilote préparé dans PR #86, non validé en exécution et non déployé.**
 
+
+**Diagnostic des formats tarifaires (9 novembre) :** si le script indiquait
+`tarif incomplet ou format non accepté par Groupia`, la nouvelle version détaille maintenant
+le champ exact absent, le champ numérique reçu alors qu'une chaîne était attendue, ou
+un autre problème de structure — sans exposer le tarif, les informations client ou la clé.
+Refaire la même commande `--amount-xof 1000` après `git pull`. Les réseaux simplement
+« actifs » ne constituent pas une garantie d'éligibilité du devis à un montant donné.
+Ne pas remplacer des valeurs manquantes par zéro ni arrondir des frais XOF sans
+contrat explicite du fournisseur.
+
 ## Diagnostic précis lorsque `payment-quotes` répond `[]`
 
 Depuis la racine du projet, avec la clé seulement dans `Backend/.env` :

@@ -1,5 +1,5 @@
 import unittest
-from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason, print_quote_diagnostic
+from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason, print_quote_diagnostic, compatible_amounts
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -101,6 +101,41 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         for value in (Decimal("0.0000001"), Decimal("-1"), Decimal("1E+14"), "2.5E+0"):
             with self.subTest(value=str(value)), self.assertRaises(ValueError):
                 _money(value)
+
+    def test_suggests_only_integer_fee_amounts_under_pilot_cap(self):
+        from decimal import Decimal
+        tier = {
+            "min_amount": Decimal("200.00"), "max_amount": Decimal("500000.00"),
+            "currency": "XOF", "fee_charge_mode": "ADD_ON",
+            "percent": Decimal("2.250"), "fixed": Decimal("100.00"),
+            "floor_amount": None, "cap_amount": None,
+        }
+        rate = {
+            "country_code": "SN", "currency": "XOF",
+            "network_code": "wave_sn", "network_name": "Wave",
+            "payin": {"available": True, "otp_required": False, "tiers": [tier]},
+        }
+        suggestions = compatible_amounts(rate, Decimal(1000), Decimal(2000))
+        self.assertEqual(suggestions, [800, 1200, 400])
+        for amount in suggestions:
+            self.assertTrue(quote_reason(rate, Decimal(amount), Decimal(2000))
+                            .startswith("devis théoriquement compatible"))
+        rate["network_name"] = ""
+        self.assertEqual(compatible_amounts(rate, Decimal(1000), Decimal(2000)), [])
+
+    def test_no_suggestion_when_fee_does_not_fit_pilot_ceiling(self):
+        from decimal import Decimal
+        rate = {
+            "country_code": "SN", "currency": "XOF",
+            "network_code": "djamo_sn", "network_name": "Djamo",
+            "payin": {"available": True, "otp_required": False, "tiers": [{
+                "min_amount": Decimal("2000"), "max_amount": None,
+                "currency": "XOF", "fee_charge_mode": "ADD_ON",
+                "percent": Decimal("1.000"), "fixed": Decimal("200"),
+                "floor_amount": None, "cap_amount": None,
+            }]},
+        }
+        self.assertEqual(compatible_amounts(rate, Decimal(1000), Decimal(2000)), [])
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

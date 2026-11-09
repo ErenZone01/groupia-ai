@@ -1,6 +1,6 @@
 # Bilan de finalisation — PR #86
 
-État du 8 novembre 2026 : **validation backend finale en cours**. Ce document sera complété avec les résultats effectifs ; il ne vaut ni validation réelle de SasPay, ni CI verte. Branche `saspay-payin-v1`, PR conservée en brouillon, aucune fusion ni mise en production.
+Bilan finalisé le 9 novembre 2026, après lecture des suites terminées le 8 novembre : **validation locale complète réussie** sur le code `1d1c929`. Elle ne vaut ni validation réelle de SasPay, ni CI verte. Branche `saspay-payin-v1`, PR conservée en brouillon, aucune fusion ni mise en production.
 
 ## Fonctionnalités implémentées
 
@@ -26,9 +26,32 @@ La copie officielle OpenAPI v1.0.0 est conservée avec SHA-256 `d4f48be4b7231965
 
 ## Validation locale
 
-Résultats finaux à compléter après la dernière correction. PostgreSQL 18.6 sous Testcontainers, Java 21, fournisseurs HTTP loopback et adaptateurs simulés, clés fictives ; aucun paiement, payout ou remboursement externe exécuté.
+PostgreSQL 18.6 sous Testcontainers, Java 21, fournisseurs HTTP loopback et adaptateurs simulés, clés fictives ; aucun paiement, payout ou remboursement externe exécuté.
+
+| Contrôle | Résultat effectif |
+|---|---|
+| Maven `verify` complet, code `1d1c929` | **1 385 tests, 94 suites, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS**. PostgreSQL, Liquibase, Modulith, sécurité, contrats, concurrence et formatage inclus. Terminé le 8 novembre à 20:22:25 UTC, durée 28 min 51 s |
+| Régression métier finale | 74 réussis : 49 settlement, 22 accès client, 3 Modulith ; aucun échec/erreur/ignoré |
+| Régression des migrations corrigées | 16 réussis dans 9 suites ; aucun échec/erreur/ignoré |
+| Angular `npm test` | 538 réussis dans 51 fichiers |
+| Angular lint et build production | Réussis ; avertissements CSS/budget existants conservés |
+| Playwright complet | 391 réussis, aucun échec ; le lancement reconstruit aussi le bundle production |
+| Tests outils Python | 15 réussis |
+| Migrations gelées | 22 conformes au baseline immuable |
+| Scan de secrets | 0 détection, valeurs non affichées |
+| actionlint épinglé / diff-check | Réussis |
+| OpenAPI exporté / snapshot frontend | Égalité JSON, 127 routes |
+| npm audit complet | 0 haute/critique, 15 modérées dans la chaîne de lint de développement |
+| npm audit `--omit=dev` | 0 vulnérabilité signalée |
+| Maven dependency:tree / dependency:analyze-only | Réussis avec avertissements de déclaration/framework ; aucun changement de dépendance |
+
+Les rapports locaux se trouvent sous `Backend/target` et les journaux frontend `Frontend/final-tests2.log`, `Frontend/final-e2e2.log` ; ils sont ignorés par Git. Le contrôle Maven des dépendances est une analyse d’inventaire et d’utilisation, pas un scan exhaustif des CVE Java. Les corrections npm proposées incluent des changements majeurs/rétrogradations de l’outillage : elles n’ont pas été appliquées automatiquement dans ce lot financier. Les 15 alertes restent un travail de maintenance identifié.
+
+La validation de migrations précédente avait encore un échec dans le cas de schéma inconnu volontairement refusé : la fixture exigeait une colonne qui ne devait pas être créée après ce refus. Le commit `1d1c929` vérifie son absence et l’égalité de toutes les anciennes valeurs. Les 16 cas concernés ont été rejoués avec succès avant le nouveau verify complet.
 
 Les premiers passages complets ont révélé des fixtures de migration comparant l’ancien schéma sans retirer la nouvelle colonne nullable, un horodatage de révocation de fixture et une assertion E2E annonçant encore la vente directe future. Les fixtures vérifient désormais explicitement la nouvelle colonne nulle et l’égalité de toutes les anciennes valeurs. Aucune migration gelée ni assertion financière n’a été affaiblie. Une course sur le rechargement d’une commande après verrou a également été corrigée.
+
+Le processus de tests a dépassé le délai de fermeture Surefire de 30 secondes après `System.exit(0)` ; Surefire a arrêté son fork. Les 1 385 tests étaient terminés, les rapports XML sont tous sans échec/erreur/ignoré et Maven a ensuite produit le JAR et passé Spotless avec BUILD SUCCESS. Ce message de fermeture n’est pas masqué ; les temps d’arrêt de nombreux contextes de test restent à surveiller.
 
 Les E2E frontend interceptent les réponses API : ils valident le navigateur et les contrats attendus, pas une communication avec le vrai fournisseur. Les tests d’intégration backend couvrent séparément les transactions, événements et appels HTTP simulés.
 
@@ -87,5 +110,7 @@ Les quatre commits utilisateurs `7390cce`, `4467525`, `528f95f`, `b91d1e4` ont �
 - `5f36b40` : remise et clôture directes vérifiées.
 - `3cd45f4` : séparation des fonds et simulations marketplace.
 - `d02f25e` : annulations payées et remboursements externes.
+- `4471fe3` : rattrapage comptable, suivi privé et conservation historique.
+- `1d1c929` : vérification du schéma inchangé après migration inconnue refusée.
 
-Correction finale et résultats globaux : en cours. [PR #86](https://github.com/ErenZone01/groupia-ai/pull/86), non fusionnée ; aucune affirmation de CI verte.
+Résultat global backend : réussi ; les corrections sont enregistrées et poussées. La finalisation documentaire ne modifie pas le code testé. [PR #86](https://github.com/ErenZone01/groupia-ai/pull/86), non fusionnée ; aucune affirmation de CI verte.

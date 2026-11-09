@@ -60,3 +60,12 @@ Le remboursement externe rattrape le crédit vendeuse si l’annulation a préc�
 Tests ciblés après correction : 49 MerchantSettlementIntegrationTests, 22 CustomerAccessIntegrationTests et 3 Modulith, tous réussis (74 tests). Tests de migration ajustés pour vérifier explicitement la nouvelle colonne nullable et préserver toutes les anciennes valeurs. Frontend final inchangé : 538 tests Angular, lint, build production et 391 E2E réussis. 15 tests outils, 22 migrations gelées et actionlint réussis. npm audit : 0 haute/critique, 15 modérées dans l’outillage de développement ; audit des dépendances runtime : 0 vulnérabilité signalée. Maven dependency:tree et dependency:analyze-only réussis avec avertissements de déclaration/framework ; ce contrôle n’est pas un scan CVE exhaustif.
 
 Maven verify complet relancé sur cette correction. Les résultats globaux précédents restent historiques, et la tentative verify intermédiaire a été interrompue volontairement avant ce correctif. Le bilan à compléter figure dans FINAL_VALIDATION.md. PR toujours en brouillon, CI distante bloquée par facturation, aucun paiement ni transfert réel.
+
+
+## Validation locale finale — bilan du 9 novembre 2026
+
+La dernière fixture de schéma inconnu a été corrigée dans `1d1c929` : après refus de migration, la nouvelle colonne doit rester absente. Les 16 tests des 9 suites de migration modifiées passent. Le Maven verify complet a ensuite terminé le 8 novembre à 20:22:25 UTC : **1 385 tests dans 94 suites, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS**, durée 28 min 51 s. Le JAR et le contrôle Spotless sont produits avec succès. Le message Surefire de fermeture du fork après 30 secondes est documenté dans FINAL_VALIDATION.md ; il survient après la fin des tests et n’a pas fait échouer le build.
+
+Frontend : 538 tests Angular / 51 fichiers, lint, build production et 391 E2E réussis. Aucun changement frontend depuis ces exécutions. OpenAPI exporté et snapshot identiques : 127 routes. Outils : 15 tests, 22 migrations gelées conformes, secrets 0, actionlint et diff-check réussis. npm audit : 0 haute/critique, 15 modérées de développement ; audit runtime : 0. Analyse Maven des dépendances réussie avec avertissements de déclaration, sans prétendre à un scan CVE exhaustif.
+
+Les résultats complets, commits, migrations, variables d’environnement, risques et procédure préproduction sont dans FINAL_VALIDATION.md. Aucun paiement ou transfert réel. PR #86 conservée en brouillon ; CI distante non validée et fusion interdite tant que ses contrôles ne sont pas verts.

@@ -126,6 +126,9 @@ class SaspayContractTests {
                                         p.merchantId(),
                                         Set.of(),
                                         null,
+                                        null,
+                                        false,
+                                        null,
                                         null))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(
@@ -138,7 +141,37 @@ class SaspayContractTests {
                                         p.merchantId(),
                                         Set.of(),
                                         null,
+                                        null,
+                                        false,
+                                        null,
                                         null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void livePilotRequiresExplicitOrganizationAndCapsAndProdProfile() {
+        var p = SaspayTestConfiguration.properties();
+        var live = new SaspayProperties(
+                true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
+                p.checkoutHosts(), null, null, true,
+                UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                new BigDecimal("2000"));
+        assertThat(live.isLive()).isTrue();
+        var development = new org.springframework.mock.env.MockEnvironment();
+        assertThatThrownBy(() -> SaspayConfiguration.validateProfile(live, development))
+                .isInstanceOf(IllegalArgumentException.class);
+        development.setActiveProfiles("prod");
+        assertThatCode(() -> SaspayConfiguration.validateProfile(live, development))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> new SaspayProperties(
+                        true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
+                        p.checkoutHosts(), null, null, true,
+                        UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                        new BigDecimal("10000")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new SaspayProperties(
+                        true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
+                        p.checkoutHosts(), null, null, true, null, new BigDecimal("2000")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

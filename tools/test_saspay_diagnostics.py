@@ -1,5 +1,5 @@
 import unittest
-from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason
+from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason, print_quote_diagnostic
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -70,6 +70,27 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertIsInstance(live_shape["payin"]["tiers"][0]["min_amount"], Decimal)
         self.assertIn("compatible", quote_reason(live_shape, Decimal(1000), Decimal(2000)))
         self.assertIn("fractionnaires", quote_reason(live_shape, Decimal(1100), Decimal(2000)))
+
+    def test_diagnostic_reports_missing_display_name_without_exposing_prices(self):
+        from decimal import Decimal
+        from contextlib import redirect_stdout
+        from io import StringIO
+        rate = {"country_code": "SN", "currency": "XOF", "network_code": "wizall_sn",
+                "payin": {"available": True, "otp_required": False, "tiers": [{
+                    "min_amount": 0, "max_amount": 500000, "currency": "XOF",
+                    "fee_charge_mode": "ADD_ON", "percent": Decimal("2.500"),
+                    "fixed": 0, "floor_amount": None, "cap_amount": None,
+                }]}}
+        buf = StringIO()
+        with redirect_stdout(buf):
+            print_quote_diagnostic([rate], Decimal(1000), Decimal(2000))
+        self.assertIn("network_name absent", buf.getvalue())
+        self.assertNotIn("2.500", buf.getvalue())
+        rate["network_name"] = "Wizall"
+        buf = StringIO()
+        with redirect_stdout(buf):
+            print_quote_diagnostic([rate], Decimal(1000), Decimal(2000))
+        self.assertIn("compatible", buf.getvalue())
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

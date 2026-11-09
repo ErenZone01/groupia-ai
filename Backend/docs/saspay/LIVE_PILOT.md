@@ -237,3 +237,43 @@ avec les variables SasPay habituelles (et logging DEBUG restreint
 au paquet `sn.groupia.payment.infrastructure.provider.saspay`) et
 cliquer uniquement sur « Voir les frais SasPay » pour une commande
 de 1000 XOF. Examiner `payment-quotes` sans effectuer d'encaissement.
+
+## Chercher des montants d'essai compatibles sans encaisser (9 novembre)
+
+Les devis réels de la boutique Groupia sont maintenant disponibles pour une
+commande de 1000 XOF, notamment Expresso (frais 139, total 1139) et Wizall
+(frais 35, total 1035), chacun avec commission Groupia 0 et net théorique
+marchand 1000. Cela prouve le fonctionnement de l'appel de tarification, pas
+l'encaissement ni le versement au vendeur.
+
+Pour les autres réseaux, un refus peut venir d'un calcul de frais fractionnaires
+en XOF ou de paliers tarifaires qui excluent le prix testé. Le calculateur bloque
+l'arrondi non documenté. La documentation publique SasPay consultée pour
+`GET /pricing/my-rates/` décrit `ADD_ON`, `DEDUCTED`, `percent` et `fixed` mais ne
+détermine pas la règle exacte d'arrondi de tous les taux.
+
+Depuis la racine du dépôt :
+
+```powershell
+python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95a0515-1bcf-4740-8417-c594d02f211e --amount-xof 1000 --suggest-amounts
+python -m unittest discover -s tools -p test_saspay_diagnostics.py
+```
+
+`--suggest-amounts` classe trois montants d'exemple **entiers**, les plus proches
+du montant testé, selon les tarifs actifs du marchand. Chaque suggestion est
+limitée au plafond de paiement piloté **frais compris**, exige un seul palier
+de prix, un tarif `ADD_ON`, un réseau sans OTP prépaiement requis et des frais
+XOF strictement entiers. **Aucun paiement ni modification d'une commande n'est
+effectué.** Le script ne fait que les GET déjà autorisés.
+
+Pour tester un nouveau montant, créer une **nouvelle commande valide** avec
+produit/livraison authentiques ; ne jamais modifier le total historique d'une
+commande SQL pour forcer un devis.
+
+Pour permettre Wave/Orange Money avec des frais fractionnaires sur des prix
+arbitraires, obtenir de SasPay une confirmation explicite sur : unité monétaire,
+règle d'arrondi côté pay-in, mode `ADD_ON` appliqué au compte, correspondance
+`requested_amount`, `client_fee`, `debited_amount` et `net_amount` ; puis créer
+des tests contractuels sur cette réponse. **Ne pas inventer CEILING/FLOOR/HALF_UP**.
+Le fournisseur peut ignorer `fee_charge_mode` sur les opérations softpay si
+l'option `ALLOW_CLIENT_OVERRIDE` n'est pas active (voir documentation SasPay).

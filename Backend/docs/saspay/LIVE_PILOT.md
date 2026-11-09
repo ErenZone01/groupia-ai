@@ -87,3 +87,20 @@ Souscrire aux événements `transaction.created`, `transaction.success`, `transa
 Les scénarios frontend existants n'affichent SasPay que si le serveur annonce le fournisseur disponible. Sur une commande directe, le paiement apparaît sur le **lien privé de suivi** une fois la demande de paiement préparée ; sans quote admissible ou sans email du payeur, il n'y a pas d'option exploitable. L'interface Angular n'accepte pour l'instant que les redirections hébergées sous `pay.saspay.me`.
 
 **Statut : code pilote préparé dans PR #86, non validé en exécution et non déployé.**
+
+## Diagnostic précis lorsque `payment-quotes` répond `[]`
+
+Depuis la racine du projet, avec la clé seulement dans `Backend/.env` :
+
+```powershell
+python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95a0515-1bcf-4740-8417-c594d02f211e --amount-xof 1100
+```
+
+- `Boutique Groupia autorisée pour le pilote : NON` signifie que `SASPAY_LIVE_PILOT_ORGANIZATION_ID` ne correspond pas à la boutique Groupia. L'UUID marchand SasPay n'est pas cet identifiant.
+- L'outil liste les causes d'exclusion pour les réseaux SN/XOF (OTP requis, tarif incomplet, mode ADD_ON indisponible, frais XOF fractionnaires, total dépassant le plafond, etc.).
+- Cet outil ne contacte que les endpoints GET documentés, n'initie aucun transfert, ne montre ni clé ni téléphone/email. Son analyse est indicative : l'application Java fait autorité.
+- Le backend renvoie désormais `409 SASPAY_PAYER_REQUIRED` si le contact client est incomplet, `409 SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED` si la boutique est incorrecte et `409 SASPAY_NO_COMPATIBLE_QUOTE` s'il n'existe aucun devis. Le frontend présente un message adapté.
+
+Après avoir corrigé l'UUID de la boutique dans l'environnement, **redémarrer complètement le processus Spring**. Ne pas changer le `SASPAY_MERCHANT_ID`, ne pas supprimer des restrictions d'arrondi, ne pas tester un véritable débit pour rechercher le problème.
+
+**Les nouveaux correctifs de diagnostic n'ont pas subi la validation Maven/Angular/E2E complète ni une CI verte.** Les changements sont dans la PR brouillon uniquement.

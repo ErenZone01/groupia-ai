@@ -32,12 +32,8 @@ import sn.groupia.payment.domain.service.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(
-        properties = {
-            "groupia.direct-sales.payment-initiation.enabled=true",
-            // Integration tests use the imported fake SasPay provider, never live merchant keys.
-            "groupia.payment.saspay.enabled=false"
-        })
+@org.springframework.test.context.ActiveProfiles("test")
+@SpringBootTest(properties = "groupia.direct-sales.payment-initiation.enabled=true")
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,

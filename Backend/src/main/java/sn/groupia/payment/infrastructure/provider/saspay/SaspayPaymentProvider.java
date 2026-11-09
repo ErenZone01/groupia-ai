@@ -66,9 +66,11 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         var rates = client.rates();
         if (!rates.isArray()) throw new SaspayException("SASPAY_INVALID_RATES");
         var result = new ArrayList<ProviderFee>();
+        int countryCurrencyMatches = 0;
         for (var rate : rates) {
             if (!"SN".equals(text(rate, "country_code"))
                     || !currency.equals(text(rate, "currency"))) continue;
+            countryCurrencyMatches++;
             var network = text(rate, "network_code");
             var label = text(rate, "network_name");
             // Log only validated provider identifiers and internal error codes; never rates or PII.
@@ -89,6 +91,11 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 log.debug("SasPay quote skipped for network {}: {}", safeNetwork, unsupported.getMessage());
             }
         }
+        log.debug(
+                "SasPay quote scan complete: rates={}, countryCurrencyMatches={}, acceptedNetworks={}",
+                rates.size(),
+                countryCurrencyMatches,
+                result.size());
         return List.copyOf(result);
     }
 

@@ -76,3 +76,6 @@ Les résultats complets, commits, migrations, variables d’environnement, risqu
 Le démarrage sur une base ayant appliqué la version intermédiaire de 050 échouait sur son empreinte, avant l’initialisation de Tomcat. La version originale est restaurée ; seule la variante connue avec acteur d’annulation est admise. La nouvelle migration 051 ajoute la colonne manquante ou valide strictement sa forme existante, sans modifier les valeurs ni DATABASECHANGELOG.
 
 Sept tests PostgreSQL reproduisent les empreintes du journal utilisateur et passent : ancienne version, variante avec acteur, empreinte inconnue refusée, type/nullabilité/défaut incompatibles refusés, base neuve et réexécution idempotente. Comparaison des commandes, paiements, montants et historique avant/après. 22 migrations gelées conformes, secrets 0. Maven verify complet en cours. Voir MIGRATION_050_RECOVERY.md ; aucune base personnelle ni configuration fournisseur n’a été modifiée par les tests.
+
+
+Validation complète du correctif `1e223ca` : **1 392 tests, 95 suites, 0 échec/erreur/ignoré ; BUILD SUCCESS**. Terminé 2026-11-09T00:55:50Z, durée 18:12 min. JAR et Spotless validés. Aucun changement frontend ni appel financier réel. La base personnelle n’a pas été modifiée par ces tests ; redémarrage normal avec application de 051 documenté dans MIGRATION_050_RECOVERY.md.

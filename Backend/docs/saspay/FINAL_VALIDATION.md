@@ -2,7 +2,7 @@
 
 Bilan finalisé le 9 novembre 2026, après lecture des suites terminées le 8 novembre : **validation locale complète réussie** sur le code `1d1c929`. Elle ne vaut ni validation réelle de SasPay, ni CI verte. Branche `saspay-payin-v1`, PR conservée en brouillon, aucune fusion ni mise en production.
 
-**Correctif post-validation du 9 novembre :** une base ayant appliqué une version intermédiaire de 050 nécessite le [rattrapage 051](MIGRATION_050_RECOVERY.md). Sa validation est consignée séparément ; les 1 385 tests ci-dessous correspondent au code antérieur.
+**Correctif post-validation du 9 novembre :** le [rattrapage 051](MIGRATION_050_RECOVERY.md) résout le démarrage des bases ayant appliqué une version intermédiaire de 050. Validation sur `1e223ca` : **1 392 tests dans 95 suites, 0 échec, 0 erreur, 0 ignoré ; BUILD SUCCESS**, terminé 2026-11-09T00:55:50Z (18:12 min). Les sept nouveaux cas reproduisent les empreintes historiques exactes. Les 1 385 tests détaillés ci-dessous constituent le bilan antérieur ; le frontend reste inchangé.
 
 ## Fonctionnalités implémentées
 
@@ -115,5 +115,7 @@ Les quatre commits utilisateurs `7390cce`, `4467525`, `528f95f`, `b91d1e4` ont �
 - `d02f25e` : annulations payées et remboursements externes.
 - `4471fe3` : rattrapage comptable, suivi privé et conservation historique.
 - `1d1c929` : vérification du schéma inchangé après migration inconnue refusée.
+- `562e2e0` : bilan de validation des lots.
+- `1e223ca` : récupération des deux versions connues de 050 via la migration 051.
 
 Résultat global backend : réussi ; les corrections sont enregistrées et poussées. La finalisation documentaire ne modifie pas le code testé. [PR #86](https://github.com/ErenZone01/groupia-ai/pull/86), non fusionnée ; aucune affirmation de CI verte.

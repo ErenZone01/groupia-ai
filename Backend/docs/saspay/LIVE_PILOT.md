@@ -114,3 +114,35 @@ python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95
 Après avoir corrigé l'UUID de la boutique dans l'environnement, **redémarrer complètement le processus Spring**. Ne pas changer le `SASPAY_MERCHANT_ID`, ne pas supprimer des restrictions d'arrondi, ne pas tester un véritable débit pour rechercher le problème.
 
 **Les nouveaux correctifs de diagnostic n'ont pas subi la validation Maven/Angular/E2E complète ni une CI verte.** Les changements sont dans la PR brouillon uniquement.
+
+## Formats JSON numériques dans les tarifs SasPay (9 novembre 2026)
+
+Le compte pilote retournait `payin.tiers[*].min_amount` sous forme de **nombre JSON** alors
+que les exemples publics du fournisseur l'écrivent comme une chaîne décimale. L'ancien
+parseur refusait toutes les offres concernées, ce qui aboutissait à une liste de devis vide.
+
+Le parseur `SaspayPricing.decimal` accepte maintenant soit une chaîne décimale bornée,
+soit un nombre JSON décimal borné. Il ne fait **aucun arrondi** des frais en XOF et conserve
+les blocages sur les montants invalides, l'absence de paliers uniques, le mode `ADD_ON`,
+les réseaux à OTP et le plafond du pilote. Le diagnostic Python lit les flottants JSON
+en `decimal.Decimal` pour éviter une conversion binaire approximative.
+
+Tests de non-régression ajoutés : formats numériques acceptés pour `min_amount`,
+`max_amount`, `percent`, `fixed`, refus des formes invalides, refus de 27,5 XOF
+de frais (arrondi encore inconnu) et devis positif sur la route vente directe sans
+créer de paiement.
+
+Recette locale après `git pull` :
+
+```powershell
+python -m unittest discover -s tools -p test_saspay_diagnostics.py
+python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95a0515-1bcf-4740-8417-c594d02f211e --amount-xof 1000
+cd Backend
+.\mvnw.cmd -Dtest=SaspayContractTests,SaspayIntegrationTests test
+```
+
+Si les tests et le devis sont positifs, vérifier depuis l'interface seulement
+`POST /api/public/direct-orders/payment-quotes` sur une commande éligible.
+Ne pas initier de paiement live avant revue du contrat financier et validation du
+workflow de confirmation. Les changements ci-dessus n'ont pas été exécutés sur
+Maven/CI dans cet environnement.

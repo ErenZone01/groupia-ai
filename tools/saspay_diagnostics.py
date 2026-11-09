@@ -61,7 +61,7 @@ def read_only_get(path: str, api_key: str):
 
 def _money(value):
     """Mimic the Java quote parser: amounts must be decimal strings."""
-    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,14}(?:\\.[0-9]{1,6})?", value):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,14}(?:\.[0-9]{1,6})?", value):
         raise ValueError("invalid decimal rate")
     return Decimal(value)
 

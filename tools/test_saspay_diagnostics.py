@@ -1,5 +1,5 @@
 import unittest
-from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason, print_quote_diagnostic, compatible_amounts
+from saspay_diagnostics import data_rows, load_env_file, read_only_get, quote_reason, print_quote_diagnostic, compatible_amounts, diagnose_webhooks
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -136,6 +136,28 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
             }]},
         }
         self.assertEqual(compatible_amounts(rate, Decimal(1000), Decimal(2000)), [])
+
+    def test_webhook_configuration_read_only_and_secret_redaction(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        webhooks = [{
+            "id": "synthetic-webhook-id", "url":
+                "https://groupia.example/api/payment/webhooks/saspay?private=hidden",
+            "environment": "LIVE", "is_active": True
+        }]
+        subscriptions = [{"webhook": "synthetic-webhook-id",
+                          "event_type": "transaction.success"}]
+        with patch("saspay_diagnostics.read_only_get",
+                   side_effect=[webhooks, subscriptions]) as request:
+            output = StringIO()
+            with redirect_stdout(output):
+                diagnose_webhooks({"SASPAY_WEBHOOK_SECRET": "very-private"}, "sk_test_fake")
+        text = output.getvalue()
+        self.assertEqual(request.call_count, 2)
+        self.assertIn("chemin Groupia attendu=OUI", text)
+        self.assertIn("transaction.success", text)
+        self.assertNotIn("very-private", text)
+        self.assertNotIn("private=hidden", text)
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

@@ -560,6 +560,32 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void directSaspayQuotesAcceptNumericJsonRateFieldsWithoutInitiatingPayment()
+            throws Exception {
+        var direct = directFixture();
+        var numericRates =
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates()
+                        .replace("\"min_amount\":\"0.00\"", "\"min_amount\":0.00")
+                        .replace("\"max_amount\":\"500000.00\"", "\"max_amount\":500000.00")
+                        .replace("\"percent\":\"2.500\"", "\"percent\":2.500")
+                        .replace("\"fixed\":\"0.00\"", "\"fixed\":0.00");
+        http.reply(200, numericRates);
+        var quotes =
+                read(
+                        directPost(
+                                        "payment-quotes",
+                                        Map.of("token", direct.token()),
+                                        "direct-numeric-rates")
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(quotes.size()).isEqualTo(1);
+        assertThat(quotes.get(0).path("totalCharged").decimalValue())
+                .isEqualByComparingTo("10250");
+        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count())
+                .isZero();
+    }
+
+    @Test
     void missingDirectBuyerEmailIsExplicitlyRejectedBeforeRequestingSaspayRates()
             throws Exception {
         var direct = directFixture();

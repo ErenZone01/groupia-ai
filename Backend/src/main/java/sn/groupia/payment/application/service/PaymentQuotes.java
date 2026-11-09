@@ -49,7 +49,11 @@ public class PaymentQuotes implements PaymentQuoteOperations {
                     "SASPAY_ORDER_NOT_ELIGIBLE",
                     "Cette commande ne permet pas ce paiement sans commission.");
         var provider = providers.require("SASPAY");
-        if (!provider.canQuoteForOrganization(org)) return java.util.List.of();
+        if (!provider.canQuoteForOrganization(org))
+            throw new ApiException(
+                    409,
+                    "SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED",
+                    "Le pilote SasPay n'est pas activé pour cette boutique.");
         java.util.List<sn.groupia.payment.domain.service.ProviderFee> fees;
         try {
             fees = provider.quotes(request.expectedAmount(), request.currency());
@@ -59,6 +63,11 @@ public class PaymentQuotes implements PaymentQuoteOperations {
                     "PAYMENT_QUOTE_UNAVAILABLE",
                     "Les frais ne peuvent pas être confirmés actuellement.");
         }
+        if (fees.isEmpty())
+            throw new ApiException(
+                    409,
+                    "SASPAY_NO_COMPATIBLE_QUOTE",
+                    "Aucun tarif SasPay compatible avec ce montant et les restrictions du pilote.");
         var result = new java.util.ArrayList<PaymentFeeQuoteView>();
         var expiry = clock.instant().plusSeconds(120);
         if (request.expiresAt() != null && request.expiresAt().isBefore(expiry))

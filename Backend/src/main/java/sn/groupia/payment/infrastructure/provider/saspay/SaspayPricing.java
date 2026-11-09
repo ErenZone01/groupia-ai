@@ -65,12 +65,38 @@ final class SaspayPricing {
 
     static BigDecimal decimal(JsonNode node, String field) {
         var value = node.path(field);
-        // SasPay can return JSON numbers even though the public examples use strings.
-        // Convert the JSON decimal representation directly, never via double arithmetic.
-        if ((!value.isTextual() && !value.isNumber())
-                || !value.asText().matches("[0-9]{1,14}(?:\\.[0-9]{1,6})?"))
+        try {
+            BigDecimal decimal;
+            if (value.isTextual()) {
+                var literal = value.asText();
+                // Keep string-form rates strict: a documented decimal, never an expression.
+                if (!literal.matches("[0-9]{1,14}(?:\\.[0-9]{1,6})?"))
+                    throw new SaspayException("SASPAY_INVALID_MONEY");
+                decimal = new BigDecimal(literal);
+            } else if (value.isNumber()) {
+                // JSON numeric values may be rendered as 0E-8 / 1E+3 by Jackson.
+                // decimalValue() preserves decimal semantics; asText()+regex rejected
+                // these legal numeric representations even for exact, bounded values.
+                decimal = value.decimalValue();
+            } else {
+                throw new SaspayException("SASPAY_INVALID_MONEY");
+            }
+            // Preserve amount and precision bounds without ever rounding financial values.
+            if (decimal.signum() < 0
+                    || decimal.compareTo(MONEY_LIMIT) >= 0
+                    || decimal.stripTrailingZeros().scale() > 6)
+                throw new SaspayException("SASPAY_INVALID_MONEY");
+            return decimal;
+        } catch (RuntimeException invalid) {
+            // Safe diagnostic: only a source-code-owned field name and JSON type,
+            // never a rate value, key, customer identifier or provider payload.
+            org.slf4j.LoggerFactory.getLogger(SaspayPricing.class)
+                    .debug(
+                            "SasPay invalid tariff field {} (nodeType={})",
+                            field,
+                            value.getNodeType());
             throw new SaspayException("SASPAY_INVALID_MONEY");
-        return new BigDecimal(value.asText());
+        }
     }
 
     private static BigDecimal optional(JsonNode node, String field) {

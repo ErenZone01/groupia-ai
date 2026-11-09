@@ -23,6 +23,11 @@ class PaymentController {
             @PathVariable String provider,
             @RequestBody byte[] payload,
             @RequestHeader HttpHeaders headers) {
+        if ("saspay".equalsIgnoreCase(provider)) {
+            // If absent while SasPay reports HTTP 401, rejection occurred before Spring MVC.
+            org.slf4j.LoggerFactory.getLogger(PaymentController.class)
+                    .debug("SasPay webhook reached Spring payment controller");
+        }
         var authenticationHeaders = new HashMap<>(headers.toSingleValueMap());
         for (String name : List.of("X-Secret-Key", "X-Webhook-Signature", "X-Webhook-Timestamp")) {
             var values = headers.get(name);

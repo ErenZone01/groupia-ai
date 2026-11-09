@@ -2,6 +2,8 @@
 
 Bilan finalisé le 9 novembre 2026, après lecture des suites terminées le 8 novembre : **validation locale complète réussie** sur le code `1d1c929`. Elle ne vaut ni validation réelle de SasPay, ni CI verte. Branche `saspay-payin-v1`, PR conservée en brouillon, aucune fusion ni mise en production.
 
+**Correctif post-validation du 9 novembre :** une base ayant appliqué une version intermédiaire de 050 nécessite le [rattrapage 051](MIGRATION_050_RECOVERY.md). Sa validation est consignée séparément ; les 1 385 tests ci-dessous correspondent au code antérieur.
+
 ## Fonctionnalités implémentées
 
 - Encaissements SasPay pour commandes de groupage, solde transport, vente directe et factures d’abonnement. Fournisseur configurable, Bictorys conservé. Devis serveur persistants, ADD_ON, prix/frais/total/net visibles avant consentement, aucune commission Groupia sur les nouvelles commandes.
@@ -64,7 +66,8 @@ Les E2E frontend interceptent les réponses API : ils valident le navigateur et 
 | 047 | Registre des encaissements par fournisseur et compte |
 | 048 | Intentions, réservations, reçus et événements marketplace simulés |
 | 049 | Dossiers, sources et événements de remboursement commercial |
-| 050 | États de remboursement, liaison des commandes au dossier, acteur d’annulation de campagne |
+| 050 | États de remboursement et liaison des commandes au dossier ; compatibilité avec la variante historique incluant l’acteur |
+| 051 | Rattrapage de l’acteur d’annulation pour les deux versions connues de 050 |
 
 Les migrations 001–022 gelées restent inchangées. Les montants historiques ne sont pas recalculés. Répéter la montée de version sur une copie anonymisée préproduction, vérifier les comptes par fournisseur et les dossiers historiques avant toute activation.
 

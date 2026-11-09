@@ -69,3 +69,10 @@ La dernière fixture de schéma inconnu a été corrigée dans `1d1c929` : aprè
 Frontend : 538 tests Angular / 51 fichiers, lint, build production et 391 E2E réussis. Aucun changement frontend depuis ces exécutions. OpenAPI exporté et snapshot identiques : 127 routes. Outils : 15 tests, 22 migrations gelées conformes, secrets 0, actionlint et diff-check réussis. npm audit : 0 haute/critique, 15 modérées de développement ; audit runtime : 0. Analyse Maven des dépendances réussie avec avertissements de déclaration, sans prétendre à un scan CVE exhaustif.
 
 Les résultats complets, commits, migrations, variables d’environnement, risques et procédure préproduction sont dans FINAL_VALIDATION.md. Aucun paiement ou transfert réel. PR #86 conservée en brouillon ; CI distante non validée et fusion interdite tant que ses contrôles ne sont pas verts.
+
+
+## Correctif de démarrage Liquibase 050 — 9 novembre 2026
+
+Le démarrage sur une base ayant appliqué la version intermédiaire de 050 échouait sur son empreinte, avant l’initialisation de Tomcat. La version originale est restaurée ; seule la variante connue avec acteur d’annulation est admise. La nouvelle migration 051 ajoute la colonne manquante ou valide strictement sa forme existante, sans modifier les valeurs ni DATABASECHANGELOG.
+
+Sept tests PostgreSQL reproduisent les empreintes du journal utilisateur et passent : ancienne version, variante avec acteur, empreinte inconnue refusée, type/nullabilité/défaut incompatibles refusés, base neuve et réexécution idempotente. Comparaison des commandes, paiements, montants et historique avant/après. 22 migrations gelées conformes, secrets 0. Maven verify complet en cours. Voir MIGRATION_050_RECOVERY.md ; aucune base personnelle ni configuration fournisseur n’a été modifiée par les tests.

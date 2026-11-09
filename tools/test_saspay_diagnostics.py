@@ -26,7 +26,7 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         rate["payin"]["otp_required"] = True
         self.assertIn("OTP", quote_reason(rate, Decimal(1000), Decimal(2000)))
 
-    def test_requires_add_on_and_textual_money(self):
+    def test_requires_add_on_and_rejects_binary_float(self):
         from decimal import Decimal
         rate = {"payin": {"available": True, "otp_required": False, "tiers": [{
             "min_amount": "0.00", "max_amount": "500000.00",
@@ -37,7 +37,7 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertIn("ADD_ON", quote_reason(rate, Decimal(1000), Decimal(2000)))
         rate["payin"]["tiers"][0]["fee_charge_mode"] = "ADD_ON"
         rate["payin"]["tiers"][0]["percent"] = 2.5
-        self.assertIn("type nombre", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        self.assertIn("nombre flottant non exact", quote_reason(rate, Decimal(1000), Decimal(2000)))
 
     def test_reports_exact_missing_tariff_field_without_amounts(self):
         from decimal import Decimal
@@ -53,8 +53,23 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertNotIn("2.500", cause)
         rate["payin"]["tiers"][0]["floor_amount"] = None
         rate["payin"]["tiers"][0]["min_amount"] = 0
-        self.assertIn("min_amount", quote_reason(rate, Decimal(1000), Decimal(2000)))
-        self.assertIn("type nombre", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        self.assertIn("compatible", quote_reason(rate, Decimal(1000), Decimal(2000)))
+        rate["payin"]["tiers"][0]["min_amount"] = 0.0
+        self.assertIn("nombre flottant non exact", quote_reason(rate, Decimal(1000), Decimal(2000)))
+
+    def test_live_numeric_json_rates_keep_exact_decimals(self):
+        import json
+        from decimal import Decimal
+        live_shape = json.loads("""
+        {"payin":{"available":true,"otp_required":false,"tiers":[{
+          "min_amount":0.00,"max_amount":500000.00,
+          "currency":"XOF","fee_charge_mode":"ADD_ON",
+          "percent":2.500,"fixed":0.00,"floor_amount":null,"cap_amount":null
+        }]}}
+        """, parse_float=Decimal)
+        self.assertIsInstance(live_shape["payin"]["tiers"][0]["min_amount"], Decimal)
+        self.assertIn("compatible", quote_reason(live_shape, Decimal(1000), Decimal(2000)))
+        self.assertIn("fractionnaires", quote_reason(live_shape, Decimal(1100), Decimal(2000)))
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

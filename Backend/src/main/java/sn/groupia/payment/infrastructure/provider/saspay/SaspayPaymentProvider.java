@@ -42,8 +42,22 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         return true;
     }
 
+    @Override
+    public boolean canQuoteForOrganization(UUID organizationId) {
+        return !properties.isLive() || properties.livePilotOrganizationId().equals(organizationId);
+    }
+
+    private void enforceLivePilotLimit(BigDecimal amount, BigDecimal fee) {
+        if (properties.isLive()
+                && (amount == null || fee == null
+                        || amount.add(fee).compareTo(properties.livePilotMaxChargedXof()) > 0))
+            throw new SaspayException("SASPAY_LIVE_PILOT_LIMIT");
+    }
+
     public ProviderFee quote(BigDecimal amount, String currency, String network) {
-        return SaspayPricing.quote(client.rates(), amount, currency, network);
+        var fee = SaspayPricing.quote(client.rates(), amount, currency, network);
+        enforceLivePilotLimit(amount, fee.fee());
+        return fee;
     }
 
     public List<ProviderFee> quotes(BigDecimal amount, String currency) {
@@ -58,6 +72,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
             if (label == null || label.isBlank() || label.length() > 120) continue;
             try {
                 var fee = SaspayPricing.quote(rates, amount, currency, network);
+                enforceLivePilotLimit(amount, fee.fee());
                 result.add(new ProviderFee(fee.country(), fee.network(), label, fee.fee()));
             } catch (SaspayException unsupported) {
                 /* Unsupported/ambiguous rates must never become payable. */
@@ -68,6 +83,9 @@ public final class SaspayPaymentProvider implements PaymentProvider {
 
     public ProviderObservation initiate(ProviderInstruction i) {
         var q = accepted(i);
+        if (!canQuoteForOrganization(q.organizationId()))
+            throw new SaspayException("SASPAY_LIVE_PILOT_ORGANIZATION");
+        enforceLivePilotLimit(q.amount(), q.fee());
         if (!clock.instant().isBefore(q.expiresAt()))
             throw new SaspayException("SASPAY_QUOTE_EXPIRED");
         var context = i.checkout();

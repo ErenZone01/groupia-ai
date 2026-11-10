@@ -47,18 +47,10 @@ export function safeBictorysCheckout(raw?: string): string | null {
           </button>
         }
         @if (providers().includes('SASPAY')) {
-          <button gButton variant="secondary" [disabled]="busy()" (click)="prepareSaspay()">
-            Voir les frais SasPay du transport
+          <button gButton variant="secondary" [disabled]="busy() || !validAmount()" (click)="pay(undefined, true)">
+            Payer avec SasPay (Wave, Orange Money…)
           </button>
-        }
-        @for (quote of quotes(); track quote.id) {
-          <p>
-            {{ quote.networkLabel }} · Transport : {{ money(quote.saleAmount) }} · Frais à votre
-            charge : {{ money(quote.collectionFee) }}.
-          </p>
-          <button gButton [disabled]="busy()" (click)="pay(quote)">
-            Accepter les frais et payer {{ money(quote.totalCharged) }}
-          </button>
+          <p>Les frais des opérateurs sont affichés sur la page sécurisée SasPay avant confirmation.</p>
         }
       }
       @if (checkoutUrl(); as url) {
@@ -280,7 +272,9 @@ export class CustomerShippingPayment {
     const amount = this.value()?.amountDue;
     return amount != null && Number.isSafeInteger(amount) && amount > 0;
   }
-  async pay(quote?: PaymentFeeQuoteView) {
+  async pay(quote?: PaymentFeeQuoteView, hosted = false) {
+    const provider: 'BICTORYS' | 'SASPAY' = hosted ? 'SASPAY' : 'BICTORYS';
+    if (quote) return; // Quotes were for legacy Softpay; never use them for hosted checkout.
     if (
       this.busy() ||
       this.waiting() ||
@@ -289,12 +283,12 @@ export class CustomerShippingPayment {
       !this.validAmount()
     )
       return;
-    if (!this.providers().includes(quote ? 'SASPAY' : 'BICTORYS')) return;
+    if (!this.providers().includes(provider)) return;
     if (quote && (!quote.id || !this.quotes().some((q) => q.id === quote.id))) return;
     if (
       this.key &&
       this.commandProvider &&
-      (this.commandProvider !== (quote ? 'SASPAY' : 'BICTORYS') ||
+      (this.commandProvider !== provider ||
         this.commandQuote?.id !== quote?.id)
     ) {
       this.error.set('Reprenez la demande déjà envoyée avant de changer de moyen.');
@@ -307,15 +301,13 @@ export class CustomerShippingPayment {
     const scope = this.scope;
     this.key ??= crypto.randomUUID();
     this.commandQuote = quote;
-    this.commandProvider = quote ? 'SASPAY' : 'BICTORYS';
+    this.commandProvider = provider;
     this.acceptedQuote.set(quote ?? null);
     this.remember();
     this.busy.set(true);
     this.error.set('');
     try {
-      const attempt = quote
-        ? await this.access.payShipping(this.orderNumber(), this.key, quote.id)
-        : await this.access.payShipping(this.orderNumber(), this.key);
+      const attempt = await this.access.payShipping(this.orderNumber(), this.key, provider);
       if (this.destroyed || scope !== this.scope) return;
       if (
         ['FAILED', 'CANCELLED', 'EXPIRED'].includes(attempt.status ?? '') &&
@@ -333,7 +325,7 @@ export class CustomerShippingPayment {
       this.poll();
       const url =
         attempt.status === 'PENDING' && !attempt.reconciliationRequired
-          ? quote
+          ? hosted
             ? this.saspayUrl(attempt.checkoutUrl)
             : safeBictorysCheckout(attempt.checkoutUrl)
           : null;
@@ -345,7 +337,19 @@ export class CustomerShippingPayment {
         !attempt.reconciliationRequired
       )
         this.message.set('Confirmez la demande sur votre téléphone, puis vérifiez le paiement.');
-      if (url) this.navigate(url);
+      if (url) {
+        if (hosted) {
+          try {
+            sessionStorage.setItem(
+              'groupia.saspay.return',
+              window.location.pathname + window.location.search + window.location.hash,
+            );
+            window.location.assign(url);
+          } catch {
+            this.message.set('Ouvrez le lien sécurisé ci-dessus pour poursuivre le paiement.');
+          }
+        } else this.navigate(url);
+      }
     } catch (error) {
       if (!this.destroyed && scope === this.scope) {
         if (rejectedFeeQuote(error)) {

@@ -56,11 +56,26 @@ final class SaspayClient {
     }
 
     static String uuid(String value) {
-        if (value == null
-                || !value.matches(
-                        "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+        if (value == null) throw new SaspayException("SASPAY_INVALID_IDENTIFIER");
+        String canonical = value;
+        // SasPay dashboard may display a UUID without dashes. Normalize both the
+        // documented UUID form and this compact representation before correlating.
+        if (value.matches("[0-9a-fA-F]{32}")) {
+            canonical =
+                    value.substring(0, 8)
+                            + "-"
+                            + value.substring(8, 12)
+                            + "-"
+                            + value.substring(12, 16)
+                            + "-"
+                            + value.substring(16, 20)
+                            + "-"
+                            + value.substring(20);
+        }
+        if (!canonical.matches(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
             throw new SaspayException("SASPAY_INVALID_IDENTIFIER");
-        return value;
+        return UUID.fromString(canonical).toString();
     }
 
     private JsonNode execute(RestClient.RequestHeadersSpec<?> request, int expected) {

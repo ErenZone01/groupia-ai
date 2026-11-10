@@ -22,7 +22,10 @@ class SaspayConfiguration {
             Environment environment,
             @org.springframework.beans.factory.annotation.Value(
                             "${groupia.payment.saspay.allow-fractional-xof-fees:false}")
-                    boolean allowFractionalXofFees) {
+                    boolean allowFractionalXofFees,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${groupia.customer-access.public-base-url:http://localhost:4200}")
+                    String publicBaseUrl) {
         validateProfile(p, environment);
         return new SaspayPaymentProvider(
                 new SaspayClient(SaspayClient.builder(p).build(), json, clock),
@@ -30,7 +33,8 @@ class SaspayConfiguration {
                 quotes,
                 json,
                 clock,
-                allowFractionalXofFees);
+                allowFractionalXofFees,
+                java.net.URI.create(publicBaseUrl));
     }
 
     static void validateProfile(SaspayProperties p, Environment environment) {

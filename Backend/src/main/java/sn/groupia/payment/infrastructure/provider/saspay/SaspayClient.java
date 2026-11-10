@@ -39,6 +39,28 @@ final class SaspayClient {
         return execute(http.get().uri("/pricing/my-rates/"), 200);
     }
 
+    JsonNode createHostedCheckout(Map<String, Object> body) {
+        // This endpoint deliberately has NO Idempotency-Key support. Groupia must
+        // persist a single durable attempt before calling it and must not auto-retry
+        // an uncertain POST, which could create a second payable session.
+        return execute(
+                http.post()
+                        .uri("/checkout-sessions/")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body),
+                201);
+    }
+
+    JsonNode hostedCheckoutStatus(String sessionId) {
+        return execute(
+                http.get().uri("/checkout-sessions/{id}/status/", uuid(sessionId)), 200);
+    }
+
+    JsonNode hostedCheckoutDetail(String sessionId) {
+        return execute(
+                http.get().uri("/checkout-sessions/{id}/", uuid(sessionId)), 200);
+    }
+
     JsonNode verify(String id) {
         uuid(id);
         return execute(http.get().uri("/payments/{id}/verify/", id), 200);

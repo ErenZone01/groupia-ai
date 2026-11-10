@@ -33,7 +33,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = "groupia.direct-sales.payment-initiation.enabled=true")
+@SpringBootTest(properties = {
+    "groupia.direct-sales.payment-initiation.enabled=true",
+    "groupia.payment.saspay.legacy-softpay-tests=true"
+})
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,

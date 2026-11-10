@@ -48,6 +48,31 @@ class SaspayContractTests {
     }
 
     @Test
+    void optedInProviderPublishesFractionalQuoteWithoutInitiatingAnyPayment() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var p = SaspayTestConfiguration.properties();
+            var provider =
+                    new SaspayPaymentProvider(
+                            new SaspayClient(
+                                    SaspayClient.builder(p).baseUrl(stub.url() + "/api/v1").build(),
+                                    json,
+                                    clock),
+                            p,
+                            null,
+                            json,
+                            clock,
+                            true);
+            stub.reply(200, SaspayTestConfiguration.rates());
+            var fees = provider.quotes(new BigDecimal("2500"), "XOF");
+            assertThat(fees).hasSize(1);
+            assertThat(fees.getFirst().network()).isEqualTo("wave_sn");
+            assertThat(fees.getFirst().fee()).isEqualByComparingTo("62.50");
+            assertThat(stub.requests).hasSize(1);
+            assertThat(stub.requests.getFirst().method()).isEqualTo("GET");
+        }
+    }
+
+    @Test
     void absentRateIsDistinctFromOverlappingRateWithoutAcceptingEither() {
         var rates = json.readTree(SaspayTestConfiguration.rates());
         var tier = (tools.jackson.databind.node.ObjectNode)

@@ -106,14 +106,14 @@ export class CustomerAccessService {
         .pipe(timeout(15000)),
     );
   }
-  payShipping(orderNumber: string, key: string, feeQuoteId?: string) {
+  payShipping(
+    orderNumber: string,
+    key: string,
+    provider: 'BICTORYS' | 'SASPAY' = 'BICTORYS',
+  ) {
     return this.mutate((c) =>
       this.api.initiateCustomerShippingPayment(
-        {
-          orderNumber,
-          'Idempotency-Key': key,
-          body: feeQuoteId ? { provider: 'SASPAY', feeQuoteId } : { provider: 'BICTORYS' },
-        },
+        { orderNumber, 'Idempotency-Key': key, body: { provider } },
         c,
       ),
     );

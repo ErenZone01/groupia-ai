@@ -34,6 +34,11 @@ public interface PaymentOperations {
             String recoveryTokenHash,
             PaymentCheckoutContext context);
 
+    /** Explicit provider selection for hosted checkout (no fee quote). */
+    PaymentAttemptView initiateDirect(
+            UUID organizationId, UUID paymentRequestId, String provider,
+            String idempotencyKey, String recoveryTokenHash, PaymentCheckoutContext context);
+
     PaymentRequestView request(UUID organizationId, UUID paymentRequestId);
 
     java.util.List<PaymentObligationView> shippingRequests(UUID organizationId, UUID orderId);

@@ -15,7 +15,7 @@ import sn.groupia.payment.api.dto.PaymentAttemptView;
  */
 @RestController
 class DirectCustomerPaymentInitiationController {
-    public record InitiationRequest(String token, java.util.UUID feeQuoteId) {
+    public record InitiationRequest(String token, java.util.UUID feeQuoteId, String provider) {
         @Override
         public String toString() {
             return "InitiationRequest[redacted]";
@@ -55,7 +55,8 @@ class DirectCustomerPaymentInitiationController {
                 initiation.initiate(
                         request == null ? null : request.token(),
                         idempotencyKey,
-                        request == null ? null : request.feeQuoteId());
+                        request == null ? null : request.feeQuoteId(),
+                        request == null || request.provider() == null ? "BICTORYS" : request.provider());
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header("Referrer-Policy", "no-referrer")

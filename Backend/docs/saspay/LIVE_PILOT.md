@@ -617,3 +617,78 @@ Une notification HTTP 202 indique qu'elle est acceptée pour stockage,
 pas qu'elle est rattachée à la commande. Si la tentative a perdu son
 identifiant, il faut une **procédure de reprise contrôlée**, jamais
 un `UPDATE payments SET provider_transaction_id=...` effectué à la main.
+
+## Nouvelle preuve webhook / compte marchand (10 novembre 2026, 15:21 UTC)
+
+Rapport utilisateur : les deux `GET /payments/{id}/verify/` ont renvoyé 404.
+`GET /transactions/{id}/` renvoie également 404 et la première page
+`GET /transactions/` n'inclut pas ces UUID. En revanche, Groupia a
+accepté HMAC pour deux reçus, sans les rattacher : chaque reçu a
+`authenticity_verification_result=VALID`,
+`processing_status=REVIEW_REQUIRED`, `last_error_code=UNKNOWN_REFERENCE`,
+`attempt_count=5`. La commande possède une tentative `CREATED` sans
+`provider_transaction_id`. L'absence de référence à la création et
+l'absence d'ID dans l'event signé sont deux problèmes différents
+qu'il faut diagnostiquer avant tout rapprochement.
+
+### Première vérification : comparer les UUID du webhook signé et du dashboard
+
+Lire uniquement ces deux reçus en base de **production**, sans toucher
+aux statuts ou aux colonnes de référence :
+
+```sql
+SELECT w.id AS receipt,
+       w.received_at,
+       w.observation->>'providerTransactionId' AS signed_provider_transaction_id,
+       w.observation->>'status' AS signed_provider_status,
+       w.observation->>'amount' AS signed_net_amount,
+       w.provider_account_reference AS configured_webhook_account,
+       w.processing_status,
+       w.last_error_code
+FROM payment_webhook_events w
+WHERE w.id IN (
+  '3b5f17a6-073c-4f45-b159-0eac15ddd152',
+  'c570dc59-6620-495a-9a4c-a16fc79a8dc9'
+)
+ORDER BY w.received_at;
+```
+
+Les champs `signed_provider_transaction_id` du reçu sont les UUID
+réellement présents dans les payloads authentifiés (via l'observation
+normalisée par Groupia). Comparer après suppression des tirets avec
+les UUID affichés sur le tableau SasPay. Ne pas afficher les payloads
+bruts, les numéros de téléphone ou les signatures.
+
+### Deuxième vérification : périmètre de la clé API LIVE
+
+`tools/saspay_verify_pilot.py` accepte désormais les options
+`--audit-scope --created-around-utc=2026-11-10T05:27:00Z`. En cas de
+404 de `verify`, cet outil fait seulement deux GET supplémentaires :
+- `/merchant-balances/?page_size=100` : affiche si le marchand
+  `SASPAY_MERCHANT_ID` apparaît dans la première page des wallets ;
+  n'affiche jamais les montants du solde.
+- `/transactions/?transaction_type=PAIEMENT&flow_direction=INBOUND
+  &currency=XOF&created_at__gte=...&created_at__lte=...&page_size=200`
+  : comptes agrégés dans une fenêtre de ±10 minutes autour de l'heure
+  fournie. Les autres marchands sont anonymisés et aucune identité
+  client n'est affichée. En cas de pagination, absence non concluante.
+
+Commande :
+```powershell
+python -m unittest discover -s tools -p test_saspay_verify_pilot.py
+python tools/saspay_verify_pilot.py --env-file Backend/.env --payment-id 253c31ba9b5444f8958ea6d78d1bbe87 --expected-amount-xof 1000 --audit-scope --created-around-utc 2026-11-10T05:27:00Z
+```
+
+Si `merchant=NON/INCONNU`, contrôler dans le dashboard SasPay le marchand
+attaché à la clé, ainsi que le marchand affecté à chaque transaction.
+Cette vérification n'est pas une preuve absolue lorsqu'aucun wallet
+n'existe ou si la pagination masque le résultat. Si un ancien paiement
+Expresso vérifiable par la même clé donne 200, comparer avec les UUID
+Wave exacts des webhooks signés : il peut s'agir d'un problème de
+visibilité propre à ces transactions ou d'une référence mal copiée.
+
+**Aucun rapprochement financier automatique ou direct en DB** : le
+statut PENDING ou SUCCESS indicatif des listes ne remplace pas le
+`GET verify` et les invariants du paiement original. Ne jamais
+réinitier sur `DIR-000000000015` avant examen des deux opérations
+existantes.

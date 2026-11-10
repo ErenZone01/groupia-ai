@@ -213,6 +213,32 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void fractionalSaspayCollectionLedgerUsesExactCentsWithoutWeakeningPrincipal() {
+        String collectionFeeConstraint =
+                jdbc.queryForObject(
+                        "select pg_get_constraintdef(c.oid) from pg_constraint c"
+                                + " where c.conrelid='provider_collections'::regclass"
+                                + " and c.conname='provider_collections_collection_fee_precision_check'",
+                        String.class);
+        String totalConstraint =
+                jdbc.queryForObject(
+                        "select pg_get_constraintdef(c.oid) from pg_constraint c"
+                                + " where c.conrelid='provider_collections'::regclass"
+                                + " and c.conname='provider_collections_customer_charged_precision_check'",
+                        String.class);
+        assertThat(collectionFeeConstraint).contains("round(collection_fee, 2)");
+        assertThat(totalConstraint).contains("round(customer_charged, 2)");
+        // Original immutable account invariants must still be enforced.
+        var principal =
+                jdbc.queryForObject(
+                        "select pg_get_constraintdef(c.oid) from pg_constraint c"
+                                + " where c.conrelid='provider_collections'::regclass"
+                                + " and c.conname='provider_collections_principal_check'",
+                        String.class);
+        assertThat(principal).contains("trunc(principal)");
+    }
+
+    @Test
     void fractionalSaspayFeeMigrationPersistsExactCentsAndRejectsExtraPrecision() {
         UUID requestId =
                 jdbc.queryForObject(

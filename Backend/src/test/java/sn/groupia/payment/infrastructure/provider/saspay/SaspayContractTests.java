@@ -15,6 +15,111 @@ class SaspayContractTests {
     final Clock clock = Clock.fixed(Instant.parse("2026-11-07T12:00:00Z"), ZoneOffset.UTC);
 
     @Test
+    void waveSoftpayRedirectUsesConfiguredHostAndKeepsRealTransactionReference()
+            throws Exception {
+        var original = SaspayTestConfiguration.properties();
+        var approved =
+                new SaspayProperties(
+                        original.enabled(),
+                        original.apiUrl(),
+                        original.apiKey(),
+                        original.webhookSecret(),
+                        original.merchantId(),
+                        Set.of("pay.saspay.me", "pay.wave.com"),
+                        original.connectTimeout(),
+                        original.readTimeout(),
+                        false,
+                        null,
+                        null);
+        var denied = original;
+        var orderId = UUID.randomUUID();
+        var requestId = UUID.randomUUID();
+        var q =
+                new sn.groupia.payment.domain.model.PaymentFeeQuote(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        requestId,
+                        "SASPAY",
+                        original.merchantId().toString(),
+                        "SN",
+                        "wave_sn",
+                        "Wave",
+                        new BigDecimal("1000"),
+                        new BigDecimal("25"),
+                        "XOF",
+                        clock.instant().plusSeconds(120));
+        sn.groupia.payment.domain.repository.PaymentQuoteStore quoteStore =
+                new sn.groupia.payment.domain.repository.PaymentQuoteStore() {
+                    public void save(sn.groupia.payment.domain.model.PaymentFeeQuote value) {}
+
+                    public Optional<sn.groupia.payment.domain.model.PaymentFeeQuote> find(UUID id) {
+                        return q.id().equals(id) ? Optional.of(q) : Optional.empty();
+                    }
+                };
+        var instruction =
+                new sn.groupia.payment.domain.service.ProviderInstruction(
+                        UUID.randomUUID(),
+                        requestId,
+                        null,
+                        sn.groupia.payment.api.PaymentPurpose.DIRECT_ORDER_INITIAL,
+                        "SASPAY",
+                        original.merchantId().toString(),
+                        "GRP-DIRECT-REFERENCE",
+                        null,
+                        UUID.randomUUID().toString(),
+                        new BigDecimal("1000"),
+                        "XOF",
+                        new sn.groupia.payment.api.dto.PaymentCheckoutContext(
+                                        "DIR-000000000123",
+                                        "Awa Ndiaye",
+                                        "+221771234567",
+                                        "awa@example.test")
+                                .withFeeQuote(q.id()),
+                        sn.groupia.payment.api.PaymentTarget.directOrder(orderId));
+        var transactionId = "3ef59f24-4bf9-43a6-b983-c9c632005ab3";
+        var response =
+                "{\"id\":\"" + transactionId
+                        + "\",\"status\":\"PENDING\",\"checkout_url\":\"https://pay.wave.com/checkout/opaque\"}";
+
+        for (var properties : List.of(denied, approved)) {
+            try (var stub = new SaspayHttpStub()) {
+                var provider =
+                        new SaspayPaymentProvider(
+                                new SaspayClient(
+                                        SaspayClient.builder(properties)
+                                                .baseUrl(stub.url() + "/api/v1")
+                                                .build(),
+                                        json,
+                                        clock),
+                                properties,
+                                quoteStore,
+                                json,
+                                clock,
+                                true);
+                stub.reply(200, SaspayTestConfiguration.rates());
+                stub.reply(201, response);
+                var observation = provider.initiate(instruction);
+                assertThat(observation.providerTransactionId()).isEqualTo(transactionId);
+                assertThat(observation.status()).isEqualTo(sn.groupia.payment.api.PaymentStatus.PENDING);
+                assertThat(stub.requests).hasSize(2);
+                assertThat(stub.requests.get(0).method()).isEqualTo("GET");
+                assertThat(stub.requests.get(1).method()).isEqualTo("POST");
+                if (properties == denied) {
+                    assertThat(observation.metadata().checkoutUrl()).isNull();
+                    assertThat(observation.metadata().reviewReason())
+                            .isEqualTo(
+                                    sn.groupia.payment.domain.service.ProviderMetadata.ReviewReason
+                                            .PROVIDER_STATUS_UNKNOWN);
+                } else {
+                    assertThat(observation.metadata().checkoutUrl())
+                            .isEqualTo("https://pay.wave.com/checkout/opaque");
+                    assertThat(observation.metadata().reviewReason()).isNull();
+                }
+            }
+        }
+    }
+
+    @Test
     void exactIntegerAddOnAndNoGuessedRounding() {
         var rates = json.readTree(SaspayTestConfiguration.rates());
         assertThat(SaspayPricing.quote(rates, new BigDecimal("2000"), "XOF", "wave_sn").fee())

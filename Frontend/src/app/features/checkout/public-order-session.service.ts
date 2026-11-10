@@ -18,6 +18,28 @@ export function safeCheckoutUrl(raw?: string): string | null {
     return null;
   }
 }
+/**
+ * The backend is the source of truth for SASPAY_CHECKOUT_HOSTS and validates each
+ * provider redirect before returning the private payment receipt. A second
+ * frontend allowlist limited to pay.saspay.me would silently break Wave/Orange
+ * when SasPay routes through an operator host.
+ * This helper only enforces structural URL safety; it must never be used on
+ * input supplied directly by a customer.
+ */
+export function safeSaspayCheckout(raw?: string): string | null {
+  const candidate = safeCheckoutUrl(raw);
+  if (!candidate) return null;
+  const url = new URL(candidate);
+  const host = url.hostname.toLowerCase();
+  const excluded = ['.example', '.test', '.invalid', '.localhost'];
+  if (
+    !/^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$/.test(host) ||
+    excluded.some((suffix) => host.endsWith(suffix)) ||
+    url.hash ||
+    (url.port && url.port !== '443')
+  ) return null;
+  return candidate;
+}
 @Injectable({ providedIn: 'root' })
 export class PublicOrderSessionService {
   private readonly key = 'groupia.public-order';

@@ -148,6 +148,17 @@ public class PaymentService implements PaymentOperations {
         try {
             result = adapter.initiate(claim.instruction());
         } catch (RuntimeException ex) {
+            // No automatic POST retry: SasPay may have created a real payment.
+            // Only log a code owned by our adapter, not an exception body/PII.
+            String code =
+                    "SASPAY".equals(adapter.name())
+                                    && ex.getMessage() != null
+                                    && ex.getMessage().matches("SASPAY_[A-Z0-9_]{1,100}")
+                            ? ex.getMessage()
+                            : "PROVIDER_INITIATION_UNCERTAIN";
+            org.slf4j.LoggerFactory.getLogger(PaymentService.class)
+                    .warn("Payment initiation requires reconciliation provider={} reason={}",
+                            adapter.name(), code);
             return transactions.uncertain(claim.instruction().paymentId());
         }
         if (result != null && result.status() == PaymentStatus.SUCCEEDED) {

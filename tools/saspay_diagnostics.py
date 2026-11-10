@@ -102,7 +102,7 @@ def _tariff_field(tier, field, *, nullable=False):
         raise ValueError("champ '" + field + "' : format décimal non reconnu") from None
 
 
-def quote_reason(rate, amount, max_total):
+def quote_reason(rate, amount, max_total, allow_fractional=False):
     """Classify a network locally. Never initiates payment or guesses rounding."""
     payin = rate.get("payin", {})
     if not isinstance(payin, dict) or payin.get("available") is not True:
@@ -134,8 +134,10 @@ def quote_reason(rate, amount, max_total):
             fee = max(fee, floor)
         if cap is not None:
             fee = min(fee, cap)
-        if fee != fee.to_integral_value():
-            return "frais fractionnaires XOF : règle d'arrondi non confirmée"
+        if fee.normalize().as_tuple().exponent < -2:
+            return "précision des frais supérieure à deux décimales : devis refusé"
+        if not allow_fractional and fee != fee.to_integral_value():
+            return "frais fractionnaires XOF : option pilote non activée"
         if amount + fee > max_total:
             return "total frais inclus supérieur au plafond pilote"
         return "devis théoriquement compatible avec les règles locales"
@@ -145,7 +147,7 @@ def quote_reason(rate, amount, max_total):
         return "tarif incomplet ou structure incohérente"
 
 
-def compatible_amounts(rate, reference_amount, max_total, limit=3):
+def compatible_amounts(rate, reference_amount, max_total, limit=3, allow_fractional=False):
     """Find sample integer XOF order amounts. Read-only and never promises bookability."""
     if not isinstance(rate, dict) or max_total <= 0:
         return []
@@ -160,16 +162,19 @@ def compatible_amounts(rate, reference_amount, max_total, limit=3):
         return []
     possible = []
     for amount in range(200, upper + 1):
-        reason = quote_reason(rate, Decimal(amount), max_total)
+        reason = quote_reason(rate, Decimal(amount), max_total, allow_fractional)
         if reason.startswith("devis théoriquement compatible"):
             possible.append(amount)
     return sorted(possible, key=lambda amount: (abs(Decimal(amount) - reference_amount), amount))[:limit]
 
-def print_quote_diagnostic(rates, amount, max_total, suggest_amounts=False):
+def print_quote_diagnostic(rates, amount, max_total, suggest_amounts=False,
+                           allow_fractional=False):
     if amount <= 0:
         raise ValueError("invalid amount")
     print(f"Analyse locale et indicative : commande {amount} XOF, plafond {max_total} XOF.")
     print("Cette analyse ne remplace pas le devis serveur et ne déclenche aucun paiement.")
+    print("Frais décimaux XOF SasPay (deux décimales exactes) : " +
+          ("ACTIVÉS EN PILOTE" if allow_fractional else "DÉSACTIVÉS"))
     networks = [r for r in rates if isinstance(r, dict) and r.get("country_code") == "SN"
                 and r.get("currency") == "XOF"]
     if not networks:
@@ -184,10 +189,11 @@ def print_quote_diagnostic(rates, amount, max_total, suggest_amounts=False):
         elif not isinstance(name, str) or not name.strip() or len(name) > 120:
             reason = "network_name absent ou invalide : réseau ignoré côté Java"
         else:
-            reason = quote_reason(rate, amount, max_total)
+            reason = quote_reason(rate, amount, max_total, allow_fractional)
         print("  " + label + ": " + reason)
         if suggest_amounts and reason != "devis théoriquement compatible avec les règles locales":
-            examples = compatible_amounts(rate, amount, max_total)
+            examples = compatible_amounts(rate, amount, max_total,
+                                          allow_fractional=allow_fractional)
             if examples:
                 print("    Montants d'exemple théoriquement compatibles (XOF) : " +
                       ", ".join(map(str, examples)))
@@ -281,8 +287,10 @@ def diagnose(env: dict[str, str], amount=None, organization_id=None,
             if not raw_cap.isdigit() or not 1 <= int(raw_cap) <= 5000:
                 print("Plafond pilote absent ou invalide : refus de simuler un devis.")
             else:
-                print_quote_diagnostic(rates, Decimal(amount), Decimal(raw_cap),
-                                       suggest_amounts=suggest_amounts)
+                print_quote_diagnostic(
+                    rates, Decimal(amount), Decimal(raw_cap),
+                    suggest_amounts=suggest_amounts,
+                    allow_fractional=env.get("SASPAY_ALLOW_FRACTIONAL_XOF_FEES", "false").lower() == "true")
         if not senegal:
             print("Aucun tarif pay-in compatible constaté; ne pas activer les paiements.")
         if check_webhooks:

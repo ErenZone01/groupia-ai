@@ -342,6 +342,7 @@ public class PaymentTransactions {
                     payment.apply(observation, clock.instant());
                 }
                 payment.checkoutDetails(observation.metadata());
+                payment.checked(clock.instant());
                 if (observation.metadata().reviewReason() != null) {
                     payment.review(observation.metadata().reviewReason().name());
                 }

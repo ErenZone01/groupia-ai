@@ -133,6 +133,11 @@ public class PaymentService implements PaymentOperations {
             PaymentCheckoutContext context,
             String recoveryTokenHash) {
         var adapter = providers.require(provider);
+        if (!adapter.canQuoteForOrganization(org)) {
+            throw new sn.groupia.shared.api.ApiException(
+                    409, "SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED",
+                    "Le paiement n'est pas disponible pour cette boutique.");
+        }
         var claim =
                 transactions.claim(
                         org,
@@ -190,6 +195,15 @@ public class PaymentService implements PaymentOperations {
         } catch (RuntimeException ex) {
             return transactions.uncertain(paymentId);
         }
+        // A hosted session can be PENDING without any financial transaction ID.
+        // Do not mark it uncertain or invent an ID while the client is paying.
+        if ("SASPAY".equals(instruction.provider())
+                && result != null
+                && result.status() == PaymentStatus.PENDING
+                && result.providerTransactionId() == null
+                && result.metadata() != null
+                && result.metadata().chargeId() != null)
+            return transactions.initiationResult(paymentId, result);
         return transactions.result(paymentId, result);
     }
 

@@ -159,6 +159,34 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertNotIn("very-private", text)
         self.assertNotIn("private=hidden", text)
 
+    def test_opted_in_fractional_xof_fees_match_exact_java_pilot_policy(self):
+        from decimal import Decimal
+        rate = {
+            "country_code": "SN", "currency": "XOF", "network_code": "wave_sn",
+            "network_name": "Wave", "payin": {
+                "available": True, "otp_required": False, "tiers": [{
+                    "min_amount": Decimal("200"), "max_amount": Decimal("500000"),
+                    "currency": "XOF", "fee_charge_mode": "ADD_ON",
+                    "percent": Decimal("2.25"), "fixed": Decimal("0"),
+                    "floor_amount": None, "cap_amount": None,
+                }],
+            }
+        }
+        self.assertIn("option pilote non activée",
+                      quote_reason(rate, Decimal("1000"), Decimal("2000")))
+        self.assertTrue(
+            quote_reason(rate, Decimal("1000"), Decimal("2000"), True)
+            .startswith("devis théoriquement compatible")
+        )
+        self.assertIn("supérieure à deux décimales",
+                      quote_reason(rate, Decimal("1001"), Decimal("2000"), True))
+        self.assertIn(
+            1000,
+            compatible_amounts(
+                rate, Decimal("1000"), Decimal("2000"), allow_fractional=True
+            ),
+        )
+
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):
             read_only_get("/payouts/initialize/", "sk_test_dummy")

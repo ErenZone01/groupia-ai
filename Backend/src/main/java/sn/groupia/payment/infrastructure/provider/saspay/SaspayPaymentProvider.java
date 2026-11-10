@@ -179,7 +179,8 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 String host = "(invalid)";
                 try {
                     var actualHost = URI.create(url).getHost();
-                    if (actualHost != null && actualHost.matches("[a-z0-9]+(?:[.-][a-z0-9]+)*\\.[a-z]{2,}"))
+                    if (actualHost != null
+                            && actualHost.matches("[a-z0-9]+(?:[.-][a-z0-9]+)*\\.[a-z]{2,}"))
                         host = actualHost;
                 } catch (RuntimeException ignored) {
                     // Don't log provider-supplied URLs, query strings or customer tokens.

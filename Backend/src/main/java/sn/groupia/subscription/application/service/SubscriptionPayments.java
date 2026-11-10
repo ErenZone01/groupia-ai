@@ -40,11 +40,15 @@ public class SubscriptionPayments {
             UUID org, UUID invoice, String provider, String key, UUID feeQuoteId) {
         boolean saspay = "SASPAY".equalsIgnoreCase(provider);
         var checkout = invoices.checkout(org, invoice, saspay);
-        if (saspay && !checkout.context().saspayEligible())
+        if (saspay
+                && (checkout.context().customerName() == null
+                        || checkout.context().customerName().isBlank()
+                        || checkout.context().email() == null
+                        || !checkout.context().email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")))
             throw new sn.groupia.shared.api.ApiException(
                     409,
-                    "SASPAY_PAYER_REQUIRED",
-                    "Renseignez le prénom, le nom, le téléphone sénégalais et le courriel du payeur.");
+                    "SASPAY_HOSTED_CONTACT_REQUIRED",
+                    "Renseignez le nom et le courriel du payeur pour la page SasPay.");
         return payments.initiateRequest(
                 org,
                 checkout.paymentRequestId(),

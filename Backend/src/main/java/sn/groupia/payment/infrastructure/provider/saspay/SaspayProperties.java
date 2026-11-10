@@ -35,7 +35,8 @@ public record SaspayProperties(
                     || webhookSecret == null
                     || webhookSecret.isBlank()
                     || merchantId == null)
-                throw new IllegalArgumentException("SasPay key, merchant ID and webhook secret required");
+                throw new IllegalArgumentException(
+                        "SasPay key, merchant ID and webhook secret required");
             if (liveKey) {
                 // Scoped pilot only. No permanent marketplace authorization is implied.
                 if (!livePilotEnabled
@@ -44,7 +45,8 @@ public record SaspayProperties(
                         || livePilotMaxChargedXof.stripTrailingZeros().scale() > 0
                         || livePilotMaxChargedXof.compareTo(new BigDecimal("5000")) > 0
                         || checkoutHosts.isEmpty())
-                    throw new IllegalArgumentException("SasPay live pilot requires a single organization and a <=5000 XOF cap");
+                    throw new IllegalArgumentException(
+                            "SasPay live pilot requires a single organization and a <=5000 XOF cap");
             } else if (livePilotEnabled) {
                 throw new IllegalArgumentException("SasPay live pilot requires a live key");
             }

@@ -15,11 +15,14 @@ class SaspayConfiguration {
     @Bean
     @ConditionalOnProperty(name = "groupia.payment.saspay.enabled", havingValue = "true")
     SaspayPaymentProvider saspayPaymentProvider(
-            SaspayProperties p, PaymentQuoteStore quotes, ObjectMapper json, Clock clock,
+            SaspayProperties p,
+            PaymentQuoteStore quotes,
+            ObjectMapper json,
+            Clock clock,
             Environment environment,
             @org.springframework.beans.factory.annotation.Value(
-                    "${groupia.payment.saspay.allow-fractional-xof-fees:false}")
-            boolean allowFractionalXofFees) {
+                            "${groupia.payment.saspay.allow-fractional-xof-fees:false}")
+                    boolean allowFractionalXofFees) {
         validateProfile(p, environment);
         return new SaspayPaymentProvider(
                 new SaspayClient(SaspayClient.builder(p).build(), json, clock),
@@ -35,6 +38,7 @@ class SaspayConfiguration {
         if (p.isLive() && !prod)
             throw new IllegalArgumentException("SasPay live pilot requires Spring prod profile");
         if (!p.isLive() && prod)
-            throw new IllegalArgumentException("SasPay prod profile requires an explicitly enabled live pilot");
+            throw new IllegalArgumentException(
+                    "SasPay prod profile requires an explicitly enabled live pilot");
     }
 }

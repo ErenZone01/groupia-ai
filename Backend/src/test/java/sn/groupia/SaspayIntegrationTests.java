@@ -601,8 +601,7 @@ class SaspayIntegrationTests {
     }
 
     @Test
-    void directSaspayQuotesAcceptNumericJsonRateFieldsWithoutInitiatingPayment()
-            throws Exception {
+    void directSaspayQuotesAcceptNumericJsonRateFieldsWithoutInitiatingPayment() throws Exception {
         var direct = directFixture();
         var numericRates =
                 sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates()
@@ -620,23 +619,17 @@ class SaspayIntegrationTests {
                                 .andExpect(status().isOk())
                                 .andReturn());
         assertThat(quotes.size()).isEqualTo(1);
-        assertThat(quotes.get(0).path("totalCharged").decimalValue())
-                .isEqualByComparingTo("10250");
-        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count())
-                .isZero();
+        assertThat(quotes.get(0).path("totalCharged").decimalValue()).isEqualByComparingTo("10250");
+        assertThat(http.requests.stream().filter(r -> r.method().equals("POST")).count()).isZero();
     }
 
     @Test
-    void missingDirectBuyerEmailIsExplicitlyRejectedBeforeRequestingSaspayRates()
-            throws Exception {
+    void missingDirectBuyerEmailIsExplicitlyRejectedBeforeRequestingSaspayRates() throws Exception {
         var direct = directFixture();
         jdbc.update(
                 "update direct_orders set customer_contact_snapshot = customer_contact_snapshot - 'email' where id=?",
                 direct.orderId());
-        directPost(
-                        "payment-quotes",
-                        Map.of("token", direct.token()),
-                        "direct-missing-email")
+        directPost("payment-quotes", Map.of("token", direct.token()), "direct-missing-email")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SASPAY_PAYER_REQUIRED"));
         assertThat(http.requests).isEmpty();

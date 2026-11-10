@@ -35,7 +35,8 @@ final class SaspayWebhookAuthentication {
     }
 
     private static boolean reject(String reason) {
-        // Fixed reason codes only; never log secrets, headers, signature, raw body or customer data.
+        // Fixed reason codes only; never log secrets, headers, signature, raw body or customer
+        // data.
         log.debug("SasPay webhook authentication rejected: {}", reason);
         return false;
     }

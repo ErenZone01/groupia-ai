@@ -63,13 +63,16 @@ public final class SaspayPaymentProvider implements PaymentProvider {
 
     private void enforceLivePilotLimit(BigDecimal amount, BigDecimal fee) {
         if (properties.isLive()
-                && (amount == null || fee == null
+                && (amount == null
+                        || fee == null
                         || amount.add(fee).compareTo(properties.livePilotMaxChargedXof()) > 0))
             throw new SaspayException("SASPAY_LIVE_PILOT_LIMIT");
     }
 
     public ProviderFee quote(BigDecimal amount, String currency, String network) {
-        var fee = SaspayPricing.quote(client.rates(), amount, currency, network, allowFractionalXofFees);
+        var fee =
+                SaspayPricing.quote(
+                        client.rates(), amount, currency, network, allowFractionalXofFees);
         enforceLivePilotLimit(amount, fee.fee());
         return fee;
     }
@@ -91,16 +94,22 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                             ? network
                             : "(invalid-network-code)";
             if (label == null || label.isBlank() || label.length() > 120) {
-                log.debug("SasPay quote skipped for network {}: INVALID_NETWORK_LABEL", safeNetwork);
+                log.debug(
+                        "SasPay quote skipped for network {}: INVALID_NETWORK_LABEL", safeNetwork);
                 continue;
             }
             try {
-                var fee = SaspayPricing.quote(rates, amount, currency, network, allowFractionalXofFees);
+                var fee =
+                        SaspayPricing.quote(
+                                rates, amount, currency, network, allowFractionalXofFees);
                 enforceLivePilotLimit(amount, fee.fee());
                 result.add(new ProviderFee(fee.country(), fee.network(), label, fee.fee()));
             } catch (SaspayException unsupported) {
                 // Only fixed internal error codes are retained; do not log external rate values.
-                log.debug("SasPay quote skipped for network {}: {}", safeNetwork, unsupported.getMessage());
+                log.debug(
+                        "SasPay quote skipped for network {}: {}",
+                        safeNetwork,
+                        unsupported.getMessage());
             }
         }
         log.debug(

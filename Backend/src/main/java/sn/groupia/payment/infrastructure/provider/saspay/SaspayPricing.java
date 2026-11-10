@@ -13,7 +13,10 @@ final class SaspayPricing {
     }
 
     static ProviderFee quote(
-            JsonNode rates, BigDecimal amount, String currency, String network,
+            JsonNode rates,
+            BigDecimal amount,
+            String currency,
+            String network,
             boolean allowFractionalXofFees) {
         if (!"XOF".equals(currency)
                 || amount == null

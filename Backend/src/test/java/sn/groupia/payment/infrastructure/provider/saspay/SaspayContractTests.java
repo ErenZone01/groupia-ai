@@ -28,10 +28,7 @@ class SaspayContractTests {
     void optedInFractionalXofQuotesUseDocumentedExactDecimalsWithoutRounding() {
         var rates = json.readTree(SaspayTestConfiguration.rates());
         // A 2.5% SasPay tariff produces 62.50 XOF at 2500 XOF.
-        assertThat(
-                        SaspayPricing.quote(
-                                        rates, new BigDecimal("2500"), "XOF", "wave_sn", true)
-                                .fee())
+        assertThat(SaspayPricing.quote(rates, new BigDecimal("2500"), "XOF", "wave_sn", true).fee())
                 .isEqualByComparingTo("62.50");
         // This flag must not silently round a tariff such as 62.525.
         assertThatThrownBy(
@@ -41,9 +38,7 @@ class SaspayContractTests {
                 .hasMessage("SASPAY_XOF_PRECISION_UNCONFIRMED");
         // Existing integer-only behavior stays the default.
         assertThatThrownBy(
-                        () ->
-                                SaspayPricing.quote(
-                                        rates, new BigDecimal("2500"), "XOF", "wave_sn"))
+                        () -> SaspayPricing.quote(rates, new BigDecimal("2500"), "XOF", "wave_sn"))
                 .hasMessage("SASPAY_XOF_ROUNDING_UNCONFIRMED");
     }
 
@@ -75,8 +70,9 @@ class SaspayContractTests {
     @Test
     void absentRateIsDistinctFromOverlappingRateWithoutAcceptingEither() {
         var rates = json.readTree(SaspayTestConfiguration.rates());
-        var tier = (tools.jackson.databind.node.ObjectNode)
-                rates.get(0).path("payin").path("tiers").get(0);
+        var tier =
+                (tools.jackson.databind.node.ObjectNode)
+                        rates.get(0).path("payin").path("tiers").get(0);
         tier.put("min_amount", "3000");
         assertThatThrownBy(
                         () ->
@@ -95,10 +91,14 @@ class SaspayContractTests {
                                 .replace("\"percent\":\"2.500\"", "\"percent\":2.500")
                                 .replace("\"fixed\":\"0.00\"", "\"fixed\":0.00"));
 
-        assertThat(SaspayPricing.quote(numericRates, new BigDecimal("1000"), "XOF", "wave_sn").fee())
+        assertThat(
+                        SaspayPricing.quote(numericRates, new BigDecimal("1000"), "XOF", "wave_sn")
+                                .fee())
                 .isEqualByComparingTo("25");
         assertThatThrownBy(
-                        () -> SaspayPricing.quote(numericRates, new BigDecimal("1100"), "XOF", "wave_sn"))
+                        () ->
+                                SaspayPricing.quote(
+                                        numericRates, new BigDecimal("1100"), "XOF", "wave_sn"))
                 .hasMessage("SASPAY_XOF_ROUNDING_UNCONFIRMED");
     }
 
@@ -117,8 +117,9 @@ class SaspayContractTests {
                         () -> SaspayPricing.quote(rates, new BigDecimal("1100"), "XOF", "wave_sn"))
                 .hasMessage("SASPAY_XOF_ROUNDING_UNCONFIRMED");
 
-        var tier = (tools.jackson.databind.node.ObjectNode)
-                rates.get(0).path("payin").path("tiers").get(0);
+        var tier =
+                (tools.jackson.databind.node.ObjectNode)
+                        rates.get(0).path("payin").path("tiers").get(0);
         tier.put("percent", "2.5E+0");
         assertThatThrownBy(
                         () -> SaspayPricing.quote(rates, new BigDecimal("1000"), "XOF", "wave_sn"))
@@ -128,24 +129,26 @@ class SaspayContractTests {
     @Test
     void exactNumericJsonMoneyRejectsFractionalExcessivePrecisionAndOversizedAmounts() {
         assertThatThrownBy(
-                        () -> SaspayPricing.decimal(
-                                json.readTree("{\"amount\":0.0000001}"), "amount"))
+                        () ->
+                                SaspayPricing.decimal(
+                                        json.readTree("{\"amount\":0.0000001}"), "amount"))
                 .hasMessage("SASPAY_INVALID_MONEY");
         assertThatThrownBy(
-                        () -> SaspayPricing.decimal(
-                                json.readTree("{\"amount\":100000000000000}"), "amount"))
+                        () ->
+                                SaspayPricing.decimal(
+                                        json.readTree("{\"amount\":100000000000000}"), "amount"))
                 .hasMessage("SASPAY_INVALID_MONEY");
         assertThatThrownBy(
-                        () -> SaspayPricing.decimal(
-                                json.readTree("{\"amount\":-1E+3}"), "amount"))
+                        () -> SaspayPricing.decimal(json.readTree("{\"amount\":-1E+3}"), "amount"))
                 .hasMessage("SASPAY_INVALID_MONEY");
     }
 
     @Test
     void rejectsInvalidNumericShapesAndExcessivePrecision() {
         var rates = json.readTree(SaspayTestConfiguration.rates());
-        var tier = (tools.jackson.databind.node.ObjectNode)
-                rates.get(0).path("payin").path("tiers").get(0);
+        var tier =
+                (tools.jackson.databind.node.ObjectNode)
+                        rates.get(0).path("payin").path("tiers").get(0);
 
         tier.put("min_amount", -1);
         assertThatThrownBy(
@@ -290,11 +293,19 @@ class SaspayContractTests {
     @Test
     void livePilotRequiresExplicitOrganizationAndCapsAndProdProfile() {
         var p = SaspayTestConfiguration.properties();
-        var live = new SaspayProperties(
-                true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
-                p.checkoutHosts(), null, null, true,
-                UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                new BigDecimal("2000"));
+        var live =
+                new SaspayProperties(
+                        true,
+                        null,
+                        "sk_live_pilot_synthetic",
+                        p.webhookSecret(),
+                        p.merchantId(),
+                        p.checkoutHosts(),
+                        null,
+                        null,
+                        true,
+                        UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                        new BigDecimal("2000"));
         assertThat(live.isLive()).isTrue();
         var development = new org.springframework.mock.env.MockEnvironment();
         assertThatThrownBy(() -> SaspayConfiguration.validateProfile(live, development))
@@ -302,15 +313,35 @@ class SaspayContractTests {
         development.setActiveProfiles("prod");
         assertThatCode(() -> SaspayConfiguration.validateProfile(live, development))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new SaspayProperties(
-                        true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
-                        p.checkoutHosts(), null, null, true,
-                        UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                        new BigDecimal("10000")))
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        null,
+                                        "sk_live_pilot_synthetic",
+                                        p.webhookSecret(),
+                                        p.merchantId(),
+                                        p.checkoutHosts(),
+                                        null,
+                                        null,
+                                        true,
+                                        UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                                        new BigDecimal("10000")))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new SaspayProperties(
-                        true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
-                        p.checkoutHosts(), null, null, true, null, new BigDecimal("2000")))
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        null,
+                                        "sk_live_pilot_synthetic",
+                                        p.webhookSecret(),
+                                        p.merchantId(),
+                                        p.checkoutHosts(),
+                                        null,
+                                        null,
+                                        true,
+                                        null,
+                                        new BigDecimal("2000")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -318,15 +349,32 @@ class SaspayContractTests {
     void livePilotQuoteIsCappedIncludingProviderFeesAndLimitedToOneOrganization() throws Exception {
         var p = SaspayTestConfiguration.properties();
         UUID organizationId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        var live = new SaspayProperties(
-                true, null, "sk_live_pilot_synthetic", p.webhookSecret(), p.merchantId(),
-                p.checkoutHosts(), null, null, true, organizationId, new BigDecimal("2000"));
+        var live =
+                new SaspayProperties(
+                        true,
+                        null,
+                        "sk_live_pilot_synthetic",
+                        p.webhookSecret(),
+                        p.merchantId(),
+                        p.checkoutHosts(),
+                        null,
+                        null,
+                        true,
+                        organizationId,
+                        new BigDecimal("2000"));
         try (var stub = new SaspayHttpStub()) {
-            var adapter = new SaspayPaymentProvider(
-                    new SaspayClient(
-                            SaspayClient.builder(live).baseUrl(stub.url() + "/api/v1").build(),
-                            json, clock),
-                    live, null, json, clock);
+            var adapter =
+                    new SaspayPaymentProvider(
+                            new SaspayClient(
+                                    SaspayClient.builder(live)
+                                            .baseUrl(stub.url() + "/api/v1")
+                                            .build(),
+                                    json,
+                                    clock),
+                            live,
+                            null,
+                            json,
+                            clock);
             assertThat(adapter.canQuoteForOrganization(organizationId)).isTrue();
             assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isFalse();
             stub.reply(200, SaspayTestConfiguration.rates());

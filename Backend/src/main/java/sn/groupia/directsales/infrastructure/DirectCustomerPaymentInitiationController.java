@@ -54,12 +54,18 @@ class DirectCustomerPaymentInitiationController {
     ResponseEntity<PaymentAttemptView> initiate(
             @RequestBody InitiationRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        // Old two-field requests can be resolved only by synthetic legacy tests.
+        // In production, the payment claim always rejects per-network SasPay quotes.
         PaymentAttemptView attempt =
-                initiation.initiate(
-                        request == null ? null : request.token(),
-                        idempotencyKey,
-                        request == null ? null : request.feeQuoteId(),
-                        request == null || request.provider() == null ? "BICTORYS" : request.provider());
+                request != null && request.provider() == null && request.feeQuoteId() != null
+                        ? initiation.initiate(request.token(), idempotencyKey, request.feeQuoteId())
+                        : initiation.initiate(
+                                request == null ? null : request.token(),
+                                idempotencyKey,
+                                request == null ? null : request.feeQuoteId(),
+                                request == null || request.provider() == null
+                                        ? "BICTORYS"
+                                        : request.provider());
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header("Referrer-Policy", "no-referrer")

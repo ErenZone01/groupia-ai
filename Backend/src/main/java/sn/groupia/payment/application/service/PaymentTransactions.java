@@ -201,6 +201,7 @@ public class PaymentTransactions {
                         "DIRECT_PAYMENT_NOT_ENABLED",
                         "Le paiement des commandes directes n'est pas encore disponible.");
             }
+            String requestedEmail = context == null ? null : context.requestedPayerEmail();
             context =
                     guard.authorize(
                             org,
@@ -209,6 +210,18 @@ public class PaymentTransactions {
                             request.getExpectedAmount(),
                             context,
                             recoveryTokenHash);
+            // Guard authenticated the private token, snapshots and amount first.
+            // Only the payer contact email may be supplemented for SasPay; the
+            // immutable order amount, identity and shipping details are untouched.
+            if ("SASPAY".equals(provider) && requestedEmail != null) {
+                String normalized = requestedEmail.strip();
+                if (normalized.length() > 254
+                        || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+                    throw new ApiException(
+                            409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                            "Adresse e-mail de paiement invalide.");
+                context = context.withAuthorizedPayerEmail(normalized);
+            }
         }
         boolean orderPayable = true;
         if (request.getTarget().type() == PaymentTargetType.ORDER && orderGuard != null) {

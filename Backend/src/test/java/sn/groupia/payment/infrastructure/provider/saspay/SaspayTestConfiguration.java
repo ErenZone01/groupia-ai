@@ -53,7 +53,10 @@ public class SaspayTestConfiguration {
                         p,
                         store,
                         json,
-                        clock);
+                        clock,
+                        false,
+                        java.net.URI.create("http://localhost:4200"),
+                        true);
         return new PaymentProvider() {
             public String name() {
                 return adapter.name();

@@ -25,6 +25,42 @@ class SaspayContractTests {
     }
 
     @Test
+    void optedInFractionalXofQuotesUseDocumentedExactDecimalsWithoutRounding() {
+        var rates = json.readTree(SaspayTestConfiguration.rates());
+        // A 2.5% SasPay tariff produces 62.50 XOF at 2500 XOF.
+        assertThat(
+                        SaspayPricing.quote(
+                                        rates, new BigDecimal("2500"), "XOF", "wave_sn", true)
+                                .fee())
+                .isEqualByComparingTo("62.50");
+        // This flag must not silently round a tariff such as 62.525.
+        assertThatThrownBy(
+                        () ->
+                                SaspayPricing.quote(
+                                        rates, new BigDecimal("2501"), "XOF", "wave_sn", true))
+                .hasMessage("SASPAY_XOF_PRECISION_UNCONFIRMED");
+        // Existing integer-only behavior stays the default.
+        assertThatThrownBy(
+                        () ->
+                                SaspayPricing.quote(
+                                        rates, new BigDecimal("2500"), "XOF", "wave_sn"))
+                .hasMessage("SASPAY_XOF_ROUNDING_UNCONFIRMED");
+    }
+
+    @Test
+    void absentRateIsDistinctFromOverlappingRateWithoutAcceptingEither() {
+        var rates = json.readTree(SaspayTestConfiguration.rates());
+        var tier = (tools.jackson.databind.node.ObjectNode)
+                rates.get(0).path("payin").path("tiers").get(0);
+        tier.put("min_amount", "3000");
+        assertThatThrownBy(
+                        () ->
+                                SaspayPricing.quote(
+                                        rates, new BigDecimal("1000"), "XOF", "wave_sn", true))
+                .hasMessage("SASPAY_RATE_NOT_APPLICABLE");
+    }
+
+    @Test
     void acceptsNumericJsonRateFieldsAsExactDecimalsWithoutGuessingXofRounding() {
         var numericRates =
                 json.readTree(

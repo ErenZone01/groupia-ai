@@ -36,6 +36,8 @@ def money(obj, name):
 def safe_summary(payload, expected_merchant, expected_amount, cap):
     if not isinstance(payload, dict):
         raise ValueError("Réponse SasPay sans objet financier")
+    if "success" in payload and payload["success"] is not True:
+        raise ValueError("Enveloppe SasPay de succès invalide")
     data = payload.get("data", payload)
     if not isinstance(data, dict):
         raise ValueError("Réponse SasPay malformée")

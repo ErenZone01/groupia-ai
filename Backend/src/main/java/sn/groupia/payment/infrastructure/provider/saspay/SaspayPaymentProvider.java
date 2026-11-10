@@ -281,6 +281,9 @@ public final class SaspayPaymentProvider implements PaymentProvider {
 
     public ProviderObservation verify(ProviderInstruction i) {
         if (i.providerSessionId() == null) {
+            if (i.providerTransactionId() == null && i.checkout() != null
+                    && i.checkout().feeQuoteId() == null)
+                return recoverHostedCheckout(i);
             // Legacy Softpay payments may still be pending during migration. Keep
             // verification (not new initiation) available for old financial records.
             return verifyLegacySoftpay(i);
@@ -347,6 +350,65 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 new ProviderMetadata(
                         i.checkout() == null ? null : i.checkout().businessReference(),
                         null, sessionId, null, fee, charged),
+                i.target());
+    }
+
+    /**
+     * A timeout after POST /checkout-sessions/ may have created a session even
+     * though Groupia did not receive the response. Never repeat that POST.
+     * Search bounded GET pages for the unique server-generated payment attempt ID.
+     */
+    private ProviderObservation recoverHostedCheckout(ProviderInstruction i) {
+        JsonNode match = null;
+        boolean exhausted = false;
+        for (int page = 1; page <= 3; page++) {
+            var pageData = client.hostedCheckoutSessions(page);
+            if (!pageData.path("results").isArray())
+                throw new SaspayException("SASPAY_HOSTED_SESSION_LIST_INVALID");
+            for (var candidate : pageData.path("results")) {
+                if (i.paymentId().toString().equals(
+                                text(candidate.path("metadata"), "groupia_payment_attempt_id"))
+                        && i.merchantReference().equals(
+                                text(candidate.path("metadata"), "groupia_reference"))
+                        && accountReference().equals(text(candidate, "merchant"))) {
+                    if (match != null)
+                        throw new SaspayException("SASPAY_HOSTED_DUPLICATE_SESSIONS");
+                    match = candidate;
+                }
+            }
+            var next = pageData.path("next");
+            if (next.isNull() || next.isMissingNode()
+                    || (next.isTextual() && next.asText().isBlank())) {
+                exhausted = true;
+                break;
+            }
+        }
+        if (!exhausted)
+            throw new SaspayException("SASPAY_HOSTED_RECOVERY_NOT_EXHAUSTIVE");
+        if (match == null)
+            throw new SaspayException("SASPAY_HOSTED_SESSION_NOT_FOUND");
+        if (money(match, "amount").compareTo(i.amount()) != 0
+                || !i.currency().equals(text(match, "currency")))
+            throw new SaspayException("SASPAY_HOSTED_SESSION_MISMATCH");
+        var id = SaspayClient.uuid(text(match, "id"));
+        String url = text(match, "checkout_url");
+        ProviderMetadata.ReviewReason review = null;
+        if (url == null || url.isBlank()) {
+            review = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+            url = null;
+        } else {
+            try {
+                validateCheckout(url);
+            } catch (SaspayException badUrl) {
+                url = null;
+                review = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+            }
+        }
+        return new ProviderObservation(
+                name(), accountReference(), i.merchantReference(), null,
+                i.paymentRequestId(), i.orderId(), i.purpose(),
+                i.amount(), i.currency(), PaymentStatus.PENDING, null,
+                new ProviderMetadata(i.checkout().businessReference(), url, id, review),
                 i.target());
     }
 

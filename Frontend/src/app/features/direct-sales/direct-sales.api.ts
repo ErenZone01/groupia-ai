@@ -339,7 +339,7 @@ export class DirectSalesApi {
   initiateDirectPayment(
     token: string,
     idempotencyKey: string,
-    provider: 'SASPAY' | 'BICTORYS' = 'BICTORYS',
+    provider: string = 'BICTORYS',
   ) {
     return firstValueFrom(
       this.http

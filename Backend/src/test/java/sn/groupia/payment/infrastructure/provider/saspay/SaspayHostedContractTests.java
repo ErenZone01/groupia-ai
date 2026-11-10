@@ -142,6 +142,19 @@ class SaspayHostedContractTests {
     }
 
     @Test
+    void cancelledHostedSessionRequiresReviewAndNeverBecomesPaid() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var i = instruction(SESSION);
+            stub.reply(200, detail(i));
+            stub.reply(200, status("CANCELLED"));
+            assertThatThrownBy(() -> provider(stub).verify(i))
+                    .hasMessage("SASPAY_HOSTED_TERMINAL_REVIEW_REQUIRED");
+            assertThat(stub.requests).hasSize(2);
+            assertThat(stub.requests).allSatisfy(r -> assertThat(r.method()).isEqualTo("GET"));
+        }
+    }
+
+    @Test
     void paidSessionRequiresIndependentFinancialProofAndKeepsExactDecimals()
             throws Exception {
         try (var stub = new SaspayHttpStub()) {

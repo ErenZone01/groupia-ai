@@ -3,5 +3,6 @@
 
 export interface InitiatePayment {
   provider?: string;
+  payerEmail?: string;
   quoteId?: string;
 }

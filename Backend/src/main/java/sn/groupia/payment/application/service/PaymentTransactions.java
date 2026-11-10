@@ -30,6 +30,10 @@ public class PaymentTransactions {
     private final boolean directPaymentEnabled;
     private final sn.groupia.payment.domain.repository.PaymentQuoteStore quotes;
 
+    // Strictly restricted to obsolete Softpay test fixtures; never enables live initiation.
+    @Value("${groupia.payment.saspay.legacy-softpay-tests:false}")
+    private boolean legacySoftpayTests;
+
     // Preserve isolated unit tests: their default remains strictly disabled.
     PaymentTransactions(
             FinancialStore store,
@@ -254,7 +258,24 @@ public class PaymentTransactions {
                     "PAYMENT_INITIATION_CONFLICT",
                     "Une tentative est déjà en cours ou doit être réconciliée.");
         }
-        if ("SASPAY".equals(provider)) {
+        if ("SASPAY".equals(provider)
+                && legacySoftpayTests
+                && context != null
+                && context.feeQuoteId() != null) {
+            var q = quotes.find(context.feeQuoteId())
+                    .orElseThrow(() -> new ApiException(
+                            409, "PAYMENT_QUOTE_REQUIRED", "Devis test introuvable."));
+            if (!q.organizationId().equals(org)
+                    || !q.requestId().equals(requestId)
+                    || !q.provider().equals(provider)
+                    || !q.account().equals(account)
+                    || q.amount().compareTo(request.getExpectedAmount()) != 0
+                    || !q.currency().equals(request.getCurrency())
+                    || !clock.instant().isBefore(q.expiresAt())
+                    || request.view().feeAmount().signum() != 0)
+                throw new ApiException(
+                        409, "PAYMENT_QUOTE_INVALID", "Devis test incompatible.");
+        } else if ("SASPAY".equals(provider)) {
             // Hosted checkout replaces client-selected network quotes completely.
             // SasPay calculates ADD_ON fees on its own payment page; Groupia
             // verifies the exact net and charged amount after settlement.

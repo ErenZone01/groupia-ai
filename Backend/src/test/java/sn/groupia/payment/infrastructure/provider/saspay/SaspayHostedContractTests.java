@@ -175,7 +175,8 @@ class SaspayHostedContractTests {
     void externalSessionDoesNotMatchAnotherGroupiaPaymentAttempt() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var i = instruction(SESSION);
-            stub.reply(200, detail(instruction(SESSION)));
+            stub.reply(200, detail(i).replace(
+                    "GP-test-reference", "GP-other-order-reference"));
             assertThatThrownBy(() -> provider(stub).verify(i))
                     .hasMessage("SASPAY_HOSTED_SESSION_MISMATCH");
         }

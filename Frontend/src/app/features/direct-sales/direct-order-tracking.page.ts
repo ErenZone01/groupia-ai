@@ -84,6 +84,15 @@ import { safeSaspayCheckout } from '../checkout/public-order-session.service';
             <button type="button" class="action-link" [disabled]="paymentBusy()" (click)="pay(undefined, true)">
               Payer sur SasPay (Wave, Orange Money…)
             </button>
+            <label for="saspay-payer-email">Adresse e-mail du payeur (si elle n'a pas déjà été renseignée)</label>
+            <input
+              id="saspay-payer-email"
+              type="email"
+              autocomplete="email"
+              placeholder="exemple@domaine.com"
+              [value]="payerEmail()"
+              (input)="payerEmail.set($any($event.target).value)"
+            />
             <p>Vous choisissez votre moyen de paiement et consultez les frais sur la page sécurisée SasPay avant de confirmer.</p>
           }
           @if (paymentBusy()) {
@@ -206,6 +215,16 @@ import { safeSaspayCheckout } from '../checkout/public-order-session.service';
         border-radius: 12px;
         background: var(--primary-soft);
       }
+      input[type='email'] {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+      }
       .action-link {
         display: inline-flex;
         align-items: center;
@@ -251,6 +270,7 @@ export class DirectOrderTrackingPage {
   readonly paymentBusy = signal(false);
   readonly paymentWaiting = signal(false);
   readonly paymentError = signal('');
+  readonly payerEmail = signal('');
   readonly checkoutUrl = signal<string | null>(null);
   readonly quotes = signal<PaymentFeeQuoteView[]>([]);
   readonly acceptedQuote = signal<PaymentFeeQuoteView | null>(null);
@@ -588,7 +608,12 @@ export class DirectOrderTrackingPage {
     this.paymentError.set('');
     this.checkoutUrl.set(null);
     try {
-      const receipt = await this.api.initiateDirectPayment(token, this.paymentKey, provider);
+      const receipt = await this.api.initiateDirectPayment(
+        token,
+        this.paymentKey,
+        provider,
+        hosted ? this.payerEmail().trim() : undefined,
+      );
       if (sequence !== this.sequence || token !== this.token) return;
       if (receipt.currency !== 'XOF' || receipt.expectedAmount !== this.order()?.acceptedTotalXof) {
         this.paymentWaiting.set(true);

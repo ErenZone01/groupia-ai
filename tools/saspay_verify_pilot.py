@@ -87,6 +87,25 @@ def fetch_payment(key, payment_id):
         return json.loads(raw.decode("utf-8"), parse_float=Decimal)
 
 
+def unwrap_pagination(payload):
+    """Return (rows, has_next) from documented bare or success/data paginated responses.
+
+    Reject provider errors and unknown structures rather than pretending an empty list.
+    No customer records are printed by this helper.
+    """
+    if isinstance(payload, dict) and "success" in payload:
+        if payload["success"] is not True:
+            raise ValueError("Réponse SasPay signalant un échec")
+        if "data" not in payload:
+            raise ValueError("Enveloppe SasPay sans données")
+        payload = payload["data"]
+    if isinstance(payload, list):
+        return payload, False
+    if isinstance(payload, dict) and isinstance(payload.get("results"), list):
+        return payload["results"], bool(payload.get("next"))
+    raise ValueError("Format de pagination SasPay non reconnu")
+
+
 def fetch_transaction_detail(key, payment_id):
     """Separate read-only transaction resource; not gateway verification."""
     payment_id = str(UUID(payment_id))
@@ -137,20 +156,17 @@ def audit_merchant_scope(key, expected_merchant, around_utc):
     """Read-only visibility audit: account wallets and nearby pay-in count, no customer data."""
     print("Contrôle de visibilité marchande via la clé LIVE (GET uniquement) :")
     try:
-        wallet_page = _get_safe(key, "/merchant-balances/?page_size=100")
-        wallets = wallet_page.get("results") if isinstance(wallet_page, dict) else None
-        if not isinstance(wallets, list):
-            print("  Wallets : structure de réponse inconnue")
-        else:
-            merchant_set = {
-                str(row.get("merchant", "")).lower()
-                for row in wallets if isinstance(row, dict)
-            }
-            print("  Wallets (première page) : " + str(len(wallets)))
-            print("  Compte marchand configuré présent : " +
-                  ("OUI" if expected_merchant.lower() in merchant_set else "NON/INCONNU"))
-            if wallet_page.get("next"):
-                print("  Wallets paginés : absence sur la première page non concluante.")
+        wallets, has_next = unwrap_pagination(
+            _get_safe(key, "/merchant-balances/?page_size=100"))
+        merchant_set = {
+            str(row.get("merchant", "")).lower()
+            for row in wallets if isinstance(row, dict)
+        }
+        print("  Wallets (première page) : " + str(len(wallets)))
+        print("  Compte marchand configuré présent : " +
+              ("OUI" if expected_merchant.lower() in merchant_set else "NON/INCONNU"))
+        if has_next:
+            print("  Wallets paginés : absence sur la première page non concluante.")
     except HTTPError as exc:
         print("  Liste des wallets : HTTP " + str(exc.code))
     except (URLError, OSError, ValueError, json.JSONDecodeError):
@@ -171,11 +187,7 @@ def audit_merchant_scope(key, expected_merchant, around_utc):
         "page_size": 200,
     })
     try:
-        page = _get_safe(key, "/transactions/?" + query)
-        rows = page.get("results") if isinstance(page, dict) else None
-        if not isinstance(rows, list):
-            print("  Transactions datées : structure de réponse inconnue")
-            return
+        rows, has_next = unwrap_pagination(_get_safe(key, "/transactions/?" + query))
         matching_merchant = [
             row for row in rows if isinstance(row, dict)
             and str(row.get("merchant", "")).lower() == expected_merchant.lower()
@@ -184,7 +196,7 @@ def audit_merchant_scope(key, expected_merchant, around_utc):
         print("  Transactions du marchand Groupia configuré : " + str(len(matching_merchant)))
         print("  Autres marchand(s) dans la fenêtre : " +
               ("OUI" if len(rows) > len(matching_merchant) else "NON"))
-        if page.get("next"):
+        if has_next:
             print("  Résultats paginés : la fenêtre n'est pas exhaustive.")
         print("  Un statut dans la liste n'est PAS une preuve de paiement.")
     except HTTPError as exc:
@@ -216,26 +228,19 @@ def diagnose_verify_404(key, payment_id, merchant, audit_scope=False, around_utc
         print("Détail transaction inaccessible ou réponse non exploitable.")
 
     try:
-        page = fetch_transaction_page(key)
-        if isinstance(page, dict):
-            rows = page.get("results", [])
-            if isinstance(rows, list):
-                matches = [row for row in rows
-                           if isinstance(row, dict) and isinstance(row.get("id"), str)
-                           and row["id"].replace("-", "").lower() == UUID(payment_id).hex]
-                print("Liste transactions (première page, max. 50) : " +
-                      ("identifiant trouvé" if matches else "identifiant non trouvé dans cette page"))
-                if matches:
-                    own = any(str(row.get("merchant", "")).lower() == merchant.lower()
-                              for row in matches)
-                    print("Identifiant lié au marchand configuré : " +
-                          ("OUI" if own else "NON"))
-                if page.get("next"):
-                    print("D'autres pages existent ; absence sur cette page non concluante.")
-            else:
-                print("Liste transactions : structure inconnue.")
-        else:
-            print("Liste transactions : réponse non structurée.")
+        rows, has_next = unwrap_pagination(fetch_transaction_page(key))
+        matches = [row for row in rows
+                   if isinstance(row, dict) and isinstance(row.get("id"), str)
+                   and row["id"].replace("-", "").lower() == UUID(payment_id).hex]
+        print("Liste transactions (première page, max. 50) : " +
+              ("identifiant trouvé" if matches else "identifiant non trouvé dans cette page"))
+        if matches:
+            own = any(str(row.get("merchant", "")).lower() == merchant.lower()
+                      for row in matches)
+            print("Identifiant lié au marchand configuré : " +
+                  ("OUI" if own else "NON"))
+        if has_next:
+            print("D'autres pages existent ; absence sur cette page non concluante.")
     except HTTPError as exc:
         print("Liste /transactions/ : HTTP " + str(exc.code))
     except (URLError, OSError, ValueError, json.JSONDecodeError):

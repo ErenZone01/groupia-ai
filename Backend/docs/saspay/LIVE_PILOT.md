@@ -368,3 +368,89 @@ est documenté mais doit être conçu avec son propre consentement client,
 idempotence, plafond, anti-doublon et vérification d'état ; il n'est
 pas ajouté automatiquement dans cette PR pour ne pas contourner les
 contrôles financiers.
+
+## SasPay XOF décimal : correction optionnelle et revue de sécurité (10 novembre 2026)
+
+La [documentation de vérification SasPay](https://docs.saspay.me/api-reference/payments/verify)
+montre **explicitement** `client_fee: "37.50"`, `debited_amount: "2537.50"`
+et `currency: "XOF"`. Le code original refusait toutes les décimales XOF.
+Cela écartait Wave, Orange Money et Free Money pour certaines commandes.
+En revanche, la documentation **ne garantit pas** que chaque portefeuille
+mobile money débite les sous-unités XOF sans arrondi propre au gateway.
+
+Un mode de pilotage opt-in a été ajouté :
+`SASPAY_ALLOW_FRACTIONAL_XOF_FEES=true` active les devis XOF dont les
+**frais calculés exacts** ne dépassent pas deux décimales. Ce mode :
+- conserve le prix de la commande entier XOF et la commission Groupia nulle ;
+- refuse la moindre troisième décimale non nulle, sans arrondi ;
+- refuse les tarifs ambigus ou absents, les frais qui dépassent le plafond,
+  les modes hors `ADD_ON` et les réseaux OTP non supportés ;
+- persiste `payment_fee_quotes.fee` jusqu'à deux décimales via migration
+  **052** (la migration 045 et toutes les migrations 001-022 restent
+  inchangées) ;
+- recalcule les mêmes frais immédiatement avant l'appel softpay et refuse
+  tout changement de tarif ;
+- exige au retour du fournisseur la preuve `requested_amount == amount`,
+  `client_fee == devis`, `debited_amount == amount + devis`, et
+  `net_amount == amount` avant tout règlement de commande.
+
+**Le flag est false par défaut.** Il ne garantit pas que SasPay/les gateways
+acceptent le montant exact, ni qu'une tentative de paiement n'ait jamais
+déjà débité un client avant détection d'écart. Ce risque justifie de tester
+d'abord les devis en lecture seule et de conserver le plafond de 2000 XOF.
+
+Configuration ciblée de l'application réelle :
+```properties
+SASPAY_ALLOW_FRACTIONAL_XOF_FEES=true
+SASPAY_LIVE_PILOT_MAX_CHARGED_XOF=2000
+# Conserver SASPAY_ENABLED, SASPAY_LIVE_PILOT_ENABLED, secret, compte,
+# identifiant organisation et SPRING_PROFILES_ACTIVE=prod déjà validés.
+# SASPAY_CHECKOUT_HOSTS doit contenir les domaines HTTPS EXAC TS réellement
+# renvoyés par le provider ; pay.saspay.me et pay.wave.com sont des exemples
+# documentés ; ne pas utiliser de wildcard.
+```
+(En pratique, orthographier les commentaires comme de simples remarques :
+`SASPAY_CHECKOUT_HOSTS=pay.saspay.me,pay.wave.com` uniquement après
+vérification des redirections réellement utilisées.)
+
+Ne pas modifier le prix d'une ancienne commande en base. Utiliser une
+nouvelle commande de 1000 XOF et uniquement « Voir les frais SasPay »
+pour vérifier que Wave et Orange apparaissent. **Ne pas lancer de second
+paiement réel automatiquement**. Si le tarif produit plus de deux décimales
+exactes, le réseau reste volontairement bloqué.
+
+Tests locaux à rejouer depuis la racine du dépôt :
+```powershell
+python -m unittest discover -s tools -p "test_saspay_*.py"
+python -m unittest discover -s tools -p "test_check_saspay_config.py"
+python tools/saspay_diagnostics.py --env-file Backend/.env --organization-id b95a0515-1bcf-4740-8417-c594d02f211e --amount-xof 1000
+cd Backend
+$env:SPRING_PROFILES_ACTIVE = "test"
+.\mvnw.cmd "-Dtest=SaspayContractTests,SaspayIntegrationTests" test
+```
+
+Pour connaître l'état d'une transaction déjà initiée, **sans nouveau débit**,
+la commande dédiée vérifie strictement l'identité du marchand et les
+montants attendus :
+```powershell
+python tools/saspay_verify_pilot.py --env-file Backend/.env --payment-id <UUID_TRANSACTION_EXISTANTE> --expected-amount-xof 1000
+```
+Une transaction `FAILED` reste non payée, même si sa vérification
+financière est cohérente. Le statut Groupia dépend séparément de
+l'enregistrement et de la réconciliation du webhook.
+
+Autres limites réellement confirmées :
+- Le checkout hébergé `POST /checkout-sessions/` ne verrouille pas un
+  réseau ni des frais précis et n'accepte pas `Idempotency-Key` ;
+  il ne remplace pas directement l'acceptation du devis avec le modèle
+  financier actuel. Il demanderait un flux séparé et vérifiable.
+- Le plafond LIVE de **2000 XOF frais compris** ne peut pas couvrir
+  l'abonnement standard à **10000 XOF**. Ne pas accroître ce plafond
+  sans décision explicite de risque et validation fournisseur.
+- Les frais et le net du compte marchand SasPay ne sont pas la preuve
+  du versement à une vendeuse tierce. Aucun payout réel n'est activé.
+- Après `202`, un webhook doit encore être traité/reconcilié avant
+  d'autoriser la préparation commerciale.
+
+Les correctifs ci-dessus ont été publiés mais ne sont pas encore
+validés par un cycle Maven/Testcontainers de l'auteur du présent lot.

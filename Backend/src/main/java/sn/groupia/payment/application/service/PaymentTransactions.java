@@ -202,13 +202,16 @@ public class PaymentTransactions {
                         "Le paiement des commandes directes n'est pas encore disponible.");
             }
             String requestedEmail = context == null ? null : context.requestedPayerEmail();
+            // Guard compares server-originated snapshots only. The supplemental email
+            // is applied strictly AFTER authorization of the capability and order.
+            var guardContext = context == null ? null : context.withPayerEmail(null);
             context =
                     guard.authorize(
                             org,
                             request.getTarget().id(),
                             request.getId(),
                             request.getExpectedAmount(),
-                            context,
+                            guardContext,
                             recoveryTokenHash);
             // Guard authenticated the private token, snapshots and amount first.
             // Only the payer contact email may be supplemented for SasPay; the

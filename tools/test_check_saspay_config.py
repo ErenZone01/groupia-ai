@@ -45,6 +45,15 @@ class SaspayConfigurationTests(unittest.TestCase):
         env["SPRING_PROFILES_ACTIVE"] = "dev"
         self.assertTrue(check(env))
 
+    def test_fractional_xof_flag_is_explicit_boolean(self):
+        env = self.live()
+        env["SASPAY_ALLOW_FRACTIONAL_XOF_FEES"] = "true"
+        self.assertEqual(check(env), [])
+        env["SASPAY_ALLOW_FRACTIONAL_XOF_FEES"] = "sometimes"
+        self.assertTrue(check(env))
+        env["SASPAY_ALLOW_FRACTIONAL_XOF_FEES"] = "false"
+        self.assertEqual(check(env), [])
+
     def test_wildcard_redirect_domain_is_refused(self):
         env = self.config()
         env["SASPAY_CHECKOUT_HOSTS"] = "*.example.test"

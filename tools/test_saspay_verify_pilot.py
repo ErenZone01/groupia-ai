@@ -69,6 +69,74 @@ class SaspayPilotVerificationTests(unittest.TestCase):
                 self.merchant, Decimal("1000"), Decimal("2000"))["may_confirm_order"]
         )
 
+    def test_verify_404_diagnostic_never_confirms_or_mutates(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from saspay_verify_pilot import diagnose_verify_404
+        uid = "253c31ba-9b54-44f8-958e-a6d78d1bbe87"
+        record = {
+            "id": uid,
+            "merchant": self.merchant,
+            "status": "SUCCESS",
+        }
+        output = StringIO()
+        with patch("saspay_verify_pilot.fetch_transaction_detail", return_value=record), \
+             patch("saspay_verify_pilot.fetch_transaction_page",
+                   return_value={"results": [record], "next": None}), \\
+             redirect_stdout(output):
+            code = diagnose_verify_404("sk_test_fake", uid, self.merchant)
+        self.assertEqual(code, 1)
+        self.assertIn("Statut indicatif : SUCCESS", output.getvalue())
+        self.assertIn("ne remplace PAS", output.getvalue())
+        self.assertIn("aucune confirmation", output.getvalue())
+
+    def test_diagnostic_404_preserves_account_and_handles_missing_records(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from saspay_verify_pilot import diagnose_verify_404
+        from urllib.error import HTTPError
+        uid = "d6b9b3d0-e4ed-4341-ae14-7d7f56909361"
+        output = StringIO()
+        with patch("saspay_verify_pilot.fetch_transaction_detail",
+                   side_effect=HTTPError("https://api.saspay.me", 404, "Not Found", {}, None)), \
+             patch("saspay_verify_pilot.fetch_transaction_page",
+                   return_value={"results": [], "next": "next-page"}), \\
+             redirect_stdout(output):
+            code = diagnose_verify_404("sk_test_fake", uid, self.merchant)
+        self.assertEqual(code, 1)
+        self.assertIn("HTTP 404", output.getvalue())
+        self.assertIn("non concluante", output.getvalue())
+        self.assertNotIn("sk_test_fake", output.getvalue())
+
+    def test_list_and_detail_probes_use_only_fixed_get_paths(self):
+        import json
+        from io import BytesIO
+        from saspay_verify_pilot import fetch_transaction_detail, fetch_transaction_page
+        uid = "253c31ba9b5444f8958ea6d78d1bbe87"
+        class FakeResponse:
+            def __init__(self, payload):
+                self.data = BytesIO(json.dumps(payload).encode())
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return None
+            def read(self, n):
+                return self.data.read(n)
+        calls = []
+        def respond(req, timeout):
+            calls.append((req.get_method(), req.full_url))
+            if "/transactions/?" in req.full_url:
+                return FakeResponse({"results": [], "next": None})
+            return FakeResponse({"id": "253c31ba-9b54-44f8-958e-a6d78d1bbe87"})
+        with patch("saspay_verify_pilot.urlopen", side_effect=respond):
+            fetch_transaction_detail("sk_test_fake", uid)
+            fetch_transaction_page("sk_test_fake")
+        self.assertEqual([m for m, _ in calls], ["GET", "GET"])
+        self.assertTrue(calls[0][1].endswith(
+            "/transactions/253c31ba-9b54-44f8-958e-a6d78d1bbe87/"))
+        self.assertTrue(calls[1][1].startswith(
+            "https://api.saspay.me/api/v1/transactions/?"))
+
     def test_id_required_before_any_network_attempt(self):
         with patch("saspay_verify_pilot.urlopen") as request:
             with self.assertRaises(ValueError):

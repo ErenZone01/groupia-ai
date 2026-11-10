@@ -156,10 +156,33 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                         "groupia_purpose",
                         i.purpose().name()));
         var data = client.initiate(body, i.providerIdempotencyKey());
+        // The provider has already created a real transaction. Never discard its ID
+        // when its redirect target is unexpected: otherwise webhooks cannot correlate
+        // and a retry could produce another charge.
         var id = SaspayClient.uuid(text(data, "id"));
         var url = text(data, "checkout_url");
         if (url != null && url.isBlank()) url = null;
-        if (url != null) validateCheckout(url);
+        ProviderMetadata.ReviewReason review = null;
+        if (url != null) {
+            try {
+                validateCheckout(url);
+            } catch (SaspayException rejected) {
+                String host = "(invalid)";
+                try {
+                    var actualHost = URI.create(url).getHost();
+                    if (actualHost != null && actualHost.matches("[a-z0-9]+(?:[.-][a-z0-9]+)*\\.[a-z]{2,}"))
+                        host = actualHost;
+                } catch (RuntimeException ignored) {
+                    // Don't log provider-supplied URLs, query strings or customer tokens.
+                }
+                log.warn(
+                        "SasPay redirect blocked after initiation: network={}, host={}, code=SASPAY_INVALID_CHECKOUT_URL",
+                        q.network(),
+                        host);
+                url = null;
+                review = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+            }
+        }
         // Initiation never proves success, including a SUCCESS acknowledgement.
         return new ProviderObservation(
                 name(),
@@ -173,7 +196,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 i.currency(),
                 PaymentStatus.PENDING,
                 null,
-                new ProviderMetadata(context.businessReference(), url, null, null),
+                new ProviderMetadata(context.businessReference(), url, null, review),
                 i.target());
     }
 

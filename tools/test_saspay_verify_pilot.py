@@ -57,6 +57,18 @@ class SaspayPilotVerificationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.check()
 
+    def test_negative_provider_envelope_never_counts_as_success(self):
+        self.payment["status"] = "SUCCESS"
+        with self.assertRaises(ValueError):
+            safe_summary(
+                {"success": False, "data": self.payment},
+                self.merchant, Decimal("1000"), Decimal("2000"))
+        self.assertTrue(
+            safe_summary(
+                {"success": True, "data": self.payment},
+                self.merchant, Decimal("1000"), Decimal("2000"))["may_confirm_order"]
+        )
+
     def test_id_required_before_any_network_attempt(self):
         with patch("saspay_verify_pilot.urlopen") as request:
             with self.assertRaises(ValueError):

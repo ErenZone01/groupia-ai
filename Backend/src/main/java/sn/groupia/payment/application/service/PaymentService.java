@@ -1,6 +1,7 @@
 package sn.groupia.payment.application.service;
 
 import java.util.*;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.payment.api.*;
@@ -156,9 +157,11 @@ public class PaymentService implements PaymentOperations {
                                     && ex.getMessage().matches("SASPAY_[A-Z0-9_]{1,100}")
                             ? ex.getMessage()
                             : "PROVIDER_INITIATION_UNCERTAIN";
-            org.slf4j.LoggerFactory.getLogger(PaymentService.class)
-                    .warn("Payment initiation requires reconciliation provider={} reason={}",
-                            adapter.name(), code);
+            LoggerFactory.getLogger(PaymentService.class)
+                    .warn(
+                            "Payment initiation requires reconciliation provider={} reason={}",
+                            adapter.name(),
+                            code);
             return transactions.uncertain(claim.instruction().paymentId());
         }
         if (result != null && result.status() == PaymentStatus.SUCCEEDED) {

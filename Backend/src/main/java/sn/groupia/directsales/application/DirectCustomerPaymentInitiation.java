@@ -89,6 +89,13 @@ public class DirectCustomerPaymentInitiation {
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiate(
             String token, String idempotencyKey, UUID unusedFeeQuoteId, String provider) {
+        return initiate(token, idempotencyKey, unusedFeeQuoteId, provider, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(
+            String token, String idempotencyKey, UUID unusedFeeQuoteId,
+            String provider, String payerEmail) {
         String tokenHash = DirectAccessTokens.hashForLookup(token);
         requireEnabled();
         if (idempotencyKey == null || !idempotencyKey.strip().matches("[A-Za-z0-9._:-]{16,128}"))
@@ -99,11 +106,18 @@ public class DirectCustomerPaymentInitiation {
             throw new ApiException(409, "PAYMENT_QUOTE_OBSOLETE", "Le devis par réseau n'est plus utilisé.");
         Order order = lookup(tokenHash);
         var context = context(order);
-        if ("SASPAY".equals(provider)
-                && (context.email() == null
-                        || !context.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")))
-            throw new ApiException(409, "SASPAY_HOSTED_CONTACT_REQUIRED",
-                    "Une adresse e-mail valide est requise pour le paiement SasPay.");
+        if ("SASPAY".equals(provider)) {
+            String effectiveEmail = payerEmail == null || payerEmail.isBlank()
+                    ? context.email()
+                    : payerEmail.strip();
+            if (effectiveEmail == null
+                    || effectiveEmail.length() > 254
+                    || !effectiveEmail.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+                throw new ApiException(409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                        "Une adresse e-mail valide est requise pour le paiement SasPay.");
+            if (payerEmail != null && !payerEmail.isBlank())
+                context = context.withPayerEmail(effectiveEmail);
+        }
         return payments.initiateDirect(
                 order.organizationId(), order.requestId(), provider, idempotencyKey.strip(),
                 tokenHash, context);

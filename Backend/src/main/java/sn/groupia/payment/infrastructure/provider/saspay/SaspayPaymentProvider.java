@@ -19,6 +19,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     private final ObjectMapper json;
     private final Clock clock;
     private final boolean allowFractionalXofFees;
+    private final URI publicBaseUrl;
 
     SaspayPaymentProvider(
             SaspayClient client,
@@ -36,12 +37,25 @@ public final class SaspayPaymentProvider implements PaymentProvider {
             ObjectMapper json,
             Clock clock,
             boolean allowFractionalXofFees) {
+        this(client, properties, quotes, json, clock, allowFractionalXofFees,
+                URI.create("http://localhost:4200"));
+    }
+
+    SaspayPaymentProvider(
+            SaspayClient client,
+            SaspayProperties properties,
+            PaymentQuoteStore quotes,
+            ObjectMapper json,
+            Clock clock,
+            boolean allowFractionalXofFees,
+            URI publicBaseUrl) {
         this.client = client;
         this.properties = properties;
         this.quotes = quotes;
         this.json = json;
         this.clock = clock;
         this.allowFractionalXofFees = allowFractionalXofFees;
+        this.publicBaseUrl = publicBaseUrl;
     }
 
     public String name() {
@@ -53,7 +67,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     }
 
     public boolean requiresFeeQuote() {
-        return true;
+        return false; // Network selection and fees are now owned by hosted SasPay checkout.
     }
 
     @Override
@@ -120,85 +134,76 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         return List.copyOf(result);
     }
 
+    /**
+     * Hosted SasPay checkout: create a session, not a financial transaction.
+     * A session ID MUST NOT be stored as the provider payment transaction ID.
+     */
     public ProviderObservation initiate(ProviderInstruction i) {
-        var q = accepted(i);
-        if (!canQuoteForOrganization(q.organizationId()))
-            throw new SaspayException("SASPAY_LIVE_PILOT_ORGANIZATION");
-        enforceLivePilotLimit(q.amount(), q.fee());
-        if (!clock.instant().isBefore(q.expiresAt()))
-            throw new SaspayException("SASPAY_QUOTE_EXPIRED");
-        var context = i.checkout();
-        if (context.customerName() == null
-                || context.customerName().isBlank()
-                || context.phone() == null
-                || !context.phone().matches("\\+221[0-9]{9}")
-                || context.email() == null
-                || context.email().isBlank()) throw new SaspayException("SASPAY_CUSTOMER_REQUIRED");
-        var names = context.customerName().strip().split("\\s+", 2);
-        if (names.length != 2 || names[1].isBlank())
-            throw new SaspayException("SASPAY_CUSTOMER_REQUIRED");
-        var fresh = quote(i.amount(), i.currency(), q.network());
-        if (fresh.fee().compareTo(q.fee()) != 0) throw new SaspayException("SASPAY_RATE_CHANGED");
-        var body = new LinkedHashMap<String, Object>();
-        body.put("amount", i.amount().setScale(2).toPlainString());
-        body.put("currency", i.currency());
-        body.put("country", q.country());
-        body.put("network", q.network());
-        body.put("fee_charge_mode", "ADD_ON");
-        body.put("description", context.businessReference());
-        body.put(
-                "customer",
-                Map.of(
-                        "email",
-                        context.email(),
-                        "first_name",
-                        names[0],
-                        "last_name",
-                        names[1],
-                        "phone",
-                        context.phone()));
-        body.put(
+        if (i.checkout() == null
+                || i.checkout().feeQuoteId() != null
+                || i.checkout().customerName() == null
+                || i.checkout().customerName().isBlank()
+                || i.checkout().email() == null
+                || !i.checkout().email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
+                || i.checkout().email().length() > 254)
+            throw new SaspayException("SASPAY_HOSTED_CONTACT_REQUIRED");
+        if (i.amount() == null
+                || i.amount().signum() <= 0
+                || !"XOF".equals(i.currency()))
+            throw new SaspayException("SASPAY_HOSTED_AMOUNT_INVALID");
+        enforceLivePilotLimit(i.amount(), BigDecimal.ZERO);
+        URI returnUrl = publicBaseUrl.resolve("/paiement/retour");
+        if ((properties.isLive() && !"https".equals(returnUrl.getScheme()))
+                || returnUrl.getHost() == null
+                || returnUrl.getUserInfo() != null
+                || returnUrl.getFragment() != null
+                || !Set.of("https", "http").contains(returnUrl.getScheme()))
+            throw new SaspayException("SASPAY_RETURN_URL_INVALID");
+        var payload = new LinkedHashMap<String, Object>();
+        payload.put("amount", i.amount().setScale(2).toPlainString());
+        payload.put("currency", i.currency());
+        payload.put("country", "SN");
+        payload.put("description", i.checkout().businessReference());
+        payload.put("customer_email", i.checkout().email());
+        payload.put("customer_name", i.checkout().customerName());
+        if (i.checkout().phone() != null && !i.checkout().phone().isBlank())
+            payload.put("customer_phone", i.checkout().phone());
+        payload.put("fee_charge_mode", "ADD_ON");
+        payload.put("return_url", returnUrl.toString());
+        payload.put(
                 "metadata",
                 Map.of(
-                        "groupia_reference",
-                        i.merchantReference(),
-                        "groupia_purpose",
-                        i.purpose().name()));
-        var data = client.initiate(body, i.providerIdempotencyKey());
-        // The provider has already created a real transaction. Never discard its ID
-        // when its redirect target is unexpected: otherwise webhooks cannot correlate
-        // and a retry could produce another charge.
-        var id = SaspayClient.uuid(text(data, "id"));
-        var url = text(data, "checkout_url");
-        if (url != null && url.isBlank()) url = null;
+                        "groupia_payment_attempt_id", i.paymentId().toString(),
+                        "groupia_reference", i.merchantReference(),
+                        "groupia_purpose", i.purpose().name()));
+        // Non-idempotent endpoint: do not retry this POST on a timeout or 5xx.
+        var created = client.createHostedCheckout(payload);
+        var sessionId = SaspayClient.uuid(text(created, "id"));
+        if (!accountReference().equals(text(created, "merchant"))
+                || money(created, "amount").compareTo(i.amount()) != 0
+                || !i.currency().equals(text(created, "currency")))
+            throw new SaspayException("SASPAY_HOSTED_SESSION_MISMATCH");
+        var url = text(created, "checkout_url");
+        // If the external session was created with a disallowed redirect,
+        // preserve its ID; never expose that URL nor create another session.
         ProviderMetadata.ReviewReason review = null;
-        if (url != null) {
+        if (url == null || url.isBlank()) {
+            review = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+            url = null;
+        } else {
             try {
                 validateCheckout(url);
-            } catch (SaspayException rejected) {
-                String host = "(invalid)";
-                try {
-                    var actualHost = URI.create(url).getHost();
-                    if (actualHost != null
-                            && actualHost.matches("[a-z0-9]+(?:[.-][a-z0-9]+)*\\.[a-z]{2,}"))
-                        host = actualHost;
-                } catch (RuntimeException ignored) {
-                    // Don't log provider-supplied URLs, query strings or customer tokens.
-                }
-                log.warn(
-                        "SasPay redirect blocked after initiation: network={}, host={}, code=SASPAY_INVALID_CHECKOUT_URL",
-                        q.network(),
-                        host);
-                url = null;
+            } catch (SaspayException invalid) {
+                log.warn("SasPay hosted checkout URL rejected for session (host not approved)");
                 review = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+                url = null;
             }
         }
-        // Initiation never proves success, including a SUCCESS acknowledgement.
         return new ProviderObservation(
                 name(),
                 accountReference(),
                 i.merchantReference(),
-                id,
+                null,
                 i.paymentRequestId(),
                 i.orderId(),
                 i.purpose(),
@@ -206,15 +211,76 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 i.currency(),
                 PaymentStatus.PENDING,
                 null,
-                new ProviderMetadata(context.businessReference(), url, null, review),
+                new ProviderMetadata(i.checkout().businessReference(), url, sessionId, review),
                 i.target());
     }
 
     public ProviderObservation verify(ProviderInstruction i) {
+        if (i.providerSessionId() == null) {
+            // Legacy Softpay payments may still be pending during migration. Keep
+            // verification (not new initiation) available for old financial records.
+            return verifyLegacySoftpay(i);
+        }
+        String sessionId = SaspayClient.uuid(i.providerSessionId());
+        var session = client.hostedCheckoutDetail(sessionId);
+        if (!sessionId.equals(SaspayClient.uuid(text(session, "id")))
+                || !accountReference().equals(text(session, "merchant"))
+                || money(session, "amount").compareTo(i.amount()) != 0
+                || !i.currency().equals(text(session, "currency"))
+                || session.path("metadata").isMissingNode()
+                || !i.paymentId().toString().equals(text(session.path("metadata"), "groupia_payment_attempt_id"))
+                || !i.merchantReference().equals(text(session.path("metadata"), "groupia_reference")))
+            throw new SaspayException("SASPAY_HOSTED_SESSION_MISMATCH");
+
+        var status = client.hostedCheckoutStatus(sessionId);
+        if (!sessionId.equals(SaspayClient.uuid(text(status, "id"))))
+            throw new SaspayException("SASPAY_HOSTED_SESSION_MISMATCH");
+        if (!"PAID".equals(text(status, "status"))) {
+            // Return PENDING without assigning a fictitious provider transaction.
+            return new ProviderObservation(
+                    name(), accountReference(), i.merchantReference(), null,
+                    i.paymentRequestId(), i.orderId(), i.purpose(), i.amount(), i.currency(),
+                    PaymentStatus.PENDING, null,
+                    new ProviderMetadata(i.checkout() == null ? null : i.checkout().businessReference(),
+                            null, sessionId, null),
+                    i.target());
+        }
+        if (!"SUCCESS".equals(text(status, "transaction_status")))
+            throw new SaspayException("SASPAY_HOSTED_TRANSACTION_NOT_VERIFIED");
+        String txnId = SaspayClient.uuid(text(status, "transaction_id"));
+        if (i.providerTransactionId() != null
+                && !txnId.equals(SaspayClient.uuid(i.providerTransactionId())))
+            throw new SaspayException("SASPAY_HOSTED_TRANSACTION_MISMATCH");
+        var data = client.verify(txnId);
+        if (!txnId.equals(SaspayClient.uuid(text(data, "id")))
+                || !accountReference().equals(text(data, "merchant"))
+                || !"SUCCESS".equals(text(data, "status"))
+                || !"PAIEMENT".equals(text(data, "transaction_type"))
+                || !"INBOUND".equals(text(data, "flow_direction")))
+            throw new SaspayException("SASPAY_HOSTED_TRANSACTION_MISMATCH");
+        var amount = money(data, "requested_amount");
+        var fee = money(data, "client_fee");
+        var charged = money(data, "debited_amount");
+        var net = money(data, "net_amount");
+        if (!"ADD_ON".equals(text(data, "fee_charge_mode"))
+                || !i.currency().equals(text(data, "currency"))
+                || amount.compareTo(i.amount()) != 0
+                || net.compareTo(i.amount()) != 0
+                || fee.signum() < 0
+                || charged.compareTo(i.amount().add(fee)) != 0)
+            throw new SaspayException("SASPAY_FINANCIAL_MISMATCH");
+        enforceLivePilotLimit(amount, fee);
+        return new ProviderObservation(
+                name(), accountReference(), i.merchantReference(), txnId,
+                i.paymentRequestId(), i.orderId(), i.purpose(), net,
+                text(data, "currency"), PaymentStatus.SUCCEEDED, null, null, i.target());
+    }
+
+    private ProviderObservation verifyLegacySoftpay(ProviderInstruction i) {
         var q = accepted(i);
         var data = client.verify(i.providerTransactionId());
         var id = SaspayClient.uuid(text(data, "id"));
-        if (!id.equals(i.providerTransactionId())
+        if (!id.equals(SaspayClient.uuid(i.providerTransactionId()))
                 || !accountReference().equals(text(data, "merchant"))
                 || !"PAIEMENT".equals(text(data, "transaction_type"))
                 || !"INBOUND".equals(text(data, "flow_direction")))
@@ -231,19 +297,9 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 || charged.compareTo(q.amount().add(q.fee())) != 0)
             throw new SaspayException("SASPAY_FINANCIAL_MISMATCH");
         return new ProviderObservation(
-                name(),
-                accountReference(),
-                i.merchantReference(),
-                id,
-                i.paymentRequestId(),
-                i.orderId(),
-                i.purpose(),
-                net,
-                text(data, "currency"),
-                status(text(data, "status")),
-                null,
-                null,
-                i.target());
+                name(), accountReference(), i.merchantReference(), id,
+                i.paymentRequestId(), i.orderId(), i.purpose(), net,
+                text(data, "currency"), status(text(data, "status")), null, null, i.target());
     }
 
     public boolean verifyAuthenticity(byte[] payload, Map<String, String> headers) {

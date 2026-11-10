@@ -9,6 +9,12 @@ final class SaspayPricing {
     private static final BigDecimal MONEY_LIMIT = new BigDecimal("100000000000000");
 
     static ProviderFee quote(JsonNode rates, BigDecimal amount, String currency, String network) {
+        return quote(rates, amount, currency, network, false);
+    }
+
+    static ProviderFee quote(
+            JsonNode rates, BigDecimal amount, String currency, String network,
+            boolean allowFractionalXofFees) {
         if (!"XOF".equals(currency)
                 || amount == null
                 || amount.signum() <= 0
@@ -37,6 +43,7 @@ final class SaspayPricing {
                     matches.add(tier);
             }
         }
+        if (matches.isEmpty()) throw new SaspayException("SASPAY_RATE_NOT_APPLICABLE");
         if (matches.size() != 1) throw new SaspayException("SASPAY_AMBIGUOUS_RATE");
         var tier = matches.getFirst();
         if (!currency.equals(tier.path("currency").asText())
@@ -51,11 +58,21 @@ final class SaspayPricing {
         var fee = amount.multiply(percent).movePointLeft(2).add(fixed);
         if (floor != null) fee = fee.max(floor);
         if (cap != null) fee = fee.min(cap);
-        // Official examples contain fractional XOF, but no rounding contract. Never silently round.
-        try {
-            fee = fee.setScale(0, RoundingMode.UNNECESSARY);
-        } catch (ArithmeticException ex) {
-            throw new SaspayException("SASPAY_XOF_ROUNDING_UNCONFIRMED");
+        // The official SasPay verify response documents fractional XOF amounts such as
+        // "37.50". Accept these EXACT values only behind an explicit pilot opt-in.
+        // Never guess a rounding rule: more than two significant decimals still fail.
+        if (allowFractionalXofFees) {
+            try {
+                fee = fee.setScale(2, RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException ex) {
+                throw new SaspayException("SASPAY_XOF_PRECISION_UNCONFIRMED");
+            }
+        } else {
+            try {
+                fee = fee.setScale(0, RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException ex) {
+                throw new SaspayException("SASPAY_XOF_ROUNDING_UNCONFIRMED");
+            }
         }
         // Keep every quoted value within the verifier's exact decimal range and JS safe integers.
         if (amount.add(fee).compareTo(MONEY_LIMIT) >= 0)

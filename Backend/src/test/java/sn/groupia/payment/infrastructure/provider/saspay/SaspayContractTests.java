@@ -15,8 +15,7 @@ class SaspayContractTests {
     final Clock clock = Clock.fixed(Instant.parse("2026-11-07T12:00:00Z"), ZoneOffset.UTC);
 
     @Test
-    void waveSoftpayRedirectUsesConfiguredHostAndKeepsRealTransactionReference()
-            throws Exception {
+    void waveSoftpayRedirectUsesConfiguredHostAndKeepsRealTransactionReference() throws Exception {
         var original = SaspayTestConfiguration.properties();
         var approved =
                 new SaspayProperties(
@@ -78,7 +77,8 @@ class SaspayContractTests {
                         sn.groupia.payment.api.PaymentTarget.directOrder(orderId));
         var transactionId = "3ef59f24-4bf9-43a6-b983-c9c632005ab3";
         var response =
-                "{\"id\":\"" + transactionId
+                "{\"id\":\""
+                        + transactionId
                         + "\",\"status\":\"PENDING\",\"checkout_url\":\"https://pay.wave.com/checkout/opaque\"}";
 
         for (var properties : List.of(denied, approved)) {
@@ -100,7 +100,8 @@ class SaspayContractTests {
                 stub.reply(201, response);
                 var observation = provider.initiate(instruction);
                 assertThat(observation.providerTransactionId()).isEqualTo(transactionId);
-                assertThat(observation.status()).isEqualTo(sn.groupia.payment.api.PaymentStatus.PENDING);
+                assertThat(observation.status())
+                        .isEqualTo(sn.groupia.payment.api.PaymentStatus.PENDING);
                 assertThat(stub.requests).hasSize(2);
                 assertThat(stub.requests.get(0).method()).isEqualTo("GET");
                 assertThat(stub.requests.get(1).method()).isEqualTo("POST");

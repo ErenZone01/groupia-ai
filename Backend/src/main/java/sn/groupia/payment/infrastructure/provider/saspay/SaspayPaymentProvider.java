@@ -18,6 +18,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     private final PaymentQuoteStore quotes;
     private final ObjectMapper json;
     private final Clock clock;
+    private final boolean allowFractionalXofFees;
 
     SaspayPaymentProvider(
             SaspayClient client,
@@ -25,11 +26,22 @@ public final class SaspayPaymentProvider implements PaymentProvider {
             PaymentQuoteStore quotes,
             ObjectMapper json,
             Clock clock) {
+        this(client, properties, quotes, json, clock, false);
+    }
+
+    SaspayPaymentProvider(
+            SaspayClient client,
+            SaspayProperties properties,
+            PaymentQuoteStore quotes,
+            ObjectMapper json,
+            Clock clock,
+            boolean allowFractionalXofFees) {
         this.client = client;
         this.properties = properties;
         this.quotes = quotes;
         this.json = json;
         this.clock = clock;
+        this.allowFractionalXofFees = allowFractionalXofFees;
     }
 
     public String name() {
@@ -57,7 +69,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     }
 
     public ProviderFee quote(BigDecimal amount, String currency, String network) {
-        var fee = SaspayPricing.quote(client.rates(), amount, currency, network);
+        var fee = SaspayPricing.quote(client.rates(), amount, currency, network, allowFractionalXofFees);
         enforceLivePilotLimit(amount, fee.fee());
         return fee;
     }
@@ -83,7 +95,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 continue;
             }
             try {
-                var fee = SaspayPricing.quote(rates, amount, currency, network);
+                var fee = SaspayPricing.quote(rates, amount, currency, network, allowFractionalXofFees);
                 enforceLivePilotLimit(amount, fee.fee());
                 result.add(new ProviderFee(fee.country(), fee.network(), label, fee.fee()));
             } catch (SaspayException unsupported) {

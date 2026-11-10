@@ -121,6 +121,20 @@ class SaspayContractTests {
     }
 
     @Test
+    void normalizesCompactAndDashedSaspayIdsWithoutAcceptingMalformedReferences() {
+        var id = "cb8f14cd-5dad-4793-b305-e65e1365908d";
+        assertThat(SaspayClient.uuid(id)).isEqualTo(id);
+        assertThat(SaspayClient.uuid(id.replace("-", ""))).isEqualTo(id);
+        assertThat(SaspayClient.uuid(id.toUpperCase(java.util.Locale.ROOT))).isEqualTo(id);
+        assertThatThrownBy(() -> SaspayClient.uuid("cb8f14cd5dad4793b305e65e1365908"))
+                .hasMessage("SASPAY_INVALID_IDENTIFIER");
+        assertThatThrownBy(() -> SaspayClient.uuid("cb8f14cd5dad4793b305e65e1365908G"))
+                .hasMessage("SASPAY_INVALID_IDENTIFIER");
+        assertThatThrownBy(() -> SaspayClient.uuid(null))
+                .hasMessage("SASPAY_INVALID_IDENTIFIER");
+    }
+
+    @Test
     void exactIntegerAddOnAndNoGuessedRounding() {
         var rates = json.readTree(SaspayTestConfiguration.rates());
         assertThat(SaspayPricing.quote(rates, new BigDecimal("2000"), "XOF", "wave_sn").fee())

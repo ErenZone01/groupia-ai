@@ -7,6 +7,7 @@ export interface PublicOrderSession {
   receipt?: OrderReceipt;
   payment?: PaymentAttemptView;
   paymentKey?: string;
+  paymentProvider?: 'SASPAY' | 'bictorys';
   paymentQuoteId?: string;
   shippingLater: boolean;
 }

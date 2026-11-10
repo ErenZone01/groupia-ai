@@ -213,6 +213,46 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void fractionalSaspayFeeMigrationPersistsExactCentsAndRejectsExtraPrecision() {
+        UUID requestId =
+                jdbc.queryForObject(
+                        "select id from payment_requests where organization_id=? limit 1",
+                        UUID.class,
+                        org);
+        String insert =
+                "insert into payment_fee_quotes(id,organization_id,request_id,provider,"
+                        + "account,country,network,label,amount,fee,currency,expires_at)"
+                        + " values (?,?,?,'SASPAY',?,'SN','wave_sn','Wave',1000,?,'XOF',?)";
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                insert,
+                id,
+                org,
+                requestId,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.MERCHANT,
+                new java.math.BigDecimal("22.50"),
+                java.sql.Timestamp.from(clock.instant().plusSeconds(120)));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select fee from payment_fee_quotes where id=?",
+                                java.math.BigDecimal.class,
+                                id))
+                .isEqualByComparingTo("22.50");
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        insert,
+                                        UUID.randomUUID(),
+                                        org,
+                                        requestId,
+                                        sn.groupia.payment.infrastructure.provider.saspay
+                                                .SaspayTestConfiguration.MERCHANT,
+                                        new java.math.BigDecimal("22.501"),
+                                        java.sql.Timestamp.from(clock.instant().plusSeconds(120))))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
     void quotedCollectionUsesSnapshotsAndDuplicateWebhookSettlesOnlyOnce() throws Exception {
         quote();
         queueInitiation();

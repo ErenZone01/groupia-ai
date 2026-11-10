@@ -223,7 +223,8 @@ public class Payment {
                         ? null
                         : new PaymentCheckoutContext(
                                 paymentReference, null, null, null, feeQuoteId),
-                r.getTarget());
+                r.getTarget(),
+                "SASPAY".equals(provider) ? providerChargeId : null);
     }
 
     public PaymentAttemptView view() {

@@ -10,6 +10,7 @@ import { money } from '../../shared/utils/display';
 import { apiCode, apiMessage, rejectedFeeQuote } from '../../core/http/api-error';
 import type { PaymentFeeQuoteView } from '../../api/generated/models';
 import { safeBictorysCheckout } from '../customer-access/customer-shipping-payment';
+import { safeSaspayCheckout } from '../checkout/public-order-session.service';
 
 /**
  * A private capability link is held only in the URL fragment, never passed in a GET
@@ -335,19 +336,7 @@ export class DirectOrderTrackingPage {
     }
   }
   private safeSaspayUrl(value?: string) {
-    try {
-      const url = new URL(value ?? '');
-      return url.protocol === 'https:' &&
-        url.hostname === 'pay.saspay.me' &&
-        !url.username &&
-        !url.password &&
-        !url.hash &&
-        (!url.port || url.port === '443')
-        ? url.href
-        : null;
-    } catch {
-      return null;
-    }
+    return safeSaspayCheckout(value);
   }
   private recoverAttempt() {
     const state = this.financial();

@@ -73,6 +73,13 @@ public class Payment {
     @Column(length = 160)
     private String providerChargeId;
 
+    // Canonical exact monetary evidence from a verified PSP financial transaction.
+    @Column(columnDefinition = "numeric")
+    private BigDecimal providerCollectionFee;
+
+    @Column(columnDefinition = "numeric")
+    private BigDecimal providerCustomerCharged;
+
     @Column(length = 4096)
     private String checkoutUrl;
 
@@ -81,6 +88,14 @@ public class Payment {
 
     public UUID getFeeQuoteId() {
         return feeQuoteId;
+    }
+
+    public BigDecimal getProviderCollectionFee() {
+        return providerCollectionFee;
+    }
+
+    public BigDecimal getProviderCustomerCharged() {
+        return providerCustomerCharged;
     }
 
     @Version private Long version;
@@ -195,6 +210,12 @@ public class Payment {
         reconciliationRequired = false;
         reconciliationReason = null;
         if (status == PaymentStatus.SUCCEEDED) {
+            if (o.metadata() != null
+                    && o.metadata().collectionFee() != null
+                    && o.metadata().customerCharged() != null) {
+                providerCollectionFee = o.metadata().collectionFee();
+                providerCustomerCharged = o.metadata().customerCharged();
+            }
             confirmedAmount = expectedAmount;
             confirmedCurrency = currency;
             // PostgreSQL TIMESTAMPTZ persists at microsecond precision. Modulith publishes

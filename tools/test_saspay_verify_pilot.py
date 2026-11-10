@@ -141,6 +141,72 @@ class SaspayPilotVerificationTests(unittest.TestCase):
         self.assertTrue(calls[1][1].startswith(
             "https://api.saspay.me/api/v1/transactions/?"))
 
+    def test_scope_audit_is_read_only_and_never_reveals_customers(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from datetime import datetime, timezone
+        from saspay_verify_pilot import audit_merchant_scope
+        calls = []
+        def read(key, path):
+            calls.append(path)
+            if path.startswith("/merchant-balances/"):
+                return {"results": [
+                    {"merchant": self.merchant, "available_amount": "9999"}],
+                    "next": None}
+            return {"results": [
+                {"merchant": self.merchant, "status": "SUCCESS",
+                 "customer": "private-customer", "requested_amount": "1000"},
+                {"merchant": "00000000-0000-0000-0000-000000000099",
+                 "customer": "other-private"}], "next": None}
+        out = StringIO()
+        with (
+            patch("saspay_verify_pilot._get_safe", side_effect=read),
+            redirect_stdout(out),
+        ):
+            audit_merchant_scope(
+                "sk_test_synthetic", self.merchant,
+                datetime(2026, 11, 10, 5, 27, tzinfo=timezone.utc))
+        output = out.getvalue()
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[0].startswith("/merchant-balances/?"))
+        self.assertIn("created_at__gte=2026-11-10T05%3A17%3A00Z", calls[1])
+        self.assertIn("created_at__lte=2026-11-10T05%3A37%3A00Z", calls[1])
+        self.assertIn("Transactions du marchand Groupia configuré : 1", output)
+        self.assertNotIn("private-customer", output)
+        self.assertNotIn("other-private", output)
+        self.assertNotIn("9999", output)
+        self.assertNotIn("sk_test_synthetic", output)
+
+    def test_scope_audit_rejects_unapproved_paths(self):
+        from saspay_verify_pilot import _get_safe
+        with patch("saspay_verify_pilot.urlopen") as request:
+            with self.assertRaises(ValueError):
+                _get_safe("sk_test_synthetic", "/payments/softpay/")
+            request.assert_not_called()
+
+    def test_verify_404_with_scope_audit_still_never_confirms(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from datetime import datetime, timezone
+        from saspay_verify_pilot import diagnose_verify_404
+        uid = "253c31ba-9b54-44f8-958e-a6d78d1bbe87"
+        out = StringIO()
+        with (
+            patch("saspay_verify_pilot.fetch_transaction_detail",
+                  return_value={"id": uid, "merchant": self.merchant,
+                                "status": "SUCCESS"}),
+            patch("saspay_verify_pilot.fetch_transaction_page",
+                  return_value={"results": [], "next": None}),
+            patch("saspay_verify_pilot.audit_merchant_scope") as scope,
+            redirect_stdout(out),
+        ):
+            code = diagnose_verify_404(
+                "sk_test_synthetic", uid, self.merchant, True,
+                datetime(2026, 11, 10, 5, 27, tzinfo=timezone.utc))
+        self.assertEqual(code, 1)
+        scope.assert_called_once()
+        self.assertIn("aucune confirmation", out.getvalue())
+
     def test_id_required_before_any_network_attempt(self):
         with patch("saspay_verify_pilot.urlopen") as request:
             with self.assertRaises(ValueError):

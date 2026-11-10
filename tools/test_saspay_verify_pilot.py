@@ -80,10 +80,12 @@ class SaspayPilotVerificationTests(unittest.TestCase):
             "status": "SUCCESS",
         }
         output = StringIO()
-        with patch("saspay_verify_pilot.fetch_transaction_detail", return_value=record), \
-             patch("saspay_verify_pilot.fetch_transaction_page",
-                   return_value={"results": [record], "next": None}), \\
-             redirect_stdout(output):
+        with (
+            patch("saspay_verify_pilot.fetch_transaction_detail", return_value=record),
+            patch("saspay_verify_pilot.fetch_transaction_page",
+                  return_value={"results": [record], "next": None}),
+            redirect_stdout(output),
+        ):
             code = diagnose_verify_404("sk_test_fake", uid, self.merchant)
         self.assertEqual(code, 1)
         self.assertIn("Statut indicatif : SUCCESS", output.getvalue())
@@ -97,11 +99,13 @@ class SaspayPilotVerificationTests(unittest.TestCase):
         from urllib.error import HTTPError
         uid = "d6b9b3d0-e4ed-4341-ae14-7d7f56909361"
         output = StringIO()
-        with patch("saspay_verify_pilot.fetch_transaction_detail",
-                   side_effect=HTTPError("https://api.saspay.me", 404, "Not Found", {}, None)), \
-             patch("saspay_verify_pilot.fetch_transaction_page",
-                   return_value={"results": [], "next": "next-page"}), \\
-             redirect_stdout(output):
+        with (
+            patch("saspay_verify_pilot.fetch_transaction_detail",
+                  side_effect=HTTPError("https://api.saspay.me", 404, "Not Found", {}, None)),
+            patch("saspay_verify_pilot.fetch_transaction_page",
+                  return_value={"results": [], "next": "next-page"}),
+            redirect_stdout(output),
+        ):
             code = diagnose_verify_404("sk_test_fake", uid, self.merchant)
         self.assertEqual(code, 1)
         self.assertIn("HTTP 404", output.getvalue())

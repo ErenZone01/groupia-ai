@@ -125,6 +125,18 @@ public class PaymentService implements PaymentOperations {
                 recoveryTokenHash);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiateDirect(
+            UUID org, UUID requestId, String provider, String key,
+            String recoveryTokenHash, PaymentCheckoutContext context) {
+        if (!"SASPAY".equals(provider) && !"BICTORYS".equals(provider)) {
+            throw new sn.groupia.shared.api.ApiException(
+                    409, "PAYMENT_PROVIDER_NOT_ALLOWED", "Prestataire non autorisé.");
+        }
+        return initiateRequestInternal(org, requestId, provider, key, context, recoveryTokenHash);
+    }
+
     private PaymentAttemptView initiateRequestInternal(
             UUID org,
             UUID requestId,

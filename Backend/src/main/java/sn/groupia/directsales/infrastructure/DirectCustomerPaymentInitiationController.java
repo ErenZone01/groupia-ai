@@ -16,6 +16,9 @@ import sn.groupia.payment.api.dto.PaymentAttemptView;
 @RestController
 class DirectCustomerPaymentInitiationController {
     public record InitiationRequest(String token, java.util.UUID feeQuoteId, String provider) {
+        public InitiationRequest(String token, java.util.UUID feeQuoteId) {
+            this(token, feeQuoteId, null);
+        }
         @Override
         public String toString() {
             return "InitiationRequest[redacted]";

@@ -134,48 +134,15 @@ const statusLabels: Record<string, string> = {
               <button
                 gButton
                 variant="secondary"
-                [disabled]="store.busy()"
-                (click)="store.prepareSaspay()"
+                [disabled]="store.busy() || !!store.currentInvoice()?.reconciliationRequired"
+                (click)="store.pay(undefined, true)"
               >
-                Voir les frais SasPay
+                Payer l'abonnement avec SasPay
               </button>
-            }
-            @if (details.canManageSubscription) {
-              @for (quote of store.quotes(); track quote.id) {
-                <article>
-                  <h3>{{ quote.networkLabel }}</h3>
-                  <p>
-                    Abonnement : {{ money(quote.saleAmount, quote.currency) }} · Frais
-                    d’encaissement à votre charge : {{ money(quote.collectionFee, quote.currency) }}
-                  </p>
-                  <p>
-                    Total à payer : <strong>{{ money(quote.totalCharged, quote.currency) }}</strong>
-                  </p>
-                  <button
-                    gButton
-                    [disabled]="
-                      store.busy() ||
-                      !!store.currentInvoice()?.reconciliationRequired ||
-                      store.currentInvoice()?.paymentStatus === 'SETTLED' ||
-                      !!store.futurePaid()
-                    "
-                    (click)="store.pay(quote)"
-                  >
-                    Accepter les frais et payer {{ money(quote.totalCharged, quote.currency) }}
-                  </button>
-                </article>
-              }
-              @if (store.acceptedQuote(); as quote) {
-                <p>
-                  Montant accepté : {{ money(quote.totalCharged, quote.currency) }}, dont
-                  {{ money(quote.collectionFee, quote.currency) }} de frais.
-                </p>
-              }
-              @if (store.phoneConfirmation()) {
-                <p role="status">
-                  Confirmez la demande sur votre téléphone, puis vérifiez le paiement.
-                </p>
-              }
+              <p class="help">
+                Choisissez Wave, Orange Money ou un autre moyen disponible sur SasPay.
+                Les frais sont affichés avant la confirmation du paiement.
+              </p>
             }
             @if (details.canManageSubscription && store.checkoutUrl(); as url) {
               <a gButton [href]="url" target="_blank" rel="noopener noreferrer"

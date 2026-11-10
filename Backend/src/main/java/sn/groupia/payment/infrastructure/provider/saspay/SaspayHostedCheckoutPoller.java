@@ -35,8 +35,10 @@ public class SaspayHostedCheckoutPoller {
         // locks and allocation constraints prevent double financial settlement.
         var ids = jdbc.query(
                 "select id from payments"
-                        + " where provider='SASPAY' and provider_charge_id is not null"
-                        + " and (status='PENDING' or (reconciliation_required=true and status='CREATED'))"
+                        + " where provider='SASPAY'"
+                        + " and ((provider_charge_id is not null and status='PENDING')"
+                        + "   or (provider_charge_id is null and status='CREATED'"
+                        + "       and fee_quote_id is null and reconciliation_required=true))"
                         + " and (last_checked_at is null"
                         + "   or last_checked_at < now() - interval '50 seconds')"
                         + " order by initiated_at, id limit 25",

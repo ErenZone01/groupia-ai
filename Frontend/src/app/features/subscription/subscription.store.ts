@@ -11,6 +11,7 @@ import type {
 import { SubscriptionControllerService } from '../../api/generated/services';
 import { AuthService } from '../../core/auth/auth.service';
 import { apiMessage, rejectedFeeQuote } from '../../core/http/api-error';
+import { safeSaspayCheckout } from '../checkout/public-order-session.service';
 
 interface PaymentCommand {
   creationKey: string;
@@ -304,12 +305,14 @@ export class SubscriptionStore {
       if (operation === this.operation) this.busy.set(false);
     }
   }
-  async pay(quote?: PaymentFeeQuoteView) {
+  async pay(quote?: PaymentFeeQuoteView, hosted = false) {
+    const provider: 'BICTORYS' | 'SASPAY' = hosted ? 'SASPAY' : 'BICTORYS';
+    if (quote) return; // Legacy provider-specific quotes must not initiate hosted checkout.
     const details = this.details();
     if (
       this.busy() ||
       !details?.canManageSubscription ||
-      !this.hasProvider(quote ? 'SASPAY' : 'BICTORYS') ||
+      !this.hasProvider(provider) ||
       !details.planConfigured ||
       !details.billingContact?.phoneE164 ||
       this.futurePaid()
@@ -325,7 +328,7 @@ export class SubscriptionStore {
     if (
       command?.started &&
       !command.knownAttempt &&
-      (command.provider !== (quote ? 'SASPAY' : 'BICTORYS') || command.quote?.id !== quote?.id)
+      (command.provider !== provider || command.quote?.id !== quote?.id)
     ) {
       this.error.set('Reprenez le paiement déjà demandé avant de changer de moyen.');
       return;
@@ -368,7 +371,7 @@ export class SubscriptionStore {
       command.knownAttempt = false;
       command.started = false;
     }
-    command.provider = quote ? 'SASPAY' : 'BICTORYS';
+    command.provider = provider;
     command.quote = quote;
     this.remember(org, command);
     this.busy.set(true);
@@ -397,16 +400,28 @@ export class SubscriptionStore {
             organizationId: org,
             invoiceId: command.invoiceId,
             'Idempotency-Key': command.paymentKey,
-            body: quote ? { provider: 'SASPAY', feeQuoteId: quote.id } : { provider: 'BICTORYS' },
+            body: { provider },
           })
           .pipe(timeout(40000), takeUntil(this.cancelMutation)),
       );
       if (!this.current(org, generation, session)) return;
       command.knownAttempt = true;
       this.remember(org, command);
-      this.checkoutUrl.set(
-        payment.reconciliationRequired ? null : this.safeUrl(payment.checkoutUrl, command.provider),
-      );
+      const checkout = payment.reconciliationRequired
+        ? null
+        : this.safeUrl(payment.checkoutUrl, provider);
+      this.checkoutUrl.set(checkout);
+      if (hosted && checkout) {
+        try {
+          sessionStorage.setItem(
+            'groupia.saspay.return',
+            window.location.pathname + window.location.search + window.location.hash,
+          );
+          window.location.assign(checkout);
+        } catch {
+          // Secure URL is still available on the invoice screen.
+        }
+      }
       if (
         ['FAILED', 'CANCELLED', 'EXPIRED'].includes(payment.status ?? '') &&
         !payment.reconciliationRequired
@@ -442,13 +457,11 @@ export class SubscriptionStore {
     return org === this.org && generation === this.generation && session === this.auth.generation();
   }
   private safeUrl(value?: string, provider = 'BICTORYS') {
+    if (provider === 'SASPAY') return safeSaspayCheckout(value);
     try {
       const url = new URL(value ?? '');
       return url.protocol === 'https:' &&
-        (provider === 'SASPAY'
-          ? ['pay.saspay.me']
-          : ['pay.bictorys.com', 'pay.test.bictorys.com']
-        ).includes(url.hostname) &&
+        ['pay.bictorys.com', 'pay.test.bictorys.com'].includes(url.hostname) &&
         !url.username &&
         !url.password &&
         !url.hash &&

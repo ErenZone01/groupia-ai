@@ -274,10 +274,10 @@ public class PaymentTransactions {
                     "PAYMENT_INITIATION_CONFLICT",
                     "Une tentative est déjà en cours ou doit être réconciliée.");
         }
-        if ("SASPAY".equals(provider)
-                && legacySoftpayTests
-                && context != null
-                && context.feeQuoteId() != null) {
+        if ("SASPAY".equals(provider) && legacySoftpayTests) {
+            if (context == null || context.feeQuoteId() == null)
+                throw new ApiException(
+                        409, "PAYMENT_QUOTE_REQUIRED", "Devis Softpay historique requis pour le test.");
             var q = quotes.find(context.feeQuoteId())
                     .orElseThrow(() -> new ApiException(
                             409, "PAYMENT_QUOTE_REQUIRED", "Devis test introuvable."));

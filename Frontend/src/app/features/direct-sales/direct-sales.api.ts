@@ -340,12 +340,13 @@ export class DirectSalesApi {
     token: string,
     idempotencyKey: string,
     provider: string = 'BICTORYS',
+    payerEmail?: string,
   ) {
     return firstValueFrom(
       this.http
         .post<DirectPaymentAttempt>(
           '/api/public/direct-orders/payments',
-          { token, provider },
+          { token, provider, ...(payerEmail ? { payerEmail } : {}) },
           { headers: { 'Idempotency-Key': idempotencyKey } },
         )
         .pipe(timeout(25000)),

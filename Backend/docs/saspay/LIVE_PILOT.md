@@ -454,3 +454,102 @@ Autres limites réellement confirmées :
 
 Les correctifs ci-dessus ont été publiés mais ne sont pas encore
 validés par un cycle Maven/Testcontainers de l'auteur du présent lot.
+
+## Incident Wave/Orange du 10 novembre : vrai payin créé, checkout inaccessible et statut REVIEW_REQUIRED
+
+Un essai réel sur commande `DIR-000000000015` a créé **deux transactions
+Wave distinctes** dont les IDs présentés côté SasPay sont
+`253c31ba9b5444f8958ea6d78d1bbe87` et
+`d6b9b3d0e4ed4341ae147d7f56909361` (toutes deux **PENDING**
+au moment du signalement). SasPay a livré des événements
+`transaction.created` HTTP 202, sans preuve d'encaissement.
+Le client Groupia voyait `REVIEW_REQUIRED` et pas de lien de paiement.
+
+### Cause probable documentée
+
+La [documentation de l'API softpay](https://docs.saspay.me/api-reference/payments/softpay)
+indique que Wave, Orange Money, Djamo et les cartes **peuvent nécessiter
+l'ouverture du `checkout_url` renvoyé par `POST /payments/softpay/`** ;
+sans redirection, il n'y a pas de paiement. Les domaines exacts dépendent
+du routage fournisseur. Groupia vérifiait côté backend une allowlist
+`SASPAY_CHECKOUT_HOSTS` et côté frontend une seconde liste uniquement
+`pay.saspay.me`. Si l'URL retournée par SasPay utilisait un autre
+domaine légitime, le backend pouvait jeter une exception **après la
+création externe**, puis effacer par inadvertance la référence SasPay
+dans l'état local et bloquer le retour client.
+
+Correctifs :
+1. Le **backend reste l'unique autorité** sur la liste des hôtes de
+   redirection ; aucun domaine externe inconnu n'est ouvert.
+2. Si l'URL SasPay est rejetée, la réponse à l'initiation conserve
+   l'identifiant de transaction pour une réconciliation ultérieure,
+   garde une revue obligatoire et **n'expose pas** l'URL rejetée.
+   Un avertissement consigne **uniquement le domaine syntaxiquement
+   sûr**, le réseau et le code `SASPAY_INVALID_CHECKOUT_URL`, sans URL
+   complète, signature ni informations client.
+3. Le frontend Direct et le paiement de transport n'ajoutent plus
+   de liste de domaines divergente : leur helper protège HTTPS,
+   interdit identifiants, fragments, ports inhabituels, hôtes locaux
+   et domaines réservés. Seules les URL approuvées par le backend sont
+   renvoyées dans le ticket client.
+4. Lorsqu'une erreur d'initiation survient, le service enregistre un
+   code sécurisé dans les logs, sans transmettre d'exception brute
+   ni relancer un POST.
+5. Nouvelle migration **053** : les reçus `provider_collections`
+   acceptent des frais SasPay fractionnaires à **deux décimales
+   exactes**, et contrôlent aussi la précision du total chargé.
+   Principal vendeur et prix restent **entiers XOF** et immuables.
+   Sinon, un succès Wave 22,50 XOF de frais aurait échoué dans le ledger
+   après vérification.
+
+### Aucune nouvelle opération financière avant réconciliation
+
+Ne pas initier une troisième transaction Wave pour
+`DIR-000000000015`. Les webhooks HTTP 202 n'établissent pas un
+paiement confirmé. Vérifier les deux IDs avec les seules opérations GET
+disponibles, depuis la racine du dépôt :
+
+```powershell
+python tools/saspay_verify_pilot.py --env-file Backend/.env --payment-id 253c31ba9b5444f8958ea6d78d1bbe87 --expected-amount-xof 1000
+python tools/saspay_verify_pilot.py --env-file Backend/.env --payment-id d6b9b3d0e4ed4341ae147d7f56909361 --expected-amount-xof 1000
+```
+
+Inspecter **en lecture seule** le vrai état local de l'ancienne commande :
+
+```sql
+SELECT p.id, p.status, p.reconciliation_required, p.reconciliation_reason,
+       p.provider_transaction_id, p.initiated_at
+FROM payments p
+JOIN payment_requests r ON r.id = p.payment_request_id
+JOIN direct_orders d ON d.id = r.direct_order_id
+WHERE p.provider = 'SASPAY'
+  AND d.order_number = 'DIR-000000000015'
+ORDER BY p.initiated_at;
+
+SELECT w.id, w.processing_status, w.authenticity_verification_result,
+       w.last_error_code, w.payment_id, w.received_at
+FROM payment_webhook_events w
+WHERE w.provider = 'SASPAY'
+  AND w.received_at >= '2026-11-10T05:20:00Z'
+  AND w.received_at <= '2026-11-10T05:40:00Z'
+ORDER BY w.received_at;
+```
+
+Si les anciennes transactions ne sont pas liées à la commande
+(`provider_transaction_id IS NULL`), **ne jamais écrire directement
+dans les tables financières** ni apparier un webhook à la seule
+ressemblance du montant ou du numéro de téléphone. La reprise des
+anciennes transactions exige un outil de rapprochement contrôlé avec
+preuve d'identité du marchand, de l'intention et de l'unicité. Toute
+transaction `PENDING` reste non payée, non livrable et non relançable.
+
+Pour les **prochains** essais, seulement après résolution du cas en cours :
+- inspecter dans les logs le domaine rejeté par le backend ;
+- vérifier son appartenance au gateway réellement choisi par SasPay ;
+- ajouter **uniquement** ce domaine exact à `SASPAY_CHECKOUT_HOSTS`
+  dans l'environnement réellement chargé par le profil `prod` ;
+- redémarrer, tester les migrations et le flux mocké avant un petit
+  paiement réel explicitement autorisé ;
+- si `checkout_url` est présent, proposer immédiatement
+  « Ouvrir le paiement sécurisé » et ne jamais afficher « confirmation
+  sur le téléphone » comme unique instruction.

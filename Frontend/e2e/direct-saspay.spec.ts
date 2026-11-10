@@ -36,7 +36,7 @@ for (const push of [false, true]) {
         expectedAmount: 20000,
         currency: 'XOF',
         reconciliationRequired: false,
-        checkoutUrl: push ? null : 'https://pay.saspay.me/direct-fixture',
+        checkoutUrl: push ? null : 'https://pay.wave.com/checkout/direct-fixture',
       };
       if (path.endsWith('/lookup'))
         return route.fulfill({
@@ -90,7 +90,7 @@ for (const push of [false, true]) {
     else
       await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toHaveAttribute(
         'href',
-        'https://pay.saspay.me/direct-fixture',
+        'https://pay.wave.com/checkout/direct-fixture',
       );
     await expect(page.getByText('Montant accepté', { exact: false })).toContainText(/20.?500/);
     await expect(page.getByText('Règlement vérifié', { exact: true })).toHaveCount(0);

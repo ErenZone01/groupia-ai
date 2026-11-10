@@ -12,6 +12,9 @@ def check(env):
     if enabled == "false":
         return []
     errors = []
+    fractional = env.get("SASPAY_ALLOW_FRACTIONAL_XOF_FEES", "false").lower()
+    if fractional not in ("true", "false"):
+        errors.append("SASPAY_ALLOW_FRACTIONAL_XOF_FEES must be true or false")
     key = env.get("SASPAY_API_KEY", "")
     test = bool(re.fullmatch(r"sk_test_[A-Za-z0-9_-]+", key))
     live = bool(re.fullmatch(r"sk_live_[A-Za-z0-9_-]+", key))

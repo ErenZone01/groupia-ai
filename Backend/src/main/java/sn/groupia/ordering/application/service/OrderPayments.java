@@ -42,12 +42,27 @@ public class OrderPayments {
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiate(
             String number, String token, String provider, String key, java.util.UUID quoteId) {
+        return initiate(number, token, provider, key, quoteId, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(
+            String number, String token, String provider, String key,
+            java.util.UUID quoteId, String payerEmail) {
         var context = gate.authorize(number, token);
+        var paymentContext = context.checkout().withFeeQuote(quoteId);
+        // A private order token is checked before an optional payer email is read.
+        // Never alter immutable order contact snapshots or monetary obligations.
+        if ("SASPAY".equalsIgnoreCase(provider) && payerEmail != null && !payerEmail.isBlank()) {
+            String normalized = payerEmail.strip();
+            if (normalized.length() > 254
+                    || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+                throw new sn.groupia.shared.api.ApiException(
+                        409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                        "Adresse e-mail de paiement invalide.");
+            paymentContext = paymentContext.withAuthorizedPayerEmail(normalized);
+        }
         return payments.initiateInitial(
-                context.organizationId(),
-                context.orderId(),
-                provider,
-                key,
-                context.checkout().withFeeQuote(quoteId));
+                context.organizationId(), context.orderId(), provider, key, paymentContext);
     }
 }

@@ -326,6 +326,12 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         var fee = money(data, "client_fee");
         var charged = money(data, "debited_amount");
         var net = money(data, "net_amount");
+        try {
+            fee = fee.setScale(2, java.math.RoundingMode.UNNECESSARY);
+            charged = charged.setScale(2, java.math.RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException unsupportedPrecision) {
+            throw new SaspayException("SASPAY_XOF_PRECISION_UNCONFIRMED");
+        }
         if (!"ADD_ON".equals(text(data, "fee_charge_mode"))
                 || !i.currency().equals(text(data, "currency"))
                 || amount.compareTo(i.amount()) != 0

@@ -55,7 +55,10 @@ class OrderingController {
                 .body(result.body());
     }
 
-    record InitiatePayment(String provider, UUID quoteId) {
+    record InitiatePayment(String provider, UUID quoteId, String payerEmail) {
+        InitiatePayment(String provider, UUID quoteId) {
+            this(provider, quoteId, null);
+        }
         @com.fasterxml.jackson.annotation.JsonAnySetter
         public void reject(String name, Object value) {
             throw new sn.groupia.shared.api.ApiException(
@@ -87,7 +90,8 @@ class OrderingController {
                 .header("Cache-Control", "no-store")
                 .body(
                         payments.initiate(
-                                orderNumber, token, input.provider(), key, input.quoteId()));
+                                orderNumber, token, input.provider(), key, input.quoteId(),
+                                input.payerEmail()));
     }
 
     @GetMapping("/api/public/orders/track")

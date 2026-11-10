@@ -81,39 +81,10 @@ import { safeSaspayCheckout } from '../checkout/public-order-session.service';
             </button>
           }
           @if (canPay() && hasProvider('SASPAY')) {
-            <button type="button" class="action-link" (click)="prepareSaspay()">
-              Voir les frais SasPay
+            <button type="button" class="action-link" [disabled]="paymentBusy()" (click)="pay(undefined, true)">
+              Payer sur SasPay (Wave, Orange Money…)
             </button>
-          }
-          @for (quote of quotes(); track quote.id) {
-            @if (canPay()) {
-              <section>
-                <h3>{{ quote.networkLabel }}</h3>
-                <p>Prix convenu : {{ money(quote.saleAmount, quote.currency) }}.</p>
-                <p>
-                  Frais d’encaissement à votre charge :
-                  {{ money(quote.collectionFee, quote.currency) }}.
-                </p>
-                <p>
-                  Net conservé pour la vendeuse : {{ money(quote.merchantNet, quote.currency) }}.
-                  Commission Groupia : {{ money(quote.groupiaCommission, quote.currency) }}.
-                </p>
-                <button type="button" class="action-link" (click)="pay(quote)">
-                  Accepter les frais et payer {{ money(quote.totalCharged, quote.currency) }}
-                </button>
-              </section>
-            }
-          }
-          @if (acceptedQuote(); as quote) {
-            <p>
-              Montant accepté : {{ money(quote.totalCharged, quote.currency) }}, dont
-              {{ money(quote.collectionFee, quote.currency) }} de frais d’encaissement.
-            </p>
-          }
-          @if (phoneConfirmation()) {
-            <p role="status">
-              Confirmez la demande sur votre téléphone, puis actualisez le statut.
-            </p>
+            <p>Vous choisissez votre moyen de paiement et consultez les frais sur la page sécurisée SasPay avant de confirmer.</p>
           }
           @if (paymentBusy()) {
             <p role="status">Préparation du paiement sécurisé…</p>
@@ -588,13 +559,15 @@ export class DirectOrderTrackingPage {
     );
   }
 
-  async pay(quote?: PaymentFeeQuoteView) {
-    if (!this.canPay() || !this.token || !this.hasProvider(quote ? 'SASPAY' : 'BICTORYS')) return;
+  async pay(quote?: PaymentFeeQuoteView, hosted = false) {
+    const provider: 'SASPAY' | 'BICTORYS' = hosted ? 'SASPAY' : 'BICTORYS';
+    if (!this.canPay() || !this.token || !this.hasProvider(provider)) return;
+    if (quote) return; // Legacy per-network fee quotes cannot initiate hosted checkout.
     if (quote && (!quote.id || !this.quotes().some((q) => q.id === quote.id))) return;
     if (
       this.paymentKey &&
       this.commandProvider &&
-      (this.commandProvider !== (quote ? 'SASPAY' : 'BICTORYS') ||
+      (this.commandProvider !== provider ||
         this.commandQuote?.id !== quote?.id)
     ) {
       this.paymentError.set('Reprenez le paiement déjà demandé avant de changer de moyen.');
@@ -607,7 +580,7 @@ export class DirectOrderTrackingPage {
     const token = this.token;
     const sequence = this.sequence;
     this.paymentKey ??= crypto.randomUUID();
-    this.commandProvider = quote ? 'SASPAY' : 'BICTORYS';
+    this.commandProvider = provider;
     this.commandQuote = quote;
     this.acceptedQuote.set(quote ?? null);
     this.rememberCommand();
@@ -615,9 +588,7 @@ export class DirectOrderTrackingPage {
     this.paymentError.set('');
     this.checkoutUrl.set(null);
     try {
-      const receipt = quote
-        ? await this.api.initiateDirectPayment(token, this.paymentKey, quote.id)
-        : await this.api.initiateDirectPayment(token, this.paymentKey);
+      const receipt = await this.api.initiateDirectPayment(token, this.paymentKey, provider);
       if (sequence !== this.sequence || token !== this.token) return;
       if (receipt.currency !== 'XOF' || receipt.expectedAmount !== this.order()?.acceptedTotalXof) {
         this.paymentWaiting.set(true);
@@ -641,19 +612,25 @@ export class DirectOrderTrackingPage {
       this.paymentWaiting.set(true);
       this.checkoutUrl.set(
         receipt.status === 'PENDING' && !receipt.reconciliationRequired
-          ? quote
+          ? hosted
             ? this.safeSaspayUrl(receipt.checkoutUrl ?? undefined)
             : safeBictorysCheckout(receipt.checkoutUrl ?? undefined)
           : null,
       );
-      this.phoneConfirmation.set(
-        !!quote &&
-          receipt.status === 'PENDING' &&
-          !receipt.checkoutUrl &&
-          !receipt.reconciliationRequired,
-      );
+      this.phoneConfirmation.set(false);
       this.pollAttempts = 0;
       this.schedulePoll();
+      if (hosted && this.checkoutUrl()) {
+        try {
+          sessionStorage.setItem(
+            'groupia.saspay.return',
+            window.location.pathname + window.location.search + window.location.hash,
+          );
+          window.location.assign(this.checkoutUrl()!);
+        } catch {
+          // Manual checkout link stays available if navigation is blocked.
+        }
+      }
     } catch (error) {
       if (sequence === this.sequence && token === this.token) {
         if (rejectedFeeQuote(error)) {

@@ -273,7 +273,11 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         return new ProviderObservation(
                 name(), accountReference(), i.merchantReference(), txnId,
                 i.paymentRequestId(), i.orderId(), i.purpose(), net,
-                text(data, "currency"), PaymentStatus.SUCCEEDED, null, null, i.target());
+                text(data, "currency"), PaymentStatus.SUCCEEDED, null,
+                new ProviderMetadata(
+                        i.checkout() == null ? null : i.checkout().businessReference(),
+                        null, sessionId, null, fee, charged),
+                i.target());
     }
 
     private ProviderObservation verifyLegacySoftpay(ProviderInstruction i) {

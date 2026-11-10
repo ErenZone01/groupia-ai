@@ -18,6 +18,7 @@ import { PublicOrderApi } from '../checkout/public-order-api';
 import {
   PublicOrderSessionService,
   safeCheckoutUrl,
+  safeSaspayCheckout,
 } from '../checkout/public-order-session.service';
 import { CartStore } from '../checkout/cart.store';
 import { publicMessage } from '../checkout/public-messages';
@@ -36,6 +37,7 @@ export class PublicTrackingStore {
   readonly feeQuotes = signal<PaymentFeeQuoteView[]>([]);
   readonly quoteLoading = signal(false);
   readonly quoteMessage = signal('');
+  readonly payerEmail = signal('');
   quoteExpired(quote: PaymentFeeQuoteView) {
     return !quote.expiresAt || Date.parse(quote.expiresAt) <= Date.now();
   }
@@ -133,9 +135,9 @@ export class PublicTrackingStore {
   }
   async resumeInitiation() {
     const s = this.session.current();
-    if (s?.paymentKey && s.paymentQuoteId) await this.initiate(undefined, true);
+    if (s?.paymentKey) await this.initiate(undefined, true);
   }
-  async initiate(quote?: PaymentFeeQuoteView, resume = false) {
+  async initiate(quote?: PaymentFeeQuoteView, resume = false, hosted = false) {
     const s = this.session.current();
     if (
       this.busy() ||
@@ -149,13 +151,18 @@ export class PublicTrackingStore {
       this.error.set('Le délai de paiement est dépassé. Actualisez le suivi.');
       return;
     }
-    if (resume && (!s.paymentKey || !s.paymentQuoteId)) return;
+    if (resume && !s.paymentKey) return;
     const quoteId = resume ? s.paymentQuoteId : quote?.id;
+    const provider = resume
+      ? (s.paymentProvider ?? (s.paymentQuoteId ? 'SASPAY' : 'bictorys'))
+      : (hosted || quote ? 'SASPAY' : 'bictorys');
     if (quote && (!quote.id || !this.feeQuotes().includes(quote) || this.quoteExpired(quote))) {
       this.error.set('Le devis a expiré. Actualisez les frais avant de payer.');
       return;
     }
-    if (s.paymentKey && s.paymentQuoteId !== quoteId) {
+    if (s.paymentKey &&
+      (s.paymentQuoteId !== quoteId ||
+        (s.paymentProvider ?? (s.paymentQuoteId ? 'SASPAY' : 'bictorys')) !== provider)) {
       this.error.set('Une tentative existe déjà. Réutilisez le même moyen de paiement.');
       return;
     }
@@ -163,14 +170,29 @@ export class PublicTrackingStore {
     this.error.set('');
     try {
       const key = s.paymentKey ?? crypto.randomUUID();
-      this.session.update({ paymentKey: key, paymentQuoteId: quoteId });
+      this.session.update({ paymentKey: key, paymentQuoteId: quoteId, paymentProvider: provider });
       const payment = await firstValueFrom(
-        this.api.initiate(s.orderNumber, s.trackingToken, key, quoteId),
+        this.api.initiate(
+          s.orderNumber, s.trackingToken, key, quoteId, provider,
+          provider === 'SASPAY' ? this.payerEmail().trim() : undefined,
+        ),
       );
-      if (this.session.current()?.orderNumber === s.orderNumber)
+      if (this.session.current()?.orderNumber === s.orderNumber) {
+        const url = provider === 'SASPAY'
+          ? safeSaspayCheckout(payment.checkoutUrl)
+          : safeCheckoutUrl(payment.checkoutUrl);
         this.session.update({
-          payment: { ...payment, checkoutUrl: safeCheckoutUrl(payment.checkoutUrl) ?? undefined },
+          payment: { ...payment, checkoutUrl: url ?? undefined },
         });
+        if (provider === 'SASPAY' && url && !payment.reconciliationRequired) {
+          try {
+            sessionStorage.setItem('groupia.saspay.return', '/public/order');
+            window.location.assign(url);
+          } catch {
+            // The saved session and payment link remain available for recovery.
+          }
+        }
+      }
     } catch (e) {
       this.error.set(publicMessage(e));
     } finally {
@@ -179,6 +201,9 @@ export class PublicTrackingStore {
   }
   checkoutUrl() {
     const s = this.session.current();
-    return s?.payment?.reconciliationRequired ? null : safeCheckoutUrl(s?.payment?.checkoutUrl);
+    if (s?.payment?.reconciliationRequired) return null;
+    return s?.paymentProvider === 'SASPAY'
+      ? safeSaspayCheckout(s.payment?.checkoutUrl)
+      : safeCheckoutUrl(s?.payment?.checkoutUrl);
   }
 }

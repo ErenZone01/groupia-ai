@@ -87,6 +87,29 @@ public class DirectCustomerPaymentInitiation {
     }
 
     @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(
+            String token, String idempotencyKey, UUID unusedFeeQuoteId, String provider) {
+        String tokenHash = DirectAccessTokens.hashForLookup(token);
+        requireEnabled();
+        if (idempotencyKey == null || !idempotencyKey.strip().matches("[A-Za-z0-9._:-]{16,128}"))
+            throw new ApiException(400, "PAYMENT_IDEMPOTENCY_KEY_REQUIRED", "Clé d'initiation invalide.");
+        if (!"SASPAY".equals(provider) && !"BICTORYS".equals(provider))
+            throw new ApiException(409, "PAYMENT_PROVIDER_NOT_ALLOWED", "Prestataire non autorisé.");
+        if (unusedFeeQuoteId != null)
+            throw new ApiException(409, "PAYMENT_QUOTE_OBSOLETE", "Le devis par réseau n'est plus utilisé.");
+        Order order = lookup(tokenHash);
+        var context = context(order);
+        if ("SASPAY".equals(provider)
+                && (context.email() == null
+                        || !context.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")))
+            throw new ApiException(409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                    "Une adresse e-mail valide est requise pour le paiement SasPay.");
+        return payments.initiateDirect(
+                order.organizationId(), order.requestId(), provider, idempotencyKey.strip(),
+                tokenHash, context);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
     public List<sn.groupia.payment.api.dto.PaymentFeeQuoteView> quotes(String token) {
         String tokenHash = DirectAccessTokens.hashForLookup(token);
         requireEnabled();

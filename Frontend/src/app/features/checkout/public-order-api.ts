@@ -22,13 +22,24 @@ export class PublicOrderApi {
       .quoteOrderPayment({ orderNumber }, new HttpContext().set(ORDER_TRACKING_TOKEN, token))
       .pipe(timeout(15000));
   }
-  initiate(orderNumber: string, token: string, key: string, quoteId?: string) {
+  initiate(
+    orderNumber: string,
+    token: string,
+    key: string,
+    quoteId?: string,
+    provider: 'SASPAY' | 'bictorys' = quoteId ? 'SASPAY' : 'bictorys',
+    payerEmail?: string,
+  ) {
     return this.api
       .initiate(
         {
           orderNumber,
           'Idempotency-Key': key,
-          body: quoteId ? { provider: 'SASPAY', quoteId } : { provider: 'bictorys' },
+          body: {
+            provider,
+            ...(quoteId ? { quoteId } : {}),
+            ...(payerEmail ? { payerEmail } : {}),
+          },
         },
         new HttpContext().set(ORDER_TRACKING_TOKEN, token),
       )

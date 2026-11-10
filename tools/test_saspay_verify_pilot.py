@@ -207,6 +207,29 @@ class SaspayPilotVerificationTests(unittest.TestCase):
         scope.assert_called_once()
         self.assertIn("aucune confirmation", out.getvalue())
 
+    def test_unwrap_pagination_accepts_documented_bare_and_enveloped_results(self):
+        from saspay_verify_pilot import unwrap_pagination
+        data = {"results": [{"id": "safe-fixture"}], "next": "cursor"}
+        self.assertEqual(unwrap_pagination(data), (data["results"], True))
+        self.assertEqual(unwrap_pagination({"success": True, "data": data}),
+                         (data["results"], True))
+        self.assertEqual(unwrap_pagination({"success": True, "data": []}), ([], False))
+        self.assertEqual(unwrap_pagination({"results": [], "next": None}), ([], False))
+
+    def test_unwrap_pagination_rejects_undocumented_and_failed_envelopes(self):
+        from saspay_verify_pilot import unwrap_pagination
+        for payload in (
+            {"success": False, "data": {"results": []}},
+            {"success": True},
+            {"success": True, "data": {"other": []}},
+            {"detail": "no access"},
+            {"data": {"results": []}},
+            None,
+        ):
+            with self.subTest(payload=str(payload)):
+                with self.assertRaises(ValueError):
+                    unwrap_pagination(payload)
+
     def test_id_required_before_any_network_attempt(self):
         with patch("saspay_verify_pilot.urlopen") as request:
             with self.assertRaises(ValueError):

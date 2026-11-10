@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
 import { CartStore } from './cart.store';
 import { CheckoutContact, CheckoutStore } from './checkout.store';
-import { PublicOrderSessionService, safeCheckoutUrl } from './public-order-session.service';
+import { PublicOrderSessionService, safeCheckoutUrl, safeSaspayCheckout } from './public-order-session.service';
 import { PublicOrderApi } from './public-order-api';
 import { apiTestProviders } from '../../testing/api-test';
 import { firstValueFrom } from 'rxjs';
@@ -212,5 +212,26 @@ describe('Panier et checkout publics', () => {
     expect(safeCheckoutUrl('http://pay.example')).toBeNull();
     expect(safeCheckoutUrl('https://user:password@pay.example')).toBeNull();
     expect(safeCheckoutUrl('https://pay.example/checkout')).toBe('https://pay.example/checkout');
+  });
+  it('accepte les redirections SasPay déjà autorisées par le backend et refuse les URL non sûres', () => {
+    expect(safeSaspayCheckout('https://pay.saspay.me/checkout/opaque')).toBe(
+      'https://pay.saspay.me/checkout/opaque',
+    );
+    expect(safeSaspayCheckout('https://pay.wave.com/checkout/opaque')).toBe(
+      'https://pay.wave.com/checkout/opaque',
+    );
+    expect(safeSaspayCheckout('https://checkout.orange-money.sn/pay/opaque')).toBe(
+      'https://checkout.orange-money.sn/pay/opaque',
+    );
+    for (const url of [
+      'http://pay.wave.com/checkout/opaque',
+      'javascript:alert(1)',
+      'https://user:password@pay.wave.com/pay',
+      'https://pay.wave.com:8080/pay',
+      'https://pay.wave.com/pay#secret',
+      'https://127.0.0.1/pay',
+      'https://localhost/pay',
+      'https://malicious.example/checkout',
+    ]) expect(safeSaspayCheckout(url)).toBeNull();
   });
 });

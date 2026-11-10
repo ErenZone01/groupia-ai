@@ -20,6 +20,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     private final Clock clock;
     private final boolean allowFractionalXofFees;
     private final URI publicBaseUrl;
+    private final boolean legacySoftpayForTests;
 
     SaspayPaymentProvider(
             SaspayClient client,
@@ -49,6 +50,22 @@ public final class SaspayPaymentProvider implements PaymentProvider {
             Clock clock,
             boolean allowFractionalXofFees,
             URI publicBaseUrl) {
+        this(client, properties, quotes, json, clock, allowFractionalXofFees, publicBaseUrl, false);
+    }
+
+    /** Only synthetic regression fixtures may invoke old Softpay initiation. Never live. */
+    SaspayPaymentProvider(
+            SaspayClient client,
+            SaspayProperties properties,
+            PaymentQuoteStore quotes,
+            ObjectMapper json,
+            Clock clock,
+            boolean allowFractionalXofFees,
+            URI publicBaseUrl,
+            boolean legacySoftpayForTests) {
+        if (legacySoftpayForTests && properties.isLive())
+            throw new IllegalArgumentException("Legacy Softpay fixture must never use LIVE credentials");
+        this.legacySoftpayForTests = legacySoftpayForTests;
         this.client = client;
         this.properties = properties;
         this.quotes = quotes;
@@ -139,6 +156,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
      * A session ID MUST NOT be stored as the provider payment transaction ID.
      */
     public ProviderObservation initiate(ProviderInstruction i) {
+        if (legacySoftpayForTests) return initiateLegacySoftpayForTests(i);
         if (i.checkout() == null
                 || i.checkout().feeQuoteId() != null
                 || i.checkout().customerName() == null
@@ -212,6 +230,52 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 PaymentStatus.PENDING,
                 null,
                 new ProviderMetadata(i.checkout().businessReference(), url, sessionId, review),
+                i.target());
+    }
+
+    private ProviderObservation initiateLegacySoftpayForTests(ProviderInstruction i) {
+        var q = accepted(i);
+        enforceLivePilotLimit(q.amount(), q.fee());
+        var context = i.checkout();
+        if (context == null || context.customerName() == null
+                || context.phone() == null || context.email() == null)
+            throw new SaspayException("SASPAY_CUSTOMER_REQUIRED");
+        var names = context.customerName().strip().split("\\s+", 2);
+        if (names.length != 2 || names[1].isBlank())
+            throw new SaspayException("SASPAY_CUSTOMER_REQUIRED");
+        var fee = quote(i.amount(), i.currency(), q.network());
+        if (fee.fee().compareTo(q.fee()) != 0)
+            throw new SaspayException("SASPAY_RATE_CHANGED");
+        var body = new LinkedHashMap<String, Object>();
+        body.put("amount", i.amount().setScale(2).toPlainString());
+        body.put("currency", i.currency());
+        body.put("country", q.country());
+        body.put("network", q.network());
+        body.put("fee_charge_mode", "ADD_ON");
+        body.put("description", context.businessReference());
+        body.put("customer", Map.of(
+                "email", context.email(), "first_name", names[0],
+                "last_name", names[1], "phone", context.phone()));
+        body.put("metadata", Map.of(
+                "groupia_reference", i.merchantReference(),
+                "groupia_purpose", i.purpose().name()));
+        var data = client.initiate(body, i.providerIdempotencyKey());
+        var id = SaspayClient.uuid(text(data, "id"));
+        var url = text(data, "checkout_url");
+        ProviderMetadata.ReviewReason review = null;
+        if (url != null && !url.isBlank()) {
+            try {
+                validateCheckout(url);
+            } catch (SaspayException ex) {
+                url = null;
+                review = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+            }
+        }
+        return new ProviderObservation(
+                name(), accountReference(), i.merchantReference(), id,
+                i.paymentRequestId(), i.orderId(), i.purpose(), i.amount(),
+                i.currency(), PaymentStatus.PENDING, null,
+                new ProviderMetadata(context.businessReference(), url, null, review),
                 i.target());
     }
 

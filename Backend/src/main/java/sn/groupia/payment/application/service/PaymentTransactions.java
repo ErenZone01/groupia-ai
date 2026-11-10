@@ -255,40 +255,31 @@ public class PaymentTransactions {
                     "Une tentative est déjà en cours ou doit être réconciliée.");
         }
         if ("SASPAY".equals(provider)) {
-            var q =
-                    quotes.find(context == null ? null : context.feeQuoteId())
-                            .orElseThrow(
-                                    () ->
-                                            new ApiException(
-                                                    409,
-                                                    "PAYMENT_QUOTE_REQUIRED",
-                                                    "Acceptez le devis avant de payer."));
-            if (!q.organizationId().equals(org)
-                    || !q.requestId().equals(requestId)
-                    || !q.provider().equals(provider)
-                    || !q.account().equals(account)
-                    || q.amount().compareTo(request.getExpectedAmount()) != 0
-                    || !q.currency().equals(request.getCurrency())
-                    || !clock.instant().isBefore(q.expiresAt())
+            // Hosted checkout replaces client-selected network quotes completely.
+            // SasPay calculates ADD_ON fees on its own payment page; Groupia
+            // verifies the exact net and charged amount after settlement.
+            if (context == null
+                    || context.feeQuoteId() != null
+                    || context.customerName() == null
+                    || context.customerName().isBlank()
+                    || context.email() == null
+                    || !context.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
+                    || request.view().feeAmount().signum() != 0
                     || !(((request.getPurpose() == PaymentPurpose.INITIAL_ORDER
-                                            || request.getPurpose()
-                                                    == PaymentPurpose.SHIPPING_BALANCE)
+                                            || request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE)
                                     && request.getTarget().type() == PaymentTargetType.ORDER)
                             || (request.getPurpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY
-                                    && request.getTarget().type()
-                                            == PaymentTargetType.SUBSCRIPTION_INVOICE)
+                                    && request.getTarget().type() == PaymentTargetType.SUBSCRIPTION_INVOICE)
                             || (request.getPurpose() == PaymentPurpose.DIRECT_ORDER_INITIAL
-                                    && request.getTarget().type()
-                                            == PaymentTargetType.DIRECT_ORDER))
-                    || request.view().feeAmount().signum() != 0)
+                                    && request.getTarget().type() == PaymentTargetType.DIRECT_ORDER)))
                 throw new ApiException(
                         409,
-                        "PAYMENT_QUOTE_INVALID",
-                        "Le devis est expiré ou incompatible. Actualisez les frais.");
-        }
-        if (!"SASPAY".equals(provider) && context != null && context.feeQuoteId() != null)
+                        "SASPAY_HOSTED_CHECKOUT_NOT_ELIGIBLE",
+                        "Coordonnées ou commande incompatibles avec le checkout sécurisé.");
+        } else if (context != null && context.feeQuoteId() != null) {
             throw new ApiException(
-                    409, "PAYMENT_QUOTE_INVALID", "Ce devis ne correspond pas au fournisseur.");
+                    409, "PAYMENT_QUOTE_INVALID", "Devis non autorisé pour ce fournisseur.");
+        }
         var payment = Payment.create(request, provider, account, key, clock.instant());
         payment.checkoutContext(context);
         store.add(payment);

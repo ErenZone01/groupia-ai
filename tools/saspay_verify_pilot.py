@@ -19,7 +19,7 @@ ROOT = "https://api.saspay.me/api/v1"
 
 def money(obj, name):
     value = obj.get(name)
-    if isinstance(value, bool) or not isinstance(value, (str, int, Decimal, float)):
+    if isinstance(value, bool) or not isinstance(value, (str, int, Decimal)):
         raise ValueError("Champ monétaire manquant : " + name)
     literal = str(value)
     if not re.fullmatch(r"[0-9]{1,14}(?:\.[0-9]{1,6})?", literal):
@@ -80,7 +80,7 @@ def fetch_payment(key, payment_id):
         raw = res.read(262145)
         if len(raw) > 262144:
             raise ValueError("Réponse du fournisseur trop volumineuse")
-        return json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8"), parse_float=Decimal)
 
 
 def main():

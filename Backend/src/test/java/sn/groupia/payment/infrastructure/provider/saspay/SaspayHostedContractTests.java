@@ -100,6 +100,33 @@ class SaspayHostedContractTests {
     }
 
     @Test
+    void recoversLostCheckoutCreationByGetWithoutRepeatingAnyPost() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var i = instruction(null);
+            var record = json.readTree(created());
+            var item = (tools.jackson.databind.node.ObjectNode) record;
+            var metadata = json.createObjectNode();
+            metadata.put("groupia_payment_attempt_id", i.paymentId().toString());
+            metadata.put("groupia_reference", i.merchantReference());
+            item.set("metadata", metadata);
+            var envelope = json.createObjectNode();
+            var results = json.createArrayNode();
+            results.add(item);
+            envelope.set("results", results);
+            envelope.putNull("next");
+            stub.reply(200, json.writeValueAsString(envelope));
+            var proof = provider(stub).verify(i);
+            assertThat(proof.status()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(proof.providerTransactionId()).isNull();
+            assertThat(proof.metadata().chargeId()).isEqualTo(SESSION);
+            assertThat(stub.requests).hasSize(1);
+            assertThat(stub.requests.getFirst().method()).isEqualTo("GET");
+            assertThat(stub.requests.getFirst().path())
+                    .contains("/api/v1/checkout-sessions/?page=1&page_size=100");
+        }
+    }
+
+    @Test
     void pendingSessionNeverPretendsToBeFinanciallySettled() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var i = instruction(SESSION);

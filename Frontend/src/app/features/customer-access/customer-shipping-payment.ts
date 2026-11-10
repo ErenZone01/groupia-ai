@@ -14,7 +14,7 @@ import { CustomerAccessService } from './customer-access.service';
 import { ShippingSettlement } from '../../shared/ui/shipping-settlement';
 import { Button } from '../../shared/ui/button';
 import { money } from '../../shared/utils/display';
-import { safeCheckoutUrl } from '../checkout/public-order-session.service';
+import { safeCheckoutUrl, safeSaspayCheckout } from '../checkout/public-order-session.service';
 import { accessError } from './access-errors';
 export const SHIPPING_CHECKOUT_NAVIGATION = new InjectionToken<(url: string) => void>(
   'Shipping checkout navigation',
@@ -168,12 +168,7 @@ export class CustomerShippingPayment {
     }
   }
   private saspayUrl(raw?: string) {
-    const value = safeCheckoutUrl(raw);
-    if (!value) return null;
-    const url = new URL(value);
-    return url.hostname === 'pay.saspay.me' && !url.hash && (!url.port || url.port === '443')
-      ? value
-      : null;
+    return safeSaspayCheckout(raw);
   }
   async prepareSaspay() {
     if (

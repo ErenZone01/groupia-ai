@@ -95,6 +95,8 @@ class SaspayContractTests {
                                 quoteStore,
                                 json,
                                 clock,
+                                true,
+                                java.net.URI.create("http://localhost:4200"),
                                 true);
                 stub.reply(200, SaspayTestConfiguration.rates());
                 stub.reply(201, response);

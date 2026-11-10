@@ -35,9 +35,14 @@ public interface PaymentOperations {
             PaymentCheckoutContext context);
 
     /** Explicit provider selection for hosted checkout (no fee quote). */
-    PaymentAttemptView initiateDirect(
+    default PaymentAttemptView initiateDirect(
             UUID organizationId, UUID paymentRequestId, String provider,
-            String idempotencyKey, String recoveryTokenHash, PaymentCheckoutContext context);
+            String idempotencyKey, String recoveryTokenHash, PaymentCheckoutContext context) {
+        if (!"BICTORYS".equals(provider))
+            throw new UnsupportedOperationException("Explicit provider not supported");
+        return initiateDirect(organizationId, paymentRequestId, idempotencyKey,
+                recoveryTokenHash, context);
+    }
 
     PaymentRequestView request(UUID organizationId, UUID paymentRequestId);
 

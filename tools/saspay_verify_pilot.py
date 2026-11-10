@@ -5,6 +5,7 @@ It prints only the payment status and financial comparisons; no customer PII.
 """
 import argparse
 from decimal import Decimal, InvalidOperation
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import re
@@ -117,7 +118,82 @@ def fetch_transaction_page(key):
         return json.loads(raw.decode("utf-8"), parse_float=Decimal)
 
 
-def diagnose_verify_404(key, payment_id, merchant):
+def _get_safe(key, path):
+    """Use only preconstructed, allowlisted SasPay GET paths; never return raw data to CLI."""
+    if not path.startswith(("/merchant-balances/?", "/transactions/?")):
+        raise ValueError("Chemin SasPay interdit")
+    req = Request(ROOT + path,
+                  headers={"Authorization": "Bearer " + key,
+                           "Accept": "application/json"},
+                  method="GET")
+    with urlopen(req, timeout=12) as res:
+        raw = res.read(262145)
+        if len(raw) > 262144:
+            raise ValueError("Réponse du fournisseur trop volumineuse")
+        return json.loads(raw.decode("utf-8"), parse_float=Decimal)
+
+
+def audit_merchant_scope(key, expected_merchant, around_utc):
+    """Read-only visibility audit: account wallets and nearby pay-in count, no customer data."""
+    print("Contrôle de visibilité marchande via la clé LIVE (GET uniquement) :")
+    try:
+        wallet_page = _get_safe(key, "/merchant-balances/?page_size=100")
+        wallets = wallet_page.get("results") if isinstance(wallet_page, dict) else None
+        if not isinstance(wallets, list):
+            print("  Wallets : structure de réponse inconnue")
+        else:
+            merchant_set = {
+                str(row.get("merchant", "")).lower()
+                for row in wallets if isinstance(row, dict)
+            }
+            print("  Wallets (première page) : " + str(len(wallets)))
+            print("  Compte marchand configuré présent : " +
+                  ("OUI" if expected_merchant.lower() in merchant_set else "NON/INCONNU"))
+            if wallet_page.get("next"):
+                print("  Wallets paginés : absence sur la première page non concluante.")
+    except HTTPError as exc:
+        print("  Liste des wallets : HTTP " + str(exc.code))
+    except (URLError, OSError, ValueError, json.JSONDecodeError):
+        print("  Liste des wallets : non exploitable")
+
+    if around_utc is None:
+        print("  Fenêtre de transactions non demandée ; utiliser --created-around-utc.")
+        return
+
+    lower = (around_utc - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    upper = (around_utc + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    query = urlencode({
+        "transaction_type": "PAIEMENT",
+        "flow_direction": "INBOUND",
+        "currency": "XOF",
+        "created_at__gte": lower,
+        "created_at__lte": upper,
+        "page_size": 200,
+    })
+    try:
+        page = _get_safe(key, "/transactions/?" + query)
+        rows = page.get("results") if isinstance(page, dict) else None
+        if not isinstance(rows, list):
+            print("  Transactions datées : structure de réponse inconnue")
+            return
+        matching_merchant = [
+            row for row in rows if isinstance(row, dict)
+            and str(row.get("merchant", "")).lower() == expected_merchant.lower()
+        ]
+        print("  Transactions pay-in SN/XOF dans la fenêtre : " + str(len(rows)))
+        print("  Transactions du marchand Groupia configuré : " + str(len(matching_merchant)))
+        print("  Autres marchand(s) dans la fenêtre : " +
+              ("OUI" if len(rows) > len(matching_merchant) else "NON"))
+        if page.get("next"):
+            print("  Résultats paginés : la fenêtre n'est pas exhaustive.")
+        print("  Un statut dans la liste n'est PAS une preuve de paiement.")
+    except HTTPError as exc:
+        print("  Recherche datée : HTTP " + str(exc.code))
+    except (URLError, OSError, ValueError, json.JSONDecodeError):
+        print("  Recherche datée : réponse non exploitable")
+
+
+def diagnose_verify_404(key, payment_id, merchant, audit_scope=False, around_utc=None):
     """All requests are GET; no monetary decision can be made from transaction listing/detail."""
     payment_id = str(UUID(payment_id))
     print("404 sur /payments/{id}/verify/ : transaction NON VÉRIFIÉE.")
@@ -164,6 +240,8 @@ def diagnose_verify_404(key, payment_id, merchant):
         print("Liste /transactions/ : HTTP " + str(exc.code))
     except (URLError, OSError, ValueError, json.JSONDecodeError):
         print("Liste transactions indisponible ou réponse non exploitable.")
+    if audit_scope:
+        audit_merchant_scope(key, merchant, around_utc)
     print("AUCUN rapprochement en base, aucun nouvel encaissement, aucune confirmation.")
     return 1
 
@@ -173,7 +251,20 @@ def main():
     parser.add_argument("--env-file", default="Backend/.env")
     parser.add_argument("--payment-id", required=True, help="UUID de transaction SasPay existante")
     parser.add_argument("--expected-amount-xof", type=int, required=True)
+    parser.add_argument("--audit-scope", action="store_true",
+                        help="Contrôle GET-only du marchand et des transactions accessibles à la clé")
+    parser.add_argument("--created-around-utc",
+                        help="Heure UTC de l'incident (YYYY-MM-DDTHH:MM:SSZ), fenêtre +/- 10 min")
     args = parser.parse_args()
+    around_utc = None
+    if args.created_around_utc:
+        if not args.audit_scope:
+            parser.error("--created-around-utc exige --audit-scope")
+        try:
+            around_utc = datetime.strptime(
+                args.created_around_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            parser.error("--created-around-utc doit être YYYY-MM-DDTHH:MM:SSZ")
     if args.expected_amount_xof < 1:
         parser.error("Montant attendu invalide")
     try:
@@ -201,7 +292,8 @@ def main():
         result = safe_summary(data, merchant, Decimal(args.expected_amount_xof), cap)
     except HTTPError as exc:
         if exc.code == 404:
-            return diagnose_verify_404(key, args.payment_id, merchant)
+            return diagnose_verify_404(
+                key, args.payment_id, merchant, args.audit_scope, around_utc)
         print("Vérification refusée par SasPay (HTTP " + str(exc.code) + ").")
         return 1
     except (URLError, OSError):

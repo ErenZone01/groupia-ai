@@ -48,6 +48,21 @@ public class VerifiedCollectionFacts implements CollectionFacts {
         if (!"SASPAY".equals(proof.provider()))
             return new Fact(proof, seller, r.feeAmount(), null, null);
         var p = store.payment(proof.paymentId()).orElseThrow();
+        if (p.getFeeQuoteId() == null) {
+            // Hosted SasPay checkout: actual fees are learned only after settlement,
+            // not estimated or accepted in an operator-specific Groupia fee quote.
+            var fee = p.getProviderCollectionFee();
+            var charged = p.getProviderCustomerCharged();
+            if (p.getProviderTransactionId() == null
+                    || p.getProviderCollectionFee() == null
+                    || charged == null
+                    || fee.signum() < 0
+                    || fee.scale() > 2
+                    || charged.compareTo(proof.amount().add(fee)) != 0
+                    || r.feeAmount().signum() != 0)
+                throw new IllegalStateException("Missing verified hosted SasPay financial evidence");
+            return new Fact(proof, seller, r.feeAmount(), fee, charged);
+        }
         var q =
                 quotes.find(p.getFeeQuoteId())
                         .orElseThrow(() -> new IllegalStateException("Missing settled quote"));

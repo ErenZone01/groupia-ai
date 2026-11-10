@@ -336,12 +336,16 @@ export class DirectSalesApi {
     );
   }
 
-  initiateDirectPayment(token: string, idempotencyKey: string, feeQuoteId?: string) {
+  initiateDirectPayment(
+    token: string,
+    idempotencyKey: string,
+    provider: 'SASPAY' | 'BICTORYS' = 'BICTORYS',
+  ) {
     return firstValueFrom(
       this.http
         .post<DirectPaymentAttempt>(
           '/api/public/direct-orders/payments',
-          feeQuoteId ? { token, feeQuoteId } : { token },
+          { token, provider },
           { headers: { 'Idempotency-Key': idempotencyKey } },
         )
         .pipe(timeout(25000)),

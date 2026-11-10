@@ -553,3 +553,67 @@ Pour les **prochains** essais, seulement après résolution du cas en cours :
 - si `checkout_url` est présent, proposer immédiatement
   « Ouvrir le paiement sécurisé » et ne jamais afficher « confirmation
   sur le téléphone » comme unique instruction.
+
+## Après les deux GET verify=404 (10 novembre 2026)
+
+Deux appels `GET /payments/{id}/verify/` pour les identifiants affichés
+dans le dashboard SasPay (sans tirets) ont renvoyé **HTTP 404**.
+La requête locale en base sur `DIR-000000000015` retourne **une seule**
+tentative `CREATED`, `reconciliation_required=true`,
+`reconciliation_reason=PROVIDER_STATE_UNCERTAIN`, et
+`provider_transaction_id=NULL` (initiée à 05:27 UTC).
+Le deuxième paiement Wave affiché chez SasPay vers 05:30 UTC n'est
+**pas encore** rattaché avec certitude à la même commande.
+Ne pas inférer que l'un des deux a été payé ou qu'ils appartiennent
+nécessairement au même checkout.
+
+L'OpenAPI décrit aussi :
+- `GET /transactions/{id}/` : détail du registre de transactions ;
+- `GET /transactions/` : liste des transactions (curseur, filtres).
+Ces endpoints ne garantissent pas une vérification gateway
+comme `/payments/{id}/verify/`, et ne doivent donc jamais débloquer
+une commande à eux seuls.
+
+L'outil `tools/saspay_verify_pilot.py` tente désormais les deux
+lectures complémentaires lorsqu'il rencontre un 404 sur `verify`.
+Il ne renvoie pas les PII du client, n'effectue aucun POST, n'apparie
+pas automatiquement les transactions et retourne toujours un code
+d'échec en cas de 404 `verify`, même si le détail transaction affiche
+`SUCCESS`. La liste est limitée aux **50 premiers** paiements
+`PAIEMENT/INBOUND/XOF`. Une absence sur cette page n'est
+**pas** une preuve d'inexistence. Les UUID compacts de 32 caractères
+sont automatiquement convertis en UUID standard avec tirets.
+
+```powershell
+# Après git pull --ff-only origin saspay-payin-v1
+python -m unittest discover -s tools -p test_saspay_verify_pilot.py
+python tools/saspay_verify_pilot.py --env-file Backend/.env --payment-id 253c31ba9b5444f8958ea6d78d1bbe87 --expected-amount-xof 1000
+python tools/saspay_verify_pilot.py --env-file Backend/.env --payment-id d6b9b3d0e4ed4341ae147d7f56909361 --expected-amount-xof 1000
+```
+
+L'outil identifie la **source** de la clé API utilisée :
+`SASPAY_API_KEY` présent dans l'environnement **écrase**
+`SASPAY_API_KEY` de `Backend/.env`. Une clé TEST ou une clé LIVE
+d'un autre marchand peut expliquer des 404 sur des transactions
+visibles sur un autre compte. Examiner uniquement le mode et la
+source, sans afficher de secret. Si la transaction est toujours
+introuvable même dans `/transactions/{id}/` et que la liste
+fonctionne, contrôler l'UUID exact depuis le dashboard, le compte
+marchand de la transaction et le scope de la clé.
+
+Pour compléter le diagnostic du traitement des webhooks en local :
+
+```sql
+SELECT id, processing_status, authenticity_verification_result,
+       last_error_code, payment_id, received_at, attempt_count
+FROM payment_webhook_events
+WHERE provider='SASPAY'
+  AND received_at >= '2026-11-10 05:20:00+00'
+  AND received_at <= '2026-11-10 05:40:00+00'
+ORDER BY received_at;
+```
+
+Une notification HTTP 202 indique qu'elle est acceptée pour stockage,
+pas qu'elle est rattachée à la commande. Si la tentative a perdu son
+identifiant, il faut une **procédure de reprise contrôlée**, jamais
+un `UPDATE payments SET provider_transaction_id=...` effectué à la main.

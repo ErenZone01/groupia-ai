@@ -216,6 +216,29 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void hostedCheckoutFinancialEvidenceMigrationKeepsPrincipalAndFeeIndependent() {
+        var names =
+                jdbc.queryForList(
+                        "select column_name from information_schema.columns"
+                                + " where table_schema=current_schema() and table_name='payments'"
+                                + " and column_name in ('provider_collection_fee','provider_customer_charged')",
+                        String.class);
+        assertThat(names).containsExactlyInAnyOrder(
+                "provider_collection_fee", "provider_customer_charged");
+        var constraint =
+                jdbc.queryForObject(
+                        "select pg_get_constraintdef(c.oid) from pg_constraint c"
+                                + " where c.conrelid='payments'::regclass"
+                                + " and c.conname='ck_payment_hosted_fee_amounts'",
+                        String.class);
+        assertThat(constraint)
+                .contains("provider_collection_fee")
+                .contains("provider_customer_charged")
+                .contains("expected_amount")
+                .contains("SUCCEEDED");
+    }
+
+    @Test
     void fractionalSaspayCollectionLedgerUsesExactCentsWithoutWeakeningPrincipal() {
         String collectionFeeConstraint =
                 jdbc.queryForObject(

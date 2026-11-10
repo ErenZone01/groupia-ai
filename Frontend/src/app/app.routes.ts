@@ -2,6 +2,12 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 export const routes: Routes = [
   {
+    path: 'paiement/retour',
+    title: 'Retour du paiement sécurisé · Groupia',
+    loadComponent: () =>
+      import('./features/payments/saspay-return.page').then((m) => m.SaspayReturnPage),
+  },
+  {
     path: 'session-indisponible',
     loadComponent: () =>
       import('./features/auth/session-unavailable.page').then((m) => m.SessionUnavailablePage),

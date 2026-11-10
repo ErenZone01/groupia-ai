@@ -302,7 +302,10 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         var status = client.hostedCheckoutStatus(sessionId);
         if (!sessionId.equals(SaspayClient.uuid(text(status, "id"))))
             throw new SaspayException("SASPAY_HOSTED_SESSION_MISMATCH");
-        if (!"PAID".equals(text(status, "status"))) {
+        String sessionStatus = text(status, "status");
+        if (!"PAID".equals(sessionStatus) && !"PENDING".equals(sessionStatus))
+            throw new SaspayException("SASPAY_HOSTED_TERMINAL_REVIEW_REQUIRED");
+        if (!"PAID".equals(sessionStatus)) {
             // Return PENDING without assigning a fictitious provider transaction.
             return new ProviderObservation(
                     name(), accountReference(), i.merchantReference(), null,

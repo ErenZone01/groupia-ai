@@ -180,7 +180,7 @@ def audit_merchant_scope(key, expected_merchant, around_utc):
             row for row in rows if isinstance(row, dict)
             and str(row.get("merchant", "")).lower() == expected_merchant.lower()
         ]
-        print("  Transactions pay-in SN/XOF dans la fenêtre : " + str(len(rows)))
+        print("  Transactions pay-in XOF dans la fenêtre : " + str(len(rows)))
         print("  Transactions du marchand Groupia configuré : " + str(len(matching_merchant)))
         print("  Autres marchand(s) dans la fenêtre : " +
               ("OUI" if len(rows) > len(matching_merchant) else "NON"))

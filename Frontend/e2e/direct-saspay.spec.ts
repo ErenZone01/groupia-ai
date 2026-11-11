@@ -12,12 +12,13 @@ for (const redirect of [false, true]) {
     let pending = false;
     let paid = false;
     const created: { body: unknown; key: string }[] = [];
+    let groupiaOrigin = '';
 
     await page.route('https://pay.saspay.me/**', (route) =>
       route.fulfill({
         contentType: 'text/html',
         body: `<!doctype html><html><body><h1>Checkout SasPay simulé</h1>
-          <a href="${new URL(page.url()).origin}/paiement/retour">Retour Groupia</a>
+          <a href="${groupiaOrigin}/paiement/retour">Retour Groupia</a>
           </body></html>`,
       }),
     );
@@ -90,6 +91,7 @@ for (const redirect of [false, true]) {
     });
 
     await page.goto('/v/77777777-7777-4777-8777-777777777777/commande#access=' + token);
+    groupiaOrigin = new URL(page.url()).origin;
     await expect(page.getByRole('button', { name: /Payer sur SasPay/ })).toBeVisible();
     await page.getByLabel(/Adresse e-mail du payeur/).fill('client@example.com');
     await expect(page.getByText(/Les frais des opérateurs/)).toHaveCount(0);

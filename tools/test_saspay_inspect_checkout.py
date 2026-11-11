@@ -15,7 +15,7 @@ MERCHANT = "131c3f1e-1b3c-4970-89e2-b0b79d1ee8be"
 
 
 class HostedCheckoutDiagnosticTests(unittest.TestCase):
-    def detail(self, url="https://pay.saspay.me/checkout/private-token"):
+    def detail(self, url="https://checkout.saspay.me/checkout/private-token"):
         return {
             "id": SESSION,
             "merchant": MERCHANT,
@@ -32,7 +32,7 @@ class HostedCheckoutDiagnosticTests(unittest.TestCase):
             SESSION, ATTEMPT, MERCHANT, Decimal("1000")
         )
         self.assertTrue(all(data["checks"].values()))
-        self.assertEqual(data["host"], "pay.saspay.me")
+        self.assertEqual(data["host"], "checkout.saspay.me")
         self.assertTrue(data["usable"])
         self.assertNotIn("private", str(data))
 

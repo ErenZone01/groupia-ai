@@ -41,7 +41,7 @@ un téléphone, une clé ou un secret. Les booléens suffisent.
 
 | Session enregistrée | Raison | Action |
 |---|---|---|
-| `true` | `PROVIDER_STATUS_UNKNOWN` | Une session a probablement été créée, mais l'URL a été rejetée ou absente. Vérifier `SASPAY_CHECKOUT_HOSTS` (le host officiel est `pay.saspay.me`). Après correction, le poller peut consulter `GET /checkout-sessions/{id}/` et **restaurer uniquement** une URL autorisée liée au bon marchand, paiement et montant. Aucune nouvelle session ne doit être créée. |
+| `true` | `PROVIDER_STATUS_UNKNOWN` | Une session a probablement été créée, mais l'URL a été rejetée ou absente. Vérifier `SASPAY_CHECKOUT_HOSTS` (le checkout hébergé LIVE observé utilise `checkout.saspay.me`). Après correction, le poller peut consulter `GET /checkout-sessions/{id}/` et **restaurer uniquement** une URL autorisée liée au bon marchand, paiement et montant. Aucune nouvelle session ne doit être créée. |
 | `false` | `PROVIDER_STATE_UNCERTAIN` | Cas indécidable depuis la base. Lire le code fixe des logs backend, puis retrouver la session potentielle en **GET uniquement** ou dans le dashboard SasPay avant toute action ; ne jamais remettre le statut à zéro par SQL. |
 | `true` | `PROVIDER_STATE_UNCERTAIN` | Session connue mais état financier incertain. L'URL seule ne peut lever ce blocage. Vérifier le statut et la transaction côté fournisseur. |
 | `false` | autre | Vérifier le journal et le périmètre du compte ; aucun reset automatique. |
@@ -60,7 +60,7 @@ Les codes les plus probables :
   **HTTPS** stable ; renseigner `GROUPIA_PUBLIC_BASE_URL` avec le
   domaine réellement ouvert aux clients (pas `http://localhost:4200`).
 - `SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED` :
-  `SASPAY_CHECKOUT_HOSTS` doit inclure `pay.saspay.me`.
+  `SASPAY_CHECKOUT_HOSTS` doit inclure `checkout.saspay.me` ; conserver `pay.saspay.me` seulement s'il est encore nécessaire pour des sessions historiques.
 - `SASPAY_HOSTED_CONTACT_REQUIRED` : nom ou email invalide.
 - `SASPAY_HTTP_403` : scope marchand PAYIN ou permission refusée.
 - `SASPAY_TRANSPORT_UNCERTAIN` : requête potentiellement envoyée ;
@@ -80,6 +80,44 @@ URL après une réponse provider vérifiée ; uniquement une revue
 `PROVIDER_STATUS_UNKNOWN` liée au lien peut être levée.
 `PROVIDER_STATE_UNCERTAIN`, `UNKNOWN_REFERENCE` ou tout
 autre problème financier reste bloqué.
+
+## Résultat du 11 novembre 2026 — incident reproduit
+
+La session existante `27962ad2-150f-47a5-b16f-77a9d8468384`,
+liée à la tentative Groupia `2176adb7-9d7b-4db7-9b5c-c416336916c9`,
+a été consultée par deux GET authentifiés :
+
+- statut `PENDING`, marchand/tentative/montant 1000 XOF vérifiés ;
+- `checkout_url` présente et HTTPS ;
+- hôte **`checkout.saspay.me`**, **absent** de `SASPAY_CHECKOUT_HOSTS`.
+
+**Cause confirmée :** la session est correcte, le backend a bloqué
+le lien parce que l'ancien paramétrage autorisait `pay.saspay.me`
+mais pas `checkout.saspay.me`. Le nom de domaine vient de la
+réponse LIVE authentifiée de SasPay, pas d'une supposition.
+
+Changer dans la configuration **réellement chargée par le backend** :
+
+```dotenv
+SASPAY_CHECKOUT_HOSTS=checkout.saspay.me,pay.saspay.me
+```
+
+Ne pas mettre de schéma `https://`, chemin, joker `*.saspay.me`,
+ni de lien de session dans cette variable. Conserver un
+`GROUPIA_PUBLIC_BASE_URL` HTTPS stable pour `/paiement/retour`.
+
+Après déploiement/redémarrage du backend, le
+`SaspayHostedCheckoutPoller` consulte périodiquement la **même**
+session en GET, confirme l'identité, le marchand, le montant et le
+statut `PENDING` puis peut restaurer son checkout URL en
+levant **seulement** le motif de revue lié au domaine.
+Aucun nouveau `POST` ne doit être lancé.
+
+La restauration de lien n'est **pas** une confirmation de paiement :
+la commande reste non réglée jusqu'à `PAID` +
+`GET /payments/{transaction_id}/verify/` avec vérifications
+financières complètes. Si la session est passée à `PAID`,
+`EXPIRED` ou `CANCELLED`, son traitement doit être différent.
 
 ## Inspection directe de la session déjà créée (lecture seule)
 

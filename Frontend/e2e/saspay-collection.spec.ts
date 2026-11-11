@@ -1,38 +1,33 @@
 import { test, expect, Page } from '@playwright/test';
 
+/** All PSP requests are mocked: no live charges, no external wallet interactions. */
 async function fixture(
   page: Page,
-  options: {
-    expired?: boolean;
-    unavailable?: boolean;
-    push?: boolean;
-    lostResponse?: boolean;
-  } = {},
+  options: { lostResponse?: boolean; noCheckoutUrl?: boolean } = {},
 ) {
-  const state = { payments: [] as { body: unknown; key: string }[], confirmed: false };
+  const state = {
+    requests: [] as { body: unknown; key: string }[],
+    confirmed: false,
+  };
   const receipt = {
     orderNumber: 'GRP-SAS-1',
     status: 'PENDING_PAYMENT',
     fulfillmentStatus: 'NOT_READY',
-    goodsSubtotal: 5000,
+    goodsSubtotal: 1000,
     platformFeeAmount: 0,
-    initialAmountDue: 5000,
+    initialAmountDue: 1000,
     currency: 'XOF',
     paymentDeadline: new Date(Date.now() + 900000).toISOString(),
     items: [],
   };
   await page.addInitScript(
-    (receipt) =>
-      sessionStorage.setItem(
-        'groupia.public-order',
-        JSON.stringify({
-          orderNumber: receipt.orderNumber,
-          trackingToken: 'synthetic-capability',
-          publicIdentifier: 'test-group',
-          shippingLater: true,
-          receipt,
-        }),
-      ),
+    (value) => sessionStorage.setItem('groupia.public-order', JSON.stringify({
+      orderNumber: value.orderNumber,
+      trackingToken: 'synthetic-capability',
+      publicIdentifier: 'test-group',
+      shippingLater: true,
+      receipt: value,
+    })),
     receipt,
   );
   await page.route('**/api/**', async (route) => {
@@ -44,117 +39,81 @@ async function fixture(
     expect(request.headers()['x-order-tracking-token']).toBe('synthetic-capability');
     if (path === '/api/public/orders/track')
       return reply({ ...receipt, status: state.confirmed ? 'CONFIRMED' : 'PENDING_PAYMENT' });
-    if (path.endsWith('/payment-quotes'))
-      return options.unavailable
-        ? reply({}, 503)
-        : reply([
-            {
-              id: 'synthetic-quote',
-              provider: 'SASPAY',
-              network: 'wave_sn',
-              networkLabel: 'Wave',
-              saleAmount: 5000,
-              groupiaCommission: 0,
-              collectionFee: 125,
-              totalCharged: 5125,
-              merchantNet: 5000,
-              currency: 'XOF',
-              expiresAt: new Date(Date.now() + (options.expired ? -1000 : 120000)).toISOString(),
-            },
-          ]);
+    if (path.endsWith('/payment-quotes')) throw new Error('Obsolete network quotes must not be called');
     if (path.endsWith('/payments')) {
-      state.payments.push({
+      state.requests.push({
         body: request.postDataJSON(),
-        key: request.headers()['idempotency-key'],
+        key: request.headers()['idempotency-key']!,
       });
-      if (options.lostResponse && state.payments.length === 1) return route.abort();
+      if (options.lostResponse && state.requests.length === 1) return route.abort();
       return reply({
         status: 'PENDING',
-        expectedAmount: 5000,
+        expectedAmount: 1000,
         currency: 'XOF',
         reconciliationRequired: false,
-        checkoutUrl: options.push ? null : 'https://pay.saspay.me/synthetic-checkout',
+        checkoutUrl: options.noCheckoutUrl ? null : 'https://pay.saspay.me/checkout/synthetic',
       });
     }
     return route.abort();
   });
+  let groupiaOrigin = '';
   await page.route('https://pay.saspay.me/**', (route) =>
-    route.fulfill({ body: 'Paiement simulé' }),
+    route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><html><body><h1>SasPay checkout simulé</h1>
+        <a href="${groupiaOrigin}/paiement/retour">Retour Groupia</a></body></html>`,
+    }),
   );
   await page.goto('/public/order');
+  groupiaOrigin = new URL(page.url()).origin;
   await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
   return state;
 }
 
-test('devis explicite, aucun débit avant acceptation et confirmation uniquement serveur', async ({
+test('checkout hébergé : une seule session, retour et confirmation uniquement par Groupia', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await fixture(page);
-  await page
-    .getByRole('button', { name: 'Voir les frais et les autres moyens de paiement' })
-    .click();
-  const quote = page.getByRole('region', { name: 'Devis de paiement SasPay' });
-  await expect(quote).toContainText('Commission Groupia : 0 FCFA');
-  await expect(quote).toContainText('Frais d’encaissement à votre charge : 125 FCFA');
-  await expect(quote).toContainText('Total à payer : 5125 FCFA');
-  await expect(quote).toContainText('Net marchand après encaissement : 5000 FCFA');
-  expect(state.payments).toHaveLength(0);
-  await quote.getByRole('button', { name: 'Accepter les frais et payer avec Wave' }).click();
-  await expect(page.getByRole('link', { name: 'Payer avec Wave / Orange Money' })).toBeVisible();
-  expect(state.payments).toHaveLength(1);
-  expect(state.payments[0].body).toEqual({ provider: 'SASPAY', quoteId: 'synthetic-quote' });
-  expect(state.payments[0].key).toMatch(/^[0-9a-f-]{36}$/);
+  const payer = page.getByLabel(/Adresse e-mail du payeur/);
+  await payer.fill('client@example.com');
+  expect(state.requests).toHaveLength(0);
+  await expect(page.getByRole('button', { name: /Payer avec SasPay/ })).toBeEnabled();
+  await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
+  await expect(page.getByRole('heading', { name: 'SasPay checkout simulé' })).toBeVisible();
+  expect(state.requests).toHaveLength(1);
+  expect(state.requests[0].body).toEqual({ provider: 'SASPAY', payerEmail: 'client@example.com' });
+  expect(state.requests[0].key).toMatch(/^[0-9a-f-]{36}$/);
+  await page.getByRole('link', { name: 'Retour Groupia' }).click();
   await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
+  expect(state.requests).toHaveLength(1);
   state.confirmed = true;
   await page.getByRole('button', { name: 'Actualiser le suivi' }).click();
   await expect(page.getByRole('heading', { name: 'Paiement confirmé' })).toBeVisible();
+  expect(state.requests).toHaveLength(1);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBe(true);
 });
 
-test('devis expiré non payable', async ({ page }) => {
-  const state = await fixture(page, { expired: true });
-  await page
-    .getByRole('button', { name: 'Voir les frais et les autres moyens de paiement' })
-    .click();
-  await expect(
-    page.getByRole('button', { name: 'Accepter les frais et payer avec Wave' }),
-  ).toBeDisabled();
-  expect(state.payments).toHaveLength(0);
+test('session créée sans URL : aucune confirmation automatique ni second POST', async ({ page }) => {
+  const state = await fixture(page, { noCheckoutUrl: true });
+  await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
+  await expect(page.getByText(/session est en cours de vérification/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paiement confirmé' })).toHaveCount(0);
+  expect(state.requests).toHaveLength(1);
 });
 
-test('frais indisponibles sans bloquer le bouton Bictorys existant', async ({ page }) => {
-  const state = await fixture(page, { unavailable: true });
-  await page
-    .getByRole('button', { name: 'Voir les frais et les autres moyens de paiement' })
-    .click();
-  await expect(
-    page.getByText('Les frais ne peuvent pas être confirmés actuellement. Réessayez plus tard.'),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Préparer mon paiement sécurisé' })).toBeEnabled();
-  expect(state.payments).toHaveLength(0);
-});
-
-test('réponse perdue : même clé, même devis et confirmation sur téléphone sans second débit', async ({
+test('réponse perdue : reprendre la même intention et la même clé sans double session', async ({
   page,
 }) => {
-  const state = await fixture(page, { push: true, lostResponse: true });
-  await page
-    .getByRole('button', { name: 'Voir les frais et les autres moyens de paiement' })
-    .click();
-  await page.getByRole('button', { name: 'Accepter les frais et payer avec Wave' }).click();
+  const state = await fixture(page, { lostResponse: true, noCheckoutUrl: true });
+  await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
+  await expect(page.getByRole('button', { name: 'Retrouver ma tentative de paiement' }))
+    .toBeVisible();
   await page.getByRole('button', { name: 'Retrouver ma tentative de paiement' }).click();
-  await expect(
-    page.getByText('Consultez votre téléphone pour confirmer la demande de paiement.', {
-      exact: false,
-    }),
-  ).toBeVisible();
-  expect(state.payments).toHaveLength(2);
-  expect(state.payments[1]).toEqual(state.payments[0]);
-  await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Retrouver ma tentative de paiement' }),
-  ).toHaveCount(0);
+  await expect.poll(() => state.requests.length).toBe(2);
+  expect(state.requests[1]).toEqual(state.requests[0]);
+  await expect(page.getByRole('heading', { name: 'Paiement confirmé' })).toHaveCount(0);
 });

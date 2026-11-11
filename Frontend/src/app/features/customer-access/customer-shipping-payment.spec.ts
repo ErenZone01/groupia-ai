@@ -44,31 +44,21 @@ describe('Paiement du transport', () => {
     f.detectChanges();
     return f;
   }
-  it('SasPay présente les frais serveur avant consentement et envoie seulement le devis', async () => {
+  it('SasPay hébergé : les frais sont gérés par le PSP sans devis opérateur dans Groupia', async () => {
     api.shippingPaymentOptions.mockResolvedValue({ availableProviders: ['SASPAY'] });
-    const quote = {
-      id: 'fee',
-      provider: 'SASPAY',
-      networkLabel: 'Wave',
-      saleAmount: 5000,
-      collectionFee: 125,
-      totalCharged: 5125,
-      merchantNet: 5000,
-      groupiaCommission: 0,
-      currency: 'XOF',
-      expiresAt: '2099-01-01T00:00:00Z',
-    };
-    api.quoteShipping.mockResolvedValue([quote]);
-    api.payShipping.mockResolvedValue({ status: 'PENDING', checkoutUrl: null });
+    api.payShipping.mockResolvedValue({
+      status: 'PENDING', reconciliationRequired: false, checkoutUrl: null,
+    });
     const f = setup();
     await vi.waitFor(() => expect(f.componentInstance.providers()).toEqual(['SASPAY']));
-    await f.componentInstance.prepareSaspay();
     f.detectChanges();
-    expect(f.nativeElement.textContent).toMatch(/5.?125/);
+    expect(f.nativeElement.textContent).toContain('Payer avec SasPay');
+    expect(f.nativeElement.textContent).toContain('frais des opérateurs');
+    expect(api.quoteShipping).not.toHaveBeenCalled();
     expect(api.payShipping).not.toHaveBeenCalled();
-    await f.componentInstance.pay(quote);
-    expect(api.payShipping).toHaveBeenCalledWith('GRP-1', expect.any(String), 'fee');
-    expect(f.componentInstance.message()).toContain('téléphone');
+    await f.componentInstance.pay(undefined, true);
+    expect(api.payShipping).toHaveBeenCalledWith('GRP-1', expect.any(String), 'SASPAY');
+    expect(f.componentInstance.waiting()).toBe(true);
     expect(navigate).not.toHaveBeenCalled();
     expect(f.componentInstance.value()?.status).toBe('BALANCE_DUE');
     f.destroy();
@@ -84,14 +74,14 @@ describe('Paiement du transport', () => {
           currency: 'XOF',
           checkoutUrl: 'https://pay.saspay.me/shipping',
         },
-        quote: { id: 'fee', totalCharged: 5125 },
+        quote: null,
       },
     });
     const f = setup({ ...due, paymentInProgress: true });
     await vi.waitFor(() =>
       expect(f.componentInstance.checkoutUrl()).toBe('https://pay.saspay.me/shipping'),
     );
-    expect(f.componentInstance.acceptedQuote()?.totalCharged).toBe(5125);
+    expect(f.componentInstance.acceptedQuote()).toBeNull();
     await f.componentInstance.pay();
     expect(api.payShipping).not.toHaveBeenCalled();
     f.destroy();

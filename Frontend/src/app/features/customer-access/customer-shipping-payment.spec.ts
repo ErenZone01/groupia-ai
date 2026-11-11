@@ -56,8 +56,11 @@ describe('Paiement du transport', () => {
     expect(f.nativeElement.textContent).toContain('frais des opérateurs');
     expect(api.quoteShipping).not.toHaveBeenCalled();
     expect(api.payShipping).not.toHaveBeenCalled();
+    f.componentInstance.payerEmail.set('transport@example.com');
     await f.componentInstance.pay(undefined, true);
-    expect(api.payShipping).toHaveBeenCalledWith('GRP-1', expect.any(String), 'SASPAY');
+    expect(api.payShipping).toHaveBeenCalledWith(
+      'GRP-1', expect.any(String), 'SASPAY', 'transport@example.com',
+    );
     expect(f.componentInstance.waiting()).toBe(true);
     expect(navigate).not.toHaveBeenCalled();
     expect(f.componentInstance.value()?.status).toBe('BALANCE_DUE');

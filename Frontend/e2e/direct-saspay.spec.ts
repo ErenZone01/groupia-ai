@@ -17,7 +17,7 @@ for (const redirect of [false, true]) {
     // Groupia must never call the real PSP during E2E: intercept the hosted
     // boundary at browser-context level, including top-level navigations.
     await page.context().route('https://**/*', (route) => route.abort('blockedbyclient'));
-    await page.context().route('https://pay.saspay.me/**', (route) => {
+    await page.context().route('https://checkout.saspay.me/**', (route) => {
       hostedNavigations++;
       return route.fulfill({
         status: 200,
@@ -43,7 +43,7 @@ for (const redirect of [false, true]) {
         expectedAmount: 1000,
         currency: 'XOF',
         reconciliationRequired: false,
-        checkoutUrl: redirect ? 'https://pay.saspay.me/checkout/synthetic' : null,
+        checkoutUrl: redirect ? 'https://checkout.saspay.me/checkout/synthetic' : null,
       };
       if (path.endsWith('/lookup')) {
         return route.fulfill({
@@ -103,7 +103,7 @@ for (const redirect of [false, true]) {
     await expect.poll(() => created.length).toBe(1);
     if (redirect) {
       await expect.poll(() => hostedNavigations).toBe(1);
-      await expect(page).toHaveURL('https://pay.saspay.me/checkout/synthetic');
+      await expect(page).toHaveURL('https://checkout.saspay.me/checkout/synthetic');
       // SasPay owns the hosted UI. E2E simulates its documented return
       // rather than asserting a page that Groupia doesn't control.
       await page.goto('/paiement/retour');

@@ -110,10 +110,15 @@ export class CustomerAccessService {
     orderNumber: string,
     key: string,
     provider: 'BICTORYS' | 'SASPAY' = 'BICTORYS',
+    payerEmail?: string,
   ) {
     return this.mutate((c) =>
       this.api.initiateCustomerShippingPayment(
-        { orderNumber, 'Idempotency-Key': key, body: { provider } },
+        {
+          orderNumber,
+          'Idempotency-Key': key,
+          body: { provider, ...(payerEmail ? { payerEmail } : {}) },
+        },
         c,
       ),
     );

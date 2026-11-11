@@ -320,17 +320,12 @@ export class SubscriptionStore {
       operation = ++this.operation;
     let command = this.getCommand(org);
     const existing = this.currentInvoice();
-    if (quote && (!quote.id || !this.quotes().some((q) => q.id === quote.id))) return;
     if (
       command?.started &&
       !command.knownAttempt &&
-      (command.provider !== provider || command.quote?.id !== quote?.id)
+      command.provider !== provider
     ) {
       this.error.set('Reprenez le paiement déjà demandé avant de changer de moyen.');
-      return;
-    }
-    if (quote && Date.parse(quote.expiresAt ?? '') <= Date.now() && !command?.started) {
-      this.error.set('Le devis a expiré. Actualisez les frais avant de payer.');
       return;
     }
     // A new user action may renew an expired invoice, never a timeout or an uncertain attempt.
@@ -368,7 +363,7 @@ export class SubscriptionStore {
       command.started = false;
     }
     command.provider = provider;
-    command.quote = quote;
+    command.quote = undefined;
     this.remember(org, command);
     this.busy.set(true);
     this.error.set('');
@@ -389,7 +384,7 @@ export class SubscriptionStore {
       if (!this.current(org, generation, session) || !command.invoiceId) return;
       command.started = true;
       this.remember(org, command);
-      this.acceptedQuote.set(quote ?? null);
+      this.acceptedQuote.set(null);
       const payment = await firstValueFrom(
         this.api
           .paySubscriptionInvoice({

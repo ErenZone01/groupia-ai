@@ -59,7 +59,7 @@ class SaspayHostedContractTests {
                 + "\",\"merchant\":\""
                 + SaspayTestConfiguration.MERCHANT
                 + "\",\"amount\":\"1000.00\",\"currency\":\"XOF\",\"status\":\"PENDING\","
-                + "\"checkout_url\":\"https://pay.saspay.me/checkout/synthetic\"}";
+                + "\"checkout_url\":\"https://checkout.saspay.me/checkout/synthetic\"}";
     }
 
     private String detail(ProviderInstruction i) {
@@ -105,7 +105,7 @@ class SaspayHostedContractTests {
             assertThat(result.providerTransactionId()).isNull();
             assertThat(result.metadata().chargeId()).isEqualTo(SESSION);
             assertThat(result.metadata().checkoutUrl())
-                    .isEqualTo("https://pay.saspay.me/checkout/synthetic");
+                    .isEqualTo("https://checkout.saspay.me/checkout/synthetic");
             assertThat(stub.requests).hasSize(1);
             assertThat(stub.requests.getFirst().method()).isEqualTo("POST");
             assertThat(stub.requests.getFirst().path()).isEqualTo("/api/v1/checkout-sessions/");
@@ -153,7 +153,7 @@ class SaspayHostedContractTests {
             session.put("merchant", SaspayTestConfiguration.MERCHANT);
             session.put("amount", "1000.00");
             session.put("currency", "XOF");
-            session.put("checkout_url", "https://pay.saspay.me/checkout/synthetic");
+            session.put("checkout_url", "https://checkout.saspay.me/checkout/synthetic");
             var metadata = json.createObjectNode();
             metadata.put("groupia_payment_attempt_id", i.paymentId().toString());
             metadata.put("groupia_reference", i.merchantReference());
@@ -164,7 +164,7 @@ class SaspayHostedContractTests {
             assertThat(observation.status()).isEqualTo(PaymentStatus.PENDING);
             assertThat(observation.providerTransactionId()).isNull();
             assertThat(observation.metadata().checkoutUrl())
-                    .isEqualTo("https://pay.saspay.me/checkout/synthetic");
+                    .isEqualTo("https://checkout.saspay.me/checkout/synthetic");
             assertThat(stub.requests).hasSize(2);
             assertThat(stub.requests).allSatisfy(req -> assertThat(req.method()).isEqualTo("GET"));
         }
@@ -203,6 +203,42 @@ class SaspayHostedContractTests {
                             URI.create("http://localhost:4200"));
             assertThat(adapter.initiationConfigurationIssue())
                     .isEqualTo("SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED");
+            assertThat(stub.requests).isEmpty();
+        }
+    }
+
+    @Test
+    void oldPayOnlyHostConfigurationIsRejectedBeforeCreatingAnotherSession() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var original = SaspayTestConfiguration.properties();
+            var props = new SaspayProperties(
+                    true,
+                    original.apiUrl(),
+                    original.apiKey(),
+                    original.webhookSecret(),
+                    original.merchantId(),
+                    java.util.Set.of("pay.saspay.me"),
+                    original.connectTimeout(),
+                    original.readTimeout(),
+                    false,
+                    null,
+                    null);
+            var adapter = new SaspayPaymentProvider(
+                    new SaspayClient(
+                            SaspayClient.builder(props).baseUrl(stub.url() + "/api/v1").build(),
+                            json, clock),
+                    props, null, json, clock, false, URI.create("http://localhost:4200"));
+            assertThat(adapter.initiationConfigurationIssue())
+                    .isEqualTo("SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED");
+            assertThat(stub.requests).isEmpty();
+        }
+    }
+
+    @Test
+    void actualHostedCheckoutHostIsAcceptedByStaticPreflight() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var adapter = provider(stub);
+            assertThat(adapter.initiationConfigurationIssue()).isNull();
             assertThat(stub.requests).isEmpty();
         }
     }

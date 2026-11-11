@@ -99,6 +99,24 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         return !properties.isLive() || properties.livePilotOrganizationId().equals(organizationId);
     }
 
+    @Override
+    public String initiationConfigurationIssue() {
+        if (legacySoftpayForTests) return null;
+        URI destination = publicBaseUrl.resolve("/paiement/retour");
+        if ((properties.isLive() && !"https".equals(destination.getScheme()))
+                || destination.getHost() == null
+                || destination.getUserInfo() != null
+                || destination.getFragment() != null
+                || !Set.of("https", "http").contains(destination.getScheme()))
+            return "SASPAY_RETURN_URL_INVALID";
+        // SasPay's documented hosted checkout uses this domain. A Softpay-era
+        // network allowlist may not contain it; detect that BEFORE any POST,
+        // rather than creating a session whose checkout URL will be hidden.
+        if (!properties.checkoutHosts().contains("pay.saspay.me"))
+            return "SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED";
+        return null;
+    }
+
     private void enforceLivePilotLimit(BigDecimal amount, BigDecimal fee) {
         if (properties.isLive()
                 && (amount == null
@@ -175,13 +193,9 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         if (i.amount() == null || i.amount().signum() <= 0 || !"XOF".equals(i.currency()))
             throw new SaspayException("SASPAY_HOSTED_AMOUNT_INVALID");
         enforceLivePilotLimit(i.amount(), BigDecimal.ZERO);
+        String issue = initiationConfigurationIssue();
+        if (issue != null) throw new SaspayException(issue);
         URI returnUrl = publicBaseUrl.resolve("/paiement/retour");
-        if ((properties.isLive() && !"https".equals(returnUrl.getScheme()))
-                || returnUrl.getHost() == null
-                || returnUrl.getUserInfo() != null
-                || returnUrl.getFragment() != null
-                || !Set.of("https", "http").contains(returnUrl.getScheme()))
-            throw new SaspayException("SASPAY_RETURN_URL_INVALID");
         var payload = new LinkedHashMap<String, Object>();
         payload.put("amount", i.amount().setScale(2).toPlainString());
         payload.put("currency", i.currency());

@@ -138,13 +138,18 @@ $env:SPRING_PROFILES_ACTIVE = "test"
 cd ..\Frontend
 npm ci
 npm run lint
-npm test -- --run
+npm test
 npm run build
 npx playwright test e2e/direct-saspay.spec.ts e2e/saspay-collection.spec.ts
 ```
 
-Le fichier `tools/check_migrations.py` et les scripts npm doivent
-être confirmés présents dans cette branche avant de lancer ces commandes.
+Le fichier `tools/check_migrations.py` existe dans le dépôt. `npm test`
+exécute déjà `ng test --watch=false`. Les E2E démarrent leur propre serveur
+Angular/production selon `Frontend/playwright.config.ts`.
+Les contrats OpenAPI générés ont été ajustés avec les nouveaux champs
+`payerEmail` ; une régénération complète des clients API doit être
+vérifiée avant fusion pour éviter qu'un prochain `api:generate` n'efface
+les champs ajoutés manuellement.
 Aucun test `test` ne doit utiliser `Backend/.env` avec les clés LIVE.
 Les intégrations PostgreSQL exigent Docker/Testcontainers local.
 

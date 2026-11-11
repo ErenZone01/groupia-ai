@@ -146,11 +146,7 @@ export class SubscriptionStore {
         if (recovery?.attempt) {
           this.checkoutUrl.set(this.safeUrl(recovery.attempt.checkoutUrl, recovery.provider));
           this.acceptedQuote.set(recovery.quote ?? null);
-          this.phoneConfirmation.set(
-            recovery.provider === 'SASPAY' &&
-              recovery.attempt.status === 'PENDING' &&
-              !recovery.attempt.checkoutUrl,
-          );
+          this.phoneConfirmation.set(false); // Hosted checkout never requires a Groupia push screen.
         } else if (!recoverable || !result.details.canManageSubscription) {
           this.checkoutUrl.set(null);
           this.phoneConfirmation.set(false);

@@ -51,7 +51,7 @@ async function fixture(
         expectedAmount: 1000,
         currency: 'XOF',
         reconciliationRequired: false,
-        checkoutUrl: options.noCheckoutUrl ? null : 'https://pay.saspay.me/checkout/synthetic',
+        checkoutUrl: options.noCheckoutUrl ? null : 'https://checkout.saspay.me/checkout/synthetic',
       });
     }
     return route.abort();
@@ -59,7 +59,7 @@ async function fixture(
   // Block any real external checkout. The backend API and the PSP are synthetic.
   let hostedNavigations = 0;
   await page.context().route('https://**/*', (route) => route.abort('blockedbyclient'));
-  await page.context().route('https://pay.saspay.me/**', (route) => {
+  await page.context().route('https://checkout.saspay.me/**', (route) => {
     hostedNavigations++;
     return route.fulfill({
       status: 200,
@@ -86,7 +86,7 @@ test('checkout hébergé : une seule session, retour et confirmation uniquement 
   await expect(page.getByRole('button', { name: /Payer avec SasPay/ })).toBeEnabled();
   await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
   await expect.poll(() => state.hostedNavigations()).toBe(1);
-  await expect(page).toHaveURL('https://pay.saspay.me/checkout/synthetic');
+  await expect(page).toHaveURL('https://checkout.saspay.me/checkout/synthetic');
   expect(state.requests).toHaveLength(1);
   expect(state.requests[0].body).toEqual({ provider: 'SASPAY', payerEmail: 'client@example.com' });
   expect(state.requests[0].key).toMatch(/^[0-9a-f-]{36}$/);

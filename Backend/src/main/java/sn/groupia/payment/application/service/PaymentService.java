@@ -211,7 +211,9 @@ public class PaymentService implements PaymentOperations {
         // Do not mark it uncertain or invent an ID while the client is paying.
         if ("SASPAY".equals(instruction.provider())
                 && result != null
-                && result.status() == PaymentStatus.PENDING
+                && (result.status() == PaymentStatus.PENDING
+                        || result.status() == PaymentStatus.CANCELLED
+                        || result.status() == PaymentStatus.EXPIRED)
                 && result.providerTransactionId() == null
                 && result.metadata() != null
                 && result.metadata().chargeId() != null)

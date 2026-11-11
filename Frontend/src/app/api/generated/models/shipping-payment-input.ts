@@ -3,5 +3,6 @@
 
 export interface ShippingPaymentInput {
   feeQuoteId?: string;
+  payerEmail?: string;
   provider: string;
 }

@@ -56,18 +56,20 @@ async function fixture(
     }
     return route.abort();
   });
-  let groupiaOrigin = '';
-  await page.route('https://pay.saspay.me/**', (route) =>
-    route.fulfill({
+  // Block any real external checkout. The backend API and the PSP are synthetic.
+  let hostedNavigations = 0;
+  await page.context().route('https://**/*', (route) => route.abort('blockedbyclient'));
+  await page.context().route('https://pay.saspay.me/**', (route) => {
+    hostedNavigations++;
+    return route.fulfill({
+      status: 200,
       contentType: 'text/html',
-      body: `<!doctype html><html><body><h1>SasPay checkout simulé</h1>
-        <a href="${groupiaOrigin}/paiement/retour">Retour Groupia</a></body></html>`,
-    }),
-  );
+      body: '<!doctype html><html><body><title>Simulated provider</title></body></html>',
+    });
+  });
   await page.goto('/public/order');
-  groupiaOrigin = new URL(page.url()).origin;
   await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
-  return state;
+  return { ...state, hostedNavigations: () => hostedNavigations };
 }
 
 test('checkout hébergé : une seule session, retour et confirmation uniquement par Groupia', async ({
@@ -80,11 +82,13 @@ test('checkout hébergé : une seule session, retour et confirmation uniquement 
   expect(state.requests).toHaveLength(0);
   await expect(page.getByRole('button', { name: /Payer avec SasPay/ })).toBeEnabled();
   await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
-  await expect(page.getByRole('heading', { name: 'SasPay checkout simulé' })).toBeVisible();
+  await expect.poll(() => state.hostedNavigations()).toBe(1);
+  await expect(page).toHaveURL('https://pay.saspay.me/checkout/synthetic');
   expect(state.requests).toHaveLength(1);
   expect(state.requests[0].body).toEqual({ provider: 'SASPAY', payerEmail: 'client@example.com' });
   expect(state.requests[0].key).toMatch(/^[0-9a-f-]{36}$/);
-  await page.getByRole('link', { name: 'Retour Groupia' }).click();
+  // Exercise Groupia's return route without relying on the external PSP DOM.
+  await page.goto('/paiement/retour');
   await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
   expect(state.requests).toHaveLength(1);
   state.confirmed = true;

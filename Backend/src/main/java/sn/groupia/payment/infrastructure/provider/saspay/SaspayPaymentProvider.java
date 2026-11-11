@@ -303,18 +303,25 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         if (!sessionId.equals(SaspayClient.uuid(text(status, "id"))))
             throw new SaspayException("SASPAY_HOSTED_SESSION_MISMATCH");
         String sessionStatus = text(status, "status");
-        if (!"PAID".equals(sessionStatus) && !"PENDING".equals(sessionStatus))
-            throw new SaspayException("SASPAY_HOSTED_TERMINAL_REVIEW_REQUIRED");
-        if (!"PAID".equals(sessionStatus)) {
-            // Return PENDING without assigning a fictitious provider transaction.
+        if (Set.of("PENDING", "CANCELLED", "EXPIRED").contains(sessionStatus)) {
+            // These are session states, not financial transaction confirmations.
+            // For a terminal unpaid session there is no transaction ID to invent.
+            PaymentStatus state =
+                    switch (sessionStatus) {
+                        case "CANCELLED" -> PaymentStatus.CANCELLED;
+                        case "EXPIRED" -> PaymentStatus.EXPIRED;
+                        default -> PaymentStatus.PENDING;
+                    };
             return new ProviderObservation(
                     name(), accountReference(), i.merchantReference(), null,
                     i.paymentRequestId(), i.orderId(), i.purpose(), i.amount(), i.currency(),
-                    PaymentStatus.PENDING, null,
+                    state, null,
                     new ProviderMetadata(i.checkout() == null ? null : i.checkout().businessReference(),
                             null, sessionId, null),
                     i.target());
         }
+        if (!"PAID".equals(sessionStatus))
+            throw new SaspayException("SASPAY_HOSTED_SESSION_STATUS_UNSUPPORTED");
         if (!"SUCCESS".equals(text(status, "transaction_status")))
             throw new SaspayException("SASPAY_HOSTED_TRANSACTION_NOT_VERIFIED");
         String txnId = SaspayClient.uuid(text(status, "transaction_id"));

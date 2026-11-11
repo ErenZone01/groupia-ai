@@ -12,16 +12,19 @@ for (const redirect of [false, true]) {
     let pending = false;
     let paid = false;
     const created: { body: unknown; key: string }[] = [];
-    let groupiaOrigin = '';
+    let hostedNavigations = 0;
 
-    await page.route('https://pay.saspay.me/**', (route) =>
-      route.fulfill({
+    // Groupia must never call the real PSP during E2E: intercept the hosted
+    // boundary at browser-context level, including top-level navigations.
+    await page.context().route('https://**/*', (route) => route.abort('blockedbyclient'));
+    await page.context().route('https://pay.saspay.me/**', (route) => {
+      hostedNavigations++;
+      return route.fulfill({
+        status: 200,
         contentType: 'text/html',
-        body: `<!doctype html><html><body><h1>Checkout SasPay simulé</h1>
-          <a href="${groupiaOrigin}/paiement/retour">Retour Groupia</a>
-          </body></html>`,
-      }),
-    );
+        body: '<!doctype html><html><body><title>Simulated provider</title></body></html>',
+      });
+    });
 
     await page.route('**/api/public/direct-orders/*', (route) => {
       const request = route.request();
@@ -91,7 +94,6 @@ for (const redirect of [false, true]) {
     });
 
     await page.goto('/v/77777777-7777-4777-8777-777777777777/commande#access=' + token);
-    groupiaOrigin = new URL(page.url()).origin;
     await expect(page.getByRole('button', { name: /Payer sur SasPay/ })).toBeVisible();
     await page.getByLabel(/Adresse e-mail du payeur/).fill('client@example.com');
     await expect(page.getByText(/Les frais des opérateurs/)).toHaveCount(0);
@@ -100,8 +102,11 @@ for (const redirect of [false, true]) {
     await page.getByRole('button', { name: /Payer sur SasPay/ }).click();
     await expect.poll(() => created.length).toBe(1);
     if (redirect) {
-      await expect(page.getByRole('heading', { name: 'Checkout SasPay simulé' })).toBeVisible();
-      await page.getByRole('link', { name: 'Retour Groupia' }).click();
+      await expect.poll(() => hostedNavigations).toBe(1);
+      await expect(page).toHaveURL('https://pay.saspay.me/checkout/synthetic');
+      // SasPay owns the hosted UI. E2E simulates its documented return
+      // rather than asserting a page that Groupia doesn't control.
+      await page.goto('/paiement/retour');
       await expect(page.getByRole('heading', { name: 'Suivi de ma commande' })).toBeVisible();
     } else {
       await expect(page.getByText('Règlement vérifié', { exact: true })).toHaveCount(0);

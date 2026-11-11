@@ -167,6 +167,54 @@ passer par la vérification d'identité de session, marchand,
 métadonnées, devise, montant et URL autorisée.
 
 
+## Erreur 503 `SASPAY_HOSTED_CHECKOUT_CONFIG_INVALID` après la migration
+
+La vérification locale de `PaymentService.initiateRequestInternal` rejette
+une configuration incorrecte **avant** `transactions.claim` et avant
+tout `POST /checkout-sessions/`. Elle ne crée pas de session SasPay,
+ni de nouvelle tentative financière.
+
+Le log backend porte le code déterminant, sans secrets :
+
+```text
+Payment initiation configuration rejected provider=SASPAY reason=SASPAY_RETURN_URL_INVALID
+```
+
+ou
+
+```text
+Payment initiation configuration rejected provider=SASPAY reason=SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED
+```
+
+Si la raison est `SASPAY_RETURN_URL_INVALID`, vérifier la valeur
+**effectivement injectée au processus backend** de
+`GROUPIA_PUBLIC_BASE_URL` : en LIVE l'URL de retour doit être HTTPS.
+Si elle est `SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED`, vérifier
+`SASPAY_CHECKOUT_HOSTS` dans l'environnement effectif, avec
+`checkout.saspay.me` sans chemin, schéma ni wildcard.
+
+**Important :** le fichier `Backend/src/main/resources/application.properties`
+importe `optional:file:.env[.properties]` uniquement sous le profil
+`!prod`. Modifier `Backend/.env` ne garantit donc **pas**
+l'actualisation d'un déploiement `SPRING_PROFILES_ACTIVE=prod`.
+Il faut définir ces variables dans le processus/compose/secrets
+qui lance réellement le backend, puis redémarrer ou recréer le
+conteneur. Les variables du conteneur peuvent être contrôlées
+sans afficher les secrets :
+
+```powershell
+docker ps --format "table {{.Names}}	{{.Status}}"
+docker logs --since 30m NOM_CONTENEUR_BACKEND 2>&1 |
+  Select-String "Payment initiation configuration rejected"
+docker exec NOM_CONTENEUR_BACKEND printenv SASPAY_CHECKOUT_HOSTS
+docker exec NOM_CONTENEUR_BACKEND printenv GROUPIA_PUBLIC_BASE_URL
+```
+
+Ne pas afficher `SASPAY_API_KEY` ou `SASPAY_WEBHOOK_SECRET`.
+Si le backend ne tourne pas dans Docker, examiner le terminal où
+il a démarré et les variables du processus réellement lancé.
+Ne pas supprimer la garde ou utiliser HTTP en LIVE.
+
 ## Validation après correctifs
 
 ```powershell

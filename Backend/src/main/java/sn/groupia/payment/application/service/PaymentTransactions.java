@@ -367,14 +367,18 @@ public class PaymentTransactions {
                 && observation.metadata() != null
                 && observation.metadata().chargeId() != null
                 && observation.providerTransactionId() == null
-                && observation.status() == PaymentStatus.PENDING) {
+                && (observation.status() == PaymentStatus.PENDING
+                        || observation.status() == PaymentStatus.CANCELLED
+                        || observation.status() == PaymentStatus.EXPIRED)) {
             String invalid = validate(request, payment, observation, true);
             if (invalid != null) {
                 payment.review(invalid);
             } else if (payment.getStatus() != PaymentStatus.SUCCEEDED
                     && !"PROVIDER_REVERSAL".equals(payment.getReconciliationReason())) {
                 // A webhook may have committed before this acknowledgement returned.
-                if (payment.getStatus() == PaymentStatus.CREATED
+                if ((payment.getStatus() == PaymentStatus.CREATED
+                                || (payment.getStatus() == PaymentStatus.PENDING
+                                        && observation.status() != PaymentStatus.PENDING))
                         && payment.getProviderTransactionId() == null) {
                     payment.apply(observation, clock.instant());
                 }

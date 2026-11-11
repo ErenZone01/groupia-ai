@@ -109,10 +109,11 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 || destination.getFragment() != null
                 || !Set.of("https", "http").contains(destination.getScheme()))
             return "SASPAY_RETURN_URL_INVALID";
-        // SasPay's documented hosted checkout uses this domain. A Softpay-era
-        // network allowlist may not contain it; detect that BEFORE any POST,
-        // rather than creating a session whose checkout URL will be hidden.
-        if (!properties.checkoutHosts().contains("pay.saspay.me"))
+        // The authenticated live hosted-session API returned checkout.saspay.me.
+        // Require this EXACT host before creating another non-idempotent session.
+        // pay.saspay.me remains supported when explicitly configured for older
+        // sessions; never use wildcards or trust an arbitrary *.saspay.me host.
+        if (!properties.checkoutHosts().contains("checkout.saspay.me"))
             return "SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED";
         return null;
     }

@@ -314,25 +314,19 @@ export class CustomerShippingPayment {
     )
       return;
     if (!this.providers().includes(provider)) return;
-    if (quote && (!quote.id || !this.quotes().some((q) => q.id === quote.id))) return;
     if (
       this.key &&
       this.commandProvider &&
-      (this.commandProvider !== provider ||
-        this.commandQuote?.id !== quote?.id)
+      this.commandProvider !== provider
     ) {
       this.error.set('Reprenez la demande déjà envoyée avant de changer de moyen.');
       return;
     }
-    if (quote && Date.parse(quote.expiresAt ?? '') <= Date.now() && !this.key) {
-      this.error.set('Le devis a expiré. Actualisez les frais.');
-      return;
-    }
     const scope = this.scope;
     this.key ??= crypto.randomUUID();
-    this.commandQuote = quote;
+    this.commandQuote = undefined;
     this.commandProvider = provider;
-    this.acceptedQuote.set(quote ?? null);
+    this.acceptedQuote.set(null);
     this.remember();
     this.busy.set(true);
     this.error.set('');
@@ -363,13 +357,6 @@ export class CustomerShippingPayment {
             : safeBictorysCheckout(attempt.checkoutUrl)
           : null;
       this.checkoutUrl.set(url);
-      if (
-        quote &&
-        attempt.status === 'PENDING' &&
-        !attempt.checkoutUrl &&
-        !attempt.reconciliationRequired
-      )
-        this.message.set('Confirmez la demande sur votre téléphone, puis vérifiez le paiement.');
       if (url) {
         if (hosted) {
           try {

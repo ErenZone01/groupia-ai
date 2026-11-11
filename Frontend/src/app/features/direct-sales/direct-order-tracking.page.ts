@@ -592,26 +592,20 @@ export class DirectOrderTrackingPage {
     const provider: 'SASPAY' | 'BICTORYS' = hosted ? 'SASPAY' : 'BICTORYS';
     if (!this.canPay() || !this.token || !this.hasProvider(provider)) return;
     if (quote) return; // Legacy per-network fee quotes cannot initiate hosted checkout.
-    if (quote && (!quote.id || !this.quotes().some((q) => q.id === quote.id))) return;
     if (
       this.paymentKey &&
       this.commandProvider &&
-      (this.commandProvider !== provider ||
-        this.commandQuote?.id !== quote?.id)
+      this.commandProvider !== provider
     ) {
       this.paymentError.set('Reprenez le paiement déjà demandé avant de changer de moyen.');
-      return;
-    }
-    if (quote && Date.parse(quote.expiresAt ?? '') <= Date.now() && !this.paymentKey) {
-      this.paymentError.set('Le devis a expiré. Actualisez les frais avant de payer.');
       return;
     }
     const token = this.token;
     const sequence = this.sequence;
     this.paymentKey ??= crypto.randomUUID();
     this.commandProvider = provider;
-    this.commandQuote = quote;
-    this.acceptedQuote.set(quote ?? null);
+    this.commandQuote = undefined;
+    this.acceptedQuote.set(null);
     this.rememberCommand();
     this.paymentBusy.set(true);
     this.paymentError.set('');

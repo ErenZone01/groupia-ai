@@ -39,9 +39,8 @@ import { RouterLink } from '@angular/router';
 })
 export class SaspayReturnPage implements OnInit {
   ngOnInit(): void {
-    let value: string | null = null;
     try {
-      value = sessionStorage.getItem('groupia.saspay.return');
+      const value = sessionStorage.getItem('groupia.saspay.return');
       sessionStorage.removeItem('groupia.saspay.return');
       if (
         value &&

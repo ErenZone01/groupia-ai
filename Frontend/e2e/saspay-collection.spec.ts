@@ -69,7 +69,10 @@ async function fixture(
   });
   await page.goto('/public/order');
   await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
-  return { ...state, hostedNavigations: () => hostedNavigations };
+  // Return the SAME mutable state observed by the mocked API handler.
+  // Spreading state would copy the boolean 'confirmed', so changing it in the
+  // scenario would never change what GET /api/public/orders/track returns.
+  return Object.assign(state, { hostedNavigations: () => hostedNavigations });
 }
 
 test('checkout hébergé : une seule session, retour et confirmation uniquement par Groupia', async ({

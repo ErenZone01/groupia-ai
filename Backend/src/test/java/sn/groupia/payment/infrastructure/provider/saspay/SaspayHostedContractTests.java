@@ -147,8 +147,24 @@ class SaspayHostedContractTests {
             var i = instruction(SESSION);
             stub.reply(200, detail(i));
             stub.reply(200, status("CANCELLED"));
-            assertThatThrownBy(() -> provider(stub).verify(i))
-                    .hasMessage("SASPAY_HOSTED_TERMINAL_REVIEW_REQUIRED");
+            var observation = provider(stub).verify(i);
+            assertThat(observation.status()).isEqualTo(PaymentStatus.CANCELLED);
+            assertThat(observation.providerTransactionId()).isNull();
+            assertThat(observation.metadata().chargeId()).isEqualTo(SESSION);
+            assertThat(stub.requests).hasSize(2);
+            assertThat(stub.requests).allSatisfy(r -> assertThat(r.method()).isEqualTo("GET"));
+        }
+    }
+
+    @Test
+    void expiredHostedSessionHasNoTransactionProof() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var i = instruction(SESSION);
+            stub.reply(200, detail(i));
+            stub.reply(200, status("EXPIRED"));
+            var observation = provider(stub).verify(i);
+            assertThat(observation.status()).isEqualTo(PaymentStatus.EXPIRED);
+            assertThat(observation.providerTransactionId()).isNull();
             assertThat(stub.requests).hasSize(2);
             assertThat(stub.requests).allSatisfy(r -> assertThat(r.method()).isEqualTo("GET"));
         }

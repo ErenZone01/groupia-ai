@@ -50,6 +50,15 @@ export function safeBictorysCheckout(raw?: string): string | null {
           <button gButton variant="secondary" [disabled]="busy() || !validAmount()" (click)="pay(undefined, true)">
             Payer avec SasPay (Wave, Orange Money…)
           </button>
+          <label for="shipping-payer-email">Adresse e-mail du payeur (si non renseignée)</label>
+          <input
+            id="shipping-payer-email"
+            type="email"
+            autocomplete="email"
+            placeholder="exemple@domaine.com"
+            [value]="payerEmail()"
+            (input)="payerEmail.set($any($event.target).value)"
+          />
           <p>Les frais des opérateurs sont affichés sur la page sécurisée SasPay avant confirmation.</p>
         }
       }
@@ -86,6 +95,18 @@ export function safeBictorysCheckout(raw?: string): string | null {
     p {
       margin: var(--s3) 0;
     }
+    input[type='email'] {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      margin-block: 8px;
+    }
     .g-button {
       max-width: 100%;
       white-space: normal;
@@ -102,6 +123,7 @@ export class CustomerShippingPayment {
   readonly message = signal('');
   readonly error = signal('');
   readonly checkoutUrl = signal<string | null>(null);
+  readonly payerEmail = signal('');
   readonly money = money;
   readonly providers = signal<string[]>(['BICTORYS']);
   readonly quotes = signal<PaymentFeeQuoteView[]>([]);
@@ -122,6 +144,7 @@ export class CustomerShippingPayment {
             key: this.key,
             provider: this.commandProvider,
             quote: this.commandQuote,
+            payerEmail: this.commandProvider === 'SASPAY' ? this.payerEmail() : undefined,
           }),
         );
       else sessionStorage.removeItem(name);
@@ -204,6 +227,7 @@ export class CustomerShippingPayment {
         this.scope = scope;
         this.commandQuote = undefined;
         this.commandProvider = undefined;
+        this.payerEmail.set('');
         this.quotes.set([]);
         this.acceptedQuote.set(null);
         this.busy.set(false);
@@ -225,6 +249,12 @@ export class CustomerShippingPayment {
             this.key = saved.key;
             this.commandProvider = saved.provider;
             this.commandQuote = saved.quote;
+            if (saved.provider === 'SASPAY'
+              && typeof saved.payerEmail === 'string'
+              && saved.payerEmail.length <= 254
+              && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(saved.payerEmail)) {
+              this.payerEmail.set(saved.payerEmail);
+            }
             if (saved.quote?.saleAmount === v?.amountDue) this.quotes.set([saved.quote]);
           }
         } catch {
@@ -307,7 +337,10 @@ export class CustomerShippingPayment {
     this.busy.set(true);
     this.error.set('');
     try {
-      const attempt = await this.access.payShipping(this.orderNumber(), this.key, provider);
+      const attempt = await this.access.payShipping(
+        this.orderNumber(), this.key, provider,
+        hosted ? this.payerEmail().trim() || undefined : undefined,
+      );
       if (this.destroyed || scope !== this.scope) return;
       if (
         ['FAILED', 'CANCELLED', 'EXPIRED'].includes(attempt.status ?? '') &&

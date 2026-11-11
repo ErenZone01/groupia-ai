@@ -346,6 +346,22 @@ public final class SaspayPaymentProvider implements PaymentProvider {
         if (Set.of("PENDING", "CANCELLED", "EXPIRED").contains(sessionStatus)) {
             // These are session states, not financial transaction confirmations.
             // For a terminal unpaid session there is no transaction ID to invent.
+            // The checked session detail may restore a previously rejected checkout
+            // URL, but only after exact merchant, amount, currency and Groupia
+            // attempt metadata were verified above.
+            String checkoutUrl = null;
+            ProviderMetadata.ReviewReason checkoutReview = null;
+            if ("PENDING".equals(sessionStatus)) {
+                String suppliedUrl = text(session, "checkout_url");
+                if (suppliedUrl != null && !suppliedUrl.isBlank()) {
+                    try {
+                        validateCheckout(suppliedUrl);
+                        checkoutUrl = suppliedUrl;
+                    } catch (SaspayException invalidUrl) {
+                        checkoutReview = ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN;
+                    }
+                }
+            }
             PaymentStatus state =
                     switch (sessionStatus) {
                         case "CANCELLED" -> PaymentStatus.CANCELLED;
@@ -366,9 +382,9 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                     null,
                     new ProviderMetadata(
                             i.checkout() == null ? null : i.checkout().businessReference(),
-                            null,
+                            checkoutUrl,
                             sessionId,
-                            null),
+                            checkoutReview),
                     i.target());
         }
         if (!"PAID".equals(sessionStatus))

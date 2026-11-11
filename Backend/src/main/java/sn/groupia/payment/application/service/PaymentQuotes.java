@@ -36,11 +36,11 @@ public class PaymentQuotes implements PaymentQuoteOperations {
     public java.util.List<PaymentFeeQuoteView> quotes(UUID org, UUID requestId) {
         // Production SasPay uses hosted checkout; operator-specific quotations have
         // been removed. Old endpoints remain for test fixtures only, not real clients.
+        if (!providers.available("SASPAY")) return java.util.List.of();
         if (!legacySoftpayTests)
             throw new ApiException(
                     410, "SASPAY_OPERATOR_QUOTES_RETIRED",
                     "Les frais sont désormais présentés sur la page sécurisée SasPay.");
-        if (!providers.available("SASPAY")) return java.util.List.of();
         var request = transactions.request(org, requestId);
         // Order and monthly subscription obligations can share the SasPay quote contract.
         // Authorization is performed by the calling order/subscription service.

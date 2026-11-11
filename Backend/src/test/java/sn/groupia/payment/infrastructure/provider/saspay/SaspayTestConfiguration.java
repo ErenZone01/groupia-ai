@@ -32,7 +32,7 @@ public class SaspayTestConfiguration {
                 "sk_test_synthetic",
                 SECRET,
                 UUID.fromString(MERCHANT),
-                Set.of("pay.saspay.me"),
+                Set.of("pay.saspay.me", "checkout.saspay.me"),
                 Duration.ofSeconds(1),
                 Duration.ofSeconds(2),
                 false,

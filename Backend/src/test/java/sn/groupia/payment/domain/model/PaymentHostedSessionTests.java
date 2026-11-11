@@ -104,6 +104,50 @@ class PaymentHostedSessionTests {
     }
 
     @Test
+    void recoveredTrustedCheckoutUrlClearsOnlyTheUrlSpecificReview() {
+        var request = request();
+        var payment = attempt(request);
+        var blocked = new ProviderMetadata(
+                "DIR-TEST-1", null, SESSION,
+                ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN);
+        payment.apply(observe(request, payment, PaymentStatus.PENDING, null, blocked),
+                START.plusSeconds(1));
+        payment.checkoutDetails(blocked);
+        payment.review("PROVIDER_STATUS_UNKNOWN");
+        assertThat(payment.isReconciliationRequired()).isTrue();
+
+        var trusted = new ProviderMetadata(
+                "DIR-TEST-1", "https://pay.saspay.me/checkout/synthetic", SESSION, null);
+        payment.checkoutDetails(trusted);
+        payment.restoreHostedCheckoutUrlReview(trusted);
+
+        assertThat(payment.isReconciliationRequired()).isFalse();
+        assertThat(payment.view().checkoutUrl())
+                .isEqualTo("https://pay.saspay.me/checkout/synthetic");
+        assertThat(payment.instruction(request).providerTransactionId()).isNull();
+        assertThat(payment.view().status()).isEqualTo(PaymentStatus.PENDING);
+    }
+
+    @Test
+    void genericFinancialUncertaintyCannotBeClearedByACheckoutLink() {
+        var request = request();
+        var payment = attempt(request);
+        var blocked = new ProviderMetadata(
+                "DIR-TEST-1", null, SESSION,
+                ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN);
+        payment.apply(observe(request, payment, PaymentStatus.PENDING, null, blocked),
+                START.plusSeconds(1));
+        payment.checkoutDetails(blocked);
+        payment.review("PROVIDER_STATE_UNCERTAIN");
+        var trusted = new ProviderMetadata(
+                "DIR-TEST-1", "https://pay.saspay.me/checkout/synthetic", SESSION, null);
+        payment.checkoutDetails(trusted);
+        payment.restoreHostedCheckoutUrlReview(trusted);
+        assertThat(payment.isReconciliationRequired()).isTrue();
+        assertThat(payment.getReconciliationReason()).isEqualTo("PROVIDER_STATE_UNCERTAIN");
+    }
+
+    @Test
     void verifiedFinancialProofPersistsTheExactPayerFeeSeparatelyFromPrincipal() {
         var request = request();
         var payment = attempt(request);

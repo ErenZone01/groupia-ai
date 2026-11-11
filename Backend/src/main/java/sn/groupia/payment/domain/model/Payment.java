@@ -150,6 +150,28 @@ public class Payment {
         }
     }
 
+    /**
+     * Restore a previously blocked checkout URL only when a fresh server-side
+     * session verification supplied a trusted HTTPS link for this exact
+     * recorded SasPay session. Never clear financial/transaction uncertainty.
+     */
+    public void restoreHostedCheckoutUrlReview(ProviderMetadata details) {
+        if (details == null
+                || !"SASPAY".equals(provider)
+                || status != PaymentStatus.PENDING
+                || providerTransactionId != null
+                || !reconciliationRequired
+                || !"PROVIDER_STATUS_UNKNOWN".equals(reconciliationReason)
+                || providerChargeId == null
+                || !providerChargeId.equals(details.chargeId())
+                || details.checkoutUrl() == null
+                || details.checkoutUrl().isBlank()
+                || details.reviewReason() != null)
+            return;
+        reconciliationRequired = false;
+        reconciliationReason = null;
+    }
+
     public void retainVerifiedTransaction(ProviderObservation observation) {
         if (providerTransactionId == null) {
             providerTransactionId = observation.providerTransactionId();

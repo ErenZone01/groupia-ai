@@ -17,6 +17,10 @@ public class PaymentQuotes implements PaymentQuoteOperations {
     private final PaymentQuoteStore store;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Value(
+            "${groupia.payment.saspay.legacy-softpay-tests:false}")
+    private boolean legacySoftpayTests;
+
     PaymentQuotes(
             PaymentTransactions transactions,
             ProviderRegistry providers,
@@ -30,6 +34,12 @@ public class PaymentQuotes implements PaymentQuoteOperations {
 
     @Transactional(propagation = Propagation.NEVER)
     public java.util.List<PaymentFeeQuoteView> quotes(UUID org, UUID requestId) {
+        // Production SasPay uses hosted checkout; operator-specific quotations have
+        // been removed. Old endpoints remain for test fixtures only, not real clients.
+        if (!legacySoftpayTests)
+            throw new ApiException(
+                    410, "SASPAY_OPERATOR_QUOTES_RETIRED",
+                    "Les frais sont désormais présentés sur la page sécurisée SasPay.");
         if (!providers.available("SASPAY")) return java.util.List.of();
         var request = transactions.request(org, requestId);
         // Order and monthly subscription obligations can share the SasPay quote contract.

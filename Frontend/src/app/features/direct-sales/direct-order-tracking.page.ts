@@ -292,6 +292,7 @@ export class DirectOrderTrackingPage {
               key: this.paymentKey,
               provider: this.commandProvider,
               quote: this.commandQuote,
+              payerEmail: this.commandProvider === 'SASPAY' ? this.payerEmail() : undefined,
             }),
           );
         else sessionStorage.removeItem(this.storageKey);
@@ -319,6 +320,12 @@ export class DirectOrderTrackingPage {
         this.paymentKey = saved.key;
         this.commandProvider = saved.provider;
         this.commandQuote = saved.quote;
+        if (saved.provider === 'SASPAY'
+          && typeof saved.payerEmail === 'string'
+          && saved.payerEmail.length <= 254
+          && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(saved.payerEmail)) {
+          this.payerEmail.set(saved.payerEmail);
+        }
         if (saved.quote?.id && saved.quote.saleAmount === this.order()?.acceptedTotalXof)
           this.quotes.set([saved.quote]);
       }
@@ -350,7 +357,7 @@ export class DirectOrderTrackingPage {
           ? safeBictorysCheckout(attempt.checkoutUrl)
           : null,
     );
-    this.phoneConfirmation.set(recovery.provider === 'SASPAY' && !attempt.checkoutUrl);
+    this.phoneConfirmation.set(false);
   }
   async prepareSaspay() {
     if (!this.canPay() || !this.token || !this.hasProvider('SASPAY')) return;
@@ -422,6 +429,7 @@ export class DirectOrderTrackingPage {
     this.rememberCommand();
     this.commandProvider = undefined;
     this.commandQuote = undefined;
+    this.payerEmail.set('');
     this.quotes.set([]);
     this.acceptedQuote.set(null);
     this.phoneConfirmation.set(false);
@@ -481,6 +489,7 @@ export class DirectOrderTrackingPage {
         this.paymentKey = null;
         this.commandProvider = undefined;
         this.commandQuote = undefined;
+        this.payerEmail.set('');
         this.storageKey = null;
         this.quotes.set([]);
         this.acceptedQuote.set(null);

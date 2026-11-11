@@ -102,7 +102,22 @@ historique de la commande.
 - `SASPAY_ENABLED`, `SASPAY_API_KEY`, `SASPAY_WEBHOOK_SECRET`,
   `SASPAY_MERCHANT_ID` : valeurs provider existantes.
 - `SASPAY_CHECKOUT_HOSTS` : hôtes de paiement HTTPS réellement utilisés
-  par SasPay (pas des wildcard, ni des URL complètes).
+  par SasPay (pas de wildcard, ni d'URL complète). Depuis le diagnostic LIVE
+  du 11/11/2026, **`checkout.saspay.me` est nécessaire** pour le checkout
+  hébergé ; conserver `pay.saspay.me` en complément pour les sessions
+  historiques qui l'utilisent :
+
+  ```dotenv
+  SASPAY_CHECKOUT_HOSTS=checkout.saspay.me,pay.saspay.me
+  ```
+
+  Le host `checkout.saspay.me` a été observé dans une réponse LIVE de
+  session authentifiée avec identifiant, marchand, tentative, montant et
+  devise cohérents. Changer la configuration du **processus backend en cours**
+  puis le redémarrer (ou recréer le conteneur), car modifier un fichier
+  `.env` seul ne recharge pas les valeurs Spring.
+  La session de `DIR-000000000018` peut être récupérée en GET ; ne pas
+  créer de seconde session.
 - `GROUPIA_PUBLIC_BASE_URL` : domaine HTTPS stable de l'application
   client en production, **pas** un tunnel éphémère `trycloudflare.com`.
 - `SASPAY_LIVE_PILOT_ENABLED`,

@@ -50,14 +50,33 @@ public class CustomerOrderAccessQueries implements CustomerOrderAccess {
     @Transactional(propagation = Propagation.NEVER)
     public CustomerPaymentAttempt initiateShippingBalance(
             UUID org, UUID id, String provider, String key, UUID feeQuoteId) {
+        return initiateShippingBalance(org, id, provider, key, feeQuoteId, null);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public CustomerPaymentAttempt initiateShippingBalance(
+            UUID org, UUID id, String provider, String key, UUID feeQuoteId, String payerEmail) {
         var checkout = finance.checkout(org, id);
+        // Customer access already authenticated the order session before reaching
+        // this internal boundary. Money and merchant remain server authoritative.
+        var context = checkout.context().withFeeQuote(feeQuoteId);
+        if ("SASPAY".equalsIgnoreCase(provider) && payerEmail != null && !payerEmail.isBlank()) {
+            String normalized = payerEmail.strip();
+            if (normalized.length() > 254
+                    || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+                throw new ApiException(
+                        409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                        "Adresse e-mail de paiement invalide.");
+            context = context.withAuthorizedPayerEmail(normalized);
+        }
         var attempt =
                 payments.initiateRequest(
                         org,
                         checkout.requestId(),
                         provider,
                         key,
-                        checkout.context().withFeeQuote(feeQuoteId));
+                        context);
         return new CustomerPaymentAttempt(
                 attempt.id(),
                 attempt.status().name(),

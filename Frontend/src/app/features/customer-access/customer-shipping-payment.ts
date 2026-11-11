@@ -252,7 +252,7 @@ export class CustomerShippingPayment {
             if (saved.provider === 'SASPAY'
               && typeof saved.payerEmail === 'string'
               && saved.payerEmail.length <= 254
-              && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(saved.payerEmail)) {
+              && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(saved.payerEmail)) {
               this.payerEmail.set(saved.payerEmail);
             }
             if (saved.quote?.saleAmount === v?.amountDue) this.quotes.set([saved.quote]);

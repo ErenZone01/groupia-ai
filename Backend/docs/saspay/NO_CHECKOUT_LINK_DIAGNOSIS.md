@@ -81,6 +81,54 @@ URL après une réponse provider vérifiée ; uniquement une revue
 `PROVIDER_STATE_UNCERTAIN`, `UNKNOWN_REFERENCE` ou tout
 autre problème financier reste bloqué.
 
+## Inspection directe de la session déjà créée (lecture seule)
+
+La tentative \`DIR-000000000018\` a présenté :
+\`PENDING / reconciliation_required=true /
+reconciliation_reason=PROVIDER_STATUS_UNKNOWN /
+provider_charge_id IS NOT NULL\`.
+
+Lire **uniquement** son UUID de session, ne pas copier le lien privé :
+
+\`\`\`sql
+SELECT provider_charge_id AS session_saspay
+FROM payments
+WHERE id = '2176adb7-9d7b-4db7-9b5c-c416336916c9'
+  AND provider = 'SASPAY';
+\`\`\`
+
+Depuis la racine du dépôt, avec la clé LIVE **déjà existante** :
+\`\`\`powershell
+git pull --ff-only origin saspay-payin-v1
+python -m unittest discover -s tools -p "test_saspay_inspect_checkout.py"
+$sessionId = "COLLER_UUID_SESSION_SASPAY"
+python tools/saspay_inspect_checkout.py --env-file Backend/.env --session-id $sessionId --attempt-id 2176adb7-9d7b-4db7-9b5c-c416336916c9 --expected-amount-xof 1000
+\`\`\`
+
+Le script n'effectue **que** \`GET /checkout-sessions/{id}/\` et
+\`GET /checkout-sessions/{id}/status/\`, affiche seulement les
+contrôles d'identifiants, marchand, montant, le statut et le
+**nom d'hôte HTTPS** du checkout. Il ne publie jamais
+\`checkout_url\` complet, slug du prestataire, PII ni secrets.
+
+- Si \`PENDING\`, correspondances OK, hôte HTTPS identifié et présent
+  dans \`SASPAY_CHECKOUT_HOSTS\` : le poller de Groupia peut récupérer
+  l'URL vérifiée et lever uniquement le motif de revue lié au lien.
+- Si hôte trouvé mais non autorisé : évaluer/valider que c'est bien
+  un hôte SasPay officiel avant de l'ajouter au paramétrage.
+  **Ne pas autoriser un hôte arbitraire ou joker.**
+- Si URL absente : Groupia ne peut pas inventer un lien ;
+  demander au prestataire de vérifier la création de cette session.
+- Si \`PAID\`, \`EXPIRED\` ou \`CANCELLED\` : la session ne doit
+  pas être rouverte simplement ; la transaction peut requérir
+  une vérification financière serveur indépendante.
+
+Ne jamais utiliser UPDATE sur \`payments\` pour forcer
+\`reconciliation_required=false\`. Cette correction doit toujours
+passer par la vérification d'identité de session, marchand,
+métadonnées, devise, montant et URL autorisée.
+
+
 ## Validation après correctifs
 
 ```powershell

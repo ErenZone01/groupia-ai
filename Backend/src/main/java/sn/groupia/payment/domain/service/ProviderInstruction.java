@@ -22,15 +22,36 @@ public record ProviderInstruction(
         String providerSessionId) {
     /** Backward-compatible constructor for all providers without an external checkout session. */
     public ProviderInstruction(
-            UUID paymentId, UUID paymentRequestId, UUID orderId,
-            PaymentPurpose purpose, String provider, String providerAccountReference,
-            String merchantReference, String providerTransactionId, String providerIdempotencyKey,
-            BigDecimal amount, String currency, PaymentCheckoutContext checkout,
+            UUID paymentId,
+            UUID paymentRequestId,
+            UUID orderId,
+            PaymentPurpose purpose,
+            String provider,
+            String providerAccountReference,
+            String merchantReference,
+            String providerTransactionId,
+            String providerIdempotencyKey,
+            BigDecimal amount,
+            String currency,
+            PaymentCheckoutContext checkout,
             PaymentTarget target) {
-        this(paymentId, paymentRequestId, orderId, purpose, provider,
-                providerAccountReference, merchantReference, providerTransactionId,
-                providerIdempotencyKey, amount, currency, checkout, target, null);
+        this(
+                paymentId,
+                paymentRequestId,
+                orderId,
+                purpose,
+                provider,
+                providerAccountReference,
+                merchantReference,
+                providerTransactionId,
+                providerIdempotencyKey,
+                amount,
+                currency,
+                checkout,
+                target,
+                null);
     }
+
     public ProviderInstruction(
             UUID paymentId,
             UUID request,

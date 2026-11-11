@@ -20,9 +20,11 @@ class DirectCustomerPaymentInitiationController {
         public InitiationRequest(String token, java.util.UUID feeQuoteId) {
             this(token, feeQuoteId, null, null);
         }
+
         public InitiationRequest(String token, java.util.UUID feeQuoteId, String provider) {
             this(token, feeQuoteId, provider, null);
         }
+
         @Override
         public String toString() {
             return "InitiationRequest[redacted]";

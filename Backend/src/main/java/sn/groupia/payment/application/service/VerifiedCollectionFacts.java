@@ -60,7 +60,8 @@ public class VerifiedCollectionFacts implements CollectionFacts {
                     || fee.scale() > 2
                     || charged.compareTo(proof.amount().add(fee)) != 0
                     || r.feeAmount().signum() != 0)
-                throw new IllegalStateException("Missing verified hosted SasPay financial evidence");
+                throw new IllegalStateException(
+                        "Missing verified hosted SasPay financial evidence");
             return new Fact(proof, seller, r.feeAmount(), fee, charged);
         }
         var q =

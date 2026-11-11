@@ -39,7 +39,8 @@ public class PaymentQuotes implements PaymentQuoteOperations {
         if (!providers.available("SASPAY")) return java.util.List.of();
         if (!legacySoftpayTests)
             throw new ApiException(
-                    410, "SASPAY_OPERATOR_QUOTES_RETIRED",
+                    410,
+                    "SASPAY_OPERATOR_QUOTES_RETIRED",
                     "Les frais sont désormais présentés sur la page sécurisée SasPay.");
         var request = transactions.request(org, requestId);
         // Order and monthly subscription obligations can share the SasPay quote contract.

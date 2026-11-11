@@ -24,8 +24,14 @@ class SaspayHostedContractTests {
         return new SaspayPaymentProvider(
                 new SaspayClient(
                         SaspayClient.builder(props).baseUrl(stub.url() + "/api/v1").build(),
-                        json, clock),
-                props, null, json, clock, false, URI.create("http://localhost:4200"));
+                        json,
+                        clock),
+                props,
+                null,
+                json,
+                clock,
+                false,
+                URI.create("http://localhost:4200"));
     }
 
     private ProviderInstruction instruction(String sessionId) {
@@ -48,33 +54,45 @@ class SaspayHostedContractTests {
     }
 
     private String created() {
-        return "{\"id\":\"" + SESSION + "\",\"merchant\":\""
+        return "{\"id\":\""
+                + SESSION
+                + "\",\"merchant\":\""
                 + SaspayTestConfiguration.MERCHANT
                 + "\",\"amount\":\"1000.00\",\"currency\":\"XOF\",\"status\":\"PENDING\","
                 + "\"checkout_url\":\"https://pay.saspay.me/checkout/synthetic\"}";
     }
 
     private String detail(ProviderInstruction i) {
-        return "{\"id\":\"" + SESSION + "\",\"merchant\":\""
+        return "{\"id\":\""
+                + SESSION
+                + "\",\"merchant\":\""
                 + SaspayTestConfiguration.MERCHANT
                 + "\",\"amount\":\"1000.00\",\"currency\":\"XOF\","
-                + "\"metadata\":{\"groupia_payment_attempt_id\":\"" + i.paymentId()
+                + "\"metadata\":{\"groupia_payment_attempt_id\":\""
+                + i.paymentId()
                 + "\",\"groupia_reference\":\"GP-test-reference\"}}";
     }
 
     private String status(String value) {
-        return "{\"id\":\"" + SESSION + "\",\"status\":\"" + value
-                + "\",\"transaction_id\":\"" + PAYMENT
+        return "{\"id\":\""
+                + SESSION
+                + "\",\"status\":\""
+                + value
+                + "\",\"transaction_id\":\""
+                + PAYMENT
                 + "\",\"transaction_status\":\"SUCCESS\"}";
     }
 
     private String verified(String feeMode) {
-        return "{\"id\":\"" + PAYMENT + "\",\"merchant\":\""
+        return "{\"id\":\""
+                + PAYMENT
+                + "\",\"merchant\":\""
                 + SaspayTestConfiguration.MERCHANT
                 + "\",\"requested_amount\":\"1000.00\",\"net_amount\":\"1000.00\","
                 + "\"client_fee\":\"37.50\",\"debited_amount\":\"1037.50\","
                 + "\"currency\":\"XOF\",\"status\":\"SUCCESS\",\"fee_charge_mode\":\""
-                + feeMode + "\",\"transaction_type\":\"PAIEMENT\",\"flow_direction\":\"INBOUND\"}";
+                + feeMode
+                + "\",\"transaction_type\":\"PAIEMENT\",\"flow_direction\":\"INBOUND\"}";
     }
 
     @Test
@@ -90,8 +108,7 @@ class SaspayHostedContractTests {
                     .isEqualTo("https://pay.saspay.me/checkout/synthetic");
             assertThat(stub.requests).hasSize(1);
             assertThat(stub.requests.getFirst().method()).isEqualTo("POST");
-            assertThat(stub.requests.getFirst().path())
-                    .isEqualTo("/api/v1/checkout-sessions/");
+            assertThat(stub.requests.getFirst().path()).isEqualTo("/api/v1/checkout-sessions/");
             assertThat(stub.requests.getFirst().body()).contains("\"fee_charge_mode\":\"ADD_ON\"");
             assertThat(stub.requests.getFirst().body())
                     .contains("\"return_url\":\"http://localhost:4200/paiement/retour\"");
@@ -171,8 +188,7 @@ class SaspayHostedContractTests {
     }
 
     @Test
-    void paidSessionRequiresIndependentFinancialProofAndKeepsExactDecimals()
-            throws Exception {
+    void paidSessionRequiresIndependentFinancialProofAndKeepsExactDecimals() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var i = instruction(SESSION);
             stub.reply(200, detail(i));
@@ -204,8 +220,7 @@ class SaspayHostedContractTests {
     void externalSessionDoesNotMatchAnotherGroupiaPaymentAttempt() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var i = instruction(SESSION);
-            stub.reply(200, detail(i).replace(
-                    "GP-test-reference", "GP-other-order-reference"));
+            stub.reply(200, detail(i).replace("GP-test-reference", "GP-other-order-reference"));
             assertThatThrownBy(() -> provider(stub).verify(i))
                     .hasMessage("SASPAY_HOSTED_SESSION_MISMATCH");
         }

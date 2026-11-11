@@ -33,10 +33,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = {
-    "groupia.direct-sales.payment-initiation.enabled=true",
-    "groupia.payment.saspay.legacy-softpay-tests=true"
-})
+@SpringBootTest(
+        properties = {
+            "groupia.direct-sales.payment-initiation.enabled=true",
+            "groupia.payment.saspay.legacy-softpay-tests=true"
+        })
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,
@@ -223,8 +224,8 @@ class SaspayIntegrationTests {
                                 + " where table_schema=current_schema() and table_name='payments'"
                                 + " and column_name in ('provider_collection_fee','provider_customer_charged')",
                         String.class);
-        assertThat(names).containsExactlyInAnyOrder(
-                "provider_collection_fee", "provider_customer_charged");
+        assertThat(names)
+                .containsExactlyInAnyOrder("provider_collection_fee", "provider_customer_charged");
         var constraint =
                 jdbc.queryForObject(
                         "select pg_get_constraintdef(c.oid) from pg_constraint c"

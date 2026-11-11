@@ -53,18 +53,15 @@ final class SaspayClient {
 
     JsonNode hostedCheckoutSessions(int page) {
         if (page < 1 || page > 3) throw new SaspayException("SASPAY_RECOVERY_PAGE_INVALID");
-        return execute(
-                http.get().uri("/checkout-sessions/?page={page}&page_size=100", page), 200);
+        return execute(http.get().uri("/checkout-sessions/?page={page}&page_size=100", page), 200);
     }
 
     JsonNode hostedCheckoutStatus(String sessionId) {
-        return execute(
-                http.get().uri("/checkout-sessions/{id}/status/", uuid(sessionId)), 200);
+        return execute(http.get().uri("/checkout-sessions/{id}/status/", uuid(sessionId)), 200);
     }
 
     JsonNode hostedCheckoutDetail(String sessionId) {
-        return execute(
-                http.get().uri("/checkout-sessions/{id}/", uuid(sessionId)), 200);
+        return execute(http.get().uri("/checkout-sessions/{id}/", uuid(sessionId)), 200);
     }
 
     JsonNode verify(String id) {

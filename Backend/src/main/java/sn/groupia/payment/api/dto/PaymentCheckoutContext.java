@@ -1,9 +1,9 @@
 package sn.groupia.payment.api.dto;
 
 /**
- * Server-owned order facts, not public prices or merchant accounts. A direct
- * customer may supplement a missing checkout email after authenticating the
- * private order capability; the immutable original order snapshot is preserved.
+ * Server-owned order facts, not public prices or merchant accounts. A direct customer may
+ * supplement a missing checkout email after authenticating the private order capability; the
+ * immutable original order snapshot is preserved.
  */
 public record PaymentCheckoutContext(
         String businessReference,

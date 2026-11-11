@@ -166,7 +166,11 @@ class CustomerAccessController {
             @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody ShippingPaymentInput body) {
         return payments.initiate(
-                cookie(request), orderNumber, body.provider(), key, body.feeQuoteId(),
+                cookie(request),
+                orderNumber,
+                body.provider(),
+                key,
+                body.feeQuoteId(),
                 body.payerEmail());
     }
 

@@ -221,7 +221,8 @@ public class PaymentTransactions {
                 if (normalized.length() > 254
                         || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
                     throw new ApiException(
-                            409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                            409,
+                            "SASPAY_HOSTED_CONTACT_REQUIRED",
                             "Adresse e-mail de paiement invalide.");
                 context = context.withAuthorizedPayerEmail(normalized);
             }
@@ -277,10 +278,17 @@ public class PaymentTransactions {
         if ("SASPAY".equals(provider) && legacySoftpayTests) {
             if (context == null || context.feeQuoteId() == null)
                 throw new ApiException(
-                        409, "PAYMENT_QUOTE_REQUIRED", "Devis Softpay historique requis pour le test.");
-            var q = quotes.find(context.feeQuoteId())
-                    .orElseThrow(() -> new ApiException(
-                            409, "PAYMENT_QUOTE_REQUIRED", "Devis test introuvable."));
+                        409,
+                        "PAYMENT_QUOTE_REQUIRED",
+                        "Devis Softpay historique requis pour le test.");
+            var q =
+                    quotes.find(context.feeQuoteId())
+                            .orElseThrow(
+                                    () ->
+                                            new ApiException(
+                                                    409,
+                                                    "PAYMENT_QUOTE_REQUIRED",
+                                                    "Devis test introuvable."));
             if (!q.organizationId().equals(org)
                     || !q.requestId().equals(requestId)
                     || !q.provider().equals(provider)
@@ -289,8 +297,7 @@ public class PaymentTransactions {
                     || !q.currency().equals(request.getCurrency())
                     || !clock.instant().isBefore(q.expiresAt())
                     || request.view().feeAmount().signum() != 0)
-                throw new ApiException(
-                        409, "PAYMENT_QUOTE_INVALID", "Devis test incompatible.");
+                throw new ApiException(409, "PAYMENT_QUOTE_INVALID", "Devis test incompatible.");
         } else if ("SASPAY".equals(provider)) {
             // Hosted checkout replaces client-selected network quotes completely.
             // SasPay calculates ADD_ON fees on its own payment page; Groupia
@@ -303,12 +310,15 @@ public class PaymentTransactions {
                     || !context.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
                     || request.view().feeAmount().signum() != 0
                     || !(((request.getPurpose() == PaymentPurpose.INITIAL_ORDER
-                                            || request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE)
+                                            || request.getPurpose()
+                                                    == PaymentPurpose.SHIPPING_BALANCE)
                                     && request.getTarget().type() == PaymentTargetType.ORDER)
                             || (request.getPurpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY
-                                    && request.getTarget().type() == PaymentTargetType.SUBSCRIPTION_INVOICE)
+                                    && request.getTarget().type()
+                                            == PaymentTargetType.SUBSCRIPTION_INVOICE)
                             || (request.getPurpose() == PaymentPurpose.DIRECT_ORDER_INITIAL
-                                    && request.getTarget().type() == PaymentTargetType.DIRECT_ORDER)))
+                                    && request.getTarget().type()
+                                            == PaymentTargetType.DIRECT_ORDER)))
                 throw new ApiException(
                         409,
                         "SASPAY_HOSTED_CHECKOUT_NOT_ELIGIBLE",

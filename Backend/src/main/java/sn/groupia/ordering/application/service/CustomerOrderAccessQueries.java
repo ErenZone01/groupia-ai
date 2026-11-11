@@ -63,20 +63,14 @@ public class CustomerOrderAccessQueries implements CustomerOrderAccess {
         var context = checkout.context().withFeeQuote(feeQuoteId);
         if ("SASPAY".equalsIgnoreCase(provider) && payerEmail != null && !payerEmail.isBlank()) {
             String normalized = payerEmail.strip();
-            if (normalized.length() > 254
-                    || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+            if (normalized.length() > 254 || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
                 throw new ApiException(
-                        409, "SASPAY_HOSTED_CONTACT_REQUIRED",
+                        409,
+                        "SASPAY_HOSTED_CONTACT_REQUIRED",
                         "Adresse e-mail de paiement invalide.");
             context = context.withAuthorizedPayerEmail(normalized);
         }
-        var attempt =
-                payments.initiateRequest(
-                        org,
-                        checkout.requestId(),
-                        provider,
-                        key,
-                        context);
+        var attempt = payments.initiateRequest(org, checkout.requestId(), provider, key, context);
         return new CustomerPaymentAttempt(
                 attempt.id(),
                 attempt.status().name(),

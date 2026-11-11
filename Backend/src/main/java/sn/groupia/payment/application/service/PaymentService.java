@@ -128,8 +128,12 @@ public class PaymentService implements PaymentOperations {
     @Override
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiateDirect(
-            UUID org, UUID requestId, String provider, String key,
-            String recoveryTokenHash, PaymentCheckoutContext context) {
+            UUID org,
+            UUID requestId,
+            String provider,
+            String key,
+            String recoveryTokenHash,
+            PaymentCheckoutContext context) {
         if (!"SASPAY".equals(provider) && !"BICTORYS".equals(provider)) {
             throw new sn.groupia.shared.api.ApiException(
                     409, "PAYMENT_PROVIDER_NOT_ALLOWED", "Prestataire non autorisé.");
@@ -147,7 +151,8 @@ public class PaymentService implements PaymentOperations {
         var adapter = providers.require(provider);
         if (!adapter.canQuoteForOrganization(org)) {
             throw new sn.groupia.shared.api.ApiException(
-                    409, "SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED",
+                    409,
+                    "SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED",
                     "Le paiement n'est pas disponible pour cette boutique.");
         }
         var claim =

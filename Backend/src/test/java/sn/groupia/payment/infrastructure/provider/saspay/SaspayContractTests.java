@@ -132,8 +132,7 @@ class SaspayContractTests {
                 .hasMessage("SASPAY_INVALID_IDENTIFIER");
         assertThatThrownBy(() -> SaspayClient.uuid("cb8f14cd5dad4793b305e65e1365908G"))
                 .hasMessage("SASPAY_INVALID_IDENTIFIER");
-        assertThatThrownBy(() -> SaspayClient.uuid(null))
-                .hasMessage("SASPAY_INVALID_IDENTIFIER");
+        assertThatThrownBy(() -> SaspayClient.uuid(null)).hasMessage("SASPAY_INVALID_IDENTIFIER");
     }
 
     @Test

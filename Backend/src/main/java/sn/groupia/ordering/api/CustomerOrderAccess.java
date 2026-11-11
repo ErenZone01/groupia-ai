@@ -20,8 +20,12 @@ public interface CustomerOrderAccess {
             UUID feeQuoteId);
 
     default CustomerPaymentAttempt initiateShippingBalance(
-            UUID organizationId, UUID orderId, String provider,
-            String idempotencyKey, UUID feeQuoteId, String payerEmail) {
+            UUID organizationId,
+            UUID orderId,
+            String provider,
+            String idempotencyKey,
+            UUID feeQuoteId,
+            String payerEmail) {
         if (payerEmail != null && !payerEmail.isBlank())
             throw new UnsupportedOperationException("Hosted payer contact not supported");
         return initiateShippingBalance(

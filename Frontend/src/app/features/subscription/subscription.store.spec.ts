@@ -61,52 +61,28 @@ describe('SubscriptionStore', () => {
     store.details.set({ ...details, availableProviders: ['SASPAY', 'BICTORYS'] });
     store.invoices.set([invoice]);
   }
-  it('prépare un devis serveur sans initier de paiement', async () => {
+  it('SasPay hébergé initie sans devis opérateur ni deuxième session', async () => {
     await saspay();
-    const pending = store.prepareSaspay();
-    const request = http.expectOne(base + '/invoices/invoice/payment-quotes');
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toBeNull();
-    request.flush([quote]);
-    await pending;
-    expect(store.quotes()).toEqual([quote]);
-    http.expectNone((r) => r.url.endsWith('/payment'));
-  });
-  it('un devis refusé avant création de tentative permet de demander un nouveau devis', async () => {
-    await saspay();
-    store.quotes.set([quote]);
-    const action = store.pay(quote);
-    http
-      .expectOne(base + '/invoices/invoice/payment')
-      .flush({ code: 'PAYMENT_QUOTE_INVALID' }, { status: 409, statusText: 'Conflict' });
-    await vi.waitFor(() => flush());
-    await action;
-    expect(store.quotes()).toEqual([]);
-    store.details.set({ ...details, availableProviders: ['SASPAY'] });
-    store.invoices.set([invoice]);
-    const refresh = store.prepareSaspay();
-    http.expectOne(base + '/invoices/invoice/payment-quotes').flush([{ ...quote, id: 'new-fee' }]);
-    await refresh;
-    expect(store.quotes()[0].id).toBe('new-fee');
-  });
-  it('refuse un devis inconnu ou expiré et un fournisseur indisponible', async () => {
-    await saspay();
-    await store.pay(quote);
-    store.quotes.set([{ ...quote, expiresAt: '2020-01-01T00:00:00Z' }]);
-    await store.pay(store.quotes()[0]);
-    expect(store.error()).toContain('expiré');
-    store.details.set({ ...details, availableProviders: ['BICTORYS'] });
-    store.quotes.set([quote]);
     await store.pay(quote);
     http.expectNone((r) => r.method === 'POST');
+    const action = store.pay(undefined, true);
+    const request = http.expectOne(base + '/invoices/invoice/payment');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ provider: 'SASPAY' });
+    expect(request.request.headers.get('Idempotency-Key'))
+      .toMatch(/^[A-Za-z0-9._:-]{16,128}$/);
+    request.flush({ status: 'PENDING', reconciliationRequired: false, checkoutUrl: null });
+    await vi.waitFor(() => flush());
+    await action;
+    http.expectNone((r) => r.url.endsWith('/payment-quotes'));
   });
-  it('envoie uniquement le devis accepté et garde la même intention après une réponse perdue', async () => {
+
+  it('SasPay hébergé réutilise la même clé après une réponse réseau perdue', async () => {
     await saspay();
-    store.quotes.set([quote]);
-    const first = store.pay(quote);
+    const first = store.pay(undefined, true);
     const request = http.expectOne(base + '/invoices/invoice/payment');
     const key = request.request.headers.get('Idempotency-Key');
-    expect(request.request.body).toEqual({ provider: 'SASPAY', feeQuoteId: quote.id });
+    expect(request.request.body).toEqual({ provider: 'SASPAY' });
     request.flush({}, { status: 503, statusText: 'Unavailable' });
     await vi.waitFor(() => flush());
     await first;
@@ -115,14 +91,22 @@ describe('SubscriptionStore', () => {
     await store.pay();
     http.expectNone((r) => r.url.endsWith('/payment'));
     expect(store.error()).toContain('déjà demandé');
-    const retry = store.pay(quote);
+    const retry = store.pay(undefined, true);
     const repeated = http.expectOne(base + '/invoices/invoice/payment');
     expect(repeated.request.headers.get('Idempotency-Key')).toBe(key);
     expect(repeated.request.body).toEqual(request.request.body);
-    repeated.flush({ status: 'PENDING' });
+    repeated.flush({ status: 'PENDING', reconciliationRequired: false, checkoutUrl: null });
     await vi.waitFor(() => flush());
     await retry;
   });
+
+  it('SasPay hébergé n’initie rien si le fournisseur est indisponible', async () => {
+    await saspay();
+    store.details.set({ ...details, availableProviders: ['BICTORYS'] });
+    await store.pay(undefined, true);
+    http.expectNone((r) => r.method === 'POST');
+  });
+
   it.each([true, false])(
     'récupère le checkout ou le push SasPay uniquement pour la propriétaire (%s)',
     async (checkout) => {
@@ -137,7 +121,7 @@ describe('SubscriptionStore', () => {
           attemptInProgress: true,
           latestAttempt: {
             provider: 'SASPAY',
-            quote,
+            quote: null,
             attempt: {
               status: 'PENDING',
               checkoutUrl: checkout ? 'https://pay.saspay.me/session' : null,
@@ -147,8 +131,8 @@ describe('SubscriptionStore', () => {
       ]);
       await pending;
       expect(store.checkoutUrl()).toBe(checkout ? 'https://pay.saspay.me/session' : null);
-      expect(store.phoneConfirmation()).toBe(!checkout);
-      expect(store.acceptedQuote()).toEqual(quote);
+      expect(store.phoneConfirmation()).toBe(false);
+      expect(store.acceptedQuote()).toBeNull();
       const reload = store.refresh();
       http.expectOne(base).flush({ ...details, canManageSubscription: false });
       http.expectOne(base + '/history').flush([]);

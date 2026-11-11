@@ -144,6 +144,87 @@ class SaspayHostedContractTests {
     }
 
     @Test
+    void trustedHostedSessionDetailRestoresItsCheckoutUrlWithoutPaymentConfirmation()
+            throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var i = instruction(SESSION);
+            var session = json.createObjectNode();
+            session.put("id", SESSION);
+            session.put("merchant", SaspayTestConfiguration.MERCHANT);
+            session.put("amount", "1000.00");
+            session.put("currency", "XOF");
+            session.put("checkout_url", "https://pay.saspay.me/checkout/synthetic");
+            var metadata = json.createObjectNode();
+            metadata.put("groupia_payment_attempt_id", i.paymentId().toString());
+            metadata.put("groupia_reference", i.merchantReference());
+            session.set("metadata", metadata);
+            stub.reply(200, json.writeValueAsString(session));
+            stub.reply(200, status("PENDING"));
+            var observation = provider(stub).verify(i);
+            assertThat(observation.status()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(observation.providerTransactionId()).isNull();
+            assertThat(observation.metadata().checkoutUrl())
+                    .isEqualTo("https://pay.saspay.me/checkout/synthetic");
+            assertThat(stub.requests).hasSize(2);
+            assertThat(stub.requests).allSatisfy(req -> assertThat(req.method()).isEqualTo("GET"));
+        }
+    }
+
+    @Test
+    void missingOfficialHostedHostIsDetectedBeforeAnyCheckoutCreation() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var original = SaspayTestConfiguration.properties();
+            var props = new SaspayProperties(
+                    true,
+                    original.apiUrl(),
+                    original.apiKey(),
+                    original.webhookSecret(),
+                    original.merchantId(),
+                    java.util.Set.of("pay.wave.com"),
+                    original.connectTimeout(),
+                    original.readTimeout(),
+                    false,
+                    null,
+                    null);
+            var adapter = new SaspayPaymentProvider(
+                    new SaspayClient(
+                            SaspayClient.builder(props).baseUrl(stub.url() + "/api/v1").build(),
+                            json, clock),
+                    props, null, json, clock, false, URI.create("http://localhost:4200"));
+            assertThat(adapter.initiationConfigurationIssue())
+                    .isEqualTo("SASPAY_HOSTED_CHECKOUT_HOST_NOT_ALLOWED");
+            assertThat(stub.requests).isEmpty();
+        }
+    }
+
+    @Test
+    void liveCheckoutRequiresHttpsReturnUrlBeforeAnyProviderPost() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var original = SaspayTestConfiguration.properties();
+            var props = new SaspayProperties(
+                    true,
+                    null,
+                    "sk_live_synthetic",
+                    original.webhookSecret(),
+                    original.merchantId(),
+                    java.util.Set.of("pay.saspay.me"),
+                    original.connectTimeout(),
+                    original.readTimeout(),
+                    true,
+                    UUID.randomUUID(),
+                    new BigDecimal("2000"));
+            var adapter = new SaspayPaymentProvider(
+                    new SaspayClient(
+                            SaspayClient.builder(props).baseUrl(stub.url() + "/api/v1").build(),
+                            json, clock),
+                    props, null, json, clock, false, URI.create("http://localhost:4200"));
+            assertThat(adapter.initiationConfigurationIssue())
+                    .isEqualTo("SASPAY_RETURN_URL_INVALID");
+            assertThat(stub.requests).isEmpty();
+        }
+    }
+
+    @Test
     void pendingSessionNeverPretendsToBeFinanciallySettled() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var i = instruction(SESSION);

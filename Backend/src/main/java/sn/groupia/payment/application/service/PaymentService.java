@@ -155,6 +155,21 @@ public class PaymentService implements PaymentOperations {
                     "SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED",
                     "Le paiement n'est pas disponible pour cette boutique.");
         }
+        // Validate static, local PSP settings BEFORE a durable financial claim is
+        // created. A bad return URL / host allowlist cannot create an external
+        // session, so it must not become a fake manual-reconciliation incident.
+        String configurationIssue = adapter.initiationConfigurationIssue();
+        if (configurationIssue != null) {
+            LoggerFactory.getLogger(PaymentService.class)
+                    .warn(
+                            "Payment initiation configuration rejected provider={} reason={}",
+                            adapter.name(),
+                            configurationIssue);
+            throw new sn.groupia.shared.api.ApiException(
+                    503,
+                    "SASPAY_HOSTED_CHECKOUT_CONFIG_INVALID",
+                    "Le paiement sécurisé est temporairement indisponible. Aucune session n'a été créée.");
+        }
         var claim =
                 transactions.claim(
                         org,

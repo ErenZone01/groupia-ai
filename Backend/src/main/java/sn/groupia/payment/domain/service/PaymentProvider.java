@@ -34,9 +34,9 @@ public interface PaymentProvider {
     }
 
     /**
-     * Safe, local configuration probe before claiming a durable payment attempt.
-     * Must never contact the PSP, inspect an order, or initiate any transaction.
-     * Returns a fixed internal code, never a credential, URL or customer value.
+     * Safe, local configuration probe before claiming a durable payment attempt. Must never contact
+     * the PSP, inspect an order, or initiate any transaction. Returns a fixed internal code, never
+     * a credential, URL or customer value.
      */
     default String initiationConfigurationIssue() {
         return null;

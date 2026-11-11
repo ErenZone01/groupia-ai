@@ -151,9 +151,9 @@ public class Payment {
     }
 
     /**
-     * Restore a previously blocked checkout URL only when a fresh server-side
-     * session verification supplied a trusted HTTPS link for this exact
-     * recorded SasPay session. Never clear financial/transaction uncertainty.
+     * Restore a previously blocked checkout URL only when a fresh server-side session verification
+     * supplied a trusted HTTPS link for this exact recorded SasPay session. Never clear
+     * financial/transaction uncertainty.
      */
     public void restoreHostedCheckoutUrlReview(ProviderMetadata details) {
         if (details == null
@@ -166,8 +166,7 @@ public class Payment {
                 || !providerChargeId.equals(details.chargeId())
                 || details.checkoutUrl() == null
                 || details.checkoutUrl().isBlank()
-                || details.reviewReason() != null)
-            return;
+                || details.reviewReason() != null) return;
         reconciliationRequired = false;
         reconciliationReason = null;
     }

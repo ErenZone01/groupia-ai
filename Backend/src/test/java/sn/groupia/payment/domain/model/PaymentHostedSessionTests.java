@@ -107,17 +107,22 @@ class PaymentHostedSessionTests {
     void recoveredTrustedCheckoutUrlClearsOnlyTheUrlSpecificReview() {
         var request = request();
         var payment = attempt(request);
-        var blocked = new ProviderMetadata(
-                "DIR-TEST-1", null, SESSION,
-                ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN);
-        payment.apply(observe(request, payment, PaymentStatus.PENDING, null, blocked),
+        var blocked =
+                new ProviderMetadata(
+                        "DIR-TEST-1",
+                        null,
+                        SESSION,
+                        ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN);
+        payment.apply(
+                observe(request, payment, PaymentStatus.PENDING, null, blocked),
                 START.plusSeconds(1));
         payment.checkoutDetails(blocked);
         payment.review("PROVIDER_STATUS_UNKNOWN");
         assertThat(payment.isReconciliationRequired()).isTrue();
 
-        var trusted = new ProviderMetadata(
-                "DIR-TEST-1", "https://pay.saspay.me/checkout/synthetic", SESSION, null);
+        var trusted =
+                new ProviderMetadata(
+                        "DIR-TEST-1", "https://pay.saspay.me/checkout/synthetic", SESSION, null);
         payment.checkoutDetails(trusted);
         payment.restoreHostedCheckoutUrlReview(trusted);
 
@@ -132,15 +137,20 @@ class PaymentHostedSessionTests {
     void genericFinancialUncertaintyCannotBeClearedByACheckoutLink() {
         var request = request();
         var payment = attempt(request);
-        var blocked = new ProviderMetadata(
-                "DIR-TEST-1", null, SESSION,
-                ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN);
-        payment.apply(observe(request, payment, PaymentStatus.PENDING, null, blocked),
+        var blocked =
+                new ProviderMetadata(
+                        "DIR-TEST-1",
+                        null,
+                        SESSION,
+                        ProviderMetadata.ReviewReason.PROVIDER_STATUS_UNKNOWN);
+        payment.apply(
+                observe(request, payment, PaymentStatus.PENDING, null, blocked),
                 START.plusSeconds(1));
         payment.checkoutDetails(blocked);
         payment.review("PROVIDER_STATE_UNCERTAIN");
-        var trusted = new ProviderMetadata(
-                "DIR-TEST-1", "https://pay.saspay.me/checkout/synthetic", SESSION, null);
+        var trusted =
+                new ProviderMetadata(
+                        "DIR-TEST-1", "https://pay.saspay.me/checkout/synthetic", SESSION, null);
         payment.checkoutDetails(trusted);
         payment.restoreHostedCheckoutUrlReview(trusted);
         assertThat(payment.isReconciliationRequired()).isTrue();

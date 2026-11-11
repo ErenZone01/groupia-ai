@@ -36,8 +36,15 @@ public class CustomerShippingPayments {
     @Transactional(propagation = Propagation.NEVER)
     public CustomerPaymentAttempt initiate(
             String token, String number, String provider, String key, java.util.UUID feeQuoteId) {
+        return initiate(token, number, provider, key, feeQuoteId, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public CustomerPaymentAttempt initiate(
+            String token, String number, String provider, String key,
+            java.util.UUID feeQuoteId, String payerEmail) {
         var identity = access.paymentIdentity(token, number);
         return orders.initiateShippingBalance(
-                identity.organizationId(), identity.id(), provider, key, feeQuoteId);
+                identity.organizationId(), identity.id(), provider, key, feeQuoteId, payerEmail);
     }
 }

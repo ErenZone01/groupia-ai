@@ -97,12 +97,8 @@ describe('Vente directe : suivi client avec jeton secret', () => {
     await vi.waitFor(() => expect(page.canPay()).toBe(true));
     return page;
   }
-  it('SasPay attend un devis accepté puis ne transmet que son identifiant', async () => {
+  it('SasPay hébergé ne crée pas de session avant le clic puis transmet uniquement le prestataire et email', async () => {
     const page = await saspayPage();
-    await page.pay(quote);
-    expect(initiatePayment).not.toHaveBeenCalled();
-    await page.prepareSaspay();
-    expect(quotePayment).toHaveBeenCalledWith(token);
     expect(initiatePayment).not.toHaveBeenCalled();
     initiatePayment.mockResolvedValue({
       status: 'PENDING',
@@ -111,28 +107,46 @@ describe('Vente directe : suivi client avec jeton secret', () => {
       reconciliationRequired: false,
       checkoutUrl: null,
     });
-    await page.pay(page.quotes()[0]);
-    expect(initiatePayment).toHaveBeenCalledWith(token, expect.any(String), quote.id);
-    expect(page.phoneConfirmation()).toBe(true);
-    expect(page.acceptedQuote()?.totalCharged).toBe(9500);
+    page.payerEmail.set('awa@example.test');
+    await page.pay(undefined, true);
+    expect(quotePayment).not.toHaveBeenCalled();
+    expect(initiatePayment).toHaveBeenCalledWith(
+      token,
+      expect.any(String),
+      'SASPAY',
+      'awa@example.test',
+    );
+    expect(page.phoneConfirmation()).toBe(false);
+    expect(page.acceptedQuote()).toBeNull();
     expect(page.paymentLabel()).not.toContain('vérifié');
   });
-  it('SasPay restaure la même clé après rechargement et refuse de changer de fournisseur', async () => {
+
+  it('SasPay reprend la même clé et email après rechargement sans changer de fournisseur', async () => {
     const page = await saspayPage();
-    await page.prepareSaspay();
+    page.payerEmail.set('awa@example.test');
     initiatePayment.mockRejectedValueOnce(new Error('response lost'));
-    await page.pay(quote);
+    await page.pay(undefined, true);
     const key = initiatePayment.mock.calls[0][1];
     expect(sessionStorage.length).toBe(1);
     const restored = TestBed.runInInjectionContext(() => new DirectOrderTrackingPage());
     await vi.waitFor(() => expect(restored.canPay()).toBe(true));
-    expect(restored.quotes()[0]?.id).toBe(quote.id);
+    await vi.waitFor(() => expect(restored.payerEmail()).toBe('awa@example.test'));
     await restored.pay();
     expect(initiatePayment).toHaveBeenCalledTimes(1);
-    await restored.pay(restored.quotes()[0]);
-    expect(initiatePayment.mock.calls[1]).toEqual([token, key, quote.id]);
+    initiatePayment.mockResolvedValue({
+      status: 'PENDING',
+      expectedAmount: 9300,
+      currency: 'XOF',
+      reconciliationRequired: false,
+      checkoutUrl: null,
+    });
+    await restored.pay(undefined, true);
+    expect(initiatePayment.mock.calls[1]).toEqual([
+      token, key, 'SASPAY', 'awa@example.test',
+    ]);
     expect(Object.keys(sessionStorage).join('')).not.toContain(token);
   });
+
   it('SasPay récupère le checkout serveur et le supprime sur anomalie', async () => {
     const page = await saspayPage();
     paymentStatus.mockResolvedValue({
@@ -277,7 +291,9 @@ describe('Vente directe : suivi client avec jeton secret', () => {
     await vi.waitFor(() => expect(page.canPay()).toBe(true));
     await page.pay();
     expect(initiatePayment).toHaveBeenCalledTimes(1);
-    expect(initiatePayment).toHaveBeenCalledWith(token, expect.stringMatching(/^[0-9a-f-]{36}$/));
+    expect(initiatePayment).toHaveBeenCalledWith(
+      token, expect.stringMatching(/^[0-9a-f-]{36}$/), 'BICTORYS', undefined,
+    );
     expect(page.paymentWaiting()).toBe(true);
     expect(page.canPay()).toBe(false);
     expect(page.checkoutUrl()).toBe('https://pay.test.bictorys.com/checkout/example');

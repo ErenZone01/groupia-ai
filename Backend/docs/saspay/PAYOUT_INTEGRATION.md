@@ -69,14 +69,14 @@ strictement identique au compte pay-in et l'adaptateur signale
 une autorisation effective. Les encaissements SasPay ne passent
 jamais par le payout Bictorys.
 
-**Limite fonctionnelle :** le moteur de solde et de versement
-actuel est lié aux campagnes de **groupage**.
-Le registre `provider_collections` couvre également les ventes
-directes, mais aucun solde transférable de vente directe n'est
-encore alloué à une demande `merchant_payout` canonique.
-Ce lot **ne prétend donc pas couvrir les retraits des ventes directes**.
-Un modèle de soldes commun direct/groupage, avec remboursements,
-réservations et suivi par organisation, reste nécessaire.
+**Évolution postérieure (12 novembre 2026) :** la migration additive 055
+et le module `DirectMerchantBalances` ont étendu le moteur canonique
+`merchant_payouts` aux ventes directes, en conservant les mêmes garanties de
+compte fournisseur, preuve de règlement, réservations et historique que les
+groupages. Cette capacité est **désactivée par défaut** via
+`GROUPIA_DIRECT_MERCHANT_PAYOUTS_ENABLED=false`, indépendamment du verrou
+des transferts SasPay réels. La recette complète de ce nouveau lot reste à
+exécuter ; voir `UNIFIED_FUNDS.md`.
 
 ## Variables (toutes DÉSACTIVÉES)
 

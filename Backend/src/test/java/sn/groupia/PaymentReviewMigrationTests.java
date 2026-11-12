@@ -73,8 +73,8 @@ class PaymentReviewMigrationTests {
                                                     if (entry.getKey().equals("payments")) {
                                                         assertThat(row.remove("fee_quote_id"))
                                                                 .isNull();
-                                                        MigrationHistoryAssertions.historicalPayment(
-                                                                row);
+                                                        MigrationHistoryAssertions
+                                                                .historicalPayment(row);
                                                     }
                                                     if (entry.getKey().equals("orders"))
                                                         MigrationHistoryAssertions.historicalOrder(

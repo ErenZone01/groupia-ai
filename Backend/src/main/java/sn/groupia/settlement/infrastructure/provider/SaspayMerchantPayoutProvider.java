@@ -12,7 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import sn.groupia.payment.infrastructure.provider.saspay.SaspayProperties;
 import sn.groupia.settlement.domain.model.MerchantPayout;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.JsonNode;
@@ -33,7 +32,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     // contractually unresolved. Test-only loopback fixtures exercise the protocol.
     private static final boolean PRODUCTION_PAYOUT_RELEASED = false;
     private final boolean syntheticTransport;
-    private final SaspayProperties payin;
+    private final Connection payin;
     private final RestClient http;
     private final ObjectMapper json;
     private final Clock clock;
@@ -41,9 +40,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     @Autowired
     public SaspayMerchantPayoutProvider(
-            SaspayProperties payin, ObjectMapper json, Clock clock, Environment env) {
+            ObjectMapper json, Clock clock, Environment env) {
         this(
-                payin, json, clock,
+                Connection.from(env), json, clock,
                 env.getProperty("groupia.settlement.saspay-payouts.enabled", Boolean.class, false),
                 env.getProperty(
                         "groupia.settlement.saspay-payouts.marketplace-authorized",
@@ -58,7 +57,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     SaspayMerchantPayoutProvider(
-            SaspayProperties payin,
+            Connection payin,
             ObjectMapper json,
             Clock clock,
             boolean enabled,
@@ -71,7 +70,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     private SaspayMerchantPayoutProvider(
-            SaspayProperties payin,
+            Connection payin,
             ObjectMapper json,
             Clock clock,
             boolean enabled,
@@ -91,16 +90,30 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         this.http = http;
     }
 
-    static RestClient makeHttp(SaspayProperties p) {
-        var transport =
-                HttpClient.newBuilder()
-                        .connectTimeout(p.connectTimeout())
-                        .followRedirects(HttpClient.Redirect.NEVER)
-                        .build();
+    record Connection(String apiKey, UUID merchantId, boolean enabled) {
+        static Connection from(Environment env) {
+            String key = env.getProperty("groupia.payment.saspay.api-key", "");
+            String merchant = env.getProperty("groupia.payment.saspay.merchant-id", "");
+            UUID id = UUID.fromString(merchant);
+            boolean active = env.getProperty(
+                    "groupia.payment.saspay.enabled", Boolean.class, false);
+            return new Connection(key, id, active);
+        }
+
+        boolean isLive() { return apiKey != null && apiKey.startsWith("sk_live_"); }
+
+        @Override public String toString() { return "SaspayPayoutConnection[redacted]"; }
+    }
+
+    static RestClient makeHttp(Connection p) {
+        var transport = HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(3))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
         var factory = new JdkClientHttpRequestFactory(transport);
-        factory.setReadTimeout(p.readTimeout());
+        factory.setReadTimeout(java.time.Duration.ofSeconds(10));
         return RestClient.builder()
-                .baseUrl(p.apiUrl().toString())
+                .baseUrl("https://api.saspay.me/api/v1")
                 .requestFactory(factory)
                 .defaultHeader("Authorization", "Bearer " + p.apiKey())
                 .defaultHeader("Accept", "application/json")

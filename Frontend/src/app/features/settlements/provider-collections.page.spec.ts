@@ -8,6 +8,7 @@ import {
   CollectionRow,
   SimulationQuote,
   SimulationResult,
+  CollectionOverview,
 } from './provider-collections.api';
 import { ProviderCollectionsPage } from './provider-collections.page';
 const row: CollectionRow = {
@@ -26,6 +27,22 @@ const row: CollectionRow = {
   confirmedAt: '2026-11-08T00:00:00Z',
   financialStatus: 'VERIFIED',
   payoutStatus: 'PROVIDER_APPROVAL_REQUIRED',
+};
+const overview: CollectionOverview = {
+  currency: 'XOF',
+  groupingCollected: 7000,
+  directCollected: 20000,
+  totalCollected: 27000,
+  directPayoutsEnabled: false,
+  accounts: [
+    {
+      provider: 'SASPAY',
+      accountReference: 'abc',
+      groupingCollected: 7000,
+      directCollected: 20000,
+      totalCollected: 27000,
+    },
+  ],
 };
 const quote: SimulationQuote = {
   mode: 'SIMULATION',
@@ -61,6 +78,7 @@ describe('Registre fournisseurs et simulations', () => {
   let api: {
     refresh: ReturnType<typeof vi.fn>;
     page: ReturnType<typeof vi.fn>;
+    overview: ReturnType<typeof vi.fn>;
     quote: ReturnType<typeof vi.fn>;
     history: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
@@ -78,6 +96,7 @@ describe('Registre fournisseurs et simulations', () => {
         canSimulatePayout: true,
         canSimulateRefund: true,
       })),
+      overview: vi.fn(async () => overview),
       quote: vi.fn(async () => quote),
       history: vi.fn(async () => []),
       start: vi.fn(async () => result),
@@ -100,6 +119,16 @@ describe('Registre fournisseurs et simulations', () => {
     await vi.waitFor(() => expect(page.rows()).toHaveLength(1));
     return page;
   }
+  it('regroupe les encaissements des deux activités sans annoncer de retrait direct', async () => {
+    const fixture = TestBed.createComponent(ProviderCollectionsPage);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.overview()).not.toBeNull());
+    fixture.detectChanges();
+    expect(api.overview).toHaveBeenCalledWith('org-a');
+    expect(fixture.nativeElement.textContent).toContain('retraits réels de ventes directes');
+    expect(fixture.componentInstance.overview()?.totalCollected).toBe(27000);
+    expect(fixture.componentInstance.overview()?.directPayoutsEnabled).toBe(false);
+  });
   it('demande le consentement et conserve le net sans modifier le registre', async () => {
     const p = await page();
     await p.inspect(row, 'PAYOUT');

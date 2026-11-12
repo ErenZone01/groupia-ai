@@ -11,6 +11,7 @@ import {
   CollectionRow,
   SimulationQuote,
   SimulationResult,
+  CollectionOverview,
 } from './provider-collections.api';
 @Component({
   selector: 'g-provider-collections-page',
@@ -56,6 +57,7 @@ export class ProviderCollectionsPage {
   readonly canPayout = signal(false);
   readonly canRefund = signal(false);
   readonly rows = signal<CollectionRow[]>([]);
+  readonly overview = signal<CollectionOverview | null>(null);
   readonly next = signal<string | null>(null);
   readonly loading = signal(false);
   readonly busy = signal(false);
@@ -89,6 +91,7 @@ export class ProviderCollectionsPage {
     this.operation++;
     this.busy.set(false);
     this.rows.set([]);
+    this.overview.set(null);
     this.canPayout.set(false);
     this.canRefund.set(false);
     this.next.set(null);
@@ -108,8 +111,12 @@ export class ProviderCollectionsPage {
           cursor = result.nextCursor ?? undefined;
         } while (cursor);
       }
-      const result = await this.api.page(org, after);
+      const [result, overview] = await Promise.all([
+        this.api.page(org, after),
+        this.api.overview(org).catch(() => null),
+      ]);
       if (!this.current(epoch, org, session)) return;
+      this.overview.set(overview);
       this.rows.set(result.items);
       this.canPayout.set(result.canSimulatePayout);
       this.canRefund.set(result.canSimulateRefund);

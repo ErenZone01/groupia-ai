@@ -18,6 +18,21 @@ export interface CollectionRow {
   financialStatus: string;
   payoutStatus: string;
 }
+export interface CollectionAccountTotals {
+  provider: string;
+  accountReference: string;
+  groupingCollected: number;
+  directCollected: number;
+  totalCollected: number;
+}
+export interface CollectionOverview {
+  currency: 'XOF';
+  groupingCollected: number;
+  directCollected: number;
+  totalCollected: number;
+  directPayoutsEnabled: false;
+  accounts: CollectionAccountTotals[];
+}
 export interface SimulationQuote {
   mode: 'SIMULATION';
   enabled: boolean;
@@ -73,6 +88,11 @@ export class ProviderCollectionsApi {
           canSimulateRefund: boolean;
         }>(this.base(org), { params: after ? { after } : {} })
         .pipe(timeout(15000)),
+    );
+  }
+  overview(org: string) {
+    return firstValueFrom(
+      this.http.get<CollectionOverview>(this.base(org) + '/overview').pipe(timeout(15000)),
     );
   }
   quote(org: string, id: string, kind: 'PAYOUT' | 'REFUND') {

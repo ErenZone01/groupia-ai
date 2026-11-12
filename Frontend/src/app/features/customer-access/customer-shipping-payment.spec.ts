@@ -53,7 +53,8 @@ describe('Paiement du transport', () => {
     await vi.waitFor(() => expect(f.componentInstance.providers()).toEqual(['SASPAY']));
     f.detectChanges();
     expect(f.nativeElement.textContent).toContain('Payer avec SasPay');
-    expect(f.nativeElement.textContent).toContain('frais des opérateurs');
+    expect(f.nativeElement.textContent).toContain('Des frais supplémentaires peuvent être appliqués');
+    expect(f.nativeElement.textContent).toContain('Vérifiez le montant final affiché dans Wave ou Orange Money avant de confirmer.');
     expect(api.quoteShipping).not.toHaveBeenCalled();
     expect(api.payShipping).not.toHaveBeenCalled();
     f.componentInstance.payerEmail.set('transport@example.com');

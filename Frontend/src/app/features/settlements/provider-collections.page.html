@@ -8,7 +8,34 @@
   </button>
 </div>
 <p>Ventes directes et groupages. Les abonnements sont comptabilisés séparément.</p>
-<p><a routerLink="/app/versements">Voir les versements existants</a></p>
+@if (overview(); as totals) {
+  <section class="collection-summary" aria-label="Récapitulatif des encaissements">
+    <h2>Encaissements de la boutique</h2>
+    <p>Historique des montants attribués aux vendeuses, y compris les opérations remboursées ou annulées. Ce n'est pas un solde retirable.</p>
+    <dl>
+      <dt>Groupages</dt>
+      <dd>{{ money(totals.groupingCollected) }}</dd>
+      <dt>Ventes directes</dt>
+      <dd>{{ money(totals.directCollected) }}</dd>
+      <dt>Encaissements historiques</dt>
+      <dd><strong>{{ money(totals.totalCollected) }}</strong></dd>
+    </dl>
+    <h3>Par fournisseur et compte</h3>
+    @for (account of totals.accounts; track account.provider + account.accountReference) {
+      <p>
+        {{ account.provider }} · {{ account.accountReference.slice(0, 12) }} :
+        groupages {{ money(account.groupingCollected) }},
+        ventes directes {{ money(account.directCollected) }}.
+      </p>
+    } @empty {
+      <p>Aucun encaissement attribué pour le moment.</p>
+    }
+    @if (!totals.directPayoutsEnabled) {
+      <p class="notice">Les retraits réels de ventes directes ne sont pas encore activés. Les simulations ne transfèrent aucun argent.</p>
+    }
+  </section>
+}
+<p><a routerLink="/app/versements">Versements et disponibilité des fonds de groupage</a></p>
 <p>
   Chaque compte fournisseur reste distinct. Ces encaissements ne constituent pas à eux seuls un
   solde disponible au retrait.

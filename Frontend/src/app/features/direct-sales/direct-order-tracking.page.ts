@@ -93,7 +93,7 @@ import { safeSaspayCheckout } from '../checkout/public-order-session.service';
               [value]="payerEmail()"
               (input)="payerEmail.set($any($event.target).value)"
             />
-            <p>Vous choisissez votre moyen de paiement et consultez les frais sur la page sécurisée SasPay avant de confirmer.</p>
+            <p>Vous choisissez votre moyen de paiement sur SasPay. Des frais supplémentaires peuvent être appliqués par le partenaire ou l'opérateur mobile. Vérifiez le montant final directement dans Wave ou Orange Money avant de confirmer.</p>
           }
           @if (paymentBusy()) {
             <p role="status">Préparation du paiement sécurisé…</p>

@@ -1,7 +1,7 @@
 import { Component, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { AuthService } from '../../core/auth/auth.service';
 import { RouterLink } from '@angular/router';
-import type { CampaignSettlement } from '../../api/generated/models';
+import type { CampaignSettlement, MerchantPayoutView } from '../../api/generated/models';
 import { BoutiqueContextService } from '../../core/boutique/boutique-context.service';
 import { Card } from '../../shared/ui/card';
 import { Button } from '../../shared/ui/button';
@@ -79,8 +79,10 @@ export class SettlementsPage {
   readonly date = dateLabel;
   readonly method = refundMethod;
   readonly status = payoutLabel;
-  readonly payoutSource = (p: { directOrderId?: string | null }) =>
-    p.directOrderId ? 'Vente directe' : 'Groupage';
+  readonly payoutSource = (p: MerchantPayoutView) =>
+    (p as MerchantPayoutView & { directOrderId?: string | null }).directOrderId
+      ? 'Vente directe'
+      : 'Groupage';
   constructor() {
     effect(() => {
       this.auth.generation();

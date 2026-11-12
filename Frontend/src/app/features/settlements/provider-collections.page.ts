@@ -113,7 +113,7 @@ export class ProviderCollectionsPage {
       }
       const [result, overview] = await Promise.all([
         this.api.page(org, after),
-        this.api.overview(org),
+        this.api.overview(org).catch(() => null),
       ]);
       if (!this.current(epoch, org, session)) return;
       this.overview.set(overview);

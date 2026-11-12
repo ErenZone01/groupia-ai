@@ -275,6 +275,23 @@ public class MerchantPayoutTransactions {
         if (!available() || (p.directSale() && !directPayoutsEnabled))
             throw error(
                     503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");
+        if (p.directSale()) {
+            // Recheck after reservation and before the first irreversible provider call.
+            // This already includes the current payout's own reserved principal.
+            direct.lock(org, p.directOrderId());
+            var position = direct.calculate(org).stream()
+                    .filter(row -> row.directOrderId().equals(p.directOrderId()))
+                    .findFirst()
+                    .orElseThrow(() ->
+                            error(409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                    "Le règlement de cette vente n'est pas disponible."));
+            if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
+                    || position.reservedForPayout().compareTo(p.amount()) < 0
+                    || position.deficit().signum() != 0)
+                throw error(
+                        409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                        "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
+        }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");
         io.micrometer.core.instrument.Metrics.counter(
                         "merchant_payout_initiated", "provider", p.provider(), "method", p.method())

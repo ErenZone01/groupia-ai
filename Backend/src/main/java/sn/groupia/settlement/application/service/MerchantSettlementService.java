@@ -66,15 +66,25 @@ public class MerchantSettlementService {
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView request(
             UUID org, UUID campaign, UUID key, UUID destination, boolean confirmed) {
-        var p = transactions.reserve(org, campaign, key, destination, confirmed);
-        if (transactions.claim(org, p.id())) {
+        return dispatch(transactions.reserve(org, campaign, key, destination, confirmed));
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView requestDirect(
+            UUID org, UUID directOrderId, UUID key, UUID destination, boolean confirmed) {
+        return dispatch(transactions.reserveDirect(
+                org, directOrderId, key, destination, confirmed));
+    }
+
+    private MerchantPayoutView dispatch(MerchantPayout p) {
+        if (transactions.claim(p.organizationId(), p.id())) {
             try {
-                transactions.initiated(org, p.id(), provider.initiate(p));
+                transactions.initiated(p.organizationId(), p.id(), provider.initiate(p));
             } catch (RuntimeException ex) {
-                transactions.uncertain(org, p.id());
+                transactions.uncertain(p.organizationId(), p.id());
             }
         }
-        return view(transactions.get(org, p.id()));
+        return view(transactions.get(p.organizationId(), p.id()));
     }
 
     @Transactional(propagation = Propagation.NEVER)
@@ -133,6 +143,7 @@ public class MerchantSettlementService {
                 p.requestedAt(),
                 p.succeededAt(),
                 p.reconciliationRequired(),
-                p.reconciliationReason());
+                p.reconciliationReason(),
+                p.directOrderId());
     }
 }

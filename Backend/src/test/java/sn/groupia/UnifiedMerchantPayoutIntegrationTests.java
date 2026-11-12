@@ -19,13 +19,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import sn.groupia.payment.application.service.CommercialRefundService;
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
+import sn.groupia.payment.application.service.CommercialRefundService;
 import tools.jackson.databind.*;
 
 /** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
@@ -335,7 +334,8 @@ class UnifiedMerchantPayoutIntegrationTests {
                                 null,
                                 null,
                                 0L))
-                .when(refunds).find(org, PaymentTarget.directOrder(orderId));
+                .when(refunds)
+                .find(org, PaymentTarget.directOrder(orderId));
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
         assertThat(provider.sends).hasValue(0);
     }

@@ -36,6 +36,60 @@ public class ProviderCollectionLedger {
 
     public record CollectionRefresh(int recorded, UUID nextCursor) {}
 
+    /** Historical collection totals, never permission to withdraw principal. */
+    public record AccountTotals(
+            String provider,
+            String accountReference,
+            java.math.BigDecimal groupingCollected,
+            java.math.BigDecimal directCollected,
+            java.math.BigDecimal totalCollected) {}
+
+    public record CollectionOverview(
+            String currency,
+            java.math.BigDecimal groupingCollected,
+            java.math.BigDecimal directCollected,
+            java.math.BigDecimal totalCollected,
+            boolean directPayoutsEnabled,
+            List<AccountTotals> accounts) {}
+
+    @Transactional(readOnly = true)
+    public CollectionOverview overview(UUID org) {
+        access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
+        // Group only by the exact underlying provider account. Hash it before exposing the
+        // grouping in the API. Refunded or paid-out collections remain in historical totals.
+        var accounts = jdbc.query(
+                """
+                select provider, provider_account,
+                    sum(case when target_type='ORDER' then seller_principal else 0 end) grouping_collected,
+                    sum(case when target_type='DIRECT_ORDER' then seller_principal else 0 end) direct_collected
+                  from provider_collections
+                 where organization_id=?
+                 group by provider,provider_account
+                 order by provider,provider_account
+                """,
+                (rs, n) -> {
+                    var grouping = rs.getBigDecimal("grouping_collected");
+                    var direct = rs.getBigDecimal("direct_collected");
+                    return new AccountTotals(
+                            rs.getString("provider"),
+                            accountReference(rs.getString("provider_account")),
+                            grouping,
+                            direct,
+                            grouping.add(direct));
+                }, org);
+        var groupTotal = java.math.BigDecimal.ZERO;
+        var directTotal = java.math.BigDecimal.ZERO;
+        for (var account : accounts) {
+            groupTotal = groupTotal.add(account.groupingCollected());
+            directTotal = directTotal.add(account.directCollected());
+        }
+        // The canonical real payout engine is still campaign-only: do not authorize
+        // direct-sale withdrawals from this immutable receipt projection.
+        return new CollectionOverview(
+                "XOF", groupTotal, directTotal, groupTotal.add(directTotal), false,
+                List.copyOf(accounts));
+    }
+
     @ApplicationModuleListener
     public void settled(PaymentObligationSettled e) {
         if (e.purpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY) return;

@@ -140,6 +140,7 @@ public class MerchantBalances {
         var directOrders = direct.calculate(org);
         for (var d : directOrders) {
             gross = gross.add(d.grossMerchantCollections());
+            fees = fees.add(d.platformFees());
             paid = paid.add(d.merchantPayouts());
             eligible = eligible.add(d.eligibleBalance());
             reserved = reserved.add(d.reservedForPayout());

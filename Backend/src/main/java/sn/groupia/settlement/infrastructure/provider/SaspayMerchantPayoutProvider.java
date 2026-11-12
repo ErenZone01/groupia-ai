@@ -53,7 +53,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 env.getProperty(
                         "groupia.settlement.saspay-payouts.company-fee-budget-approved",
                         Boolean.class, false),
-                makeHttp(payin), false);
+                makeHttp(Connection.from(env)), false);
     }
 
     SaspayMerchantPayoutProvider(

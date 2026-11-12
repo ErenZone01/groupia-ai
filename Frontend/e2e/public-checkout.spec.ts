@@ -87,7 +87,7 @@ async function publicApi(
     }
     expect(req.headers()['x-order-tracking-token']).toBe('private-tracking-test');
     if (path.endsWith('/payments')) {
-      expect(req.postDataJSON()).toEqual({ provider: 'bictorys' });
+      expect(req.postDataJSON()).toEqual({ provider: 'SASPAY', payerEmail: 'cliente@example.com' });
       state.payments.push(req.headers()['idempotency-key']);
       return reply({
         id: 'internal-not-visible',
@@ -95,7 +95,7 @@ async function publicApi(
         expectedAmount: 5300,
         currency: 'XOF',
         reconciliationRequired: !!options.reconciliation,
-        checkoutUrl: options.nullUrl ? null : 'https://checkout.example.test/pay',
+        checkoutUrl: options.nullUrl ? null : 'https://checkout.saspay.me/checkout/synthetic',
       });
     }
     if (path === '/api/public/orders/track') {
@@ -104,9 +104,11 @@ async function publicApi(
     }
     throw new Error('Unexpected public API path');
   });
-  // A click can open only a test stub; no real provider is contacted.
-  await page.route('https://checkout.example.test/**', (r) =>
-    r.fulfill({ body: 'Paiement de test' }),
+  // Block external provider traffic. Specific hosted-checkout navigations use
+  // a synthetic page; no real account, wallet or PSP is contacted.
+  await page.context().route('https://**/*', (r) => r.abort('blockedbyclient'));
+  await page.context().route('https://checkout.saspay.me/**', (r) =>
+    r.fulfill({ contentType: 'text/html', body: '<h1>Paiement simulé</h1>' }),
   );
   return state;
 }
@@ -139,7 +141,7 @@ for (const [width, theme] of [
   test('parcours cliente complet ' + width + 'px ' + theme, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await page.emulateMedia({ colorScheme: theme });
-    const state = await publicApi(page);
+    const state = await publicApi(page, { nullUrl: true });
     await select(page);
     await noOverflow(page);
     await contact(page);
@@ -155,10 +157,13 @@ for (const [width, theme] of [
         () => JSON.parse(sessionStorage.getItem('groupia.public-order')!).trackingToken,
       ),
     ).toBe('private-tracking-test');
-    await page.getByRole('button', { name: 'Préparer mon paiement sécurisé' }).click();
-    await expect(
-      page.getByRole('link', { name: 'Payer avec Wave / Orange Money' }),
-    ).toHaveAttribute('target', '_blank');
+    await page.getByLabel('Adresse e-mail du payeur (si non renseignée)').fill('cliente@example.com');
+    await expect(page.getByText(/Des frais supplémentaires peuvent être appliqués/)).toBeVisible();
+    expect(state.payments).toHaveLength(0);
+    await page.getByRole('button', { name: 'Payer avec SasPay' }).click();
+    await expect(page.getByText(/La session est en cours de vérification/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Payer avec SasPay' })).toHaveCount(0);
+    expect(state.payments).toHaveLength(1);
     await expect(page.getByText('Votre commande est confirmée.', { exact: false })).toHaveCount(0);
     await noOverflow(page);
     await page.screenshot({
@@ -176,6 +181,22 @@ for (const [width, theme] of [
     await expect(page.getByRole('heading', { name: 'Ma sélection (0)' })).toBeVisible();
   });
 }
+
+test('groupage SasPay hébergé : redirection simulée et retour sans deuxième paiement', async ({ page }) => {
+  const state = await publicApi(page);
+  await select(page);
+  await contact(page);
+  await checkout(page);
+  await page.getByLabel('Adresse e-mail du payeur (si non renseignée)').fill('cliente@example.com');
+  await page.getByRole('button', { name: 'Payer avec SasPay' }).click();
+  await expect(page).toHaveURL('https://checkout.saspay.me/checkout/synthetic');
+  expect(state.payments).toHaveLength(1);
+  await page.goto('/public/order');
+  await expect(page.getByRole('link', { name: 'Payer avec Wave / Orange Money' }))
+    .toHaveAttribute('href', 'https://checkout.saspay.me/checkout/synthetic');
+  await expect(page.getByRole('button', { name: 'Payer avec SasPay' })).toHaveCount(0);
+  expect(state.payments).toHaveLength(1);
+});
 
 test('adresse Sénégal : les listes dépendantes sont requises et soumises avec la commande', async ({ page }) => {
   const state = await publicApi(page);
@@ -311,20 +332,19 @@ for (const mode of ['reconciliation', 'nullUrl'] as const) {
     await select(page);
     await contact(page);
     await checkout(page);
-    await page.getByRole('button', { name: 'Préparer mon paiement sécurisé' }).click();
+    await page.getByLabel('Adresse e-mail du payeur (si non renseignée)').fill('cliente@example.com');
+    await page.getByRole('button', { name: 'Payer avec SasPay' }).click();
     await expect(
       page.getByText(
         mode === 'reconciliation'
           ? 'Nous vérifions votre paiement. Ne recommencez pas le paiement.'
-          : 'Le lien de paiement n’est pas disponible.',
+          : 'La session est en cours de vérification. Ne recommencez pas le paiement.',
         { exact: false },
       ),
     ).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Paiement en attente' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Préparer mon paiement sécurisé' })).toHaveCount(
-      0,
-    );
+    await expect(page.getByRole('button', { name: 'Payer avec SasPay' })).toHaveCount(0);
     expect(state.payments).toHaveLength(1);
   });
 }
@@ -334,7 +354,7 @@ test('paiement expiré ne propose plus de paiement', async ({ page }) => {
   await contact(page);
   await checkout(page);
   await expect(page.getByRole('heading', { name: 'Délai de paiement expiré' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Préparer mon paiement sécurisé' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Payer avec SasPay' })).toHaveCount(0);
 });
 test('rejeu sans token : explique la perte du suivi sans nouveau checkout', async ({ page }) => {
   const state = await publicApi(page, { replay: true });

@@ -62,7 +62,7 @@ public class MerchantPayoutTransactions {
         String reference = "MERCHANT_PAYOUT:" + org + ":" + key;
         var old = store.byReference(org, reference);
         if (old.isPresent()) {
-            if (!old.get().campaignId().equals(campaign)
+            if (!Objects.equals(old.get().campaignId(), campaign)
                     || !old.get().destinationId().equals(expectedDestination))
                 throw error(
                         409,

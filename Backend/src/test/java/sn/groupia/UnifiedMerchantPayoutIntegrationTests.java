@@ -21,6 +21,8 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import sn.groupia.payment.application.service.CommercialRefundService;
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
 import tools.jackson.databind.*;
@@ -43,7 +45,7 @@ class UnifiedMerchantPayoutIntegrationTests {
     @Autowired PasswordEncoder passwords;
     @Autowired MerchantPayoutTestConfiguration.FakeMerchantProvider provider;
     @MockitoBean PaymentOperations payments;
-    @MockitoBean CommercialRefunds refunds;
+    @MockitoSpyBean CommercialRefundService refunds;
     UUID org, actor, orderId, requestId, paymentId;
     String jwt;
 
@@ -234,8 +236,7 @@ class UnifiedMerchantPayoutIntegrationTests {
     void pendingCommercialRefundBlocksDirectPayoutEvenWhenOrderStillLooksCompleted()
             throws Exception {
         UUID dest = destination();
-        when(refunds.find(org, PaymentTarget.directOrder(orderId)))
-                .thenReturn(
+        doReturn(
                         new CommercialRefunds.CaseView(
                                 UUID.randomUUID(),
                                 PaymentTarget.directOrder(orderId),
@@ -250,7 +251,8 @@ class UnifiedMerchantPayoutIntegrationTests {
                                 null,
                                 null,
                                 null,
-                                0L));
+                                0L))
+                .when(refunds).find(org, PaymentTarget.directOrder(orderId));
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
         assertThat(provider.sends).hasValue(0);
     }

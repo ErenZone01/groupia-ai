@@ -186,6 +186,36 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void recipientProofAcceptsNationalCountryPrefixedAndE164Formats() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        for (String phone : List.of("771234567", "221771234567", "+221771234567")) {
+            var proof = provider.validateProof(
+                    p, json.readTree(verified(phone, "wave_sn")), Instant.now());
+            assertThat(proof.authenticated()).isTrue();
+            assertThat(proof.phoneE164()).isEqualTo(p.phoneE164());
+        }
+    }
+
+    @Test
+    void malformedOrDifferentRecipientProofNeverSettlesMerchantPayout() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        for (String phone : List.of(
+                "77123456", "22177123456", "+220771234567",
+                "00221771234567", "77 1234567", "+2217712345670")) {
+            assertThatThrownBy(() -> provider.validateProof(
+                    p, json.readTree(verified(phone, "wave_sn")), Instant.now()))
+                    .hasMessage("SASPAY_PAYOUT_PHONE_INVALID");
+        }
+        for (String phone : List.of("771234568", "221771234568", "+221771234568")) {
+            assertThatThrownBy(() -> provider.validateProof(
+                    p, json.readTree(verified(phone, "wave_sn")), Instant.now()))
+                    .hasMessage("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        }
+    }
+
+    @Test
     void wrongMerchantAndNetAreRejectedBeforeSettlement() throws Exception {
         var p = payout(TX.toString());
         var provider = adapter(true, "http://127.0.0.1:1");

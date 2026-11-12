@@ -181,6 +181,35 @@ class MarketplaceSimulationIntegrationTests {
     }
 
     @Test
+    void overviewUnifiesHistoricalDirectAndGroupingReceiptsWithoutAuthorizingWithdrawals()
+            throws Exception {
+        UUID second = UUID.randomUUID();
+        configure(
+                fact(
+                        second,
+                        "BICTORYS",
+                        "other-merchant",
+                        PaymentTarget.order(UUID.randomUUID()),
+                        PaymentPurpose.INITIAL_ORDER,
+                        false));
+        when(facts.settledRequests(eq(org), isNull(), eq(100)))
+                .thenReturn(List.of(collection, second));
+        auth(post(base() + "/refresh")).andExpect(status().isOk());
+        var overview = read(auth(get(base() + "/overview")));
+        assertThat(overview.path("currency").asText()).isEqualTo("XOF");
+        assertThat(overview.path("groupingCollected").decimalValue()).isEqualByComparingTo("20000");
+        assertThat(overview.path("directCollected").decimalValue()).isEqualByComparingTo("20000");
+        assertThat(overview.path("totalCollected").decimalValue()).isEqualByComparingTo("40000");
+        assertThat(overview.path("directPayoutsEnabled").asBoolean()).isFalse();
+        assertThat(overview.path("accounts").size()).isEqualTo(2);
+        assertThat(overview.toString()).doesNotContain("merchant-one", "other-merchant");
+        auth(get("/api/organizations/" + UUID.randomUUID() + "/provider-collections/overview"))
+                .andExpect(status().isForbidden());
+        assertThat(jdbc.queryForObject("select count(*) from merchant_payouts", Long.class))
+                .isZero();
+    }
+
+    @Test
     void payoutPreservesNetAndDuplicateIntentionDoesNotSpendTwice() throws Exception {
         var quote = quote("PAYOUT");
         assertThat(quote.path("recipientNet").asInt()).isEqualTo(20000);

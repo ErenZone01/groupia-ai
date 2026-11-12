@@ -22,18 +22,22 @@ public class DirectMerchantBalances {
     private final PaymentOperations payments;
     private final CommercialRefunds refunds;
     private final MerchantPayoutProvider provider;
+    private final boolean directPayoutsEnabled;
 
     public DirectMerchantBalances(
             JdbcTemplate jdbc,
             MerchantFinanceStore store,
             PaymentOperations payments,
             CommercialRefunds refunds,
-            MerchantPayoutProvider provider) {
+            MerchantPayoutProvider provider,
+            @org.springframework.beans.factory.annotation.Value(
+                    "${groupia.settlement.direct-payouts.enabled:false}") boolean directPayoutsEnabled) {
         this.jdbc = jdbc;
         this.store = store;
         this.payments = payments;
         this.refunds = refunds;
         this.provider = provider;
+        this.directPayoutsEnabled = directPayoutsEnabled;
     }
 
     private record Receipt(
@@ -105,7 +109,8 @@ public class DirectMerchantBalances {
             boolean completed =
                     "COMPLETED".equals(receipt.orderStatus()) && refund == null;
             boolean usable =
-                    (completed || externallyReimbursed)
+                    directPayoutsEnabled
+                            && (completed || externallyReimbursed)
                             && !proof.reversal()
                             && state.operationalStatus() == PaymentOperationalStatus.SETTLED
                             && !state.reconciliationRequired()

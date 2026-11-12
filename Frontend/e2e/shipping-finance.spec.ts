@@ -32,18 +32,6 @@ async function setup(page: Page, scope = 'ORDER_ACCESS') {
       return reply({ scope, orderNumber: scope === 'ORDER_ACCESS' ? number : undefined });
     if (path.endsWith('/capabilities'))
       return reply({ canResendTrackingLink: scope === 'PHONE_VERIFIED' });
-    const quote = {
-      id: 'shipping-fee',
-      provider: 'SASPAY',
-      networkLabel: 'Wave',
-      saleAmount: 5000,
-      collectionFee: 125,
-      totalCharged: 5125,
-      merchantNet: 5000,
-      groupiaCommission: 0,
-      currency: 'XOF',
-      expiresAt: '2099-12-01T00:00:00Z',
-    };
     if (path.endsWith('/shipping-balance/payment-options'))
       return reply({
         availableProviders: state.saspay ? ['SASPAY'] : ['BICTORYS'],

@@ -26,7 +26,8 @@ import sn.groupia.payment.api.dto.*;
 import tools.jackson.databind.*;
 
 /** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
-@SpringBootTest(properties = "groupia.settlement.payouts.enabled=true")
+@SpringBootTest(properties = {"groupia.settlement.payouts.enabled=true",
+        "groupia.settlement.direct-payouts.enabled=true"})
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,

@@ -117,7 +117,11 @@ public class DirectMerchantBalances {
                     "REFUNDED".equals(receipt.orderStatus())
                             && refund != null
                             && "EXTERNALLY_RECORDED".equals(refund.status())
-                            && refund.legacyPlatformFee().signum() == 0;
+                            && refund.legacyPlatformFee().signum() == 0
+                            // Partial provider-funded refunds require a separate allocation
+                            // model; never reimburse the full seller principal in that case.
+                            && refund.previouslyRefunded().signum() == 0
+                            && refund.amountDue().compareTo(receipt.principal()) == 0;
             boolean completed =
                     "COMPLETED".equals(receipt.orderStatus()) && refund == null;
             boolean usable =

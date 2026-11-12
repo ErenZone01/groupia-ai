@@ -43,11 +43,15 @@ Par conséquent notre validateur refuse de marquer un payout
 contrat de preuve est un blocage de mise en service, pas une
 simple préférence d'interface.
 
-Le nom du réseau est `wave_sn` pour Wave. Le code
-`orange_sn` est à **confirmer sur la liste des réseaux de la clé
-marchande**, ainsi que l'activation des payouts pour les deux
-opérateurs. N'envoyer aucun transfert de validation tant que les
-permissions et codes ne sont pas confirmés.
+Le réseau `wave_sn` a été observé sur l'encaissement LIVE Wave,
+mais son **support en payout** doit être validé séparément.
+Le code Orange Money payout reste à confirmer.
+Le serveur ne devine plus les réseaux : il exige explicitement
+`SASPAY_PAYOUTS_WAVE_NETWORK` et
+`SASPAY_PAYOUTS_ORANGE_NETWORK`, validés dans la liste
+fournisseur et autorisés pour les retraits au Sénégal.
+N'envoyer aucun transfert tant que ces permissions et codes
+ne sont pas confirmés.
 
 ## Branchements à Groupia
 
@@ -83,6 +87,8 @@ SASPAY_PAYOUTS_ENABLED=false
 SASPAY_PAYOUTS_MARKETPLACE_AUTHORIZED=false
 SASPAY_PAYOUTS_BENEFICIARY_PROOF_APPROVED=false
 SASPAY_PAYOUTS_COMPANY_FEE_BUDGET_APPROVED=false
+SASPAY_PAYOUTS_WAVE_NETWORK=
+SASPAY_PAYOUTS_ORANGE_NETWORK=
 ```
 
 La présence d'une clé `SASPAY_API_KEY` LIVE qui encaisse ne

@@ -123,6 +123,7 @@ export class MerchantSettlementStore {
       if (generation === this.generation && this.current(org, context, session)) {
         this.error.set(apiMessage(e));
         this.balance.set(null);
+        this.directOrders.set([]);
         this.destination.set(null);
         this.history.set([]);
       }

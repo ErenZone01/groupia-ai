@@ -85,7 +85,11 @@ public class MerchantBalances {
                                         == sn.groupia.payment.api.PaymentOperationalStatus.SETTLED
                                 && !sourceState.reconciliationRequired()
                                 && !sourceState.attemptInProgress()
-                                && !"SASPAY".equals(source.provider())
+                                // SasPay collections may fund only an explicitly
+                                // authorized SasPay payout adapter. Never route them through
+                                // the existing Bictorys wallet or another organization.
+                                && (!"SASPAY".equals(source.provider())
+                                        || payoutProvider.enabled())
                                 && Objects.equals(
                                         source.provider(), payoutProvider.fundingProvider())
                                 && Objects.equals(

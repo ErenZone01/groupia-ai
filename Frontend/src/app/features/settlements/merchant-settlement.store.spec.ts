@@ -19,6 +19,7 @@ const direct = {
   provider: 'SIMULATED',
   accountReference: 'hash',
   grossMerchantCollections: 20000,
+  platformFees: 0,
   eligibleBalance: 20000,
   merchantPayouts: 0,
   reservedForPayout: 0,

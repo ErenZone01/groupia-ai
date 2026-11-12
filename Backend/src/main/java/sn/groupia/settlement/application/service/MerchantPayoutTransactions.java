@@ -27,6 +27,7 @@ public class MerchantPayoutTransactions {
     private final MerchantPayoutProvider provider;
     private final Clock clock;
     private final boolean enabled;
+    private final boolean directPayoutsEnabled;
 
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
@@ -37,7 +38,8 @@ public class MerchantPayoutTransactions {
             MerchantPayoutProvider p,
             Clock clock,
             OutgoingPayoutOperations outgoing,
-            @Value("${groupia.settlement.payouts.enabled:false}") boolean enabled) {
+            @Value("${groupia.settlement.payouts.enabled:false}") boolean enabled,
+            @Value("${groupia.settlement.direct-payouts.enabled:false}") boolean directPayoutsEnabled) {
         this.outgoing = outgoing;
         store = s;
         balances = b;
@@ -47,6 +49,7 @@ public class MerchantPayoutTransactions {
         provider = p;
         this.clock = clock;
         this.enabled = enabled;
+        this.directPayoutsEnabled = directPayoutsEnabled;
     }
 
     public boolean available() {
@@ -80,7 +83,7 @@ public class MerchantPayoutTransactions {
                     "MERCHANT_FUNDS_NOT_AVAILABLE",
                     "Les fonds seront disponibles après la clôture des ventes.");
         if (store.payouts(org).stream()
-                .anyMatch(p -> p.campaignId().equals(campaign) && p.reserved()))
+                .anyMatch(p -> Objects.equals(p.campaignId(), campaign) && p.reserved()))
             throw error(
                     409,
                     "MERCHANT_PAYOUT_IN_PROGRESS",
@@ -164,7 +167,7 @@ public class MerchantPayoutTransactions {
                         "Cette demande correspond à un autre versement.");
             return old.get();
         }
-        if (!available())
+        if (!available() || !directPayoutsEnabled)
             throw error(
                     503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");
         direct.lock(org, directOrderId);
@@ -269,7 +272,7 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         if (!p.status().equals("CREATED")) return false;
-        if (!available())
+        if (!available() || (p.directSale() && !directPayoutsEnabled))
             throw error(
                     503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");

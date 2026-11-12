@@ -1,55 +1,82 @@
-# Groupia — rapprochement des fonds groupage et vente directe
+# Groupia — moteur unifié des soldes et reversements marchands
 
-État : premier lot de convergence du registre financier, PR #86, non fusionnée.
-Ce lot ne crée aucun nouveau versement réel, ne modifie aucune migration historique
-et ne débloque pas l'adaptateur SasPay de production.
+État au 12 novembre 2026 : code publié dans la PR #86, **non fusionné et non
+validé par un nouveau `mvn verify`**. Tests et fournisseurs synthétiques uniquement.
 
-## Source de vérité retenue
+## Architecture commune
 
-- `provider_collections` conserve l'encaissement confirmé par fournisseur,
-  compte marchand authentifié, cible `ORDER` ou `DIRECT_ORDER`, montant
-  attribué à la vendeuse et frais de paiement. Le compte source exact reste
-  la clé de cloisonnement des fonds.
-- Le nouveau `GET /api/organizations/{organizationId}/provider-collections/overview`
-  agrège par fournisseur et compte, en montrant séparément groupages et ventes
-  directes, puis leurs cumuls historiques. Accès `VIEW_PAYMENTS`, aucun
-  identifiant de compte marchand brut n'est publié (empreinte SHA-256).
-- Les montants sont **des cumuls historiques d'encaissements**, **pas**
-  des soldes disponibles : les annulations, remboursements, réservations et
-  reversements ne sont pas soustraits de ce total brut. Ne jamais utiliser
-  ce calcul pour initier un transfert.
-- Le tableau de bord `/app/encaissements-fournisseurs` consomme ce récapitulatif
-  tout en conservant l'historique et les simulations existantes. Si la lecture
-  de synthèse échoue, l'historique reste consultable.
-- Les simulations marketplace existantes restent utilisables sur les deux
-  catégories de ventes et ne déplacent aucun argent.
+- Le registre des encaissements `provider_collections` identifie la source
+  immuable, sa boutique, son compte PSP exact et son activité
+  (`ORDER` groupage, `DIRECT_ORDER` vente directe).
+- La route `GET /api/organizations/{organizationId}/provider-collections/overview`
+  affiche leurs **cumuls historiques**, sans prétendre qu'ils sont retirables.
+- Le moteur unique `merchant_payouts` conserve destination, référence
+  d'intention, clé d'idempotence, fournisseur, compte, statuts, réservations,
+  preuve de réception et historique. Une ligne cible exactement un groupage
+  ou une vente directe. La migration additive `055` ajoute
+  `direct_order_id` et conserve les anciennes lignes sans les réécrire.
+- Le moteur comptable `MerchantBalances` expose désormais les positions
+  `campaigns` et `directOrders` dans le même solde boutique. Le frontend
+  `/app/versements` permet de consulter et de demander les deux types de
+  versement, avec la même destination, modal de confirmation et suivi.
+- L'API de vente directe est
+  `POST /api/organizations/{organizationId}/direct-orders/{directOrderId}/merchant-payouts`
+  avec `Idempotency-Key`, `destinationId` et `confirmed`.
+  Le chemin historique des groupages ne change pas.
 
-## Ce qui reste pour **un solde unifié retirable**
+## Quand une vente directe est éligible
 
-1. Créer une projection d'obligations vendeuses par encaissement, avec
-   identification de la cible, des remboursements commerciaux et des risques
-   financiers actifs. Ne compter ni deux fois une collection ni des frais PSP
-   comme fonds de vendeuse.
-2. Étendre les réservations et dépenses du moteur `merchant_payouts` aux
-   ventes directes, sans contourner les contrôles de preuve du fournisseur,
-   la clôture commerciale, la concurrence et l'isolation fournisseur/compte.
-   Le moteur actuel est lié aux campagnes (`campaign_id` obligatoire).
-3. Réconcilier chaque débit et reprise incertaine, y compris après redémarrage,
-   puis prouver en tests PostgreSQL qu'aucune collection ne finance deux retraits
-   ou un retrait et un remboursement.
-4. Exposer les **montants réellement retirables** séparément des cumuls
-   historiques et réutiliser les mêmes parcours de destination, confirmation
-   et historique sur les deux activités.
-5. Les retraits LIVE SasPay restent interdits jusqu'à autorisations externes,
-   preuve authentifiée du bénéficiaire et des frais de payout réservés à part.
-   `PRODUCTION_PAYOUT_RELEASED=false` ne doit pas changer.
+Le serveur exige, dans une transaction et sous verrou de boutique et de commande :
 
-## Contrôles
+1. un encaissement canonique terminé, dans `provider_collections`, lié à
+   la même commande et à une preuve réelle `PaymentOperations` de paiement
+   `SUCCEEDED`, accepté, sans inversion ni risque de rapprochement ;
+2. la commande `COMPLETED` et sans remboursement commercial ouvert,
+   ou une annulation `REFUNDED` et un remboursement externe enregistré par
+   la vendeuse sans ancienne commission restant à compenser ;
+3. le fournisseur, **le compte de fonds** et la devise strictement identiques
+   à ceux de l'adaptateur de reversement ; pas de transfert croisé ;
+4. le montant exact attribué à la vendeuse, déduction faite de tous les
+   payouts directs déjà `SUCCEEDED` et de ceux encore `CREATED`,
+   `PENDING` ou `REVIEW_REQUIRED` pour cette commande ;
+5. la destination active et le rôle `EXECUTE_PAYOUTS`, avec contrôles
+   d'idempotence, relecture de l'éligibilité juste avant l'initiation réseau.
 
-Code ajouté : test PostgreSQL d'agrégation et d'isolation entre organisations,
-test Angular de présentation sans fausse promesse de retrait.
+Une réponse de création ou un timeout ne libère jamais les fonds réservés.
+La vérification du fournisseur reste indépendante ; les fonds ne sont
+considérés versés que sur preuve `SUCCEEDED`. Les versements directs réussis
+sont conservés immuablement dans `merchant_payouts`. Le ledger historique
+des campagnes n'invente pas de fausse campagne pour ces ventes.
 
-Ces tests doivent être exécutés localement sur la nouvelle tête de branche.
-Les validations antérieures à ce lot ne valent pas validation de ce lot.
-La route OpenAPI ajoutée doit être exportée et le snapshot frontend régénéré
-avant la fusion. GitHub Actions n'est pas déclaré vert.
+## Verrous de sécurité et activation
+
+Les **deux** variables suivantes restent à `false` hors recette de test :
+
+```dotenv
+GROUPIA_MERCHANT_PAYOUTS_ENABLED=false
+GROUPIA_DIRECT_MERCHANT_PAYOUTS_ENABLED=false
+```
+
+Le drapeau direct est indépendant et désactivé par défaut. Les tests
+PostgreSQL l'activent avec un fournisseur entièrement synthétique. En
+production SasPay, `PRODUCTION_PAYOUT_RELEASED=false` est conservé :
+aucun jeu de variables ne peut autoriser un retrait SasPay LIVE sans
+permissions marketplace, preuve indépendante du destinataire, financement
+comptable des frais et validation du fournisseur.
+
+Les remboursements clients ne sont pas initiés par ce nouveau parcours.
+Une preuve de pay-in ne constitue jamais une preuve de paiement au vendeur.
+
+## Validation à réaliser localement
+
+- `mvn spotless:apply`, `mvn spotless:check`
+- `mvn "-Dtest=UnifiedMerchantPayoutIntegrationTests,MerchantSettlementIntegrationTests,MarketplaceSimulationIntegrationTests,OpenApiIntegrationTests" test`
+- `mvn verify` après la validation ciblée
+- Frontend : test Vitest `merchant-settlement.store.spec.ts`, lint, build
+- Export OpenAPI du backend, puis régénérer le snapshot frontend et les clients
+  générés (voir `Frontend/tools/generate-api.mjs`).
+- Contrôles de sécurité et CI quand les minutes GitHub seront disponibles.
+
+Ce lot **ne prétend pas** valider les frais de payout SasPay ni la disponibilité
+des fonds dans un compte vendeur partenaire. Les validations locales avant la
+migration `055` ne remplacent pas ces nouveaux contrôles.

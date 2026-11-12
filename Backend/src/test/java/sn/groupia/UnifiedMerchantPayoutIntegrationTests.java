@@ -198,8 +198,19 @@ class UnifiedMerchantPayoutIntegrationTests {
     }
 
     private JsonNode read(ResultActions action) throws Exception {
-        return json.readTree(
-                action.andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        var result = action.andReturn();
+        if (result.getResponse().getStatus() != 200) {
+            // ApiExceptionHandler intentionally hides internal exceptions from HTTP
+            // clients. Synthetic integration tests must surface the *actual* cause,
+            // otherwise an unexpected financial failure is reported only as HTTP 500.
+            Exception cause = result.getResolvedException();
+            if (cause != null)
+                throw new AssertionError(
+                        "Unexpected payout HTTP status " + result.getResponse().getStatus(),
+                        cause);
+        }
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        return json.readTree(result.getResponse().getContentAsString());
     }
 
     private UUID destination() throws Exception {

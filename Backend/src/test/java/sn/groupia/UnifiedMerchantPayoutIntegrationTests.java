@@ -220,6 +220,48 @@ class UnifiedMerchantPayoutIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void pendingCommercialRefundBlocksDirectPayoutEvenWhenOrderStillLooksCompleted()
+            throws Exception {
+        UUID dest = destination();
+        when(refunds.find(org, PaymentTarget.directOrder(orderId)))
+                .thenReturn(
+                        new CommercialRefunds.CaseView(
+                                UUID.randomUUID(),
+                                PaymentTarget.directOrder(orderId),
+                                "REFUND_DUE",
+                                "XOF",
+                                new BigDecimal("20000"),
+                                BigDecimal.ZERO,
+                                new BigDecimal("20000"),
+                                BigDecimal.ZERO,
+                                "Annulation concurrente",
+                                Instant.now(),
+                                null,
+                                null,
+                                null,
+                                0L));
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
+    }
+
+    @Test
+    void cannotReuseDirectPayoutIdempotencyKeyForCampaignPath() throws Exception {
+        UUID dest = destination(), key = UUID.randomUUID();
+        read(request(dest, key));
+        // The key represents one immutable source, not a reusable payout authorization.
+        auth(
+                        post(base()
+                                        + "/grouping-campaigns/"
+                                        + UUID.randomUUID()
+                                        + "/merchant-payouts")
+                                .header("Idempotency-Key", key),
+                        Map.of("destinationId", dest, "confirmed", true))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PAYOUT_IDEMPOTENCY_CONFLICT"));
+        assertThat(provider.sends).hasValue(1);
+    }
+
     private String token(UUID id) {
         var claims = JwtClaimsSet.builder()
                 .claim("sid", UUID.randomUUID().toString())

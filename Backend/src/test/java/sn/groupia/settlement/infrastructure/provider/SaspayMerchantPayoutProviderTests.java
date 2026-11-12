@@ -10,7 +10,6 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
-import sn.groupia.payment.infrastructure.provider.saspay.SaspayProperties;
 import sn.groupia.settlement.domain.model.MerchantPayout;
 import tools.jackson.databind.ObjectMapper;
 
@@ -21,11 +20,9 @@ class SaspayMerchantPayoutProviderTests {
 
     private final ObjectMapper json = new ObjectMapper();
 
-    private SaspayProperties settings() {
-        return new SaspayProperties(
-                true, null, "sk_live_synthetic", "synthetic-webhook-secret", MERCHANT,
-                Set.of("checkout.saspay.me"), Duration.ofSeconds(1), Duration.ofSeconds(2),
-                true, UUID.randomUUID(), new BigDecimal("2000"));
+    private SaspayMerchantPayoutProvider.Connection settings() {
+        return new SaspayMerchantPayoutProvider.Connection(
+                "sk_live_synthetic", MERCHANT, true);
     }
 
     private MerchantPayout payout(String transaction) {

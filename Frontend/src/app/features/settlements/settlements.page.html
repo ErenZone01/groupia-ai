@@ -87,6 +87,44 @@
         <p>Aucun encaissement marchand pour le moment.</p>
       }
     </g-card>
+    <g-card>
+      <h2>Fonds par vente directe</h2>
+      <p>
+        Les ventes directes sont gérées par le même compte et la même destination que les
+        groupages. Le solde retirable exige une commande clôturée et un règlement vérifié.
+      </p>
+      @for (row of store.directOrders(); track row.directOrderId) {
+        <article>
+          <h3>{{ row.orderNumber }} · {{ row.provider }}</h3>
+          <p>Statut : {{ row.status }} · Montant encaissé : {{ money(row.grossMerchantCollections) }}</p>
+          <p>
+            Déjà versé : {{ money(row.merchantPayouts) }} ·
+            Réservé : {{ money(row.reservedForPayout) }}
+          </p>
+          <p><strong>Disponible : {{ money(row.availableForPayout) }}</strong></p>
+          @if (row.deficit > 0) {
+            <p class="notice">Écart de règlement à examiner : {{ money(row.deficit) }}</p>
+          }
+          @if (b.canManageSettlements) {
+            <button
+              gButton
+              [disabled]="
+                store.busy() ||
+                store.loading() ||
+                !b.providerAvailable ||
+                !store.destination()?.id ||
+                row.availableForPayout <= 0
+              "
+              (click)="askDirect(row)"
+            >
+              Recevoir {{ money(row.availableForPayout) }}
+            </button>
+          }
+        </article>
+      } @empty {
+        <p>Aucune vente directe avec encaissement confirmé.</p>
+      }
+    </g-card>
     <g-card
       ><h2>Historique des versements</h2>
       @for (p of store.history(); track p.id) {
@@ -135,6 +173,21 @@
     </p>
     <p>
       Le montant disponible sera recalculé par Groupia. Vérifiez la destination avant de confirmer.
+    </p>
+    <div class="actions">
+      <button gButton [loading]="store.busy()" (click)="confirm()">Confirmer le versement</button>
+      <button gButton variant="ghost" [disabled]="store.busy()" (click)="close()">Annuler</button>
+    </div>
+  } @else if (selectedDirect(); as direct) {
+    <h2>Recevoir {{ money(direct.availableForPayout) }}</h2>
+    <p>Vente directe {{ direct.orderNumber }} · {{ direct.provider }}</p>
+    <p>
+      {{ method(store.destination()?.method) }} · {{ store.destination()?.holderName }} ·
+      {{ store.destination()?.maskedPhone }}
+    </p>
+    <p>
+      Groupia revérifie les fonds, l'identité du compte marchand et les éventuelles
+      réservations avant toute demande. Aucun transfert SasPay réel n'est activé.
     </p>
     <div class="actions">
       <button gButton [loading]="store.busy()" (click)="confirm()">Confirmer le versement</button>

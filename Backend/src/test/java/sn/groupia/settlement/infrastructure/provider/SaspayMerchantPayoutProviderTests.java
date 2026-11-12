@@ -22,7 +22,7 @@ class SaspayMerchantPayoutProviderTests {
 
     private SaspayMerchantPayoutProvider.Connection settings() {
         return new SaspayMerchantPayoutProvider.Connection(
-                "sk_live_synthetic", MERCHANT, true);
+                "sk_live_synthetic", MERCHANT, true, "wave_sn", "orange_sn");
     }
 
     private MerchantPayout payout(String transaction) {
@@ -57,6 +57,10 @@ class SaspayMerchantPayoutProviderTests {
                 .withProperty("groupia.payment.saspay.api-key", "sk_live_synthetic")
                 .withProperty("groupia.payment.saspay.merchant-id", MERCHANT.toString())
                 .withProperty("groupia.payment.saspay.enabled", "true")
+                .withProperty(
+                        "groupia.settlement.saspay-payouts.wave-network", "wave_sn")
+                .withProperty(
+                        "groupia.settlement.saspay-payouts.orange-network", "orange_sn")
                 .withProperty("groupia.settlement.saspay-payouts.enabled", "true")
                 .withProperty("groupia.settlement.saspay-payouts.marketplace-authorized", "true")
                 .withProperty(

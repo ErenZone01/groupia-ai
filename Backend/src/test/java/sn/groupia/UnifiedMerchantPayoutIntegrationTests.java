@@ -109,9 +109,17 @@ class UnifiedMerchantPayoutIntegrationTests {
                 requestId, org, requestId, paymentId, orderId, "TX-" + paymentId);
         var proof = verified(false);
         when(payments.settlementEvidence(org, requestId)).thenReturn(proof);
+        var obligation = new PaymentRequestView(
+                requestId, org, null, PaymentPurpose.DIRECT_ORDER_INITIAL,
+                "DIRECT_ORDER_INITIAL:" + orderId, new BigDecimal("20000"), "XOF",
+                new BigDecimal("20000"), BigDecimal.ZERO, BigDecimal.ZERO,
+                AcceptanceStatus.CLOSED, Instant.now().plusSeconds(1200),
+                paymentId, Instant.now().minusSeconds(1200),
+                Instant.now().minusSeconds(600), null, 0L,
+                PaymentTarget.directOrder(orderId));
         when(payments.requestState(org, requestId))
                 .thenReturn(new PaymentRequestState(
-                        null, PaymentOperationalStatus.SETTLED, false, false));
+                        obligation, PaymentOperationalStatus.SETTLED, false, false));
     }
 
     private PaymentSettlementEvidence verified(boolean reversed) {

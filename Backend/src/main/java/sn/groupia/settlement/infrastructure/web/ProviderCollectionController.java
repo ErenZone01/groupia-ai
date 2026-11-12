@@ -26,6 +26,17 @@ class ProviderCollectionController {
                 .body(ledger.page(organizationId, after));
     }
 
+    @GetMapping("/overview")
+    @Operation(
+            operationId = "providerCollectionsOverview",
+            summary = "Cumuls historiques vente directe et groupage par compte fournisseur")
+    ResponseEntity<ProviderCollectionLedger.CollectionOverview> overview(
+            @PathVariable UUID organizationId) {
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(ledger.overview(organizationId));
+    }
+
     @PostMapping("/refresh")
     @Operation(
             operationId = "refreshProviderCollections",

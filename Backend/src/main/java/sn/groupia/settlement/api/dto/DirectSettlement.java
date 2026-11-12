@@ -12,6 +12,7 @@ public record DirectSettlement(
         String provider,
         String accountReference,
         BigDecimal grossMerchantCollections,
+        BigDecimal platformFees,
         BigDecimal eligibleBalance,
         BigDecimal merchantPayouts,
         BigDecimal reservedForPayout,

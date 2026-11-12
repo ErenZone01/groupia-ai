@@ -59,7 +59,7 @@ export function safeBictorysCheckout(raw?: string): string | null {
             [value]="payerEmail()"
             (input)="payerEmail.set($any($event.target).value)"
           />
-          <p>Les frais des opérateurs sont affichés sur la page sécurisée SasPay avant confirmation.</p>
+          <p>Des frais supplémentaires peuvent être appliqués par le partenaire ou l'opérateur mobile. Vérifiez le montant final affiché dans Wave ou Orange Money avant de confirmer.</p>
         }
       }
       @if (checkoutUrl(); as url) {

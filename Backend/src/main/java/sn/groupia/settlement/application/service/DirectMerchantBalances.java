@@ -43,13 +43,14 @@ public class DirectMerchantBalances {
     private record Receipt(
             UUID id, String number, String orderStatus, BigDecimal acceptedAmount,
             UUID requestId, UUID paymentId, BigDecimal principal, BigDecimal seller,
+            BigDecimal platformFee,
             String currency, String providerName, String account) {}
 
     public List<DirectSettlement> calculate(UUID org) {
         var receipts = jdbc.query(
                 """
                 select d.id,d.order_number,d.status,d.accepted_total_xof,
-                       c.payment_request_id,c.payment_id,c.principal,c.seller_principal,
+                       c.payment_request_id,c.payment_id,c.principal,c.seller_principal,c.platform_fee,
                        c.currency,c.provider,c.provider_account
                   from direct_orders d
                   join provider_collections c
@@ -68,6 +69,7 @@ public class DirectMerchantBalances {
                         rs.getObject("payment_id", UUID.class),
                         rs.getBigDecimal("principal"),
                         rs.getBigDecimal("seller_principal"),
+                        rs.getBigDecimal("platform_fee"),
                         rs.getString("currency"),
                         rs.getString("provider"),
                         rs.getString("provider_account")),
@@ -93,7 +95,7 @@ public class DirectMerchantBalances {
                     || proof.amount().compareTo(receipt.principal()) != 0
                     || receipt.acceptedAmount().compareTo(receipt.principal()) != 0
                     || receipt.seller().signum() < 0
-                    || receipt.seller().compareTo(receipt.principal()) > 0
+                    || receipt.seller().add(receipt.platformFee()).compareTo(receipt.principal()) != 0
                     || proof.providerTransactionId() == null
                     || proof.providerTransactionId().isBlank()
                     || proof.confirmedAt() == null) {
@@ -143,6 +145,7 @@ public class DirectMerchantBalances {
                             receipt.providerName(),
                             ProviderCollectionLedger.accountReference(receipt.account()),
                             receipt.seller(),
+                            receipt.platformFee(),
                             eligible.subtract(paid),
                             paid,
                             reserved,

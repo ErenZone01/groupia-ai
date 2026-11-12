@@ -118,7 +118,16 @@ class OutgoingPayoutMigrationTests {
                 }
             }
             assertThat(j.queryForList("select * from payment_refunds")).isEqualTo(refunds);
-            assertThat(j.queryForList("select * from merchant_payouts")).isEqualTo(payouts);
+            // Successful upgrades add only a nullable target column. A rejected
+            // collision rolls back before this additive schema change takes effect.
+            var afterPayouts = j.queryForList("select * from merchant_payouts");
+            if (!collision) {
+                afterPayouts =
+                        afterPayouts.stream()
+                                .map(MigrationHistoryAssertions::historicalMerchantPayout)
+                                .toList();
+            }
+            assertThat(afterPayouts).isEqualTo(payouts);
             assertThat(
                             j.queryForList(
                                     "select id,md5sum from databasechangelog where orderexecuted<=? order by orderexecuted",

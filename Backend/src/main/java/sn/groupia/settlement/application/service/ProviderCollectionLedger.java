@@ -57,8 +57,9 @@ public class ProviderCollectionLedger {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
         // Group only by the exact underlying provider account. Hash it before exposing the
         // grouping in the API. Refunded or paid-out collections remain in historical totals.
-        var accounts = jdbc.query(
-                """
+        var accounts =
+                jdbc.query(
+                        """
                 select provider, provider_account,
                     sum(case when target_type='ORDER' then seller_principal else 0 end) grouping_collected,
                     sum(case when target_type='DIRECT_ORDER' then seller_principal else 0 end) direct_collected
@@ -67,16 +68,17 @@ public class ProviderCollectionLedger {
                  group by provider,provider_account
                  order by provider,provider_account
                 """,
-                (rs, n) -> {
-                    var grouping = rs.getBigDecimal("grouping_collected");
-                    var direct = rs.getBigDecimal("direct_collected");
-                    return new AccountTotals(
-                            rs.getString("provider"),
-                            accountReference(rs.getString("provider_account")),
-                            grouping,
-                            direct,
-                            grouping.add(direct));
-                }, org);
+                        (rs, n) -> {
+                            var grouping = rs.getBigDecimal("grouping_collected");
+                            var direct = rs.getBigDecimal("direct_collected");
+                            return new AccountTotals(
+                                    rs.getString("provider"),
+                                    accountReference(rs.getString("provider_account")),
+                                    grouping,
+                                    direct,
+                                    grouping.add(direct));
+                        },
+                        org);
         var groupTotal = java.math.BigDecimal.ZERO;
         var directTotal = java.math.BigDecimal.ZERO;
         for (var account : accounts) {
@@ -86,7 +88,11 @@ public class ProviderCollectionLedger {
         // The canonical real payout engine is still campaign-only: do not authorize
         // direct-sale withdrawals from this immutable receipt projection.
         return new CollectionOverview(
-                "XOF", groupTotal, directTotal, groupTotal.add(directTotal), false,
+                "XOF",
+                groupTotal,
+                directTotal,
+                groupTotal.add(directTotal),
+                false,
                 List.copyOf(accounts));
     }
 

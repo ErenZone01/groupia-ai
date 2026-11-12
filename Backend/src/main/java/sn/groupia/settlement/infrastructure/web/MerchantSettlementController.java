@@ -35,6 +35,19 @@ class MerchantSettlementController {
         @RequestHeader("Idempotency-Key") UUID key,@Valid @RequestBody PayoutRequest c) {
         return response(settlements.request(organizationId,campaignId,key,c.destinationId(),c.confirmed()));
     }
+    @PostMapping("/direct-orders/{directOrderId}/merchant-payouts")
+    @Operation(
+            operationId="requestDirectMerchantPayout",
+            summary="Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties")
+    ResponseEntity<MerchantPayoutView> requestDirect(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID directOrderId,
+            @RequestHeader("Idempotency-Key") UUID key,
+            @Valid @RequestBody PayoutRequest c) {
+        return response(settlements.requestDirect(
+                organizationId, directOrderId, key, c.destinationId(), c.confirmed()));
+    }
+
     @GetMapping("/merchant-payouts") @Operation(operationId="merchantPayoutHistory",summary="Historique des versements boutique")
     ResponseEntity<List<MerchantPayoutView>> history(@PathVariable UUID organizationId) { return response(settlements.payouts(organizationId)); }
     @PostMapping("/merchant-payouts/{payoutId}/reconcile") @Operation(operationId="reconcileMerchantPayout",summary="Vérification serveur, sans nouvel envoi")

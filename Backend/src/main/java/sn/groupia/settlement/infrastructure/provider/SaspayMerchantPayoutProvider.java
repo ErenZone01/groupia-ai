@@ -235,7 +235,11 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     private static String phone(String raw) {
         if (raw == null) throw new IllegalArgumentException("SASPAY_PAYOUT_PHONE_INVALID");
-        String normalized = raw.startsWith("+") ? raw : "+" + raw;
+        // Provider evidence may contain the national (9 digits), country-prefixed
+        // (221 + 9 digits), or E.164 format. Compare only canonical E.164 values.
+        String normalized = raw;
+        if (raw.matches("[0-9]{9}")) normalized = "+221" + raw;
+        else if (raw.matches("221[0-9]{9}")) normalized = "+" + raw;
         if (!normalized.matches("\\+221[0-9]{9}"))
             throw new IllegalArgumentException("SASPAY_PAYOUT_PHONE_INVALID");
         return normalized;

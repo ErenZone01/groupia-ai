@@ -80,7 +80,17 @@ public class DirectMerchantBalances {
         for (var receipt : receipts) {
             var proof = payments.settlementEvidence(org, receipt.requestId());
             var state = payments.requestState(org, receipt.requestId());
-            if (!Objects.equals(proof.organizationId(), org)
+            var request = state.request();
+            if (request == null
+                    || !Objects.equals(request.id(), receipt.requestId())
+                    || !Objects.equals(request.organizationId(), org)
+                    || !Objects.equals(request.target(), PaymentTarget.directOrder(receipt.id()))
+                    || request.purpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
+                    || request.acceptanceStatus() != AcceptanceStatus.CLOSED
+                    || !Objects.equals(request.settledPaymentId(), receipt.paymentId())
+                    || !Objects.equals(request.currency(), "XOF")
+                    || request.expectedAmount().compareTo(receipt.principal()) != 0
+                    || !Objects.equals(proof.organizationId(), org)
                     || !Objects.equals(proof.paymentRequestId(), receipt.requestId())
                     || !Objects.equals(proof.paymentId(), receipt.paymentId())
                     || !Objects.equals(proof.target(), PaymentTarget.directOrder(receipt.id()))

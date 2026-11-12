@@ -4,21 +4,51 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public record MerchantBalance(
-        String currency, BigDecimal grossMerchantCollections, BigDecimal platformFees,
-        BigDecimal platformFundedRefunds, BigDecimal merchantPayouts, BigDecimal collectedBalance,
-        BigDecimal eligibleBalance, BigDecimal reservedForPayout, BigDecimal availableForPayout,
-        BigDecimal deficit, boolean canManageSettlements, boolean canManageDestination,
-        boolean providerAvailable, List<CampaignSettlement> campaigns,
+        String currency,
+        BigDecimal grossMerchantCollections,
+        BigDecimal platformFees,
+        BigDecimal platformFundedRefunds,
+        BigDecimal merchantPayouts,
+        BigDecimal collectedBalance,
+        BigDecimal eligibleBalance,
+        BigDecimal reservedForPayout,
+        BigDecimal availableForPayout,
+        BigDecimal deficit,
+        boolean canManageSettlements,
+        boolean canManageDestination,
+        boolean providerAvailable,
+        List<CampaignSettlement> campaigns,
         List<DirectSettlement> directOrders) {
     public MerchantBalance(
-            String currency, BigDecimal grossMerchantCollections, BigDecimal platformFees,
-            BigDecimal platformFundedRefunds, BigDecimal merchantPayouts, BigDecimal collectedBalance,
-            BigDecimal eligibleBalance, BigDecimal reservedForPayout, BigDecimal availableForPayout,
-            BigDecimal deficit, boolean canManageSettlements, boolean canManageDestination,
-            boolean providerAvailable, List<CampaignSettlement> campaigns) {
-        this(currency, grossMerchantCollections, platformFees, platformFundedRefunds,
-                merchantPayouts, collectedBalance, eligibleBalance, reservedForPayout,
-                availableForPayout, deficit, canManageSettlements, canManageDestination,
-                providerAvailable, campaigns, List.of());
+            String currency,
+            BigDecimal grossMerchantCollections,
+            BigDecimal platformFees,
+            BigDecimal platformFundedRefunds,
+            BigDecimal merchantPayouts,
+            BigDecimal collectedBalance,
+            BigDecimal eligibleBalance,
+            BigDecimal reservedForPayout,
+            BigDecimal availableForPayout,
+            BigDecimal deficit,
+            boolean canManageSettlements,
+            boolean canManageDestination,
+            boolean providerAvailable,
+            List<CampaignSettlement> campaigns) {
+        this(
+                currency,
+                grossMerchantCollections,
+                platformFees,
+                platformFundedRefunds,
+                merchantPayouts,
+                collectedBalance,
+                eligibleBalance,
+                reservedForPayout,
+                availableForPayout,
+                deficit,
+                canManageSettlements,
+                canManageDestination,
+                providerAvailable,
+                campaigns,
+                List.of());
     }
 }

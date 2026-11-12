@@ -72,8 +72,8 @@ public class MerchantSettlementService {
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView requestDirect(
             UUID org, UUID directOrderId, UUID key, UUID destination, boolean confirmed) {
-        return dispatch(transactions.reserveDirect(
-                org, directOrderId, key, destination, confirmed));
+        return dispatch(
+                transactions.reserveDirect(org, directOrderId, key, destination, confirmed));
     }
 
     private MerchantPayoutView dispatch(MerchantPayout p) {

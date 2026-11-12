@@ -11,8 +11,8 @@ import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 
 /**
- * Direct sales and campaigns share the same merchant-payout registry and destination.
- * A receipt never becomes spendable merely because its pay-in succeeded.
+ * Direct sales and campaigns share the same merchant-payout registry and destination. A receipt
+ * never becomes spendable merely because its pay-in succeeded.
  */
 @Service
 @Transactional(readOnly = true)
@@ -31,7 +31,8 @@ public class DirectMerchantBalances {
             CommercialRefunds refunds,
             MerchantPayoutProvider provider,
             @org.springframework.beans.factory.annotation.Value(
-                    "${groupia.settlement.direct-payouts.enabled:false}") boolean directPayoutsEnabled) {
+                            "${groupia.settlement.direct-payouts.enabled:false}")
+                    boolean directPayoutsEnabled) {
         this.jdbc = jdbc;
         this.store = store;
         this.payments = payments;
@@ -41,14 +42,23 @@ public class DirectMerchantBalances {
     }
 
     private record Receipt(
-            UUID id, String number, String orderStatus, BigDecimal acceptedAmount,
-            UUID requestId, UUID paymentId, BigDecimal principal, BigDecimal seller,
+            UUID id,
+            String number,
+            String orderStatus,
+            BigDecimal acceptedAmount,
+            UUID requestId,
+            UUID paymentId,
+            BigDecimal principal,
+            BigDecimal seller,
             BigDecimal platformFee,
-            String currency, String providerName, String account) {}
+            String currency,
+            String providerName,
+            String account) {}
 
     public List<DirectSettlement> calculate(UUID org) {
-        var receipts = jdbc.query(
-                """
+        var receipts =
+                jdbc.query(
+                        """
                 select d.id,d.order_number,d.status,d.accepted_total_xof,
                        c.payment_request_id,c.payment_id,c.principal,c.seller_principal,c.platform_fee,
                        c.currency,c.provider,c.provider_account
@@ -60,20 +70,21 @@ public class DirectMerchantBalances {
                  where d.organization_id=?
                  order by d.placed_at,d.id
                 """,
-                (rs, row) -> new Receipt(
-                        rs.getObject("id", UUID.class),
-                        rs.getString("order_number"),
-                        rs.getString("status"),
-                        BigDecimal.valueOf(rs.getLong("accepted_total_xof")),
-                        rs.getObject("payment_request_id", UUID.class),
-                        rs.getObject("payment_id", UUID.class),
-                        rs.getBigDecimal("principal"),
-                        rs.getBigDecimal("seller_principal"),
-                        rs.getBigDecimal("platform_fee"),
-                        rs.getString("currency"),
-                        rs.getString("provider"),
-                        rs.getString("provider_account")),
-                org);
+                        (rs, row) ->
+                                new Receipt(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getString("order_number"),
+                                        rs.getString("status"),
+                                        BigDecimal.valueOf(rs.getLong("accepted_total_xof")),
+                                        rs.getObject("payment_request_id", UUID.class),
+                                        rs.getObject("payment_id", UUID.class),
+                                        rs.getBigDecimal("principal"),
+                                        rs.getBigDecimal("seller_principal"),
+                                        rs.getBigDecimal("platform_fee"),
+                                        rs.getString("currency"),
+                                        rs.getString("provider"),
+                                        rs.getString("provider_account")),
+                        org);
 
         var payouts = store.payouts(org);
         var result = new ArrayList<DirectSettlement>();
@@ -105,7 +116,8 @@ public class DirectMerchantBalances {
                     || proof.amount().compareTo(receipt.principal()) != 0
                     || receipt.acceptedAmount().compareTo(receipt.principal()) != 0
                     || receipt.seller().signum() < 0
-                    || receipt.seller().add(receipt.platformFee()).compareTo(receipt.principal()) != 0
+                    || receipt.seller().add(receipt.platformFee()).compareTo(receipt.principal())
+                            != 0
                     || proof.providerTransactionId() == null
                     || proof.providerTransactionId().isBlank()
                     || proof.confirmedAt() == null) {
@@ -122,8 +134,7 @@ public class DirectMerchantBalances {
                             // model; never reimburse the full seller principal in that case.
                             && refund.previouslyRefunded().signum() == 0
                             && refund.amountDue().compareTo(receipt.principal()) == 0;
-            boolean completed =
-                    "COMPLETED".equals(receipt.orderStatus()) && refund == null;
+            boolean completed = "COMPLETED".equals(receipt.orderStatus()) && refund == null;
             boolean usable =
                     directPayoutsEnabled
                             && (completed || externallyReimbursed)
@@ -171,10 +182,12 @@ public class DirectMerchantBalances {
 
     /** Serializes payout reservation with direct-order state changes. Must run in a write tx. */
     public void lock(UUID org, UUID orderId) {
-        var ids = jdbc.query(
-                "select id from direct_orders where organization_id=? and id=? for update",
-                (rs, row) -> rs.getObject("id", UUID.class),
-                org, orderId);
+        var ids =
+                jdbc.query(
+                        "select id from direct_orders where organization_id=? and id=? for update",
+                        (rs, row) -> rs.getObject("id", UUID.class),
+                        org,
+                        orderId);
         if (ids.size() != 1)
             throw new sn.groupia.shared.api.ApiException(
                     404, "DIRECT_ORDER_NOT_FOUND", "Commande directe introuvable.");

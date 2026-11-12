@@ -39,7 +39,8 @@ public class MerchantPayoutTransactions {
             Clock clock,
             OutgoingPayoutOperations outgoing,
             @Value("${groupia.settlement.payouts.enabled:false}") boolean enabled,
-            @Value("${groupia.settlement.direct-payouts.enabled:false}") boolean directPayoutsEnabled) {
+            @Value("${groupia.settlement.direct-payouts.enabled:false}")
+                    boolean directPayoutsEnabled) {
         this.outgoing = outgoing;
         store = s;
         balances = b;
@@ -177,39 +178,74 @@ public class MerchantPayoutTransactions {
                     409,
                     "MERCHANT_PAYOUT_IN_PROGRESS",
                     "Un versement est déjà réservé pour cette vente.");
-        var d = store.destination(org)
-                .orElseThrow(() ->
-                        error(409, "PAYOUT_DESTINATION_REQUIRED",
-                                "Renseignez une destination de versement."));
+        var d =
+                store.destination(org)
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "PAYOUT_DESTINATION_REQUIRED",
+                                                "Renseignez une destination de versement."));
         if (!d.id().equals(expectedDestination))
             throw error(
                     409,
                     "PAYOUT_DESTINATION_CHANGED",
                     "La destination a changé. Vérifiez-la avant de confirmer.");
         // Calculate after the organization and direct-order locks, never trust a browser amount.
-        var position = direct.calculate(org).stream()
-                .filter(row -> row.directOrderId().equals(directOrderId))
-                .findFirst()
-                .orElseThrow(() ->
-                        error(409, "MERCHANT_FUNDS_NOT_AVAILABLE",
-                                "Le règlement de cette vente n'est pas encore disponible."));
+        var position =
+                direct.calculate(org).stream()
+                        .filter(row -> row.directOrderId().equals(directOrderId))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                "Le règlement de cette vente n'est pas encore disponible."));
         if (position.availableForPayout().signum() <= 0)
             throw error(
-                    409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                    409,
+                    "MERCHANT_FUNDS_NOT_AVAILABLE",
                     "Aucun montant vérifié disponible pour cette vente.");
-        var p = new MerchantPayout(
-                UUID.randomUUID(), org, null, position.availableForPayout(), "XOF",
-                "CREATED", d.id(), d.method(), d.phoneE164(), d.holderName(),
-                provider.name(), provider.account(), reference, UUID.randomUUID(),
-                null, actor, now(), null, null, true, "AWAITING_DISPATCH", 0,
-                directOrderId);
+        var p =
+                new MerchantPayout(
+                        UUID.randomUUID(),
+                        org,
+                        null,
+                        position.availableForPayout(),
+                        "XOF",
+                        "CREATED",
+                        d.id(),
+                        d.method(),
+                        d.phoneE164(),
+                        d.holderName(),
+                        provider.name(),
+                        provider.account(),
+                        reference,
+                        UUID.randomUUID(),
+                        null,
+                        actor,
+                        now(),
+                        null,
+                        null,
+                        true,
+                        "AWAITING_DISPATCH",
+                        0,
+                        directOrderId);
         store.create(p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
-                        Kind.MERCHANT_PAYOUT, p.id(), org, p.provider(),
-                        p.providerAccountReference(), p.businessReference(),
-                        p.providerIdempotencyKey(), p.amount(), p.currency(),
-                        p.method(), p.requestedAt()));
+                        Kind.MERCHANT_PAYOUT,
+                        p.id(),
+                        org,
+                        p.provider(),
+                        p.providerAccountReference(),
+                        p.businessReference(),
+                        p.providerIdempotencyKey(),
+                        p.amount(),
+                        p.currency(),
+                        p.method(),
+                        p.requestedAt()));
         return p;
     }
 
@@ -279,17 +315,22 @@ public class MerchantPayoutTransactions {
             // Recheck after reservation and before the first irreversible provider call.
             // This already includes the current payout's own reserved principal.
             direct.lock(org, p.directOrderId());
-            var position = direct.calculate(org).stream()
-                    .filter(row -> row.directOrderId().equals(p.directOrderId()))
-                    .findFirst()
-                    .orElseThrow(() ->
-                            error(409, "MERCHANT_FUNDS_NOT_AVAILABLE",
-                                    "Le règlement de cette vente n'est pas disponible."));
+            var position =
+                    direct.calculate(org).stream()
+                            .filter(row -> row.directOrderId().equals(p.directOrderId()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            error(
+                                                    409,
+                                                    "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                    "Le règlement de cette vente n'est pas disponible."));
             if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
                     || position.reservedForPayout().compareTo(p.amount()) < 0
                     || position.deficit().signum() != 0)
                 throw error(
-                        409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                        409,
+                        "MERCHANT_FUNDS_NOT_AVAILABLE",
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");
@@ -388,21 +429,22 @@ public class MerchantPayoutTransactions {
                     .increment();
             store.state(
                     id, "SUCCEEDED", proof.transactionId(), proof.occurredAt(), now(), false, null);
-            if (!p.directSale()) store.append(
-                    new MerchantLedgerEntry(
-                            UUID.randomUUID(),
-                            org,
-                            p.campaignId(),
-                            null,
-                            "MERCHANT_PAYOUT",
-                            "DEBIT",
-                            p.amount(),
-                            p.currency(),
-                            BigDecimal.ZERO,
-                            "PAYOUT:" + p.id(),
-                            "MERCHANT_PAYOUT",
-                            p.id(),
-                            now()));
+            if (!p.directSale())
+                store.append(
+                        new MerchantLedgerEntry(
+                                UUID.randomUUID(),
+                                org,
+                                p.campaignId(),
+                                null,
+                                "MERCHANT_PAYOUT",
+                                "DEBIT",
+                                p.amount(),
+                                p.currency(),
+                                BigDecimal.ZERO,
+                                "PAYOUT:" + p.id(),
+                                "MERCHANT_PAYOUT",
+                                p.id(),
+                                now()));
         } else if (proof.status().equals("PENDING")) {
             // A correlated late pending receipt can recover the ID lost with the ACK.
             // Keep the uncertainty and reservation; this only enables a subsequent GET.

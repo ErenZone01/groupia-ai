@@ -47,7 +47,10 @@ public class MerchantBalances {
         var payouts = store.payouts(org);
         var ids = new TreeSet<UUID>();
         entries.forEach(e -> ids.add(e.campaignId()));
-        payouts.forEach(p -> { if (p.campaignId() != null) ids.add(p.campaignId()); });
+        payouts.forEach(
+                p -> {
+                    if (p.campaignId() != null) ids.add(p.campaignId());
+                });
         if (includeCampaign != null) ids.add(includeCampaign);
         var rows = new ArrayList<CampaignSettlement>();
         for (var id : ids) {
@@ -105,7 +108,8 @@ public class MerchantBalances {
                     }
                 }
             for (var p : payouts)
-                if (Objects.equals(p.campaignId(), id) && p.reserved()) reserved = reserved.add(p.amount());
+                if (Objects.equals(p.campaignId(), id) && p.reserved())
+                    reserved = reserved.add(p.amount());
             var balance = gross.subtract(refund).subtract(paid);
             rows.add(
                     new CampaignSettlement(

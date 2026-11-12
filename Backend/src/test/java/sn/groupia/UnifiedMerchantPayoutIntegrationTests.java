@@ -18,17 +18,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
 import tools.jackson.databind.*;
 
 /** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = {"groupia.settlement.payouts.enabled=true",
-        "groupia.settlement.direct-payouts.enabled=true"})
+@SpringBootTest(
+        properties = {
+            "groupia.settlement.payouts.enabled=true",
+            "groupia.settlement.direct-payouts.enabled=true"
+        })
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,
@@ -63,21 +66,32 @@ class UnifiedMerchantPayoutIntegrationTests {
         jdbc.update(
                 "insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at)"
                         + " values (?,? ,?,'ACTIVE',now(),now())",
-                actor, "+221771234567", passwords.encode("Unified payout fixture 2026!"));
+                actor,
+                "+221771234567",
+                passwords.encode("Unified payout fixture 2026!"));
         jdbc.update(
                 "insert into organizations(id,name,status,created_at,updated_at)"
-                        + " values (?,'Boutique de test','ACTIVE',now(),now())", org);
+                        + " values (?,'Boutique de test','ACTIVE',now(),now())",
+                org);
         jdbc.update(
                 "insert into organization_members(id,organization_id,user_account_id,role,status,joined_at)"
                         + " values (?,?,?,'OWNER','ACTIVE',now())",
-                UUID.randomUUID(), org, actor);
+                UUID.randomUUID(),
+                org,
+                actor);
         jwt = token(actor);
         jdbc.update(
                 "insert into direct_storefronts(id,organization_id,public_identifier,display_name,"
                         + "created_at,updated_at) values (?,?,?,'Vitrine de test',now(),now())",
-                storefront, org, UUID.randomUUID());
-        String number = "DIR-" + String.format(
-                "%012d", Math.floorMod(orderId.getMostSignificantBits(), 1_000_000_000_000L));
+                storefront,
+                org,
+                UUID.randomUUID());
+        String number =
+                "DIR-"
+                        + String.format(
+                                "%012d",
+                                Math.floorMod(
+                                        orderId.getMostSignificantBits(), 1_000_000_000_000L));
         jdbc.update(
                 """
                 insert into direct_orders(
@@ -96,7 +110,13 @@ class UnifiedMerchantPayoutIntegrationTests {
                     now()-interval '8 minutes',?,
                     now()-interval '7 minutes',now()-interval '6 minutes')
                 """,
-                orderId, org, storefront, number, UUID.randomUUID().toString(), actor, actor);
+                orderId,
+                org,
+                storefront,
+                number,
+                UUID.randomUUID().toString(),
+                actor,
+                actor);
         jdbc.update(
                 """
                 insert into provider_collections(
@@ -106,29 +126,58 @@ class UnifiedMerchantPayoutIntegrationTests {
                 values (?,?,?,?,'DIRECT_ORDER',?,'DIRECT_ORDER_INITIAL',
                     'SIMULATED','test-merchant',?,'XOF',20000,20000,0,now()-interval '10 minutes')
                 """,
-                requestId, org, requestId, paymentId, orderId, "TX-" + paymentId);
+                requestId,
+                org,
+                requestId,
+                paymentId,
+                orderId,
+                "TX-" + paymentId);
         var proof = verified(false);
         when(payments.settlementEvidence(org, requestId)).thenReturn(proof);
-        var obligation = new PaymentRequestView(
-                requestId, org, null, PaymentPurpose.DIRECT_ORDER_INITIAL,
-                "DIRECT_ORDER_INITIAL:" + orderId, new BigDecimal("20000"), "XOF",
-                new BigDecimal("20000"), BigDecimal.ZERO, BigDecimal.ZERO,
-                AcceptanceStatus.CLOSED, Instant.now().plusSeconds(1200),
-                paymentId, Instant.now().minusSeconds(1200),
-                Instant.now().minusSeconds(600), null, 0L,
-                PaymentTarget.directOrder(orderId));
+        var obligation =
+                new PaymentRequestView(
+                        requestId,
+                        org,
+                        null,
+                        PaymentPurpose.DIRECT_ORDER_INITIAL,
+                        "DIRECT_ORDER_INITIAL:" + orderId,
+                        new BigDecimal("20000"),
+                        "XOF",
+                        new BigDecimal("20000"),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        AcceptanceStatus.CLOSED,
+                        Instant.now().plusSeconds(1200),
+                        paymentId,
+                        Instant.now().minusSeconds(1200),
+                        Instant.now().minusSeconds(600),
+                        null,
+                        0L,
+                        PaymentTarget.directOrder(orderId));
         when(payments.requestState(org, requestId))
-                .thenReturn(new PaymentRequestState(
-                        obligation, PaymentOperationalStatus.SETTLED, false, false));
+                .thenReturn(
+                        new PaymentRequestState(
+                                obligation, PaymentOperationalStatus.SETTLED, false, false));
     }
 
     private PaymentSettlementEvidence verified(boolean reversed) {
         return new PaymentSettlementEvidence(
-                org, requestId, paymentId, PaymentTarget.directOrder(orderId),
-                PaymentPurpose.DIRECT_ORDER_INITIAL, new BigDecimal("20000"),
-                "XOF", AcceptanceStatus.CLOSED, PaymentStatus.SUCCEEDED,
-                "SIMULATED", "test-merchant", "TX-" + paymentId,
-                "GP-" + paymentId, Instant.now().minusSeconds(600), null, reversed);
+                org,
+                requestId,
+                paymentId,
+                PaymentTarget.directOrder(orderId),
+                PaymentPurpose.DIRECT_ORDER_INITIAL,
+                new BigDecimal("20000"),
+                "XOF",
+                AcceptanceStatus.CLOSED,
+                PaymentStatus.SUCCEEDED,
+                "SIMULATED",
+                "test-merchant",
+                "TX-" + paymentId,
+                "GP-" + paymentId,
+                Instant.now().minusSeconds(600),
+                null,
+                reversed);
     }
 
     private String base() {
@@ -141,8 +190,9 @@ class UnifiedMerchantPayoutIntegrationTests {
 
     private ResultActions auth(MockHttpServletRequestBuilder request, Object body)
             throws Exception {
-        return auth(request.contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(body)));
+        return auth(
+                request.contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(body)));
     }
 
     private JsonNode read(ResultActions action) throws Exception {
@@ -152,10 +202,19 @@ class UnifiedMerchantPayoutIntegrationTests {
 
     private UUID destination() throws Exception {
         return UUID.fromString(
-                read(auth(put(base() + "/payout-destination"),
-                        Map.of("method", "WAVE", "phoneE164", "+221771234567",
-                                "holderName", "Vendeuse", "confirmed", true)))
-                        .path("id").asText());
+                read(auth(
+                                put(base() + "/payout-destination"),
+                                Map.of(
+                                        "method",
+                                        "WAVE",
+                                        "phoneE164",
+                                        "+221771234567",
+                                        "holderName",
+                                        "Vendeuse",
+                                        "confirmed",
+                                        true)))
+                        .path("id")
+                        .asText());
     }
 
     private ResultActions request(UUID destination, UUID key) throws Exception {
@@ -176,25 +235,40 @@ class UnifiedMerchantPayoutIntegrationTests {
         var first = read(request(dest, key));
         var replay = read(request(dest, key));
         assertThat(replay.path("id").asText()).isEqualTo(first.path("id").asText());
-        assertThat(first.path("campaignId").isNull()
-                        || first.path("campaignId").isMissingNode()).isTrue();
+        assertThat(first.path("campaignId").isNull() || first.path("campaignId").isMissingNode())
+                .isTrue();
         assertThat(first.path("directOrderId").asText()).isEqualTo(orderId.toString());
         assertThat(provider.sends).hasValue(1);
-        assertThat(read(auth(get(base() + "/merchant-balance")))
-                        .path("directOrders").get(0).path("availableForPayout").decimalValue())
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("directOrders")
+                                .get(0)
+                                .path("availableForPayout")
+                                .decimalValue())
                 .isZero();
         UUID payout = UUID.fromString(first.path("id").asText());
         read(auth(post(base() + "/merchant-payouts/" + payout + "/reconcile")));
         read(auth(post(base() + "/merchant-payouts/" + payout + "/reconcile")));
-        assertThat(read(auth(get(base() + "/merchant-balance")))
-                        .path("directOrders").get(0).path("merchantPayouts").decimalValue())
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("directOrders")
+                                .get(0)
+                                .path("merchantPayouts")
+                                .decimalValue())
                 .isEqualByComparingTo("20000");
-        assertThat(jdbc.queryForObject(
-                        "select count(*) from merchant_payouts where organization_id=? and direct_order_id=?",
-                        Long.class, org, orderId)).isEqualTo(1L);
-        assertThat(jdbc.queryForObject(
-                        "select count(*) from merchant_ledger_entries where organization_id=?",
-                        Long.class, org)).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payouts where organization_id=? and direct_order_id=?",
+                                Long.class,
+                                org,
+                                orderId))
+                .isEqualTo(1L);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_ledger_entries where organization_id=?",
+                                Long.class,
+                                org))
+                .isZero();
         assertThat(provider.sends).hasValue(1);
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
     }
@@ -208,8 +282,12 @@ class UnifiedMerchantPayoutIntegrationTests {
         read(request(dest, key));
         assertThat(provider.sends).hasValue(1);
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
-        assertThat(read(auth(get(base() + "/merchant-balance")))
-                        .path("directOrders").get(0).path("reservedForPayout").decimalValue())
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("directOrders")
+                                .get(0)
+                                .path("reservedForPayout")
+                                .decimalValue())
                 .isEqualByComparingTo("20000");
         assertThat(provider.sends).hasValue(1);
     }
@@ -217,9 +295,13 @@ class UnifiedMerchantPayoutIntegrationTests {
     @Test
     void directFundsMustBeCompletedVerifiedAndOnSameSourceAccount() throws Exception {
         UUID dest = destination();
-        jdbc.update("update direct_orders set status='PICKED_UP',completed_at=null where id=?", orderId);
+        jdbc.update(
+                "update direct_orders set status='PICKED_UP',completed_at=null where id=?",
+                orderId);
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
-        jdbc.update("update direct_orders set status='COMPLETED',completed_at=now() where id=?", orderId);
+        jdbc.update(
+                "update direct_orders set status='COMPLETED',completed_at=now() where id=?",
+                orderId);
         when(payments.settlementEvidence(org, requestId)).thenReturn(verified(true));
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
         when(payments.settlementEvidence(org, requestId)).thenReturn(verified(false));
@@ -273,16 +355,18 @@ class UnifiedMerchantPayoutIntegrationTests {
     }
 
     private String token(UUID id) {
-        var claims = JwtClaimsSet.builder()
-                .claim("sid", UUID.randomUUID().toString())
-                .issuer("https://groupia.test")
-                .audience(List.of("groupia-api-test"))
-                .subject(id.toString())
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(1800))
-                .build();
+        var claims =
+                JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
+                        .issuer("https://groupia.test")
+                        .audience(List.of("groupia-api-test"))
+                        .subject(id.toString())
+                        .issuedAt(Instant.now())
+                        .expiresAt(Instant.now().plusSeconds(1800))
+                        .build();
         return encoder.encode(
-                JwtEncoderParameters.from(
-                        JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+                        JwtEncoderParameters.from(
+                                JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                .getTokenValue();
     }
 }

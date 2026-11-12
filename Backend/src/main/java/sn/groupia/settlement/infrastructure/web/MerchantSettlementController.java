@@ -1,55 +1,127 @@
 package sn.groupia.settlement.infrastructure.web;
-import java.util.*;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import com.fasterxml.jackson.annotation.JsonAnySetter;
+import java.util.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import io.swagger.v3.oas.annotations.Operation;
 import sn.groupia.settlement.api.dto.*;
 import sn.groupia.settlement.application.service.MerchantSettlementService;
-@RestController @RequestMapping("/api/organizations/{organizationId}")
+
+@RestController
+@RequestMapping("/api/organizations/{organizationId}")
 class MerchantSettlementController {
     private final MerchantSettlementService settlements;
-    MerchantSettlementController(MerchantSettlementService s) { settlements=s; }
-    public record DestinationChange(UUID previousDestinationId,@NotBlank String method,@NotBlank String phoneE164,
-        @NotBlank @Size(max=160) String holderName,boolean confirmed) {
-        @JsonAnySetter public void unknown(String key,Object value) { throw new IllegalArgumentException("Unsupported destination field"); }
+
+    MerchantSettlementController(MerchantSettlementService s) {
+        settlements = s;
     }
-    public record PayoutRequest(@NotNull UUID destinationId,boolean confirmed) {
-        @JsonAnySetter public void unknown(String key,Object value) { throw new IllegalArgumentException("Unsupported payout field"); }
+
+    public record DestinationChange(
+            UUID previousDestinationId,
+            @NotBlank String method,
+            @NotBlank String phoneE164,
+            @NotBlank @Size(max = 160) String holderName,
+            boolean confirmed) {
+        @JsonAnySetter
+        public void unknown(String key, Object value) {
+            throw new IllegalArgumentException("Unsupported destination field");
+        }
     }
-    private static <T> ResponseEntity<T> response(T value) { return ResponseEntity.ok().header("Cache-Control","no-store").body(value); }
-    @GetMapping("/merchant-balance") @Operation(operationId="merchantBalance",summary="Solde boutique et disponibilité")
-    ResponseEntity<MerchantBalance> balance(@PathVariable UUID organizationId) { return response(settlements.balance(organizationId,null)); }
-    @GetMapping("/grouping-campaigns/{campaignId}/merchant-settlement") @Operation(operationId="campaignMerchantSettlement",summary="Fonds boutique d'un groupage")
-    ResponseEntity<MerchantBalance> campaign(@PathVariable UUID organizationId,@PathVariable UUID campaignId) { return response(settlements.balance(organizationId,campaignId)); }
-    @GetMapping("/payout-destination") @Operation(operationId="merchantPayoutDestination",summary="Destination masquée des versements")
-    ResponseEntity<PayoutDestinationView> destination(@PathVariable UUID organizationId) { return response(settlements.destination(organizationId)); }
-    @PutMapping("/payout-destination") @Operation(operationId="changeMerchantPayoutDestination",summary="Nouvelle révision de destination, propriétaire uniquement")
-    ResponseEntity<PayoutDestinationView> destination(@PathVariable UUID organizationId,@Valid @RequestBody DestinationChange c) {
-        return response(settlements.destination(organizationId,c.previousDestinationId(),c.method(),c.phoneE164(),c.holderName(),c.confirmed()));
+
+    public record PayoutRequest(@NotNull UUID destinationId, boolean confirmed) {
+        @JsonAnySetter
+        public void unknown(String key, Object value) {
+            throw new IllegalArgumentException("Unsupported payout field");
+        }
     }
-    @PostMapping("/grouping-campaigns/{campaignId}/merchant-payouts") @Operation(operationId="requestMerchantPayout",summary="Demander tout le disponible du groupage")
-    ResponseEntity<MerchantPayoutView> request(@PathVariable UUID organizationId,@PathVariable UUID campaignId,
-        @RequestHeader("Idempotency-Key") UUID key,@Valid @RequestBody PayoutRequest c) {
-        return response(settlements.request(organizationId,campaignId,key,c.destinationId(),c.confirmed()));
+
+    private static <T> ResponseEntity<T> response(T value) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(value);
     }
+
+    @GetMapping("/merchant-balance")
+    @Operation(operationId = "merchantBalance", summary = "Solde boutique et disponibilité")
+    ResponseEntity<MerchantBalance> balance(@PathVariable UUID organizationId) {
+        return response(settlements.balance(organizationId, null));
+    }
+
+    @GetMapping("/grouping-campaigns/{campaignId}/merchant-settlement")
+    @Operation(operationId = "campaignMerchantSettlement", summary = "Fonds boutique d'un groupage")
+    ResponseEntity<MerchantBalance> campaign(
+            @PathVariable UUID organizationId, @PathVariable UUID campaignId) {
+        return response(settlements.balance(organizationId, campaignId));
+    }
+
+    @GetMapping("/payout-destination")
+    @Operation(
+            operationId = "merchantPayoutDestination",
+            summary = "Destination masquée des versements")
+    ResponseEntity<PayoutDestinationView> destination(@PathVariable UUID organizationId) {
+        return response(settlements.destination(organizationId));
+    }
+
+    @PutMapping("/payout-destination")
+    @Operation(
+            operationId = "changeMerchantPayoutDestination",
+            summary = "Nouvelle révision de destination, propriétaire uniquement")
+    ResponseEntity<PayoutDestinationView> destination(
+            @PathVariable UUID organizationId, @Valid @RequestBody DestinationChange c) {
+        return response(
+                settlements.destination(
+                        organizationId,
+                        c.previousDestinationId(),
+                        c.method(),
+                        c.phoneE164(),
+                        c.holderName(),
+                        c.confirmed()));
+    }
+
+    @PostMapping("/grouping-campaigns/{campaignId}/merchant-payouts")
+    @Operation(
+            operationId = "requestMerchantPayout",
+            summary = "Demander tout le disponible du groupage")
+    ResponseEntity<MerchantPayoutView> request(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID campaignId,
+            @RequestHeader("Idempotency-Key") UUID key,
+            @Valid @RequestBody PayoutRequest c) {
+        return response(
+                settlements.request(
+                        organizationId, campaignId, key, c.destinationId(), c.confirmed()));
+    }
+
     @PostMapping("/direct-orders/{directOrderId}/merchant-payouts")
     @Operation(
-            operationId="requestDirectMerchantPayout",
-            summary="Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties")
+            operationId = "requestDirectMerchantPayout",
+            summary =
+                    "Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties")
     ResponseEntity<MerchantPayoutView> requestDirect(
             @PathVariable UUID organizationId,
             @PathVariable UUID directOrderId,
             @RequestHeader("Idempotency-Key") UUID key,
             @Valid @RequestBody PayoutRequest c) {
-        return response(settlements.requestDirect(
-                organizationId, directOrderId, key, c.destinationId(), c.confirmed()));
+        return response(
+                settlements.requestDirect(
+                        organizationId, directOrderId, key, c.destinationId(), c.confirmed()));
     }
 
-    @GetMapping("/merchant-payouts") @Operation(operationId="merchantPayoutHistory",summary="Historique des versements boutique")
-    ResponseEntity<List<MerchantPayoutView>> history(@PathVariable UUID organizationId) { return response(settlements.payouts(organizationId)); }
-    @PostMapping("/merchant-payouts/{payoutId}/reconcile") @Operation(operationId="reconcileMerchantPayout",summary="Vérification serveur, sans nouvel envoi")
-    ResponseEntity<MerchantPayoutView> reconcile(@PathVariable UUID organizationId,@PathVariable UUID payoutId) { return response(settlements.reconcile(organizationId,payoutId)); }
+    @GetMapping("/merchant-payouts")
+    @Operation(
+            operationId = "merchantPayoutHistory",
+            summary = "Historique des versements boutique")
+    ResponseEntity<List<MerchantPayoutView>> history(@PathVariable UUID organizationId) {
+        return response(settlements.payouts(organizationId));
+    }
+
+    @PostMapping("/merchant-payouts/{payoutId}/reconcile")
+    @Operation(
+            operationId = "reconcileMerchantPayout",
+            summary = "Vérification serveur, sans nouvel envoi")
+    ResponseEntity<MerchantPayoutView> reconcile(
+            @PathVariable UUID organizationId, @PathVariable UUID payoutId) {
+        return response(settlements.reconcile(organizationId, payoutId));
+    }
 }

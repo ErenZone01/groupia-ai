@@ -8,8 +8,7 @@ import { Button } from '../../shared/ui/button';
 import { Skeleton } from '../../shared/feedback/skeleton';
 import { money, dateLabel } from '../../shared/utils/display';
 import { refundMethod } from '../../shared/ui/refund-summary';
-import { MerchantSettlementStore } from './merchant-settlement.store';
-import type { DirectSettlement } from './merchant-settlement.store';
+import { MerchantSettlementStore, type DirectSettlement } from './merchant-settlement.store';
 import { MerchantBalanceSummary } from './merchant-balance-summary';
 import { PayoutDestinationEditor } from './payout-destination-editor';
 export function payoutLabel(status?: string): string {
@@ -80,6 +79,8 @@ export class SettlementsPage {
   readonly date = dateLabel;
   readonly method = refundMethod;
   readonly status = payoutLabel;
+  readonly payoutSource = (p: { directOrderId?: string | null }) =>
+    p.directOrderId ? 'Vente directe' : 'Groupage';
   constructor() {
     effect(() => {
       this.auth.generation();

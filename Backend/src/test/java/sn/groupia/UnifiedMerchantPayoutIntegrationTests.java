@@ -181,7 +181,7 @@ class UnifiedMerchantPayoutIntegrationTests {
                 .isEqualByComparingTo("20000");
         assertThat(jdbc.queryForObject(
                         "select count(*) from merchant_payouts where organization_id=? and direct_order_id=?",
-                        Long.class, org, orderId)).isEqualTo(1);
+                        Long.class, org, orderId)).isEqualTo(1L);
         assertThat(jdbc.queryForObject(
                         "select count(*) from merchant_ledger_entries where organization_id=?",
                         Long.class, org)).isZero();

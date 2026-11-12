@@ -88,8 +88,7 @@ public class MerchantBalances {
                                 // SasPay collections may fund only an explicitly
                                 // authorized SasPay payout adapter. Never route them through
                                 // the existing Bictorys wallet or another organization.
-                                && (!"SASPAY".equals(source.provider())
-                                        || payoutProvider.enabled())
+                                && (!"SASPAY".equals(source.provider()) || payoutProvider.enabled())
                                 && Objects.equals(
                                         source.provider(), payoutProvider.fundingProvider())
                                 && Objects.equals(

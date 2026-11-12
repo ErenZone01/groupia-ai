@@ -5,8 +5,8 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -18,11 +18,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * LIVE merchant-wallet payout bridge. One persisted Groupia intent and provider
- * Idempotency-Key per payout; an initiation ACK is never evidence of settlement.
+ * LIVE merchant-wallet payout bridge. One persisted Groupia intent and provider Idempotency-Key per
+ * payout; an initiation ACK is never evidence of settlement.
  *
- * Disabled until SasPay authorizes marketplace withdrawals, approves beneficiary
- * evidence, and Groupia funds payout fees separately from merchant principal.
+ * <p>Disabled until SasPay authorizes marketplace withdrawals, approves beneficiary evidence, and
+ * Groupia funds payout fees separately from merchant principal.
  */
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
@@ -36,24 +36,32 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     private final RestClient http;
     private final ObjectMapper json;
     private final Clock clock;
-    private final boolean enabled, marketplaceAuthorized, beneficiaryProofApproved, feeBudgetApproved;
+    private final boolean enabled,
+            marketplaceAuthorized,
+            beneficiaryProofApproved,
+            feeBudgetApproved;
 
     @Autowired
-    public SaspayMerchantPayoutProvider(
-            ObjectMapper json, Clock clock, Environment env) {
+    public SaspayMerchantPayoutProvider(ObjectMapper json, Clock clock, Environment env) {
         this(
-                Connection.from(env), json, clock,
+                Connection.from(env),
+                json,
+                clock,
                 env.getProperty("groupia.settlement.saspay-payouts.enabled", Boolean.class, false),
                 env.getProperty(
                         "groupia.settlement.saspay-payouts.marketplace-authorized",
-                        Boolean.class, false),
+                        Boolean.class,
+                        false),
                 env.getProperty(
                         "groupia.settlement.saspay-payouts.beneficiary-proof-approved",
-                        Boolean.class, false),
+                        Boolean.class,
+                        false),
                 env.getProperty(
                         "groupia.settlement.saspay-payouts.company-fee-budget-approved",
-                        Boolean.class, false),
-                makeHttp(Connection.from(env)), false);
+                        Boolean.class,
+                        false),
+                makeHttp(Connection.from(env)),
+                false);
     }
 
     SaspayMerchantPayoutProvider(
@@ -65,8 +73,16 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean beneficiaryProofApproved,
             boolean feeBudgetApproved,
             RestClient http) {
-        this(payin, json, clock, enabled, marketplaceAuthorized, beneficiaryProofApproved,
-                feeBudgetApproved, http, true);
+        this(
+                payin,
+                json,
+                clock,
+                enabled,
+                marketplaceAuthorized,
+                beneficiaryProofApproved,
+                feeBudgetApproved,
+                http,
+                true);
     }
 
     private SaspayMerchantPayoutProvider(
@@ -91,31 +107,42 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     record Connection(
-            String apiKey, UUID merchantId, boolean enabled,
-            String waveNetwork, String orangeNetwork) {
+            String apiKey,
+            UUID merchantId,
+            boolean enabled,
+            String waveNetwork,
+            String orangeNetwork) {
         static Connection from(Environment env) {
             String key = env.getProperty("groupia.payment.saspay.api-key", "");
             String merchant = env.getProperty("groupia.payment.saspay.merchant-id", "");
             UUID id = UUID.fromString(merchant);
-            boolean active = env.getProperty(
-                    "groupia.payment.saspay.enabled", Boolean.class, false);
+            boolean active =
+                    env.getProperty("groupia.payment.saspay.enabled", Boolean.class, false);
             // No unverified guess: require provider-confirmed payout network codes.
             return new Connection(
-                    key, id, active,
+                    key,
+                    id,
+                    active,
                     env.getProperty("groupia.settlement.saspay-payouts.wave-network", ""),
                     env.getProperty("groupia.settlement.saspay-payouts.orange-network", ""));
         }
 
-        boolean isLive() { return apiKey != null && apiKey.startsWith("sk_live_"); }
+        boolean isLive() {
+            return apiKey != null && apiKey.startsWith("sk_live_");
+        }
 
-        @Override public String toString() { return "SaspayPayoutConnection[redacted]"; }
+        @Override
+        public String toString() {
+            return "SaspayPayoutConnection[redacted]";
+        }
     }
 
     static RestClient makeHttp(Connection p) {
-        var transport = HttpClient.newBuilder()
-                .connectTimeout(java.time.Duration.ofSeconds(3))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+        var transport =
+                HttpClient.newBuilder()
+                        .connectTimeout(java.time.Duration.ofSeconds(3))
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .build();
         var factory = new JdkClientHttpRequestFactory(transport);
         factory.setReadTimeout(java.time.Duration.ofSeconds(10));
         return RestClient.builder()
@@ -126,15 +153,36 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 .build();
     }
 
-    @Override public boolean enabled() {
+    @Override
+    public boolean enabled() {
         return (syntheticTransport || PRODUCTION_PAYOUT_RELEASED)
-                && enabled && payin.enabled() && payin.isLive()
-                && marketplaceAuthorized && beneficiaryProofApproved && feeBudgetApproved;
+                && enabled
+                && payin.enabled()
+                && payin.isLive()
+                && marketplaceAuthorized
+                && beneficiaryProofApproved
+                && feeBudgetApproved;
     }
-    @Override public String name() { return "SASPAY"; }
-    @Override public String account() { return payin.merchantId().toString(); }
-    @Override public String fundingProvider() { return "SASPAY"; }
-    @Override public String fundingAccount() { return account(); }
+
+    @Override
+    public String name() {
+        return "SASPAY";
+    }
+
+    @Override
+    public String account() {
+        return payin.merchantId().toString();
+    }
+
+    @Override
+    public String fundingProvider() {
+        return "SASPAY";
+    }
+
+    @Override
+    public String fundingAccount() {
+        return account();
+    }
 
     @Override
     public String initiate(MerchantPayout p) {
@@ -150,13 +198,15 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         body.put("recipient", Map.of("msisdn", recipientPhone.substring(4)));
         body.put("description", "Versement Groupia");
         body.put("fee_charge_mode", "ADD_ON");
-        body.put("metadata",
+        body.put(
+                "metadata",
                 Map.of(
                         "groupia_payout_id", p.id().toString(),
                         "groupia_reference", p.businessReference()));
         JsonNode ack =
                 exchange(
-                        http.post().uri("/payouts/initialize/")
+                        http.post()
+                                .uri("/payouts/initialize/")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .header("Idempotency-Key", p.providerIdempotencyKey().toString())
                                 .body(body),
@@ -191,13 +241,14 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 || charged.compareTo(amount.add(fee)) != 0
                 || net.compareTo(amount) != 0)
             throw new IllegalStateException("SASPAY_PAYOUT_FINANCIAL_MISMATCH");
-        String status = switch (Objects.toString(text(data, "status"), "")) {
-            case "PENDING" -> "PENDING";
-            case "SUCCESS" -> "SUCCEEDED";
-            case "FAILED" -> "FAILED";
-            case "CANCELLED" -> "CANCELLED";
-            default -> throw new IllegalStateException("SASPAY_PAYOUT_STATUS_UNKNOWN");
-        };
+        String status =
+                switch (Objects.toString(text(data, "status"), "")) {
+                    case "PENDING" -> "PENDING";
+                    case "SUCCESS" -> "SUCCEEDED";
+                    case "FAILED" -> "FAILED";
+                    case "CANCELLED" -> "CANCELLED";
+                    default -> throw new IllegalStateException("SASPAY_PAYOUT_STATUS_UNKNOWN");
+                };
         // The official GET example contains only a customer UUID and network UUID.
         // Neither proves the actual recipient MSISDN or payment network.
         // No ledger payout may succeed until the provider returns verified
@@ -213,21 +264,34 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
         Instant occurredAt = checkedAt;
         String updated = text(data, "updated_at");
-        if (updated != null) try {
-            occurredAt = Instant.parse(updated);
-        } catch (RuntimeException ex) {
-            throw new IllegalStateException("SASPAY_PAYOUT_INVALID_TIMESTAMP");
-        }
-        return new Proof(true, name(), account(), p.businessReference(), transaction,
-                amount, "XOF", p.method(), verifiedPhone, status, occurredAt);
+        if (updated != null)
+            try {
+                occurredAt = Instant.parse(updated);
+            } catch (RuntimeException ex) {
+                throw new IllegalStateException("SASPAY_PAYOUT_INVALID_TIMESTAMP");
+            }
+        return new Proof(
+                true,
+                name(),
+                account(),
+                p.businessReference(),
+                transaction,
+                amount,
+                "XOF",
+                p.method(),
+                verifiedPhone,
+                status,
+                occurredAt);
     }
 
     private String network(String method) {
-        String code = switch (method == null ? "" : method) {
-            case "WAVE" -> payin.waveNetwork();
-            case "ORANGE_MONEY" -> payin.orangeNetwork();
-            default -> throw new IllegalArgumentException("SASPAY_PAYOUT_METHOD_UNSUPPORTED");
-        };
+        String code =
+                switch (method == null ? "" : method) {
+                    case "WAVE" -> payin.waveNetwork();
+                    case "ORANGE_MONEY" -> payin.orangeNetwork();
+                    default ->
+                            throw new IllegalArgumentException("SASPAY_PAYOUT_METHOD_UNSUPPORTED");
+                };
         if (code == null || !code.matches("[a-z0-9_]{3,64}"))
             throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_NOT_APPROVED");
         return code;
@@ -252,6 +316,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 || !p.businessReference().startsWith("MERCHANT_PAYOUT:"))
             throw new IllegalArgumentException("SASPAY_PAYOUT_INTENT_INVALID");
     }
+
     private void requireEnabled() {
         if (!enabled()) throw new IllegalStateException("SASPAY_PAYOUT_NOT_AUTHORIZED");
     }
@@ -289,15 +354,18 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     private static String uuid(String id) {
-        try { return UUID.fromString(id).toString(); }
-        catch (RuntimeException ex) {
+        try {
+            return UUID.fromString(id).toString();
+        } catch (RuntimeException ex) {
             throw new IllegalStateException("SASPAY_PAYOUT_IDENTIFIER_INVALID");
         }
     }
+
     private static String text(JsonNode n, String field) {
         var value = n.path(field);
         return value.isTextual() ? value.asText() : null;
     }
+
     private static BigDecimal money(JsonNode n, String field) {
         var value = n.path(field);
         if (!value.isNumber() && !value.isTextual())

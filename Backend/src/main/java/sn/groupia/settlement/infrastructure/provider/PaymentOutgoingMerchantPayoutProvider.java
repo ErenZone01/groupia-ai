@@ -1,7 +1,7 @@
 package sn.groupia.settlement.infrastructure.provider;
 
-import org.springframework.stereotype.Component;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 import sn.groupia.payment.api.OutgoingPayoutOperations;
 import sn.groupia.payment.api.OutgoingPayoutOperations.Kind;
 import sn.groupia.settlement.domain.model.MerchantPayout;

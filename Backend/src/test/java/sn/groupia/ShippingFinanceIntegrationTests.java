@@ -26,7 +26,10 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(
         properties = {
             "groupia.customer-access.enabled=true",
-            "groupia.customer-access.public-base-url=https://groupia.test"
+            "groupia.customer-access.public-base-url=https://groupia.test",
+            // This suite exercises the historical Softpay quote contract against a stub.
+            // Real hosted SasPay checkout must continue to return 410 on this endpoint.
+            "groupia.payment.saspay.legacy-softpay-tests=true"
         })
 @org.springframework.test.context.event.RecordApplicationEvents
 @AutoConfigureMockMvc

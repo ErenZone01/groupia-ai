@@ -141,7 +141,7 @@ const statusLabels: Record<string, string> = {
               </button>
               <p class="help">
                 Choisissez Wave, Orange Money ou un autre moyen disponible sur SasPay.
-                Les frais sont affichés avant la confirmation du paiement.
+                Des frais supplémentaires peuvent être appliqués par le partenaire ou l'opérateur mobile. Vérifiez le montant final dans Wave ou Orange Money avant de confirmer.
               </p>
             }
             @if (details.canManageSubscription && store.checkoutUrl(); as url) {

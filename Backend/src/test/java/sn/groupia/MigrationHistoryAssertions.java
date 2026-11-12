@@ -40,6 +40,19 @@ final class MigrationHistoryAssertions {
         return row;
     }
 
+    /**
+     * The additive direct-payout migration adds a nullable target column. Historical
+     * campaign payouts must keep that target null and every pre-existing field intact.
+     */
+    static java.util.Map<String, Object> historicalMerchantPayout(
+            java.util.Map<String, Object> row) {
+        assertThat(row).containsKey("direct_order_id");
+        assertThat(row.remove("direct_order_id"))
+                .as("Historical groupage payouts must not acquire a direct-order target")
+                .isNull();
+        return row;
+    }
+
     static List<Entry> snapshot(JdbcTemplate jdbc) {
         return jdbc.query(
                 "select id, author, filename, md5sum, orderexecuted, exectype from databasechangelog order by orderexecuted",

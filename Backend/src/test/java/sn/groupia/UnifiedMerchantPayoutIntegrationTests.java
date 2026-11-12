@@ -206,8 +206,7 @@ class UnifiedMerchantPayoutIntegrationTests {
             Exception cause = result.getResolvedException();
             if (cause != null)
                 throw new AssertionError(
-                        "Unexpected payout HTTP status " + result.getResponse().getStatus(),
-                        cause);
+                        "Unexpected payout HTTP status " + result.getResponse().getStatus(), cause);
         }
         assertThat(result.getResponse().getStatus()).isEqualTo(200);
         return json.readTree(result.getResponse().getContentAsString());
@@ -292,8 +291,7 @@ class UnifiedMerchantPayoutIntegrationTests {
     }
 
     @Test
-    void previouslySucceededDirectPayoutFromAnotherAdapterCannotBeSpentAgain()
-            throws Exception {
+    void previouslySucceededDirectPayoutFromAnotherAdapterCannotBeSpentAgain() throws Exception {
         UUID dest = destination();
         UUID previous = UUID.randomUUID();
         jdbc.update(
@@ -320,10 +318,8 @@ class UnifiedMerchantPayoutIntegrationTests {
                 UUID.randomUUID(),
                 "LEGACY-" + previous,
                 actor);
-        var position = read(auth(get(base() + "/merchant-balance")))
-                .path("directOrders").get(0);
-        assertThat(position.path("merchantPayouts").decimalValue())
-                .isEqualByComparingTo("20000");
+        var position = read(auth(get(base() + "/merchant-balance"))).path("directOrders").get(0);
+        assertThat(position.path("merchantPayouts").decimalValue()).isEqualByComparingTo("20000");
         assertThat(position.path("availableForPayout").decimalValue()).isZero();
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
         assertThat(provider.sends).hasValue(0);

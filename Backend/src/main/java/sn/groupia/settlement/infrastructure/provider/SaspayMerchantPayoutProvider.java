@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -33,6 +34,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     private final Clock clock;
     private final boolean enabled, marketplaceAuthorized, beneficiaryProofApproved, feeBudgetApproved;
 
+    @Autowired
     public SaspayMerchantPayoutProvider(
             SaspayProperties payin, ObjectMapper json, Clock clock, Environment env) {
         this(

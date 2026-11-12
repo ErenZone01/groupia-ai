@@ -28,6 +28,11 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
 public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
+    // A production deployment must not be able to transfer money just by flipping
+    // flags: verified recipient identity and separately funded payout fees remain
+    // contractually unresolved. Test-only loopback fixtures exercise the protocol.
+    private static final boolean PRODUCTION_PAYOUT_RELEASED = false;
+    private final boolean syntheticTransport;
     private final SaspayProperties payin;
     private final RestClient http;
     private final ObjectMapper json;
@@ -49,7 +54,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 env.getProperty(
                         "groupia.settlement.saspay-payouts.company-fee-budget-approved",
                         Boolean.class, false),
-                makeHttp(payin));
+                makeHttp(payin), false);
     }
 
     SaspayMerchantPayoutProvider(
@@ -61,6 +66,21 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean beneficiaryProofApproved,
             boolean feeBudgetApproved,
             RestClient http) {
+        this(payin, json, clock, enabled, marketplaceAuthorized, beneficiaryProofApproved,
+                feeBudgetApproved, http, true);
+    }
+
+    private SaspayMerchantPayoutProvider(
+            SaspayProperties payin,
+            ObjectMapper json,
+            Clock clock,
+            boolean enabled,
+            boolean marketplaceAuthorized,
+            boolean beneficiaryProofApproved,
+            boolean feeBudgetApproved,
+            RestClient http,
+            boolean syntheticTransport) {
+        this.syntheticTransport = syntheticTransport;
         this.payin = payin;
         this.json = json;
         this.clock = clock;
@@ -88,7 +108,8 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     @Override public boolean enabled() {
-        return enabled && payin.enabled() && payin.isLive()
+        return (syntheticTransport || PRODUCTION_PAYOUT_RELEASED)
+                && enabled && payin.enabled() && payin.isLive()
                 && marketplaceAuthorized && beneficiaryProofApproved && feeBudgetApproved;
     }
     @Override public String name() { return "SASPAY"; }

@@ -18,6 +18,7 @@ export interface DirectSettlement {
   provider: string;
   accountReference: string;
   grossMerchantCollections: number;
+  platformFees: number;
   eligibleBalance: number;
   merchantPayouts: number;
   reservedForPayout: number;

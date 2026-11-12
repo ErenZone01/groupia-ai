@@ -90,9 +90,12 @@ class CommercialCancellationMigrationUpgradeTests {
                                     Integer.class))
                     .isEqualTo(accepted ? 1 : 0);
             MigrationHistoryAssertions.assertPreserved(jdbc, history);
-            for (var entry : before.entrySet())
-                assertThat(jdbc.queryForList("select * from " + entry.getKey() + " order by id"))
-                        .isEqualTo(entry.getValue());
+            for (var entry : before.entrySet()) {
+                var after = jdbc.queryForList("select * from " + entry.getKey() + " order by id");
+                if (accepted && entry.getKey().equals("payments"))
+                    after.forEach(MigrationHistoryAssertions::historicalPayment);
+                assertThat(after).isEqualTo(entry.getValue());
+            }
             var afterCampaigns = jdbc.queryForList("select * from grouping_campaigns order by id");
             if (version.equals("original")) {
                 afterCampaigns.forEach(

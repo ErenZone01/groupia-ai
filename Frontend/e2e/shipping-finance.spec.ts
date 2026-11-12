@@ -51,7 +51,7 @@ async function setup(page: Page, scope = 'ORDER_ACCESS') {
           state.saspay && state.value.paymentInProgress
             ? {
                 provider: 'SASPAY',
-                quote,
+                quote: null,
                 attempt: {
                   status: 'PENDING',
                   expectedAmount: 5000,
@@ -61,15 +61,13 @@ async function setup(page: Page, scope = 'ORDER_ACCESS') {
               }
             : null,
       });
-    if (path.endsWith('/shipping-balance/payment-quotes')) {
-      expect(r.request().headers()['x-xsrf-token']).toBe('finance-csrf');
-      return reply([quote]);
-    }
+    if (path.endsWith('/shipping-balance/payment-quotes'))
+      throw new Error('Hosted SasPay must not request obsolete operator fee quotes');
     if (path.endsWith('/shipping-balance/payments')) {
       state.calls++;
       expect(r.request().postDataJSON()).toEqual(
         state.saspay
-          ? { provider: 'SASPAY', feeQuoteId: 'shipping-fee' }
+          ? { provider: 'SASPAY', payerEmail: 'transport@example.com' }
           : { provider: 'BICTORYS' },
       );
       expect(r.request().headers()['x-xsrf-token']).toBe('finance-csrf');
@@ -234,21 +232,22 @@ for (const width of [360, 1280])
     await noOverflow(page);
   });
 
-test('transport SasPay : frais acceptés, reprise du push et règlement uniquement sur confirmation serveur', async ({
+test('transport SasPay hébergé : frais annoncés, reprise sans URL et règlement uniquement sur confirmation serveur', async ({
   page,
 }) => {
   const state = await setup(page);
   state.saspay = true;
   await page.goto('/mes-commandes/' + number);
-  await page.getByRole('button', { name: 'Voir les frais SasPay du transport' }).click();
-  await expect(page.getByText('Frais à votre charge', { exact: false })).toContainText('125');
+  await expect(page.getByText(/Des frais supplémentaires peuvent être appliqués/)).toBeVisible();
+  await page.getByLabel('Adresse e-mail du payeur (si non renseignée)').fill('transport@example.com');
   expect(state.calls).toBe(0);
-  await page.getByRole('button', { name: 'Accepter les frais et payer', exact: false }).click();
+  await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
   await page.reload();
   await expect(
     page.getByText('Confirmez la demande sur votre téléphone', { exact: false }),
   ).toBeVisible();
-  await expect(page.getByText('Montant accepté', { exact: false })).toContainText(/5.?125/);
+  await expect(page.getByText('Montant accepté', { exact: false })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Payer avec SasPay/ })).toHaveCount(0);
   await expect(page.getByText('Transport réglé', { exact: true })).toHaveCount(0);
   expect(state.calls).toBe(1);
   state.value = {

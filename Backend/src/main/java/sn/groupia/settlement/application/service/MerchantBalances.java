@@ -14,6 +14,7 @@ import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 @Transactional(readOnly = true)
 public class MerchantBalances {
     private final MerchantFinanceStore store;
+    private final DirectMerchantBalances direct;
     private final sn.groupia.payment.api.CommercialRefunds refunds;
     private final sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider;
     private final MerchantCampaignFacts campaigns;
@@ -26,7 +27,9 @@ public class MerchantBalances {
             MerchantOrderFacts o,
             sn.groupia.payment.api.PaymentOperations payments,
             sn.groupia.settlement.domain.service.MerchantPayoutProvider payoutProvider,
-            sn.groupia.payment.api.CommercialRefunds refunds) {
+            sn.groupia.payment.api.CommercialRefunds refunds,
+            DirectMerchantBalances direct) {
+        this.direct = direct;
         this.refunds = refunds;
         this.payoutProvider = payoutProvider;
         store = s;
@@ -44,7 +47,7 @@ public class MerchantBalances {
         var payouts = store.payouts(org);
         var ids = new TreeSet<UUID>();
         entries.forEach(e -> ids.add(e.campaignId()));
-        payouts.forEach(p -> ids.add(p.campaignId()));
+        payouts.forEach(p -> { if (p.campaignId() != null) ids.add(p.campaignId()); });
         if (includeCampaign != null) ids.add(includeCampaign);
         var rows = new ArrayList<CampaignSettlement>();
         for (var id : ids) {
@@ -102,7 +105,7 @@ public class MerchantBalances {
                     }
                 }
             for (var p : payouts)
-                if (p.campaignId().equals(id) && p.reserved()) reserved = reserved.add(p.amount());
+                if (Objects.equals(p.campaignId(), id) && p.reserved()) reserved = reserved.add(p.amount());
             var balance = gross.subtract(refund).subtract(paid);
             rows.add(
                     new CampaignSettlement(
@@ -133,6 +136,13 @@ public class MerchantBalances {
             paid = paid.add(r.merchantPayouts());
             eligible = eligible.add(r.eligibleBalance());
             reserved = reserved.add(r.reservedForPayout());
+        }
+        var directOrders = direct.calculate(org);
+        for (var d : directOrders) {
+            gross = gross.add(d.grossMerchantCollections());
+            paid = paid.add(d.merchantPayouts());
+            eligible = eligible.add(d.eligibleBalance());
+            reserved = reserved.add(d.reservedForPayout());
         }
         var available = eligible.subtract(reserved).max(BigDecimal.ZERO);
         var limited =
@@ -169,6 +179,7 @@ public class MerchantBalances {
                 manage,
                 destination,
                 provider,
-                limited);
+                limited,
+                directOrders);
     }
 }

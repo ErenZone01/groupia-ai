@@ -150,10 +150,18 @@ public class DirectMerchantBalances {
             BigDecimal reserved = BigDecimal.ZERO;
             for (var payout : payouts) {
                 if (!Objects.equals(payout.directOrderId(), receipt.id())) continue;
-                if (!Objects.equals(payout.provider(), receipt.providerName())
-                        || !Objects.equals(payout.providerAccountReference(), receipt.account())
-                        || !Objects.equals(payout.currency(), receipt.currency())) {
-                    throw new IllegalStateException("Direct payout source account mismatch");
+                // Pay-in funding identity and payout adapter identity are distinct:
+                // fundingProvider()/fundingAccount() identify the origin of funds,
+                // whereas payout.provider()/providerAccountReference() identify the
+                // external transfer operator. The funding-source checks above must
+                // still pass before a new payout can be reserved.
+                //
+                // All durable debits/reservations for this exact organization-scoped
+                // direct order count regardless of which payout adapter sent them.
+                // Ignoring historical payouts after an adapter change would allow
+                // withdrawing the same seller principal more than once.
+                if (!Objects.equals(payout.currency(), receipt.currency())) {
+                    throw new IllegalStateException("Direct payout currency mismatch");
                 }
                 if (payout.succeeded()) paid = paid.add(payout.amount());
                 else if (payout.reserved()) reserved = reserved.add(payout.amount());

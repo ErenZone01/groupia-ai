@@ -111,6 +111,32 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void verifiesExistingPayoutByGetOnlyWithoutCreatingAnotherTransfer() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var reads = new AtomicInteger();
+        server.createContext("/api/v1/payouts/" + TX + "/verify/", exchange -> {
+            reads.incrementAndGet();
+            assertThat(exchange.getRequestMethod()).isEqualTo("GET");
+            byte[] response = ("{\"success\":true,\"data\":"
+                    + verified("771234567", "wave_sn") + "}")
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            try (var output = exchange.getResponseBody()) {
+                output.write(response);
+            }
+        });
+        server.start();
+        try {
+            var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+            assertThat(provider.verify(payout(TX.toString())).status()).isEqualTo("SUCCEEDED");
+            assertThat(reads.get()).isEqualTo(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void missingIndependentRecipientProofNeverBecomesSuccessfulPayout() throws Exception {
         var p = payout(TX.toString());
         var provider = adapter(true, "http://127.0.0.1:1");

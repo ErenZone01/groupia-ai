@@ -29,6 +29,17 @@ final class MigrationHistoryAssertions {
         return row;
     }
 
+    /** Ensure new hosted-checkout fields have no invented values for historical payments. */
+    static java.util.Map<String, Object> historicalPayment(java.util.Map<String, Object> row) {
+        for (String column : List.of("provider_collection_fee", "provider_customer_charged")) {
+            assertThat(row).containsKey(column);
+            assertThat(row.remove(column))
+                    .as("Historical payments must not acquire invented %s", column)
+                    .isNull();
+        }
+        return row;
+    }
+
     static List<Entry> snapshot(JdbcTemplate jdbc) {
         return jdbc.query(
                 "select id, author, filename, md5sum, orderexecuted, exectype from databasechangelog order by orderexecuted",

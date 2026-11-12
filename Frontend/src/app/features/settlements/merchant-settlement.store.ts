@@ -1,4 +1,5 @@
 import { effect, inject, Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, timeout } from 'rxjs';
 import { MerchantSettlementControllerService } from '../../api/generated/services';
 import type {
@@ -8,10 +9,29 @@ import type {
 } from '../../api/generated/models';
 import { AuthService } from '../../core/auth/auth.service';
 import { apiMessage } from '../../core/http/api-error';
+
+export interface DirectSettlement {
+  directOrderId: string;
+  orderNumber: string;
+  status: string;
+  currency: string;
+  provider: string;
+  accountReference: string;
+  grossMerchantCollections: number;
+  eligibleBalance: number;
+  merchantPayouts: number;
+  reservedForPayout: number;
+  availableForPayout: number;
+  deficit: number;
+}
+type UnifiedBalance = MerchantBalance & { directOrders?: DirectSettlement[] };
+type UnifiedPayout = MerchantPayoutView & { directOrderId?: string | null };
 @Injectable()
 export class MerchantSettlementStore {
   private readonly api = inject(MerchantSettlementControllerService);
+  private readonly http = inject(HttpClient);
   readonly balance = signal<MerchantBalance | null>(null);
+  readonly directOrders = signal<DirectSettlement[]>([]);
   readonly destination = signal<PayoutDestinationView | null>(null);
   readonly history = signal<MerchantPayoutView[]>([]);
   readonly loading = signal(false);
@@ -38,6 +58,7 @@ export class MerchantSettlementStore {
     this.session = this.auth.generation();
     this.org = '';
     this.balance.set(null);
+    this.directOrders.set([]);
     this.destination.set(null);
     this.history.set([]);
     this.loading.set(false);
@@ -61,6 +82,7 @@ export class MerchantSettlementStore {
       this.operation++;
       this.busy.set(false);
       this.balance.set(null);
+      this.directOrders.set([]);
       this.destination.set(null);
       this.history.set([]);
       this.error.set('');
@@ -81,11 +103,16 @@ export class MerchantSettlementStore {
       ]);
       if (generation !== this.generation || !this.current(org, context, session)) return;
       this.balance.set(balance);
+      this.directOrders.set((balance as UnifiedBalance).directOrders ?? []);
       this.destination.set(destination ?? null);
       this.history.set(history);
       for (const [scope, previous] of this.uncertain) {
         const resolved = history.find(
-          (p) => scope === org + ':' + p.campaignId && p.id && !previous.has(p.id),
+          (p) => {
+            const directId = (p as UnifiedPayout).directOrderId;
+            return (scope === org + ':' + p.campaignId || scope === org + ':direct:' + directId)
+              && p.id && !previous.has(p.id);
+          },
         );
         if (resolved && ['FAILED', 'CANCELLED', 'SUCCEEDED'].includes(resolved.status ?? '')) {
           this.uncertain.delete(scope);
@@ -143,13 +170,21 @@ export class MerchantSettlementStore {
     }
   }
   async request(campaignId: string) {
+    return this.requestTarget(campaignId, false);
+  }
+  async requestDirect(directOrderId: string) {
+    return this.requestTarget(directOrderId, true);
+  }
+  private async requestTarget(targetId: string, direct: boolean) {
     if (this.session !== this.auth.generation()) {
       this.clear();
       return;
     }
     const b = this.balance(),
       d = this.destination();
-    const row = b?.campaigns?.find((c) => c.campaignId === campaignId);
+    const row = direct
+      ? this.directOrders().find((d) => d.directOrderId === targetId)
+      : b?.campaigns?.find((d) => d.campaignId === targetId);
     if (
       this.busy() ||
       this.loading() ||
@@ -160,7 +195,7 @@ export class MerchantSettlementStore {
     )
       return;
     const org = this.org,
-      scope = org + ':' + campaignId,
+      scope = org + ':' + (direct ? 'direct:' : '') + targetId,
       context = this.contextGeneration,
       session = this.session,
       operation = ++this.operation;
@@ -175,16 +210,26 @@ export class MerchantSettlementStore {
     this.error.set('');
     let failure = '';
     try {
-      await firstValueFrom(
-        this.api
-          .requestMerchantPayout({
-            organizationId: org,
-            campaignId,
-            'Idempotency-Key': key,
-            body: { destinationId: d.id, confirmed: true },
-          })
-          .pipe(timeout(40000)),
-      );
+      if (direct) {
+        await firstValueFrom(
+          this.http.post<MerchantPayoutView>(
+            `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payouts`,
+            { destinationId: d.id, confirmed: true },
+            { headers: { 'Idempotency-Key': key } },
+          ).pipe(timeout(40000)),
+        );
+      } else {
+        await firstValueFrom(
+          this.api
+            .requestMerchantPayout({
+              organizationId: org,
+              campaignId: targetId,
+              'Idempotency-Key': key,
+              body: { destinationId: d.id, confirmed: true },
+            })
+            .pipe(timeout(40000)),
+        );
+      }
       if (this.keys.get(scope) === key) this.keys.delete(scope);
     } catch {
       this.uncertain.set(scope, previous);

@@ -90,6 +90,14 @@ prouve **pas** un scope payout, un whitelist IP ni un mandat
 marketplace. Une autorisation pour les fonds de Groupia ne vaut
 pas autorisation pour les vendeuses.
 
+**La libération production est aussi bloquée dans le code** :
+`PRODUCTION_PAYOUT_RELEASED=false` dans l'adaptateur SasPay,
+et cette constante n'est pas une propriété d'environnement.
+Le test `productionWiringCannotReleaseRealMoneyJustByFlippingEnvironmentFlags`
+vérifie que même tous les drapeaux mis à true ne peuvent
+déclencher un retrait LIVE. Les tests réseau utilisent un
+adaptateur à transport loopback, jamais la clé LIVE du vendeur.
+
 **Ne pas passer ces drapeaux à true maintenant.**
 L'approbation doit couvrir :
 1. KYC et permissions de payout `PAYOUT/BOTH`, IP sortante stable

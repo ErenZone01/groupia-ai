@@ -130,6 +130,7 @@
       @for (p of store.history(); track p.id) {
         <article>
           <h3>{{ status(p.status) }} · {{ money(p.amount) }}</h3>
+          <p>{{ payoutSource(p) }}</p>
           <p>
             {{ method(p.method) }} · {{ p.maskedPhone }} ·
             {{ date(p.succeededAt || p.requestedAt) }}

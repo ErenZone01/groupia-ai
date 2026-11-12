@@ -98,7 +98,10 @@ class MerchantSettlementMigrationTests {
                     }
                 }
                 if (table.equals("payments")) {
-                    for (var row : rows) assertThat(row.remove("fee_quote_id")).isNull();
+                    for (var row : rows) {
+                        assertThat(row.remove("fee_quote_id")).isNull();
+                        MigrationHistoryAssertions.historicalPayment(row);
+                    }
                 }
                 if (table.equals("orders"))
                     rows.forEach(MigrationHistoryAssertions::historicalOrder);

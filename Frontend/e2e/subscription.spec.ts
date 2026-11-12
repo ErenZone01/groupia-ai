@@ -85,7 +85,8 @@ async function billing(page: Page, status = 'TRIALING', manage = true) {
         json: r.method() === 'POST' ? state.invoice : state.invoice ? [state.invoice] : [],
       });
     }
-    if (path.endsWith('/payment-quotes')) return route.fulfill({ json: [subscriptionQuote] });
+    if (path.endsWith('/payment-quotes'))
+      throw new Error('Hosted SasPay must not request obsolete operator fee quotes');
     if (path.endsWith('/payment')) {
       state.invoice = { ...state.invoice, canPay: false, attemptInProgress: true };
       if (r.postDataJSON()?.provider === 'SASPAY') {
@@ -98,8 +99,7 @@ async function billing(page: Page, status = 'TRIALING', manage = true) {
           ...state.invoice,
           latestAttempt: {
             provider: 'SASPAY',
-            feeQuoteId: subscriptionQuote.id,
-            quote: subscriptionQuote,
+            quote: null,
             attempt,
           },
         };
@@ -240,45 +240,28 @@ test('changement de boutique efface les coordonnées précédentes', async ({ pa
   expect(shopId).not.toBe(other);
 });
 
-const subscriptionQuote = {
-  id: 'subscription-fee',
-  provider: 'SASPAY',
-  network: 'wave_sn',
-  networkLabel: 'Wave',
-  saleAmount: 10000,
-  collectionFee: 250,
-  totalCharged: 10250,
-  merchantNet: 10000,
-  groupiaCommission: 0,
-  currency: 'XOF',
-  expiresAt: '2099-12-01T00:00:00Z',
-};
-
-test('SasPay abonnement affiche les frais, reprend après perte de réponse et attend la preuve serveur', async ({
+test('SasPay abonnement hébergé : frais annoncés, reprise après perte de réponse et preuve serveur', async ({
   page,
 }) => {
   const state = await billing(page, 'PAST_DUE');
   state.providers = ['SASPAY'];
   state.lose = true;
   await page.goto('/app/abonnement');
-  await page.getByRole('button', { name: 'Voir les frais SasPay' }).click();
-  await expect(
-    page.getByText('Frais d’encaissement à votre charge', { exact: false }),
-  ).toBeVisible();
-  const accept = page.getByRole('button', { name: 'Accepter les frais et payer', exact: false });
-  await expect(accept).toContainText(/10.?250/);
+  await expect(page.getByText(/Des frais supplémentaires peuvent être appliqués/)).toBeVisible();
+  const pay = page.getByRole('button', { name: "Payer l'abonnement avec SasPay" });
+  await expect(pay).toBeEnabled();
   expect(state.posts.filter((p) => p.path.endsWith('/payment'))).toHaveLength(0);
-  await accept.click();
+  await pay.click();
   await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toHaveAttribute(
     'href',
     'https://pay.saspay.me/fixture',
   );
   await page.reload();
   await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toBeVisible();
-  await expect(page.getByText('Montant accepté', { exact: false })).toContainText(/10.?250/);
+  await expect(page.getByText('Montant accepté', { exact: false })).toHaveCount(0);
   const payments = state.posts.filter((p) => p.path.endsWith('/payment'));
   expect(payments).toHaveLength(1);
-  expect(payments[0].body).toEqual({ provider: 'SASPAY', feeQuoteId: subscriptionQuote.id });
+  expect(payments[0].body).toEqual({ provider: 'SASPAY' });
   await expect(page.getByText('À renouveler', { exact: true })).toBeVisible();
   state.invoice = {
     ...state.invoice,
@@ -294,16 +277,16 @@ test('SasPay abonnement affiche les frais, reprend après perte de réponse et a
   await noOverflow(page);
 });
 
-test('SasPay abonnement sans URL demande la confirmation sur téléphone', async ({ page }) => {
+test('SasPay abonnement sans URL reste en attente et ne suppose pas une confirmation', async ({ page }) => {
   const state = await billing(page);
   state.providers = ['SASPAY'];
   state.push = true;
   await page.goto('/app/abonnement');
-  await page.getByRole('button', { name: 'Voir les frais SasPay' }).click();
-  await page.getByRole('button', { name: 'Accepter les frais et payer', exact: false }).click();
-  await expect(
-    page.getByText('Confirmez la demande sur votre téléphone', { exact: false }),
-  ).toBeVisible();
+  await page.getByRole('button', { name: "Payer l'abonnement avec SasPay" }).click();
+  await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+  await expect(page.getByText('Confirmez la demande sur votre téléphone', { exact: false }))
+    .toHaveCount(0);
+  expect(state.posts.filter((p) => p.path.endsWith('/payment'))).toHaveLength(1);
   await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toHaveCount(0);
   await expect(page.getByText('Essai gratuit', { exact: true })).toBeVisible();
 });

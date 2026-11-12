@@ -252,6 +252,11 @@ class UnifiedMerchantPayoutIntegrationTests {
                 .isTrue();
         assertThat(first.path("directOrderId").asText()).isEqualTo(orderId.toString());
         assertThat(provider.sends).hasValue(1);
+        // The payout operator is intentionally different from the funding PSP.
+        assertThat(provider.sent.provider()).isEqualTo("SIMULATED_MERCHANT");
+        assertThat(provider.sent.providerAccountReference()).isEqualTo("fixture");
+        assertThat(provider.fundingProvider()).isEqualTo("SIMULATED");
+        assertThat(provider.fundingAccount()).isEqualTo("test-merchant");
         assertThat(
                         read(auth(get(base() + "/merchant-balance")))
                                 .path("directOrders")
@@ -284,6 +289,44 @@ class UnifiedMerchantPayoutIntegrationTests {
                 .isZero();
         assertThat(provider.sends).hasValue(1);
         request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+    }
+
+    @Test
+    void previouslySucceededDirectPayoutFromAnotherAdapterCannotBeSpentAgain()
+            throws Exception {
+        UUID dest = destination();
+        UUID previous = UUID.randomUUID();
+        jdbc.update(
+                """
+                insert into merchant_payouts(
+                    id,organization_id,campaign_id,direct_order_id,amount,currency,
+                    status,destination_id,method,phone_e164,holder_name,
+                    provider,provider_account_reference,business_reference,
+                    provider_idempotency_key,provider_transaction_id,requested_by,
+                    requested_at,provider_occurred_at,succeeded_at,
+                    reconciliation_required,reconciliation_reason)
+                values (?, ?, null, ?, 20000, 'XOF', 'SUCCEEDED', ?,
+                    'WAVE', '+221771234567', 'Vendeuse',
+                    'LEGACY_TRANSFER', 'previous-adapter', ?, ?, ?, ?,
+                    now() - interval '15 minutes',
+                    now() - interval '10 minutes',
+                    now() - interval '10 minutes', false, null)
+                """,
+                previous,
+                org,
+                orderId,
+                dest,
+                "MERCHANT_PAYOUT:" + org + ":" + previous,
+                UUID.randomUUID(),
+                "LEGACY-" + previous,
+                actor);
+        var position = read(auth(get(base() + "/merchant-balance")))
+                .path("directOrders").get(0);
+        assertThat(position.path("merchantPayouts").decimalValue())
+                .isEqualByComparingTo("20000");
+        assertThat(position.path("availableForPayout").decimalValue()).isZero();
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
     }
 
     @Test

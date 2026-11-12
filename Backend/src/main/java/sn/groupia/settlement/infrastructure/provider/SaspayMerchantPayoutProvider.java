@@ -90,14 +90,20 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         this.http = http;
     }
 
-    record Connection(String apiKey, UUID merchantId, boolean enabled) {
+    record Connection(
+            String apiKey, UUID merchantId, boolean enabled,
+            String waveNetwork, String orangeNetwork) {
         static Connection from(Environment env) {
             String key = env.getProperty("groupia.payment.saspay.api-key", "");
             String merchant = env.getProperty("groupia.payment.saspay.merchant-id", "");
             UUID id = UUID.fromString(merchant);
             boolean active = env.getProperty(
                     "groupia.payment.saspay.enabled", Boolean.class, false);
-            return new Connection(key, id, active);
+            // No unverified guess: require provider-confirmed payout network codes.
+            return new Connection(
+                    key, id, active,
+                    env.getProperty("groupia.settlement.saspay-payouts.wave-network", ""),
+                    env.getProperty("groupia.settlement.saspay-payouts.orange-network", ""));
         }
 
         boolean isLive() { return apiKey != null && apiKey.startsWith("sk_live_"); }
@@ -216,12 +222,15 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 amount, "XOF", p.method(), verifiedPhone, status, occurredAt);
     }
 
-    private static String network(String method) {
-        return switch (method == null ? "" : method) {
-            case "WAVE" -> "wave_sn";
-            case "ORANGE_MONEY" -> "orange_sn";
+    private String network(String method) {
+        String code = switch (method == null ? "" : method) {
+            case "WAVE" -> payin.waveNetwork();
+            case "ORANGE_MONEY" -> payin.orangeNetwork();
             default -> throw new IllegalArgumentException("SASPAY_PAYOUT_METHOD_UNSUPPORTED");
         };
+        if (code == null || !code.matches("[a-z0-9_]{3,64}"))
+            throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_NOT_APPROVED");
+        return code;
     }
 
     private static String phone(String raw) {

@@ -52,6 +52,24 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void productionWiringCannotReleaseRealMoneyJustByFlippingEnvironmentFlags() {
+        var env = new org.springframework.mock.env.MockEnvironment()
+                .withProperty("groupia.payment.saspay.api-key", "sk_live_synthetic")
+                .withProperty("groupia.payment.saspay.merchant-id", MERCHANT.toString())
+                .withProperty("groupia.payment.saspay.enabled", "true")
+                .withProperty("groupia.settlement.saspay-payouts.enabled", "true")
+                .withProperty("groupia.settlement.saspay-payouts.marketplace-authorized", "true")
+                .withProperty(
+                        "groupia.settlement.saspay-payouts.beneficiary-proof-approved", "true")
+                .withProperty(
+                        "groupia.settlement.saspay-payouts.company-fee-budget-approved", "true");
+        var provider = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
+        assertThat(provider.enabled()).isFalse();
+        assertThatThrownBy(() -> provider.initiate(payout(null)))
+                .hasMessage("SASPAY_PAYOUT_NOT_AUTHORIZED");
+    }
+
+    @Test
     void initializedPayoutHasBoundNetworkNetAndDurableIdempotency() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         var requests = new AtomicInteger();

@@ -25,6 +25,8 @@ import { MerchantPayoutView } from '../models/merchant-payout-view';
 import { PayoutDestinationView } from '../models/payout-destination-view';
 import { reconcileMerchantPayout } from '../fn/merchant-settlement-controller/reconcile-merchant-payout';
 import { ReconcileMerchantPayout$Params } from '../fn/merchant-settlement-controller/reconcile-merchant-payout';
+import { requestDirectMerchantPayout } from '../fn/merchant-settlement-controller/request-direct-merchant-payout';
+import { RequestDirectMerchantPayout$Params } from '../fn/merchant-settlement-controller/request-direct-merchant-payout';
 import { requestMerchantPayout } from '../fn/merchant-settlement-controller/request-merchant-payout';
 import { RequestMerchantPayout$Params } from '../fn/merchant-settlement-controller/request-merchant-payout';
 
@@ -169,6 +171,41 @@ export class MerchantSettlementControllerService extends BaseService {
    */
   requestMerchantPayout(params: RequestMerchantPayout$Params, context?: HttpContext): Observable<MerchantPayoutView> {
     const resp = this.requestMerchantPayout$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<MerchantPayoutView>): MerchantPayoutView => r.body)
+    );
+  }
+
+  /** Path part for operation `requestDirectMerchantPayout()` */
+  static readonly RequestDirectMerchantPayoutPath = '/api/organizations/{organizationId}/direct-orders/{directOrderId}/merchant-payouts';
+
+  /**
+   * Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `requestDirectMerchantPayout()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  requestDirectMerchantPayout$Response(params: RequestDirectMerchantPayout$Params, context?: HttpContext): Observable<StrictHttpResponse<MerchantPayoutView>> {
+    const obs = requestDirectMerchantPayout(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `requestDirectMerchantPayout$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  requestDirectMerchantPayout(params: RequestDirectMerchantPayout$Params, context?: HttpContext): Observable<MerchantPayoutView> {
+    const resp = this.requestDirectMerchantPayout$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<MerchantPayoutView>): MerchantPayoutView => r.body)
     );

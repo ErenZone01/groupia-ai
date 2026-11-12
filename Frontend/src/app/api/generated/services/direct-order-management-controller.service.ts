@@ -92,6 +92,33 @@ export class DirectOrderManagementControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `fulfill()` */
+  static readonly FulfillPath = '/api/organizations/{organizationId}/direct-orders/{orderId}/fulfillment';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `fulfill()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  fulfill$Response(params: Fulfill$Params, context?: HttpContext): Observable<StrictHttpResponse<Event>> {
+    const obs = fulfill(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `fulfill$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  fulfill(params: Fulfill$Params, context?: HttpContext): Observable<Event> {
+    const resp = this.fulfill$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Event>): Event => r.body)
+    );
+  }
+
   /** Path part for operation `cancelDirectUnpaidOrder()` */
   static readonly CancelDirectUnpaidOrderPath = '/api/organizations/{organizationId}/direct-orders/{orderId}/cancel';
 
@@ -197,33 +224,6 @@ export class DirectOrderManagementControllerService extends BaseService {
     const resp = this.getDirectOrderPaymentReadiness$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<Status>): Status => r.body)
-    );
-  }
-
-  /** Path part for operation `fulfill()` */
-  static readonly FulfillPath = '/api/organizations/{organizationId}/direct-orders/{orderId}/fulfillment';
-
-  /**
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `fulfill()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  fulfill$Response(params: Fulfill$Params, context?: HttpContext): Observable<StrictHttpResponse<Event>> {
-    const obs = fulfill(this.http, this.rootUrl, params, context);
-    return obs;
-  }
-
-  /**
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `fulfill$Response()` instead.
-   *
-   * This method sends `application/json` and handles request body of type `application/json`.
-   */
-  fulfill(params: Fulfill$Params, context?: HttpContext): Observable<Event> {
-    const resp = this.fulfill$Response(params, context);
-    return resp.pipe(
-      map((r: StrictHttpResponse<Event>): Event => r.body)
     );
   }
 

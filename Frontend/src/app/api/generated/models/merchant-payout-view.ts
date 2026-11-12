@@ -5,6 +5,7 @@ export interface MerchantPayoutView {
   amount?: number;
   campaignId?: string;
   currency?: string;
+  directOrderId?: string;
   holderName?: string;
   id?: string;
   maskedPhone?: string;

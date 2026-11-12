@@ -10,10 +10,13 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { CollectionOverview } from '../models/collection-overview';
 import { CollectionPage } from '../models/collection-page';
 import { CollectionRefresh } from '../models/collection-refresh';
 import { providerCollections } from '../fn/provider-collection-controller/provider-collections';
 import { ProviderCollections$Params } from '../fn/provider-collection-controller/provider-collections';
+import { providerCollectionsOverview } from '../fn/provider-collection-controller/provider-collections-overview';
+import { ProviderCollectionsOverview$Params } from '../fn/provider-collection-controller/provider-collections-overview';
 import { refreshProviderCollections } from '../fn/provider-collection-controller/refresh-provider-collections';
 import { RefreshProviderCollections$Params } from '../fn/provider-collection-controller/refresh-provider-collections';
 
@@ -90,6 +93,41 @@ export class ProviderCollectionControllerService extends BaseService {
     const resp = this.providerCollections$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CollectionPage>): CollectionPage => r.body)
+    );
+  }
+
+  /** Path part for operation `providerCollectionsOverview()` */
+  static readonly ProviderCollectionsOverviewPath = '/api/organizations/{organizationId}/provider-collections/overview';
+
+  /**
+   * Cumuls historiques vente directe et groupage par compte fournisseur.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `providerCollectionsOverview()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  providerCollectionsOverview$Response(params: ProviderCollectionsOverview$Params, context?: HttpContext): Observable<StrictHttpResponse<CollectionOverview>> {
+    const obs = providerCollectionsOverview(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Cumuls historiques vente directe et groupage par compte fournisseur.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `providerCollectionsOverview$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  providerCollectionsOverview(params: ProviderCollectionsOverview$Params, context?: HttpContext): Observable<CollectionOverview> {
+    const resp = this.providerCollectionsOverview$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CollectionOverview>): CollectionOverview => r.body)
     );
   }
 

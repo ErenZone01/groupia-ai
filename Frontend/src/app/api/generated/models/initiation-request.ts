@@ -3,5 +3,7 @@
 
 export interface InitiationRequest {
   feeQuoteId?: string;
+  payerEmail?: string;
+  provider?: string;
   token?: string;
 }

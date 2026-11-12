@@ -141,6 +141,33 @@ export class CustomerAccessControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `quoteCustomerShippingPayment()` */
+  static readonly QuoteCustomerShippingPaymentPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-quotes';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteCustomerShippingPayment()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteCustomerShippingPayment$Response(params: QuoteCustomerShippingPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<CustomerFeeQuote>>> {
+    const obs = quoteCustomerShippingPayment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteCustomerShippingPayment$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteCustomerShippingPayment(params: QuoteCustomerShippingPayment$Params, context?: HttpContext): Observable<Array<CustomerFeeQuote>> {
+    const resp = this.quoteCustomerShippingPayment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<CustomerFeeQuote>>): Array<CustomerFeeQuote> => r.body)
+    );
+  }
+
   /** Path part for operation `revokeCustomerLink()` */
   static readonly RevokeCustomerLinkPath = '/api/public/customer-access/orders/{orderNumber}/revoke-link';
 
@@ -357,6 +384,33 @@ export class CustomerAccessControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `customerShippingPaymentOptions()` */
+  static readonly CustomerShippingPaymentOptionsPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-options';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `customerShippingPaymentOptions()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  customerShippingPaymentOptions$Response(params: CustomerShippingPaymentOptions$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerPaymentOptions>> {
+    const obs = customerShippingPaymentOptions(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `customerShippingPaymentOptions$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  customerShippingPaymentOptions(params: CustomerShippingPaymentOptions$Params, context?: HttpContext): Observable<CustomerPaymentOptions> {
+    const resp = this.customerShippingPaymentOptions$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<CustomerPaymentOptions>): CustomerPaymentOptions => r.body)
+    );
+  }
+
   /** Path part for operation `customerOrderCapabilities()` */
   static readonly CustomerOrderCapabilitiesPath = '/api/public/customer-access/orders/{orderNumber}/capabilities';
 
@@ -435,60 +489,6 @@ export class CustomerAccessControllerService extends BaseService {
     const resp = this.customerCsrf$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<CsrfView>): CsrfView => r.body)
-    );
-  }
-
-  /** Path part for operation `quoteCustomerShippingPayment()` */
-  static readonly QuoteCustomerShippingPaymentPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-quotes';
-
-  /**
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `quoteCustomerShippingPayment()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  quoteCustomerShippingPayment$Response(params: QuoteCustomerShippingPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<CustomerFeeQuote>>> {
-    const obs = quoteCustomerShippingPayment(this.http, this.rootUrl, params, context);
-    return obs;
-  }
-
-  /**
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `quoteCustomerShippingPayment$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  quoteCustomerShippingPayment(params: QuoteCustomerShippingPayment$Params, context?: HttpContext): Observable<Array<CustomerFeeQuote>> {
-    const resp = this.quoteCustomerShippingPayment$Response(params, context);
-    return resp.pipe(
-      map((r: StrictHttpResponse<Array<CustomerFeeQuote>>): Array<CustomerFeeQuote> => r.body)
-    );
-  }
-
-  /** Path part for operation `customerShippingPaymentOptions()` */
-  static readonly CustomerShippingPaymentOptionsPath = '/api/public/customer-access/orders/{orderNumber}/shipping-balance/payment-options';
-
-  /**
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `customerShippingPaymentOptions()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  customerShippingPaymentOptions$Response(params: CustomerShippingPaymentOptions$Params, context?: HttpContext): Observable<StrictHttpResponse<CustomerPaymentOptions>> {
-    const obs = customerShippingPaymentOptions(this.http, this.rootUrl, params, context);
-    return obs;
-  }
-
-  /**
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `customerShippingPaymentOptions$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  customerShippingPaymentOptions(params: CustomerShippingPaymentOptions$Params, context?: HttpContext): Observable<CustomerPaymentOptions> {
-    const resp = this.customerShippingPaymentOptions$Response(params, context);
-    return resp.pipe(
-      map((r: StrictHttpResponse<CustomerPaymentOptions>): CustomerPaymentOptions => r.body)
     );
   }
 

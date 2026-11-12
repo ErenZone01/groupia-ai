@@ -41,8 +41,8 @@ final class MigrationHistoryAssertions {
     }
 
     /**
-     * The additive direct-payout migration adds a nullable target column. Historical
-     * campaign payouts must keep that target null and every pre-existing field intact.
+     * The additive direct-payout migration adds a nullable target column. Historical campaign
+     * payouts must keep that target null and every pre-existing field intact.
      */
     static java.util.Map<String, Object> historicalMerchantPayout(
             java.util.Map<String, Object> row) {

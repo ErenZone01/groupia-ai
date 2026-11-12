@@ -21,6 +21,7 @@ public class MerchantPayoutTransactions {
     private final OutgoingPayoutOperations outgoing;
     private final MerchantFinanceStore store;
     private final MerchantBalances balances;
+    private final DirectMerchantBalances direct;
     private final MerchantCampaignFacts campaigns;
     private final OrganizationAccess access;
     private final MerchantPayoutProvider provider;
@@ -30,6 +31,7 @@ public class MerchantPayoutTransactions {
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
             MerchantBalances b,
+            DirectMerchantBalances direct,
             MerchantCampaignFacts c,
             OrganizationAccess a,
             MerchantPayoutProvider p,
@@ -39,6 +41,7 @@ public class MerchantPayoutTransactions {
         this.outgoing = outgoing;
         store = s;
         balances = b;
+        this.direct = direct;
         campaigns = c;
         access = a;
         provider = p;
@@ -141,6 +144,69 @@ public class MerchantPayoutTransactions {
                         p.currency(),
                         p.method(),
                         p.requestedAt()));
+        return p;
+    }
+
+    public MerchantPayout reserveDirect(
+            UUID org, UUID directOrderId, UUID key, UUID expectedDestination, boolean confirmed) {
+        UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        if (!confirmed)
+            throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
+        store.lockOrganization(org);
+        String reference = "MERCHANT_PAYOUT:" + org + ":" + key;
+        var old = store.byReference(org, reference);
+        if (old.isPresent()) {
+            if (!Objects.equals(old.get().directOrderId(), directOrderId)
+                    || !old.get().destinationId().equals(expectedDestination))
+                throw error(
+                        409,
+                        "PAYOUT_IDEMPOTENCY_CONFLICT",
+                        "Cette demande correspond à un autre versement.");
+            return old.get();
+        }
+        if (!available())
+            throw error(
+                    503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");
+        direct.lock(org, directOrderId);
+        if (store.payouts(org).stream()
+                .anyMatch(p -> Objects.equals(p.directOrderId(), directOrderId) && p.reserved()))
+            throw error(
+                    409,
+                    "MERCHANT_PAYOUT_IN_PROGRESS",
+                    "Un versement est déjà réservé pour cette vente.");
+        var d = store.destination(org)
+                .orElseThrow(() ->
+                        error(409, "PAYOUT_DESTINATION_REQUIRED",
+                                "Renseignez une destination de versement."));
+        if (!d.id().equals(expectedDestination))
+            throw error(
+                    409,
+                    "PAYOUT_DESTINATION_CHANGED",
+                    "La destination a changé. Vérifiez-la avant de confirmer.");
+        // Calculate after the organization and direct-order locks, never trust a browser amount.
+        var position = direct.calculate(org).stream()
+                .filter(row -> row.directOrderId().equals(directOrderId))
+                .findFirst()
+                .orElseThrow(() ->
+                        error(409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                "Le règlement de cette vente n'est pas encore disponible."));
+        if (position.availableForPayout().signum() <= 0)
+            throw error(
+                    409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                    "Aucun montant vérifié disponible pour cette vente.");
+        var p = new MerchantPayout(
+                UUID.randomUUID(), org, null, position.availableForPayout(), "XOF",
+                "CREATED", d.id(), d.method(), d.phoneE164(), d.holderName(),
+                provider.name(), provider.account(), reference, UUID.randomUUID(),
+                null, actor, now(), null, null, true, "AWAITING_DISPATCH", 0,
+                directOrderId);
+        store.create(p);
+        outgoing.register(
+                new OutgoingPayoutOperations.Registration(
+                        Kind.MERCHANT_PAYOUT, p.id(), org, p.provider(),
+                        p.providerAccountReference(), p.businessReference(),
+                        p.providerIdempotencyKey(), p.amount(), p.currency(),
+                        p.method(), p.requestedAt()));
         return p;
     }
 
@@ -302,7 +368,7 @@ public class MerchantPayoutTransactions {
                     .increment();
             store.state(
                     id, "SUCCEEDED", proof.transactionId(), proof.occurredAt(), now(), false, null);
-            store.append(
+            if (!p.directSale()) store.append(
                     new MerchantLedgerEntry(
                             UUID.randomUUID(),
                             org,

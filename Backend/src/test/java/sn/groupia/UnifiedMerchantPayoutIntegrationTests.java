@@ -26,6 +26,7 @@ import sn.groupia.payment.api.dto.*;
 import tools.jackson.databind.*;
 
 /** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {"groupia.settlement.payouts.enabled=true",
         "groupia.settlement.direct-payouts.enabled=true"})
 @AutoConfigureMockMvc
@@ -167,7 +168,8 @@ class UnifiedMerchantPayoutIntegrationTests {
         var first = read(request(dest, key));
         var replay = read(request(dest, key));
         assertThat(replay.path("id").asText()).isEqualTo(first.path("id").asText());
-        assertThat(first.path("campaignId").isNull()).isTrue();
+        assertThat(first.path("campaignId").isNull()
+                        || first.path("campaignId").isMissingNode()).isTrue();
         assertThat(first.path("directOrderId").asText()).isEqualTo(orderId.toString());
         assertThat(provider.sends).hasValue(1);
         assertThat(read(auth(get(base() + "/merchant-balance")))

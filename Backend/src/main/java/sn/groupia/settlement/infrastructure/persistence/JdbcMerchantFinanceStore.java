@@ -24,7 +24,7 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
         r.getBigDecimal("amount"),r.getString("currency"),r.getString("status"),id(r,"destination_id"),r.getString("method"),r.getString("phone_e164"),
         r.getString("holder_name"),r.getString("provider"),r.getString("provider_account_reference"),r.getString("business_reference"),
         id(r,"provider_idempotency_key"),r.getString("provider_transaction_id"),id(r,"requested_by"),at(r,"requested_at"),at(r,"provider_occurred_at"),
-        at(r,"succeeded_at"),r.getBoolean("reconciliation_required"),r.getString("reconciliation_reason"),r.getLong("version"));
+        at(r,"succeeded_at"),r.getBoolean("reconciliation_required"),r.getString("reconciliation_reason"),r.getLong("version"),id(r,"direct_order_id"));
     public void lockOrganization(UUID org) { jdbc.query("select pg_advisory_xact_lock(hashtextextended(?,0))",(r,n)->0,"merchant:"+org); }
     public void lockTransaction(String provider,String account,String transaction) {
         jdbc.query("select pg_advisory_xact_lock(hashtextextended(?,0))",(r,n)->0,"merchant-transaction:"+provider+":"+account+":"+transaction);
@@ -64,10 +64,10 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
     public void create(MerchantPayout p) {
         jdbc.update("""
             insert into merchant_payouts(id,organization_id,campaign_id,amount,currency,status,destination_id,method,phone_e164,holder_name,
-                provider,provider_account_reference,business_reference,provider_idempotency_key,requested_by,requested_at,reconciliation_required,reconciliation_reason)
-            values (?,?,?,?,?,'CREATED',?,?,?,?,?,?,?,?,?,?,true,'AWAITING_DISPATCH')
+                provider,provider_account_reference,business_reference,provider_idempotency_key,requested_by,requested_at,reconciliation_required,reconciliation_reason,direct_order_id)
+            values (?,?,?,?,?,'CREATED',?,?,?,?,?,?,?,?,?,?,true,'AWAITING_DISPATCH',?)
             """,p.id(),p.organizationId(),p.campaignId(),p.amount(),p.currency(),p.destinationId(),p.method(),p.phoneE164(),p.holderName(),
-            p.provider(),p.providerAccountReference(),p.businessReference(),p.providerIdempotencyKey(),p.requestedBy(),ts(p.requestedAt()));
+            p.provider(),p.providerAccountReference(),p.businessReference(),p.providerIdempotencyKey(),p.requestedBy(),ts(p.requestedAt()),p.directOrderId());
     }
     public void state(UUID id,String status,String tx,Instant providerAt,Instant succeeded,boolean review,String reason) {
         jdbc.update("""

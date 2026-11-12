@@ -9,6 +9,7 @@ import { Skeleton } from '../../shared/feedback/skeleton';
 import { money, dateLabel } from '../../shared/utils/display';
 import { refundMethod } from '../../shared/ui/refund-summary';
 import { MerchantSettlementStore } from './merchant-settlement.store';
+import type { DirectSettlement } from './merchant-settlement.store';
 import { MerchantBalanceSummary } from './merchant-balance-summary';
 import { PayoutDestinationEditor } from './payout-destination-editor';
 export function payoutLabel(status?: string): string {
@@ -72,6 +73,7 @@ export class SettlementsPage {
   private readonly auth = inject(AuthService);
   private readonly context = inject(BoutiqueContextService);
   readonly selected = signal<CampaignSettlement | null>(null);
+  readonly selectedDirect = signal<DirectSettlement | null>(null);
   readonly editing = signal(false);
   readonly modal = viewChild<ElementRef<HTMLDialogElement>>('modal');
   readonly money = money;
@@ -83,6 +85,7 @@ export class SettlementsPage {
       this.auth.generation();
       const org = this.context.selectedId();
       this.selected.set(null);
+      this.selectedDirect.set(null);
       this.editing.set(false);
       if (!org) this.store.clear();
       else void this.store.load(org);
@@ -90,23 +93,35 @@ export class SettlementsPage {
     });
   }
   ask(row: CampaignSettlement) {
+    this.selectedDirect.set(null);
     this.selected.set(row);
+    this.modal()?.nativeElement.showModal();
+  }
+  askDirect(row: DirectSettlement) {
+    this.selected.set(null);
+    this.selectedDirect.set(row);
     this.modal()?.nativeElement.showModal();
   }
   close() {
     if (!this.store.busy()) {
       this.modal()?.nativeElement.close();
       this.selected.set(null);
+      this.selectedDirect.set(null);
     }
   }
   cancel(e: Event) {
     if (this.store.busy()) e.preventDefault();
-    else this.selected.set(null);
+    else {
+      this.selected.set(null);
+      this.selectedDirect.set(null);
+    }
   }
   async confirm() {
-    const id = this.selected()?.campaignId;
-    if (!id || this.store.busy()) return;
-    await this.store.request(id);
+    const campaignId = this.selected()?.campaignId;
+    const directOrderId = this.selectedDirect()?.directOrderId;
+    if (this.store.busy() || (!campaignId && !directOrderId)) return;
+    if (directOrderId) await this.store.requestDirect(directOrderId);
+    else if (campaignId) await this.store.request(campaignId);
     this.close();
   }
   async save(d: { method: string; phone: string; holder: string; confirmed: boolean }) {

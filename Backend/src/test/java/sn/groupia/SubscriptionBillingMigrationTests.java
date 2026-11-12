@@ -123,7 +123,10 @@ class SubscriptionBillingMigrationTests {
                                     String.class))
                     .isEqualTo(periodsBefore);
             var paymentsAfter = j.queryForList("select * from payments");
-            for (var row : paymentsAfter) assertThat(row.remove("fee_quote_id")).isNull();
+            for (var row : paymentsAfter) {
+                assertThat(row.remove("fee_quote_id")).isNull();
+                MigrationHistoryAssertions.historicalPayment(row);
+            }
             assertThat(paymentsAfter).isEqualTo(paymentsBefore);
             assertThat(j.queryForList("select * from payment_reviews")).isEqualTo(reviewsBefore);
             MigrationHistoryAssertions.assertPreserved(j, sums);

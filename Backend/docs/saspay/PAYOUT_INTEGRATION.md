@@ -150,14 +150,41 @@ et protègent cette preuve contre UPDATE/DELETE. Le principal de la vendeuse
 n'est jamais diminué par cette écriture. Les scénarios synthétiques
 d'autres fournisseurs restent compatibles avec l'ancien constructeur de preuve.
 
-**Cette historisation n'est pas un budget de frais.** Il manque encore un
-mécanisme indépendant prouvant que Groupia a réellement provisionné
-les frais de transfert, de réservation préalable et de rapprochement de la
-dépense avec le solde du wallet marchand. Une variable d'approbation ou
-un calcul de tarif ne prouvent pas qu'il existe des fonds distincts.
-Aucun retrait SasPay LIVE ne doit donc être activé après ce seul correctif.
+### Budget séparé et réservations (migration 057, en attente de tests)
 
-Commandes pour vérifier le nouveau HEAD avec PostgreSQL/Testcontainers
+Le système conserve maintenant un journal append-only
+`saspay_company_fee_events` par **compte marchand SasPay**, et non par
+boutique. Il distingue :
+
+- `FUNDING` : apport de Groupia confirmé indépendamment ; aucune API cliente
+  ni configuration d'environnement ne crée automatiquement ces apports ;
+- `RESERVE` : plafond de frais bloqué AVANT l'initiation d'un retrait ;
+- `SETTLE` : coût réel validé sur la réponse SasPay, inférieur ou égal
+  à la réserve ;
+- `RELEASE` : prévu pour la libération après justification d'une
+  non-exécution définitive ; aucune libération automatique n'est activée.
+
+La réservation se fait sous verrou transactionnel global au compte marchand.
+Les autres boutiques ne peuvent donc pas réutiliser simultanément le même
+budget de Groupia. Après un timeout, la réserve reste bloquée jusqu'à
+rapprochement, sans réessayer de transfert avec une nouvelle clé.
+Tout le journal est non modifiable et supporte les répétitions idempotentes.
+
+`SASPAY_PAYOUTS_APPROVED_FEE_CEILING_XOF=0` est volontairement la valeur
+par défaut. Un plafond non nul ne constitue **ni un devis SasPay, ni un
+justificatif d'apport de fonds**. Le moteur refuse tout retrait tant que
+le plafond ou l'apport certifié manquent. Les fonds encaissés pour les
+vendeuses ne peuvent jamais être déclarés `FUNDING`.
+
+**Reste à livrer avant le réel :** méthode d'inscription des vrais apports
+Groupia *après vérification de la transaction d'approvisionnement*, preuve
+d'origine des fonds, confrontation au solde du wallet SasPay, validation
+du tarif effectif du réseau pour le retrait (le plafond n'est pas un tarif),
+et procédure d'approbation de sortie d'une réserve en cas d'échec définitif.
+Le paramètre `PRODUCTION_PAYOUT_RELEASED=false` demeure inchangé. Cette
+migration ne crédite aucun compte et ne déclenche aucun retrait.
+
+Commandes ciblées pour tester le nouveau HEAD avec PostgreSQL/Testcontainers
 isolés (jamais sur la base ou les clés LIVE) :
 
 ```powershell
@@ -165,8 +192,9 @@ git pull --ff-only origin saspay-payin-v1
 cd Backend
 $env:SPRING_PROFILES_ACTIVE = "test"
 $env:SASPAY_ENABLED = "false"
+$env:SASPAY_PAYOUTS_ENABLED = "false"
 .\mvnw.cmd spotless:apply
-.\mvnw.cmd "-Dtest=SaspayMerchantPayoutProviderTests,UnifiedMerchantPayoutIntegrationTests,MerchantSettlementIntegrationTests" test
+.\mvnw.cmd "-Dtest=UnifiedMerchantPayoutIntegrationTests,MerchantSettlementIntegrationTests,SaspayMerchantPayoutProviderTests" test
 .\mvnw.cmd verify
 cd ..
 python tools/check_migrations.py

@@ -198,9 +198,17 @@ export class MerchantSettlementStore {
     return (this.balance() as UnifiedBalance | null)?.payoutFeePolicy === 'DEDUCTED';
   }
 
-  async prepareQuote(targetId: string, direct: boolean): Promise<boolean> {
+  discardQuote() {
     this.quote.set(null);
     this.quotedTarget = null;
+  }
+
+  async prepareQuote(targetId: string, direct: boolean, amount?: number): Promise<boolean> {
+    this.discardQuote();
+    if (amount !== undefined && (!Number.isSafeInteger(amount) || amount <= 0)) {
+      this.error.set('Indiquez un montant de retrait entier et positif.');
+      return false;
+    }
     if (!this.deductedFees) return true;
     const org = this.org;
     const destinationId = this.destination()?.id;
@@ -213,11 +221,14 @@ export class MerchantSettlementStore {
         ? `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payout-quote`
         : `/api/organizations/${encodeURIComponent(org)}/grouping-campaigns/${encodeURIComponent(targetId)}/merchant-payout-quote`;
       const quote = await firstValueFrom(
-        this.http.get<PayoutFeeQuote>(path, { params: { destinationId } }).pipe(timeout(20000)),
+        this.http.get<PayoutFeeQuote>(path, {
+          params: amount === undefined ? { destinationId } : { destinationId, amount: String(amount) },
+        }).pipe(timeout(20000)),
       );
       if (!this.current(org, context, session)) return false;
       if (quote.feeChargeMode !== 'DEDUCTED'
         || quote.destinationId !== destinationId
+        || (amount !== undefined && quote.grossAmount !== amount)
         || !(quote.netAmount > 0)
         || Math.round(quote.grossAmount * 100) !==
            Math.round(quote.netAmount * 100) + Math.round(quote.providerFee * 100)
@@ -266,7 +277,8 @@ export class MerchantSettlementStore {
       !acceptedQuote ||
       this.quotedTarget !== (direct ? 'direct:' : 'campaign:') + targetId ||
       acceptedQuote.destinationId !== d.id ||
-      acceptedQuote.grossAmount !== row?.availableForPayout ||
+      !(acceptedQuote.grossAmount > 0) ||
+      acceptedQuote.grossAmount > (row?.availableForPayout ?? 0) ||
       Date.parse(acceptedQuote.expiresAt) <= Date.now()
     )) {
       this.error.set('Devis de retrait expiré ou modifié. Rechargez les frais avant de confirmer.');

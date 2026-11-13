@@ -79,9 +79,14 @@ public class MerchantSettlementService {
 
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView request(
-            UUID org, UUID campaign, UUID key, UUID destination,
-            boolean confirmed, UUID feeQuoteId) {
-        return dispatch(transactions.reserve(org, campaign, key, destination, confirmed, feeQuoteId));
+            UUID org,
+            UUID campaign,
+            UUID key,
+            UUID destination,
+            boolean confirmed,
+            UUID feeQuoteId) {
+        return dispatch(
+                transactions.reserve(org, campaign, key, destination, confirmed, feeQuoteId));
     }
 
     @Transactional(propagation = Propagation.NEVER)
@@ -92,11 +97,15 @@ public class MerchantSettlementService {
 
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView requestDirect(
-            UUID org, UUID directOrderId, UUID key, UUID destination,
-            boolean confirmed, UUID feeQuoteId) {
+            UUID org,
+            UUID directOrderId,
+            UUID key,
+            UUID destination,
+            boolean confirmed,
+            UUID feeQuoteId) {
         return dispatch(
-                transactions.reserveDirect(org, directOrderId, key, destination, confirmed,
-                        feeQuoteId));
+                transactions.reserveDirect(
+                        org, directOrderId, key, destination, confirmed, feeQuoteId));
     }
 
     private MerchantPayoutView dispatch(MerchantPayout p) {
@@ -169,9 +178,11 @@ public class MerchantSettlementService {
                 p.reconciliationRequired(),
                 p.reconciliationReason(),
                 p.directOrderId(),
-                sellerQuote.map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::providerFee)
+                sellerQuote
+                        .map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::providerFee)
                         .orElse(null),
-                sellerQuote.map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::netAmount)
+                sellerQuote
+                        .map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::netAmount)
                         .orElse(null),
                 sellerQuote.isPresent() ? "DEDUCTED" : null);
     }

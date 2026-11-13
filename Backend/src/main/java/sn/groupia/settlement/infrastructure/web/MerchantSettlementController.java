@@ -31,8 +31,7 @@ class MerchantSettlementController {
         }
     }
 
-    public record PayoutRequest(
-            @NotNull UUID destinationId, UUID feeQuoteId, boolean confirmed) {
+    public record PayoutRequest(@NotNull UUID destinationId, UUID feeQuoteId, boolean confirmed) {
         @JsonAnySetter
         public void unknown(String key, Object value) {
             throw new IllegalArgumentException("Unsupported payout field");
@@ -81,7 +80,8 @@ class MerchantSettlementController {
     }
 
     @GetMapping("/grouping-campaigns/{campaignId}/merchant-payout-quote")
-    @Operation(operationId = "quoteMerchantPayout",
+    @Operation(
+            operationId = "quoteMerchantPayout",
             summary = "Devis frais retrait, réseau et montant net, sans transfert")
     ResponseEntity<PayoutFeeQuoteView> quoteCampaign(
             @PathVariable UUID organizationId,
@@ -91,7 +91,8 @@ class MerchantSettlementController {
     }
 
     @GetMapping("/direct-orders/{directOrderId}/merchant-payout-quote")
-    @Operation(operationId = "quoteDirectMerchantPayout",
+    @Operation(
+            operationId = "quoteDirectMerchantPayout",
             summary = "Devis net du retrait d'une vente directe, sans transfert")
     ResponseEntity<PayoutFeeQuoteView> quoteDirect(
             @PathVariable UUID organizationId,
@@ -111,7 +112,12 @@ class MerchantSettlementController {
             @Valid @RequestBody PayoutRequest c) {
         return response(
                 settlements.request(
-                        organizationId, campaignId, key, c.destinationId(), c.confirmed(), c.feeQuoteId()));
+                        organizationId,
+                        campaignId,
+                        key,
+                        c.destinationId(),
+                        c.confirmed(),
+                        c.feeQuoteId()));
     }
 
     @PostMapping("/direct-orders/{directOrderId}/merchant-payouts")
@@ -126,7 +132,12 @@ class MerchantSettlementController {
             @Valid @RequestBody PayoutRequest c) {
         return response(
                 settlements.requestDirect(
-                        organizationId, directOrderId, key, c.destinationId(), c.confirmed(), c.feeQuoteId()));
+                        organizationId,
+                        directOrderId,
+                        key,
+                        c.destinationId(),
+                        c.confirmed(),
+                        c.feeQuoteId()));
     }
 
     @GetMapping("/merchant-payouts")

@@ -36,10 +36,23 @@ public record MerchantBalance(
             boolean providerAvailable,
             List<CampaignSettlement> campaigns,
             List<DirectSettlement> directOrders) {
-        this(currency, grossMerchantCollections, platformFees, platformFundedRefunds,
-                merchantPayouts, collectedBalance, eligibleBalance, reservedForPayout,
-                availableForPayout, deficit, canManageSettlements, canManageDestination,
-                providerAvailable, campaigns, directOrders, "EXTERNAL");
+        this(
+                currency,
+                grossMerchantCollections,
+                platformFees,
+                platformFundedRefunds,
+                merchantPayouts,
+                collectedBalance,
+                eligibleBalance,
+                reservedForPayout,
+                availableForPayout,
+                deficit,
+                canManageSettlements,
+                canManageDestination,
+                providerAvailable,
+                campaigns,
+                directOrders,
+                "EXTERNAL");
     }
 
     public MerchantBalance(

@@ -59,24 +59,30 @@ public class MerchantPayoutTransactions {
 
     private MerchantPayoutFeeQuote requireQuote(MerchantPayout payout, UUID quoteId) {
         if (quoteId == null)
-            throw error(409, "PAYOUT_FEE_QUOTE_REQUIRED",
+            throw error(
+                    409,
+                    "PAYOUT_FEE_QUOTE_REQUIRED",
                     "Veuillez accepter le devis de retrait et ses frais avant de confirmer.");
         return store.feeQuote(payout.organizationId(), quoteId);
     }
 
-    public MerchantPayoutFeeQuote quoteCampaign(
-            UUID org, UUID campaign, UUID expectedDestination) {
+    public MerchantPayoutFeeQuote quoteCampaign(UUID org, UUID campaign, UUID expectedDestination) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!available() || !"SASPAY".equals(provider.name()))
-            throw error(503, "PAYOUT_FEE_QUOTE_UNAVAILABLE",
+            throw error(
+                    503,
+                    "PAYOUT_FEE_QUOTE_UNAVAILABLE",
                     "Le devis de retrait SasPay est indisponible.");
         store.lockOrganization(org);
         var campaignFacts = campaigns.lock(org, campaign);
         if (!campaignFacts.available())
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Ce groupage n'est pas clôturé.");
-        BigDecimal gross = balances.calculate(org, campaign, true, false, true).campaigns()
-                .stream().filter(row -> campaign.equals(row.campaignId()))
-                .findFirst().orElseThrow().availableForPayout();
+        BigDecimal gross =
+                balances.calculate(org, campaign, true, false, true).campaigns().stream()
+                        .filter(row -> campaign.equals(row.campaignId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .availableForPayout();
         return issueQuote(org, campaign, null, expectedDestination, gross);
     }
 
@@ -84,38 +90,65 @@ public class MerchantPayoutTransactions {
             UUID org, UUID directOrderId, UUID expectedDestination) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!available() || !directPayoutsEnabled || !"SASPAY".equals(provider.name()))
-            throw error(503, "PAYOUT_FEE_QUOTE_UNAVAILABLE",
+            throw error(
+                    503,
+                    "PAYOUT_FEE_QUOTE_UNAVAILABLE",
                     "Le devis de retrait SasPay est indisponible.");
         store.lockOrganization(org);
         direct.lock(org, directOrderId);
-        BigDecimal gross = direct.calculate(org).stream()
-                .filter(row -> directOrderId.equals(row.directOrderId()))
-                .findFirst()
-                .orElseThrow(() -> error(409, "MERCHANT_FUNDS_NOT_AVAILABLE",
-                        "Cette vente n'a pas de fonds disponibles."))
-                .availableForPayout();
+        BigDecimal gross =
+                direct.calculate(org).stream()
+                        .filter(row -> directOrderId.equals(row.directOrderId()))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                "Cette vente n'a pas de fonds disponibles."))
+                        .availableForPayout();
         return issueQuote(org, null, directOrderId, expectedDestination, gross);
     }
 
     private MerchantPayoutFeeQuote issueQuote(
-            UUID org, UUID campaign, UUID directOrderId,
-            UUID expectedDestination, BigDecimal gross) {
+            UUID org,
+            UUID campaign,
+            UUID directOrderId,
+            UUID expectedDestination,
+            BigDecimal gross) {
         if (gross == null || gross.signum() <= 0)
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
-        var destination = store.destination(org)
-                .orElseThrow(() -> error(409, "PAYOUT_DESTINATION_REQUIRED",
-                        "Renseignez une destination de versement."));
+        var destination =
+                store.destination(org)
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "PAYOUT_DESTINATION_REQUIRED",
+                                                "Renseignez une destination de versement."));
         if (!destination.id().equals(expectedDestination))
-            throw error(409, "PAYOUT_DESTINATION_CHANGED",
+            throw error(
+                    409,
+                    "PAYOUT_DESTINATION_CHANGED",
                     "La destination a changé. Actualisez le devis.");
         BigDecimal fee = provider.payoutFeeQuote(gross, destination.method());
         if (fee == null || fee.signum() < 0 || fee.scale() > 2 || fee.compareTo(gross) >= 0)
             throw error(409, "PAYOUT_FEE_QUOTE_INVALID", "Frais de retrait non fiables.");
-        var quote = new MerchantPayoutFeeQuote(
-                UUID.randomUUID(), org, campaign, directOrderId,
-                destination.id(), destination.method(), destination.phoneE164(),
-                provider.name(), provider.account(), gross, fee, gross.subtract(fee),
-                now().plusSeconds(180));
+        var quote =
+                new MerchantPayoutFeeQuote(
+                        UUID.randomUUID(),
+                        org,
+                        campaign,
+                        directOrderId,
+                        destination.id(),
+                        destination.method(),
+                        destination.phoneE164(),
+                        provider.name(),
+                        provider.account(),
+                        gross,
+                        fee,
+                        gross.subtract(fee),
+                        now().plusSeconds(180));
         store.createFeeQuote(quote);
         return quote;
     }
@@ -126,8 +159,12 @@ public class MerchantPayoutTransactions {
     }
 
     public MerchantPayout reserve(
-            UUID org, UUID campaign, UUID key, UUID expectedDestination,
-            boolean confirmed, UUID quoteId) {
+            UUID org,
+            UUID campaign,
+            UUID key,
+            UUID expectedDestination,
+            boolean confirmed,
+            UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
@@ -204,8 +241,7 @@ public class MerchantPayoutTransactions {
                         "AWAITING_DISPATCH",
                         0);
         store.create(p);
-        if ("SASPAY".equals(p.provider()))
-            store.bindFeeQuote(requireQuote(p, quoteId), p);
+        if ("SASPAY".equals(p.provider())) store.bindFeeQuote(requireQuote(p, quoteId), p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
                         Kind.MERCHANT_PAYOUT,
@@ -228,8 +264,12 @@ public class MerchantPayoutTransactions {
     }
 
     public MerchantPayout reserveDirect(
-            UUID org, UUID directOrderId, UUID key, UUID expectedDestination,
-            boolean confirmed, UUID quoteId) {
+            UUID org,
+            UUID directOrderId,
+            UUID key,
+            UUID expectedDestination,
+            boolean confirmed,
+            UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
@@ -310,8 +350,7 @@ public class MerchantPayoutTransactions {
                         0,
                         directOrderId);
         store.create(p);
-        if ("SASPAY".equals(p.provider()))
-            store.bindFeeQuote(requireQuote(p, quoteId), p);
+        if ("SASPAY".equals(p.provider())) store.bindFeeQuote(requireQuote(p, quoteId), p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
                         Kind.MERCHANT_PAYOUT,
@@ -415,7 +454,9 @@ public class MerchantPayoutTransactions {
         if ("SASPAY".equals(p.provider())) {
             var quote = store.payoutFeeQuote(p.id());
             if (quote == null)
-                throw error(409, "PAYOUT_FEE_QUOTE_MISSING",
+                throw error(
+                        409,
+                        "PAYOUT_FEE_QUOTE_MISSING",
                         "Aucun devis accepté n'est lié au retrait.");
             if (!p.organizationId().equals(quote.organizationId())
                     || !p.destinationId().equals(quote.destinationId())
@@ -423,10 +464,13 @@ public class MerchantPayoutTransactions {
                     || !p.phoneE164().equals(quote.phoneE164())
                     || !p.providerAccountReference().equals(quote.providerAccountReference())
                     || p.amount().compareTo(quote.grossAmount()) != 0
-                    || quote.netAmount().compareTo(
-                            quote.grossAmount().subtract(quote.providerFee())) != 0
+                    || quote.netAmount()
+                                    .compareTo(quote.grossAmount().subtract(quote.providerFee()))
+                            != 0
                     || quote.netAmount().signum() <= 0)
-                throw error(409, "PAYOUT_FEE_QUOTE_MISMATCH",
+                throw error(
+                        409,
+                        "PAYOUT_FEE_QUOTE_MISMATCH",
                         "Le devis accepté ne correspond plus au retrait.");
         }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");

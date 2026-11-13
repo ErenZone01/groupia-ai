@@ -275,8 +275,7 @@ class SaspayMerchantPayoutProviderTests {
                 verified(null, null),
                 transactionDetail("771234567", "wave_sn")
                         .replace("\"client_fee\":\"52.00\"", "\"client_fee\":\"53.00\"")
-                        .replace(
-                                "\"net_amount\":\"948.00\"", "\"net_amount\":\"947.00\""),
+                        .replace("\"net_amount\":\"948.00\"", "\"net_amount\":\"947.00\""),
                 "SASPAY_PAYOUT_FINANCIAL_MISMATCH");
         assertInvalidDualGet(
                 verified(null, null),

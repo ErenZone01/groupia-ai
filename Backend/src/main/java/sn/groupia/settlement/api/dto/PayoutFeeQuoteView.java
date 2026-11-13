@@ -19,8 +19,15 @@ public record PayoutFeeQuoteView(
         Instant expiresAt) {
     public static PayoutFeeQuoteView from(MerchantPayoutFeeQuote q) {
         return new PayoutFeeQuoteView(
-                q.id(), q.destinationId(), q.method(), q.maskedPhone(),
-                q.grossAmount(), q.providerFee(), q.netAmount(),
-                "XOF", "DEDUCTED", q.expiresAt());
+                q.id(),
+                q.destinationId(),
+                q.method(),
+                q.maskedPhone(),
+                q.grossAmount(),
+                q.providerFee(),
+                q.netAmount(),
+                "XOF",
+                "DEDUCTED",
+                q.expiresAt());
     }
 }

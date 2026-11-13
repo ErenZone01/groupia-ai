@@ -22,13 +22,36 @@ public record MerchantPayoutView(
         BigDecimal netAmount,
         String feeChargeMode) {
     public MerchantPayoutView(
-            UUID id, UUID campaignId, BigDecimal amount, String currency, String status,
-            String method, String maskedPhone, String holderName, Instant requestedAt,
-            Instant succeededAt, boolean reconciliationRequired, String reconciliationReason,
+            UUID id,
+            UUID campaignId,
+            BigDecimal amount,
+            String currency,
+            String status,
+            String method,
+            String maskedPhone,
+            String holderName,
+            Instant requestedAt,
+            Instant succeededAt,
+            boolean reconciliationRequired,
+            String reconciliationReason,
             UUID directOrderId) {
-        this(id, campaignId, amount, currency, status, method, maskedPhone, holderName,
-                requestedAt, succeededAt, reconciliationRequired, reconciliationReason,
-                directOrderId, null, null, null);
+        this(
+                id,
+                campaignId,
+                amount,
+                currency,
+                status,
+                method,
+                maskedPhone,
+                holderName,
+                requestedAt,
+                succeededAt,
+                reconciliationRequired,
+                reconciliationReason,
+                directOrderId,
+                null,
+                null,
+                null);
     }
 
     public MerchantPayoutView(

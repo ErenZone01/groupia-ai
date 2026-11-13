@@ -66,9 +66,18 @@ class MerchantPayoutFeeBudgetTests {
 
     private MerchantPayoutFeeQuote approvedQuote() {
         return new MerchantPayoutFeeQuote(
-                UUID.randomUUID(), org, payout.campaignId(), null, payout.destinationId(),
-                payout.method(), payout.phoneE164(), "SASPAY", account,
-                payout.amount(), new BigDecimal("20"), new BigDecimal("980"),
+                UUID.randomUUID(),
+                org,
+                payout.campaignId(),
+                null,
+                payout.destinationId(),
+                payout.method(),
+                payout.phoneE164(),
+                "SASPAY",
+                account,
+                payout.amount(),
+                new BigDecimal("20"),
+                new BigDecimal("980"),
                 Instant.parse("2026-11-15T00:00:00Z"));
     }
 
@@ -77,8 +86,10 @@ class MerchantPayoutFeeBudgetTests {
         var transactions = transactions();
         assertThatThrownBy(() -> transactions.claim(org, payoutId))
                 .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).code())
-                        .isEqualTo("PAYOUT_FEE_QUOTE_MISSING"));
+                .satisfies(
+                        ex ->
+                                assertThat(((ApiException) ex).code())
+                                        .isEqualTo("PAYOUT_FEE_QUOTE_MISSING"));
         verify(store, never()).reserveCompanyFee(any(), any(), any());
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
@@ -87,17 +98,28 @@ class MerchantPayoutFeeBudgetTests {
     void contradictoryNetQuoteBlocksPayout() {
         var transactions = transactions();
         var valid = approvedQuote();
-        var changed = new MerchantPayoutFeeQuote(
-                valid.id(), valid.organizationId(), valid.campaignId(), null,
-                valid.destinationId(), valid.method(), valid.phoneE164(),
-                valid.provider(), valid.providerAccountReference(),
-                valid.grossAmount(), valid.providerFee(), new BigDecimal("981"),
-                valid.expiresAt());
+        var changed =
+                new MerchantPayoutFeeQuote(
+                        valid.id(),
+                        valid.organizationId(),
+                        valid.campaignId(),
+                        null,
+                        valid.destinationId(),
+                        valid.method(),
+                        valid.phoneE164(),
+                        valid.provider(),
+                        valid.providerAccountReference(),
+                        valid.grossAmount(),
+                        valid.providerFee(),
+                        new BigDecimal("981"),
+                        valid.expiresAt());
         when(store.payoutFeeQuote(payoutId)).thenReturn(changed);
         assertThatThrownBy(() -> transactions.claim(org, payoutId))
                 .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).code())
-                        .isEqualTo("PAYOUT_FEE_QUOTE_MISMATCH"));
+                .satisfies(
+                        ex ->
+                                assertThat(((ApiException) ex).code())
+                                        .isEqualTo("PAYOUT_FEE_QUOTE_MISMATCH"));
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 
@@ -107,8 +129,14 @@ class MerchantPayoutFeeBudgetTests {
         when(store.payoutFeeQuote(payoutId)).thenReturn(approvedQuote());
         assertThat(transactions.claim(org, payoutId)).isTrue();
         verify(store, never()).reserveCompanyFee(any(), any(), any());
-        verify(store).state(
-                eq(payoutId), eq("PENDING"), isNull(), isNull(), isNull(), eq(true),
-                eq("PAYOUT_INITIATION_IN_PROGRESS"));
+        verify(store)
+                .state(
+                        eq(payoutId),
+                        eq("PENDING"),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(true),
+                        eq("PAYOUT_INITIATION_IN_PROGRESS"));
     }
 }

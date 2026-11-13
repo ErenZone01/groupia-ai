@@ -259,7 +259,8 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
 
     @Override
     public void createFeeQuote(MerchantPayoutFeeQuote q) {
-        if (q == null || q.netAmount().signum() <= 0
+        if (q == null
+                || q.netAmount().signum() <= 0
                 || q.netAmount().compareTo(q.grossAmount().subtract(q.providerFee())) != 0
                 || (q.campaignId() == null) == (q.directOrderId() == null))
             throw new IllegalStateException("PAYOUT_FEE_QUOTE_INVALID");
@@ -288,20 +289,26 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
 
     @Override
     public MerchantPayoutFeeQuote feeQuote(UUID org, UUID quoteId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         "select * from merchant_payout_fee_quotes where organization_id=? and id=?",
                         payoutFeeQuote,
                         org,
                         quoteId)
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new ApiException(
-                        409, "PAYOUT_FEE_QUOTE_NOT_FOUND", "Devis de retrait introuvable."));
+                .orElseThrow(
+                        () ->
+                                new ApiException(
+                                        409,
+                                        "PAYOUT_FEE_QUOTE_NOT_FOUND",
+                                        "Devis de retrait introuvable."));
     }
 
     @Override
     public Optional<MerchantPayoutFeeQuote> findPayoutFeeQuote(UUID payoutId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select q.* from merchant_payout_fee_quotes q
                         join merchant_payout_fee_quote_bindings b on b.quote_id=q.id
@@ -321,11 +328,12 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
 
     @Override
     public void bindFeeQuote(MerchantPayoutFeeQuote quote, MerchantPayout p) {
-        var found = jdbc.query(
-                "select * from merchant_payout_fee_quotes where organization_id=? and id=? for update",
-                payoutFeeQuote,
-                p.organizationId(),
-                quote.id());
+        var found =
+                jdbc.query(
+                        "select * from merchant_payout_fee_quotes where organization_id=? and id=? for update",
+                        payoutFeeQuote,
+                        p.organizationId(),
+                        quote.id());
         if (found.size() != 1
                 || !found.getFirst().id().equals(quote.id())
                 || !found.getFirst().organizationId().equals(quote.organizationId())
@@ -344,8 +352,7 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 || !Objects.equals(p.campaignId(), quote.campaignId())
                 || !Objects.equals(p.directOrderId(), quote.directOrderId())
                 || p.amount().compareTo(quote.grossAmount()) != 0)
-            throw new ApiException(
-                    409, "PAYOUT_FEE_QUOTE_STALE", "Le devis a changé ou a expiré.");
+            throw new ApiException(409, "PAYOUT_FEE_QUOTE_STALE", "Le devis a changé ou a expiré.");
         jdbc.update(
                 """
                 insert into merchant_payout_fee_quote_bindings(quote_id,payout_id)
@@ -356,11 +363,14 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
     }
 
     @Override
-    public void recordDeductedProviderFee(
-            UUID payoutId, BigDecimal gross, BigDecimal providerFee) {
-        if (payoutId == null || gross == null || providerFee == null
-                || gross.signum() <= 0 || gross.stripTrailingZeros().scale() > 0
-                || providerFee.signum() < 0 || providerFee.scale() > 2
+    public void recordDeductedProviderFee(UUID payoutId, BigDecimal gross, BigDecimal providerFee) {
+        if (payoutId == null
+                || gross == null
+                || providerFee == null
+                || gross.signum() <= 0
+                || gross.stripTrailingZeros().scale() > 0
+                || providerFee.signum() < 0
+                || providerFee.scale() > 2
                 || gross.compareTo(providerFee) <= 0)
             throw new IllegalStateException("PAYOUT_FEE_EVIDENCE_INVALID");
         jdbc.update(
@@ -374,20 +384,23 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 gross,
                 providerFee,
                 gross);
-        var current = jdbc.query(
-                """
+        var current =
+                jdbc.query(
+                                """
                 select principal_xof,provider_fee_xof,wallet_debited_xof,
                        net_amount_xof,fee_charge_mode
                 from merchant_payout_provider_fees where payout_id=?
                 """,
-                (r, n) -> new Object[] {
-                    r.getBigDecimal("principal_xof"),
-                    r.getBigDecimal("provider_fee_xof"),
-                    r.getBigDecimal("wallet_debited_xof"),
-                    r.getBigDecimal("net_amount_xof"),
-                    r.getString("fee_charge_mode")
-                },
-                payoutId).getFirst();
+                                (r, n) ->
+                                        new Object[] {
+                                            r.getBigDecimal("principal_xof"),
+                                            r.getBigDecimal("provider_fee_xof"),
+                                            r.getBigDecimal("wallet_debited_xof"),
+                                            r.getBigDecimal("net_amount_xof"),
+                                            r.getString("fee_charge_mode")
+                                        },
+                                payoutId)
+                        .getFirst();
         if (!"DEDUCTED".equals(current[4])
                 || ((BigDecimal) current[0]).compareTo(gross) != 0
                 || ((BigDecimal) current[1]).compareTo(providerFee) != 0

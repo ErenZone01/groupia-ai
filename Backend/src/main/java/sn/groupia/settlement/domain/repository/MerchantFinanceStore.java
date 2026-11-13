@@ -26,6 +26,7 @@ public interface MerchantFinanceStore {
 
     /** Append-only SasPay fee evidence; never withdraw the fee from a seller ledger. */
     void recordProviderFee(UUID payoutId, BigDecimal principal, BigDecimal providerFee);
+
     /** Historical ADD_ON proof remains unchanged; new deductions preserve gross and net. */
     void recordDeductedProviderFee(UUID payoutId, BigDecimal gross, BigDecimal providerFee);
 
@@ -38,7 +39,6 @@ public interface MerchantFinanceStore {
     Optional<MerchantPayoutFeeQuote> findPayoutFeeQuote(UUID payoutId);
 
     void bindFeeQuote(MerchantPayoutFeeQuote quote, MerchantPayout payout);
-
 
     /** Company-owned XOF fee budget, never a seller balance. Caller must hold a transaction. */
     void reserveCompanyFee(String providerAccount, UUID payoutId, BigDecimal maxFee);

@@ -44,7 +44,25 @@ public interface MerchantPayoutProvider {
             String method,
             String phoneE164,
             String status,
-            Instant occurredAt) {
+            Instant occurredAt,
+            BigDecimal providerFee) {
+        /** Compatibility constructor for providers/tests without separate fee evidence. */
+        public Proof(
+                boolean authenticated,
+                String provider,
+                String account,
+                String businessReference,
+                String transactionId,
+                BigDecimal amount,
+                String currency,
+                String method,
+                String phoneE164,
+                String status,
+                Instant occurredAt) {
+            this(authenticated, provider, account, businessReference, transactionId, amount,
+                    currency, method, phoneE164, status, occurredAt, null);
+        }
+
         @Override
         public String toString() {
             return "MerchantPayoutProof[redacted]";

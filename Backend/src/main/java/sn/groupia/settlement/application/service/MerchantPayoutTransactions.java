@@ -420,6 +420,22 @@ public class MerchantPayoutTransactions {
             return;
         }
         if (proof.status().equals("SUCCEEDED")) {
+            // SasPay debits the merchant wallet for principal PLUS the provider fee.
+            // Preserve the fee as independent, immutable evidence; do not debit the
+            // seller ledger for it. Company-fee funding must be authorized separately.
+            if ("SASPAY".equals(p.provider())) {
+                BigDecimal fee = proof.providerFee();
+                if (fee == null || fee.signum() < 0 || fee.scale() > 2) {
+                    review(p, "PAYOUT_FEE_EVIDENCE_MISSING");
+                    return;
+                }
+                try {
+                    store.recordProviderFee(p.id(), p.amount(), fee);
+                } catch (IllegalStateException ex) {
+                    review(p, "PAYOUT_FEE_EVIDENCE_CONFLICT");
+                    return;
+                }
+            }
             io.micrometer.core.instrument.Metrics.counter(
                             "merchant_payout_succeeded",
                             "provider",
@@ -548,7 +564,8 @@ public class MerchantPayoutTransactions {
                         e.method(),
                         e.recipientPhone(),
                         e.status(),
-                        e.occurredAt());
+                        e.occurredAt(),
+                        e.providerFee());
         if (error == null) error = correlate(p, proof);
         if (error == null && p.succeeded() && !"SUCCEEDED".equals(e.status()))
             error = "PAYOUT_CONTRADICTORY_EVIDENCE";

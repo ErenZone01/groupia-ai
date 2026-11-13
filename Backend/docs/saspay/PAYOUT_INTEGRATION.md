@@ -137,6 +137,41 @@ Le retrait et le remboursement client sont des opérations
 financières distinctes. Aucun remboursement automatique SasPay
 n'est intégré par ce lot.
 
+## Historisation des frais vérifiés (migration 056, à tester localement)
+
+Le provider SasPay transmet désormais le `client_fee` vérifié dans
+`MerchantPayoutProvider.Proof.providerFee`. Une preuve `SUCCEEDED` sans frais
+valides (y compris 0 XOF si réellement facturé) n'autorise pas le statut
+`SUCCEEDED` dans Groupia. Le moteur enregistre auparavant le principal,
+le coût réel du fournisseur et leur somme dans
+`merchant_payout_provider_fees` (migration additive 056). Le SQL et la
+relecture rendent l'écriture idempotente, rejettent tout montant divergent
+et protègent cette preuve contre UPDATE/DELETE. Le principal de la vendeuse
+n'est jamais diminué par cette écriture. Les scénarios synthétiques
+d'autres fournisseurs restent compatibles avec l'ancien constructeur de preuve.
+
+**Cette historisation n'est pas un budget de frais.** Il manque encore un
+mécanisme indépendant prouvant que Groupia a réellement provisionné
+les frais de transfert, de réservation préalable et de rapprochement de la
+dépense avec le solde du wallet marchand. Une variable d'approbation ou
+un calcul de tarif ne prouvent pas qu'il existe des fonds distincts.
+Aucun retrait SasPay LIVE ne doit donc être activé après ce seul correctif.
+
+Commandes pour vérifier le nouveau HEAD avec PostgreSQL/Testcontainers
+isolés (jamais sur la base ou les clés LIVE) :
+
+```powershell
+git pull --ff-only origin saspay-payin-v1
+cd Backend
+$env:SPRING_PROFILES_ACTIVE = "test"
+$env:SASPAY_ENABLED = "false"
+.\mvnw.cmd spotless:apply
+.\mvnw.cmd "-Dtest=SaspayMerchantPayoutProviderTests,UnifiedMerchantPayoutIntegrationTests,MerchantSettlementIntegrationTests" test
+.\mvnw.cmd verify
+cd ..
+python tools/check_migrations.py
+```
+
 ## Diagnostic des réseaux payout et frais (lecture seule)
 
 Depuis la racine du dépôt, après avoir mis à jour la branche et configuré

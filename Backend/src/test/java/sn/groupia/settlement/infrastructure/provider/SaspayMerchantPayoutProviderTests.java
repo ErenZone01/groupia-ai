@@ -286,6 +286,7 @@ class SaspayMerchantPayoutProviderTests {
             assertThat(proof.status()).isEqualTo(status);
             assertThat(proof.phoneE164()).isNull();
             assertThat(proof.transactionId()).isEqualTo(TX.toString());
+            assertThat(proof.providerFee()).isEqualByComparingTo("52");
         }
     }
 
@@ -319,6 +320,7 @@ class SaspayMerchantPayoutProviderTests {
         assertThat(proof.transactionId()).isEqualTo(TX.toString());
         assertThat(proof.phoneE164()).isEqualTo(p.phoneE164());
         assertThat(proof.amount()).isEqualByComparingTo("1000");
+        assertThat(proof.providerFee()).isEqualByComparingTo("52");
     }
 
     @Test

@@ -267,7 +267,7 @@ def print_payout_diagnostic(rates, env, amount):
             print("    Estimation seulement : principal " + str(amount) +
                   " XOF, frais Groupia " + str(fee) + " XOF, débit wallet " +
                   str(amount + fee) + " XOF, net vendeur " + str(amount) + " XOF.")
-            print("    Aucun budget ni réservation de ces frais n'est encore réalisé dans Groupia.")
+            print("    Ce diagnostic ne certifie ni le financement Groupia ni ses réservations en base.")
 
 
 def diagnose_webhooks(env, key):

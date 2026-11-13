@@ -333,6 +333,23 @@ public class MerchantPayoutTransactions {
                         "MERCHANT_FUNDS_NOT_AVAILABLE",
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
+        if ("SASPAY".equals(p.provider())) {
+            BigDecimal ceiling = provider.feeReservationCeiling(p);
+            if (ceiling == null || ceiling.signum() <= 0
+                    || ceiling.scale() > 2)
+                throw error(
+                        503,
+                        "SASPAY_COMPANY_FEE_CEILING_UNCONFIRMED",
+                        "Le budget des frais de retrait n'est pas encore configuré.");
+            try {
+                store.reserveCompanyFee(p.providerAccountReference(), p.id(), ceiling);
+            } catch (IllegalStateException ex) {
+                throw error(
+                        409,
+                        "SASPAY_COMPANY_FEE_BUDGET_UNAVAILABLE",
+                        "Le budget de frais appartenant à Groupia est insuffisant.");
+            }
+        }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");
         io.micrometer.core.instrument.Metrics.counter(
                         "merchant_payout_initiated", "provider", p.provider(), "method", p.method())
@@ -430,6 +447,7 @@ public class MerchantPayoutTransactions {
                     return;
                 }
                 try {
+                    store.settleCompanyFee(p.providerAccountReference(), p.id(), fee);
                     store.recordProviderFee(p.id(), p.amount(), fee);
                 } catch (IllegalStateException ex) {
                     review(p, "PAYOUT_FEE_EVIDENCE_CONFLICT");

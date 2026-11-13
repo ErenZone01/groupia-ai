@@ -187,6 +187,52 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
             ),
         )
 
+    def test_payout_diagnostic_requires_exact_add_on_and_integer_fee(self):
+        from decimal import Decimal
+        from saspay_diagnostics import payout_quote_reason
+        tier = {
+            "min_amount": "0.00", "max_amount": "500000.00",
+            "currency": "XOF", "fee_charge_mode": "ADD_ON",
+            "percent": "2.0", "fixed": "10.00",
+            "floor_amount": None, "cap_amount": None,
+        }
+        rate = {"country_code": "SN", "currency": "XOF",
+                "payout": {"available": True, "otp_required": False, "tiers": [tier]}}
+        self.assertEqual(payout_quote_reason(rate, Decimal(1000)),
+                         ("ADD_ON compatible à titre indicatif", Decimal(30)))
+        tier["fee_charge_mode"] = "DEDUCTED"
+        self.assertIn("ADD_ON non confirmé", payout_quote_reason(rate, Decimal(1000))[0])
+        tier["fee_charge_mode"] = "ADD_ON"
+        tier["percent"] = "2.25"
+        self.assertIn("fractionnaires", payout_quote_reason(rate, Decimal(1020))[0])
+        rate["payout"]["available"] = False
+        self.assertIn("non disponible", payout_quote_reason(rate, Decimal(1000))[0])
+
+    def test_payout_diagnostic_reports_only_authorized_configured_network_codes(self):
+        from decimal import Decimal
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from saspay_diagnostics import print_payout_diagnostic
+        rates = [{
+            "country_code": "SN", "currency": "XOF", "network_code": "wave_sn",
+            "payout": {"available": True, "otp_required": False, "tiers": [{
+                "min_amount": "0", "max_amount": None,
+                "currency": "XOF", "fee_charge_mode": "ADD_ON",
+                "percent": "2", "fixed": "0",
+                "floor_amount": None, "cap_amount": None,
+            }]},
+        }]
+        env = {"SASPAY_PAYOUTS_WAVE_NETWORK": "wave_sn",
+               "SASPAY_PAYOUTS_ORANGE_NETWORK": ""}
+        output = StringIO()
+        with redirect_stdout(output):
+            print_payout_diagnostic(rates, env, Decimal(1000))
+        text = output.getvalue()
+        self.assertIn("ADD_ON compatible", text)
+        self.assertIn("débit wallet 1020 XOF", text)
+        self.assertIn("Orange Money: code réseau payout non configuré", text)
+        self.assertIn("aucun budget", text.lower())
+
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):
             read_only_get("/payouts/initialize/", "sk_test_dummy")

@@ -201,6 +201,75 @@ def print_quote_diagnostic(rates, amount, max_total, suggest_amounts=False,
                 print("    Aucun montant compatible trouvé entre 200 XOF et le plafond pilote.")
 
 
+
+def payout_quote_reason(rate, amount):
+    """Read-only indicative quote; does not prove API scope, IP access or wallet liquidity."""
+    if not isinstance(rate, dict) or rate.get("country_code") != "SN" or rate.get("currency") != "XOF":
+        return "réseau hors Sénégal/XOF", None
+    payout = rate.get("payout")
+    if not isinstance(payout, dict) or payout.get("available") is not True:
+        return "payout non disponible pour ce compte/réseau", None
+    if payout.get("otp_required") is not False:
+        return "OTP payout non confirmé pour ce parcours", None
+    tiers = payout.get("tiers")
+    if not isinstance(tiers, list):
+        return "grille payout absente", None
+    try:
+        matching = []
+        for tier in tiers:
+            low = _tariff_field(tier, "min_amount")
+            high = _tariff_field(tier, "max_amount", nullable=True)
+            if amount >= low and (high is None or amount <= high):
+                matching.append(tier)
+        if len(matching) != 1:
+            return "pas de palier payout unique au montant demandé", None
+        tier = matching[0]
+        if tier.get("currency") != "XOF" or tier.get("fee_charge_mode") != "ADD_ON":
+            return "ADD_ON non confirmé : principal vendeur non garanti", None
+        fee = (amount * _tariff_field(tier, "percent") / Decimal("100")
+               + _tariff_field(tier, "fixed"))
+        floor = _tariff_field(tier, "floor_amount", nullable=True)
+        cap = _tariff_field(tier, "cap_amount", nullable=True)
+        if floor is not None and cap is not None and floor > cap:
+            return "plancher payout supérieur au plafond", None
+        if floor is not None:
+            fee = max(fee, floor)
+        if cap is not None:
+            fee = min(fee, cap)
+        if fee.normalize().as_tuple().exponent < -2:
+            return "frais payout à plus de deux décimales", None
+        if fee != fee.to_integral_value():
+            return "frais payout fractionnaires XOF : règle d'arrondi à confirmer", None
+        return "ADD_ON compatible à titre indicatif", fee
+    except (ValueError, InvalidOperation, TypeError, KeyError, AttributeError) as exc:
+        return "grille payout non exploitable : " + (str(exc) if isinstance(exc, ValueError) else "format invalide"), None
+
+
+def print_payout_diagnostic(rates, env, amount):
+    """Print approved-code candidates without a payout POST or leaking credentials."""
+    print("Pré-diagnostic retraits SasPay, lecture seule ; montant vendeur : " + str(amount) + " XOF.")
+    print("Ni les droits API PAYOUT, ni l'IP whitelistée, ni les fonds disponibles ne sont prouvés par GET.")
+    for label, variable in (("Wave", "SASPAY_PAYOUTS_WAVE_NETWORK"),
+                            ("Orange Money", "SASPAY_PAYOUTS_ORANGE_NETWORK")):
+        code = env.get(variable, "").strip()
+        if not re.fullmatch(r"[a-z0-9_]{3,64}", code):
+            print("  " + label + ": code réseau payout non configuré/invalidé.")
+            continue
+        matches = [r for r in rates if isinstance(r, dict)
+                   and r.get("country_code") == "SN" and r.get("currency") == "XOF"
+                   and r.get("network_code") == code]
+        if len(matches) != 1:
+            print("  " + label + ": code absent ou non unique des tarifs SN/XOF du compte.")
+            continue
+        reason, fee = payout_quote_reason(matches[0], amount)
+        print("  " + label + " (" + code + ") : " + reason)
+        if fee is not None:
+            print("    Estimation seulement : principal " + str(amount) +
+                  " XOF, frais Groupia " + str(fee) + " XOF, débit wallet " +
+                  str(amount + fee) + " XOF, net vendeur " + str(amount) + " XOF.")
+            print("    Aucun budget ni réservation de ces frais n'est encore réalisé dans Groupia.")
+
+
 def diagnose_webhooks(env, key):
     """GET-only webhook configuration overview; never fetches delivery payloads or signing secrets."""
     print("Webhook : secret configuré localement : " +
@@ -243,7 +312,7 @@ def diagnose_webhooks(env, key):
 
 
 def diagnose(env: dict[str, str], amount=None, organization_id=None,
-             suggest_amounts=False, check_webhooks=False):
+             suggest_amounts=False, check_webhooks=False, payout_amount=None):
     key = env.get("SASPAY_API_KEY", "")
     if not (key.startswith("sk_live_") or key.startswith("sk_test_")):
         print("SASPAY_API_KEY manquante ou de format inconnu.")
@@ -291,6 +360,8 @@ def diagnose(env: dict[str, str], amount=None, organization_id=None,
                     rates, Decimal(amount), Decimal(raw_cap),
                     suggest_amounts=suggest_amounts,
                     allow_fractional=env.get("SASPAY_ALLOW_FRACTIONAL_XOF_FEES", "false").lower() == "true")
+        if payout_amount is not None:
+            print_payout_diagnostic(rates, env, Decimal(payout_amount))
         if not senegal:
             print("Aucun tarif pay-in compatible constaté; ne pas activer les paiements.")
         if check_webhooks:
@@ -314,6 +385,8 @@ if __name__ == "__main__":
                         help="Cherche seulement des montants fictifs éligibles par réseau (lecture seule)")
     parser.add_argument("--check-webhooks", action="store_true",
                         help="Vérifie URL et abonnements des webhooks LIVE via GET seulement")
+    parser.add_argument("--payout-amount-xof", type=int,
+                        help="Pré-diagnostic lecture seule des réseaux et frais payout à ce montant")
     args = parser.parse_args()
     if args.amount_xof is not None and args.amount_xof <= 0:
         parser.error("--amount-xof doit être positif")
@@ -321,5 +394,8 @@ if __name__ == "__main__":
     variables.update(os.environ)
     if args.suggest_amounts and args.amount_xof is None:
         parser.error("--suggest-amounts nécessite --amount-xof")
+    if args.payout_amount_xof is not None and args.payout_amount_xof <= 0:
+        parser.error("--payout-amount-xof doit être positif")
     raise SystemExit(diagnose(variables, args.amount_xof, args.organization_id,
-                              args.suggest_amounts, args.check_webhooks))
+                              args.suggest_amounts, args.check_webhooks,
+                              args.payout_amount_xof))

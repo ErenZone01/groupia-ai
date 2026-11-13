@@ -135,31 +135,137 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
-    void verifiesExistingPayoutByGetOnlyWithoutCreatingAnotherTransfer() throws Exception {
+    void verifiesExistingPayoutUsingTwoIndependentGetsWithoutAnotherTransfer() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         var reads = new AtomicInteger();
+        var details = new AtomicInteger();
         server.createContext(
                 "/api/v1/payouts/" + TX + "/verify/",
                 exchange -> {
                     reads.incrementAndGet();
                     assertThat(exchange.getRequestMethod()).isEqualTo("GET");
-                    byte[] response =
-                            ("{\"success\":true,\"data\":" + verified("771234567", "wave_sn") + "}")
-                                    .getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().add("Content-Type", "application/json");
-                    exchange.sendResponseHeaders(200, response.length);
-                    try (var output = exchange.getResponseBody()) {
-                        output.write(response);
-                    }
+                    respond(exchange, verified(null, null));
+                });
+        server.createContext(
+                "/api/v1/transactions/" + TX + "/",
+                exchange -> {
+                    details.incrementAndGet();
+                    assertThat(exchange.getRequestMethod()).isEqualTo("GET");
+                    respond(exchange, transactionDetail("771234567", "wave_sn"));
                 });
         server.start();
         try {
             var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
-            assertThat(provider.verify(payout(TX.toString())).status()).isEqualTo("SUCCEEDED");
+            var proof = provider.verify(payout(TX.toString()));
+            assertThat(proof.status()).isEqualTo("SUCCEEDED");
+            assertThat(proof.phoneE164()).isEqualTo("+221771234567");
             assertThat(reads.get()).isEqualTo(1);
+            assertThat(details.get()).isEqualTo(1);
         } finally {
             server.stop(0);
         }
+    }
+
+    @Test
+    void pendingAndFailureRequireOnlyGatewayVerificationGet() throws Exception {
+        for (String status : List.of("PENDING", "FAILED", "CANCELLED")) {
+            var source =
+                    verified(null, null)
+                            .replace("\"status\":\"SUCCESS\"", "\"status\":\"" + status + "\"");
+            var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            var details = new AtomicInteger();
+            server.createContext(
+                    "/api/v1/payouts/" + TX + "/verify/",
+                    exchange -> respond(exchange, source));
+            server.createContext(
+                    "/api/v1/transactions/" + TX + "/",
+                    exchange -> {
+                        details.incrementAndGet();
+                        respond(exchange, transactionDetail("771234567", "wave_sn"));
+                    });
+            server.start();
+            try {
+                var provider =
+                        adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+                var proof = provider.verify(payout(TX.toString()));
+                assertThat(proof.status()).isEqualTo(status);
+                assertThat(proof.phoneE164()).isNull();
+                assertThat(details.get()).isZero();
+            } finally {
+                server.stop(0);
+            }
+        }
+    }
+
+    @Test
+    void successfulGatewayStatusCannotOverrideMissingOrContradictoryTransactionEvidence()
+            throws Exception {
+        assertInvalidDualGet(
+                verified(null, null),
+                transactionDetail(null, "wave_sn"),
+                "SASPAY_PAYOUT_RECIPIENT_EVIDENCE_MISSING");
+        assertInvalidDualGet(
+                verified(null, null),
+                transactionDetail("771234568", "wave_sn"),
+                "SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        assertInvalidDualGet(
+                verified(null, null),
+                transactionDetail("771234567", "orange_sn"),
+                "SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+        assertInvalidDualGet(
+                verified(null, null),
+                transactionDetail("771234567", "wave_sn")
+                        .replace("\"status\":\"SUCCESS\"", "\"status\":\"PENDING\""),
+                "SASPAY_PAYOUT_STATUS_CONFLICT");
+        assertInvalidDualGet(
+                verified(null, null),
+                transactionDetail("771234567", "wave_sn")
+                        .replace("\"client_fee\":\"52.00\"", "\"client_fee\":\"53.00\"")
+                        .replace("\"debited_amount\":\"1052.00\"", "\"debited_amount\":\"1053.00\""),
+                "SASPAY_PAYOUT_FINANCIAL_MISMATCH");
+        assertInvalidDualGet(
+                verified(null, null),
+                transactionDetail("771234567", "wave_sn")
+                        .replace(MERCHANT.toString(), UUID.randomUUID().toString()),
+                "SASPAY_PAYOUT_EVIDENCE_MISMATCH");
+    }
+
+    private void assertInvalidDualGet(String verification, String transaction, String error)
+            throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/api/v1/payouts/" + TX + "/verify/",
+                exchange -> respond(exchange, verification));
+        server.createContext(
+                "/api/v1/transactions/" + TX + "/",
+                exchange -> respond(exchange, transaction));
+        server.start();
+        try {
+            var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+            assertThatThrownBy(() -> provider.verify(payout(TX.toString()))).hasMessage(error);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private static void respond(com.sun.net.httpserver.HttpExchange exchange, String payload)
+            throws java.io.IOException {
+        byte[] response =
+                ("{\"success\":true,\"data\":" + payload + "}").getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, response.length);
+        try (var output = exchange.getResponseBody()) {
+            output.write(response);
+        }
+    }
+
+    private String transactionDetail(String phone, String network) {
+        String payload = verified(null, network);
+        return phone == null
+                ? payload
+                : payload.replace(
+                        "\"status\":\"SUCCESS\"",
+                        "\"status\":\"SUCCESS\",\"operation_msisdn\":\"" + phone + "\"");
     }
 
     @Test
@@ -169,6 +275,38 @@ class SaspayMerchantPayoutProviderTests {
         var e = json.readTree(verified(null, null));
         assertThatThrownBy(() -> provider.validateProof(p, e, Instant.now()))
                 .hasMessage("SASPAY_PAYOUT_RECIPIENT_EVIDENCE_MISSING");
+    }
+
+    @Test
+    void pendingFailedAndCancelledCanBeReconciledWithoutRecipientEvidence() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        for (String status : List.of("PENDING", "FAILED", "CANCELLED")) {
+            var payload =
+                    verified(null, null).replace("\"status\":\"SUCCESS\"", "\"status\":\"" + status + "\"");
+            var proof = provider.validateProof(p, json.readTree(payload), Instant.now());
+            assertThat(proof.status()).isEqualTo(status);
+            assertThat(proof.phoneE164()).isNull();
+            assertThat(proof.transactionId()).isEqualTo(TX.toString());
+        }
+    }
+
+    @Test
+    void anySuppliedPayoutDestinationEvidenceMustStillMatchOnNonSuccess() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        var wrongPhone =
+                verified("771234568", "wave_sn")
+                        .replace("\"status\":\"SUCCESS\"", "\"status\":\"FAILED\"");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(wrongPhone), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        var wrongNetwork =
+                verified(null, "orange_sn")
+                        .replace("\"status\":\"SUCCESS\"", "\"status\":\"PENDING\"");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(wrongNetwork), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
     }
 
     @Test
@@ -227,6 +365,24 @@ class SaspayMerchantPayoutProviderTests {
                                             Instant.now()))
                     .hasMessage("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
         }
+    }
+
+    @Test
+    void compactUuidResponsesAreNormalizedWithoutWeakeningIdentifierValidation() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        String compactId = TX.toString().replace("-", "");
+        String compactMerchant = MERCHANT.toString().replace("-", "");
+        String source =
+                verified("771234567", "wave_sn")
+                        .replace(TX.toString(), compactId)
+                        .replace(MERCHANT.toString(), compactMerchant);
+        assertThat(provider.validateProof(p, json.readTree(source), Instant.now()).transactionId())
+                .isEqualTo(TX.toString());
+        String corrupted = source.replace(compactId, "not-a-uuid");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(corrupted), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_IDENTIFIER_INVALID");
     }
 
     @Test

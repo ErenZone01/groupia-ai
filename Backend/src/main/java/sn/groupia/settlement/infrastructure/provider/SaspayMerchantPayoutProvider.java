@@ -219,14 +219,94 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         requireEnabled();
         assertIdentity(p);
         String id = uuid(p.providerTransactionId());
-        var details = exchange(http.get().uri("/payouts/{id}/verify/", id), 200);
-        return validateProof(p, details, clock.instant());
+        var verification = exchange(http.get().uri("/payouts/{id}/verify/", id), 200);
+        Instant checkedAt = clock.instant();
+        // The verification endpoint refreshes a pending gateway status. Its example
+        // response does not contain the credited phone number; a successful payout
+        // needs independent, immutable transaction-detail evidence as well.
+        if (!"SUCCESS".equals(text(verification, "status")))
+            return validateProof(p, verification, checkedAt);
+        var details = exchange(http.get().uri("/transactions/{id}/", id), 200);
+        return validateProof(p, verification, details, checkedAt);
+    }
+
+    Proof validateProof(
+            MerchantPayout p, JsonNode verification, JsonNode details, Instant checkedAt) {
+        String verifiedStatus = validateFinancialState(p, verification);
+        if (!"SUCCEEDED".equals(verifiedStatus))
+            throw new IllegalStateException("SASPAY_PAYOUT_STATUS_CONFLICT");
+        Proof detailProof = validateProof(p, details, checkedAt);
+        if (!"SUCCEEDED".equals(detailProof.status()))
+            throw new IllegalStateException("SASPAY_PAYOUT_STATUS_CONFLICT");
+        // Both authenticated GET responses must independently agree on every
+        // financial value, not merely on the principal owed to the merchant.
+        for (String field :
+                List.of("requested_amount", "client_fee", "debited_amount", "net_amount")) {
+            if (money(verification, field).compareTo(money(details, field)) != 0)
+                throw new IllegalStateException("SASPAY_PAYOUT_FINANCIAL_MISMATCH");
+        }
+        String phoneFromVerify = text(verification, "operation_msisdn");
+        if (phoneFromVerify == null) {
+            phoneFromVerify = text(verification.path("recipient"), "msisdn");
+            if (phoneFromVerify == null)
+                phoneFromVerify = text(verification, "recipient_msisdn");
+        }
+        if (phoneFromVerify != null && !detailProof.phoneE164().equals(phone(phoneFromVerify)))
+            throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        String networkFromVerify = text(verification, "network_code");
+        if (networkFromVerify != null && !network(p.method()).equals(networkFromVerify))
+            throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+        return detailProof;
     }
 
     Proof validateProof(MerchantPayout p, JsonNode data, Instant checkedAt) {
+        String status = validateFinancialState(p, data);
+        // For non-successful statuses, preserve any supplied destination evidence,
+        // but never invent it. SUCCESS must have a credited MSISDN and network.
+        String recipient = text(data, "operation_msisdn");
+        if (recipient == null) recipient = text(data.path("recipient"), "msisdn");
+        if (recipient == null) recipient = text(data, "recipient_msisdn");
+        String verifiedPhone = null;
+        if (recipient != null) {
+            verifiedPhone = phone(recipient);
+            if (!p.phoneE164().equals(verifiedPhone))
+                throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        } else if ("SUCCEEDED".equals(status)) {
+            throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_EVIDENCE_MISSING");
+        }
+        String verifiedNetwork = text(data, "network_code");
+        if (verifiedNetwork != null) {
+            if (!network(p.method()).equals(verifiedNetwork))
+                throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+        } else if ("SUCCEEDED".equals(status)) {
+            throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+        }
+        Instant occurredAt = checkedAt;
+        String updated = text(data, "updated_at");
+        if (updated != null)
+            try {
+                occurredAt = Instant.parse(updated);
+            } catch (RuntimeException ex) {
+                throw new IllegalStateException("SASPAY_PAYOUT_INVALID_TIMESTAMP");
+            }
+        return new Proof(
+                true,
+                name(),
+                account(),
+                p.businessReference(),
+                uuid(text(data, "id")),
+                p.amount(),
+                "XOF",
+                p.method(),
+                verifiedPhone,
+                status,
+                occurredAt);
+    }
+
+    private String validateFinancialState(MerchantPayout p, JsonNode data) {
         String transaction = uuid(text(data, "id"));
         if (!transaction.equals(uuid(p.providerTransactionId()))
-                || !account().equals(text(data, "merchant"))
+                || !account().equals(uuid(text(data, "merchant")))
                 || !"RETRAIT".equals(text(data, "transaction_type"))
                 || !"OUTBOUND".equals(text(data, "flow_direction"))
                 || !"XOF".equals(text(data, "currency"))
@@ -241,47 +321,13 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 || charged.compareTo(amount.add(fee)) != 0
                 || net.compareTo(amount) != 0)
             throw new IllegalStateException("SASPAY_PAYOUT_FINANCIAL_MISMATCH");
-        String status =
-                switch (Objects.toString(text(data, "status"), "")) {
-                    case "PENDING" -> "PENDING";
-                    case "SUCCESS" -> "SUCCEEDED";
-                    case "FAILED" -> "FAILED";
-                    case "CANCELLED" -> "CANCELLED";
-                    default -> throw new IllegalStateException("SASPAY_PAYOUT_STATUS_UNKNOWN");
-                };
-        // The official GET example contains only a customer UUID and network UUID.
-        // Neither proves the actual recipient MSISDN or payment network.
-        // No ledger payout may succeed until the provider returns verified
-        // beneficiary details with the transaction, not merely our POST echo.
-        String recipient = text(data.path("recipient"), "msisdn");
-        if (recipient == null) recipient = text(data, "recipient_msisdn");
-        if (recipient == null)
-            throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_EVIDENCE_MISSING");
-        String verifiedPhone = phone(recipient);
-        if (!p.phoneE164().equals(verifiedPhone))
-            throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
-        if (!network(p.method()).equals(text(data, "network_code")))
-            throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
-        Instant occurredAt = checkedAt;
-        String updated = text(data, "updated_at");
-        if (updated != null)
-            try {
-                occurredAt = Instant.parse(updated);
-            } catch (RuntimeException ex) {
-                throw new IllegalStateException("SASPAY_PAYOUT_INVALID_TIMESTAMP");
-            }
-        return new Proof(
-                true,
-                name(),
-                account(),
-                p.businessReference(),
-                transaction,
-                amount,
-                "XOF",
-                p.method(),
-                verifiedPhone,
-                status,
-                occurredAt);
+        return switch (Objects.toString(text(data, "status"), "")) {
+            case "PENDING" -> "PENDING";
+            case "SUCCESS" -> "SUCCEEDED";
+            case "FAILED" -> "FAILED";
+            case "CANCELLED" -> "CANCELLED";
+            default -> throw new IllegalStateException("SASPAY_PAYOUT_STATUS_UNKNOWN");
+        };
     }
 
     private String network(String method) {
@@ -358,11 +404,24 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     private static String uuid(String id) {
-        try {
-            return UUID.fromString(id).toString();
-        } catch (RuntimeException ex) {
+        // Same strict 32/36-character UUID normalization as the SasPay pay-in client.
+        if (id == null) throw new IllegalStateException("SASPAY_PAYOUT_IDENTIFIER_INVALID");
+        String canonical = id;
+        if (id.matches("[0-9a-fA-F]{32}"))
+            canonical =
+                    id.substring(0, 8)
+                            + "-"
+                            + id.substring(8, 12)
+                            + "-"
+                            + id.substring(12, 16)
+                            + "-"
+                            + id.substring(16, 20)
+                            + "-"
+                            + id.substring(20);
+        if (!canonical.matches(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
             throw new IllegalStateException("SASPAY_PAYOUT_IDENTIFIER_INVALID");
-        }
+        return UUID.fromString(canonical).toString();
     }
 
     private static String text(JsonNode n, String field) {

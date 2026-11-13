@@ -1,5 +1,6 @@
 package sn.groupia.settlement.domain.repository;
 import java.util.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 import sn.groupia.settlement.domain.model.*;
 public interface MerchantFinanceStore {

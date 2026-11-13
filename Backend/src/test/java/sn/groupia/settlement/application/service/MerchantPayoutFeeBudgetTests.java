@@ -6,11 +6,15 @@ import static org.mockito.Mockito.*;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import sn.groupia.grouping.api.MerchantCampaignFacts;
 import sn.groupia.organization.api.OrganizationAccess;
 import sn.groupia.payment.api.OutgoingPayoutOperations;
+import sn.groupia.settlement.api.dto.CampaignSettlement;
+import sn.groupia.settlement.api.dto.MerchantBalance;
 import sn.groupia.settlement.domain.model.MerchantPayout;
 import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
@@ -20,6 +24,7 @@ import sn.groupia.shared.api.ApiException;
 class MerchantPayoutFeeBudgetTests {
     private final MerchantFinanceStore store = mock(MerchantFinanceStore.class);
     private final MerchantPayoutProvider provider = mock(MerchantPayoutProvider.class);
+    private final CampaignSettlement campaignPosition = mock(CampaignSettlement.class);
     private final UUID org = UUID.randomUUID();
     private final UUID payoutId = UUID.randomUUID();
     private final String account = UUID.randomUUID().toString();
@@ -51,17 +56,35 @@ class MerchantPayoutFeeBudgetTests {
     private MerchantPayoutTransactions transactions() {
         when(store.payout(org, payoutId)).thenReturn(payout);
         when(provider.enabled()).thenReturn(true);
-        return new MerchantPayoutTransactions(
-                store,
-                mock(MerchantBalances.class),
-                mock(DirectMerchantBalances.class),
-                mock(MerchantCampaignFacts.class),
-                mock(OrganizationAccess.class),
-                provider,
-                Clock.systemUTC(),
-                mock(OutgoingPayoutOperations.class),
-                true,
-                false);
+        when(provider.name()).thenReturn("SASPAY");
+
+        // Claim rechecks actual settled/reserved campaign funds before any provider POST.
+        var balances = mock(MerchantBalances.class);
+        var balance = mock(MerchantBalance.class);
+        when(campaignPosition.campaignId()).thenReturn(payout.campaignId());
+        when(campaignPosition.eligibleBalance()).thenReturn(new BigDecimal("1000"));
+        when(campaignPosition.reservedForPayout()).thenReturn(new BigDecimal("1000"));
+        when(campaignPosition.deficit()).thenReturn(BigDecimal.ZERO);
+        when(balance.campaigns()).thenReturn(List.of(campaignPosition));
+        when(balances.calculate(org, payout.campaignId(), true, false, true)).thenReturn(balance);
+
+        var transactions =
+                new MerchantPayoutTransactions(
+                        store,
+                        balances,
+                        mock(DirectMerchantBalances.class),
+                        mock(MerchantCampaignFacts.class),
+                        mock(OrganizationAccess.class),
+                        provider,
+                        Clock.systemUTC(),
+                        mock(OutgoingPayoutOperations.class),
+                        true,
+                        false);
+        ReflectionTestUtils.setField(transactions, "saspayPayoutPilotEnabled", true);
+        ReflectionTestUtils.setField(transactions, "saspayPayoutPilotOrganizationId", org.toString());
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutPilotMaxXof", new BigDecimal("1000"));
+        return transactions;
     }
 
     private MerchantPayoutFeeQuote approvedQuote() {
@@ -120,6 +143,21 @@ class MerchantPayoutFeeBudgetTests {
                         ex ->
                                 assertThat(((ApiException) ex).code())
                                         .isEqualTo("PAYOUT_FEE_QUOTE_MISMATCH"));
+        verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
+    }
+
+    @Test
+    void insufficientCampaignFundsBlockClaimEvenWithAcceptedSellerQuote() {
+        var transactions = transactions();
+        when(campaignPosition.eligibleBalance()).thenReturn(new BigDecimal("999"));
+        when(store.payoutFeeQuote(payoutId)).thenReturn(approvedQuote());
+
+        assertThatThrownBy(() -> transactions.claim(org, payoutId))
+                .isInstanceOf(ApiException.class)
+                .satisfies(
+                        ex ->
+                                assertThat(((ApiException) ex).code())
+                                        .isEqualTo("MERCHANT_FUNDS_NOT_AVAILABLE"));
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 

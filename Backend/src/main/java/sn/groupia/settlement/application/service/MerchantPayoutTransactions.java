@@ -530,6 +530,28 @@ public class MerchantPayoutTransactions {
                         "MERCHANT_FUNDS_NOT_AVAILABLE",
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
+        if (!p.directSale() && "SASPAY".equals(p.provider())) {
+            // The original quote is not a substitute for a second solvency check.
+            // Check the campaign again under the organization lock, before provider POST.
+            campaigns.lock(org, p.campaignId());
+            var position =
+                    balances.calculate(org, p.campaignId(), true, false, true).campaigns().stream()
+                            .filter(row -> p.campaignId().equals(row.campaignId()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            error(
+                                                    409,
+                                                    "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                    "Les fonds du groupage sont indisponibles."));
+            if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
+                    || position.reservedForPayout().compareTo(p.amount()) < 0
+                    || position.deficit().signum() != 0)
+                throw error(
+                        409,
+                        "MERCHANT_FUNDS_NOT_AVAILABLE",
+                        "Le solde du groupage a changé. Le retrait reste réservé pour vérification.");
+        }
         if ("SASPAY".equals(p.provider())) {
             if (!"SASPAY".equals(provider.name()))
                 throw error(503, "SASPAY_PAYOUT_PROVIDER_CHANGED", "Le fournisseur de retrait a changé.");

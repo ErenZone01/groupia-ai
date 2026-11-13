@@ -74,6 +74,7 @@ export class SettlementsPage {
   readonly selected = signal<CampaignSettlement | null>(null);
   readonly selectedDirect = signal<DirectSettlement | null>(null);
   readonly editing = signal(false);
+  readonly requestedAmount = signal(1000);
   readonly modal = viewChild<ElementRef<HTMLDialogElement>>('modal');
   readonly money = money;
   readonly date = dateLabel;
@@ -102,12 +103,11 @@ export class SettlementsPage {
       this.modal()?.nativeElement.showModal();
       return;
     }
-    void this.store.prepareQuote(row.campaignId!, false).then((ready) => {
-      if (!ready) return;
-      this.selectedDirect.set(null);
-      this.selected.set(row);
-      this.modal()?.nativeElement.showModal();
-    });
+    this.store.discardQuote();
+    this.requestedAmount.set(Math.min(1000, Math.floor(row.availableForPayout ?? 0)));
+    this.selectedDirect.set(null);
+    this.selected.set(row);
+    this.modal()?.nativeElement.showModal();
   }
   askDirect(row: DirectSettlement) {
     if (!this.store.deductedFees) {
@@ -116,12 +116,28 @@ export class SettlementsPage {
       this.modal()?.nativeElement.showModal();
       return;
     }
-    void this.store.prepareQuote(row.directOrderId, true).then((ready) => {
-      if (!ready) return;
-      this.selected.set(null);
-      this.selectedDirect.set(row);
-      this.modal()?.nativeElement.showModal();
-    });
+    this.store.discardQuote();
+    this.requestedAmount.set(Math.min(1000, Math.floor(row.availableForPayout)));
+    this.selected.set(null);
+    this.selectedDirect.set(row);
+    this.modal()?.nativeElement.showModal();
+  }
+  changeAmount(event: Event) {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.requestedAmount.set(value);
+    this.store.discardQuote();
+  }
+  async calculateQuote() {
+    const campaign = this.selected();
+    const direct = this.selectedDirect();
+    const available = campaign?.availableForPayout ?? direct?.availableForPayout ?? 0;
+    const amount = this.requestedAmount();
+    if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1000 || amount > available) {
+      this.store.error.set('Choisissez un montant entier entre 1 et 1 000 FCFA, dans le solde disponible.');
+      return;
+    }
+    if (direct) await this.store.prepareQuote(direct.directOrderId, true, amount);
+    else if (campaign?.campaignId) await this.store.prepareQuote(campaign.campaignId, false, amount);
   }
   close() {
     if (!this.store.busy()) {

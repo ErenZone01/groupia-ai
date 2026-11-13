@@ -204,7 +204,7 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertIn("ADD_ON non confirmé", payout_quote_reason(rate, Decimal(1000))[0])
         tier["fee_charge_mode"] = "ADD_ON"
         tier["percent"] = "2.25"
-        self.assertIn("fractionnaires", payout_quote_reason(rate, Decimal(1010))[0])
+        self.assertIn("fractionnaires", payout_quote_reason(rate, Decimal(1020))[0])
         rate["payout"]["available"] = False
         self.assertIn("non disponible", payout_quote_reason(rate, Decimal(1000))[0])
 

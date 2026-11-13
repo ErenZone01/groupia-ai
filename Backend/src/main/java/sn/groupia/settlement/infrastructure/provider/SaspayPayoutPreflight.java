@@ -63,9 +63,15 @@ final class SaspayPayoutPreflight {
         }
         if (tiers.size() != 1) throw new IllegalStateException("SASPAY_PAYOUT_RATE_AMBIGUOUS");
         var tier = tiers.getFirst();
-        if (!"XOF".equals(string(tier, "currency"))
-                || !"DEDUCTED".equals(string(tier, "fee_charge_mode")))
-            throw new IllegalStateException("SASPAY_PAYOUT_DEDUCTED_UNAVAILABLE");
+        if (!"XOF".equals(string(tier, "currency")))
+            throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+        // The published rate's fee_charge_mode is the merchant's default.
+        // SasPay documents a per-request DEDUCTED override on payout initialize.
+        // Never infer the effective mode from pricing: the POST requests DEDUCTED
+        // explicitly, and verification must independently prove the gross debit.
+        String defaultMode = string(tier, "fee_charge_mode");
+        if (!"ADD_ON".equals(defaultMode) && !"DEDUCTED".equals(defaultMode))
+            throw new IllegalStateException("SASPAY_PAYOUT_FEE_MODE_UNKNOWN");
 
         BigDecimal percent = decimal(tier, "percent");
         BigDecimal fixed = decimal(tier, "fixed");

@@ -335,8 +335,7 @@ public class MerchantPayoutTransactions {
         }
         if ("SASPAY".equals(p.provider())) {
             BigDecimal ceiling = provider.feeReservationCeiling(p);
-            if (ceiling == null || ceiling.signum() <= 0
-                    || ceiling.scale() > 2)
+            if (ceiling == null || ceiling.signum() <= 0 || ceiling.scale() > 2)
                 throw error(
                         503,
                         "SASPAY_COMPANY_FEE_CEILING_UNCONFIRMED",

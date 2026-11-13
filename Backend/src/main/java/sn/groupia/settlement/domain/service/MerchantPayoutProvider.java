@@ -26,8 +26,8 @@ public interface MerchantPayoutProvider {
     }
 
     /**
-     * Explicit maximum company-funded fee that may be reserved before a payout is sent.
-     * Null means no validated ceiling is available: fail closed for SasPay.
+     * Explicit maximum company-funded fee that may be reserved before a payout is sent. Null means
+     * no validated ceiling is available: fail closed for SasPay.
      */
     default BigDecimal feeReservationCeiling(MerchantPayout payout) {
         return null;

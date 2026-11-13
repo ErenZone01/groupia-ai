@@ -284,9 +284,9 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
     }
 
     /**
-     * Serializes ALL SasPay merchant fee reservations by account, not by seller. The funding
-     * events must originate from independent, reconciled company money (never seller pay-ins).
-     * There is deliberately no public API for inserting funding events.
+     * Serializes ALL SasPay merchant fee reservations by account, not by seller. The funding events
+     * must originate from independent, reconciled company money (never seller pay-ins). There is
+     * deliberately no public API for inserting funding events.
      */
     @Override
     public void reserveCompanyFee(String account, UUID payoutId, BigDecimal maxFee) {
@@ -353,8 +353,7 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
         validFeeBudgetInput(account, payoutId, chargedFee);
         lockFeeBudgetAccount(account);
         var reservations = feeEvents(account, payoutId, "RESERVE");
-        if (reservations.size() != 1
-                || !feeEvents(account, payoutId, "RELEASE").isEmpty())
+        if (reservations.size() != 1 || !feeEvents(account, payoutId, "RELEASE").isEmpty())
             throw new IllegalStateException("SASPAY_COMPANY_FEE_RESERVATION_MISSING");
         if (chargedFee.compareTo(reservations.getFirst()) > 0)
             throw new IllegalStateException("SASPAY_COMPANY_FEE_OVER_BUDGET");

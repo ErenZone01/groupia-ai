@@ -73,8 +73,7 @@ class MerchantPayoutFeeBudgetTests {
                                 assertThat(((ApiException) ex).code())
                                         .isEqualTo("SASPAY_COMPANY_FEE_CEILING_UNCONFIRMED"));
         verify(store, never()).reserveCompanyFee(any(), any(), any());
-        verify(store, never())
-                .state(any(), any(), any(), any(), any(), anyBoolean(), any());
+        verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 
     @Test
@@ -91,8 +90,7 @@ class MerchantPayoutFeeBudgetTests {
                         ex ->
                                 assertThat(((ApiException) ex).code())
                                         .isEqualTo("SASPAY_COMPANY_FEE_BUDGET_UNAVAILABLE"));
-        verify(store, never())
-                .state(any(), any(), any(), any(), any(), anyBoolean(), any());
+        verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 
     @Test

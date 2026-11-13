@@ -66,8 +66,11 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         // Operator-approved *ceiling*, not a SasPay quote or proof of wallet funding.
         // Defaults to zero and must remain zero until independent rate validation.
         try {
-            var cap = new BigDecimal(env.getProperty(
-                    "groupia.settlement.saspay-payouts.approved-fee-ceiling-xof", "0"));
+            var cap =
+                    new BigDecimal(
+                            env.getProperty(
+                                    "groupia.settlement.saspay-payouts.approved-fee-ceiling-xof",
+                                    "0"));
             if (cap.signum() > 0 && cap.scale() <= 2 && cap.precision() <= 10)
                 approvedFeeReservationCeiling = cap;
         } catch (NumberFormatException ex) {

@@ -262,16 +262,22 @@ class UnifiedMerchantPayoutIntegrationTests {
                 "MERCHANT_PAYOUT:" + org + ":" + UUID.randomUUID(),
                 UUID.randomUUID(),
                 actor);
-        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        var tx =
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager);
         BigDecimal ceiling = new BigDecimal("80.00");
         // No funding means no payout reservation, even when sellers have funds.
         assertThatThrownBy(
-                        () -> tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling)))
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.reserveCompanyFee(
+                                                        account, payoutId, ceiling)))
                 .hasMessage("SASPAY_COMPANY_FEE_BUDGET_UNFUNDED");
-        assertThat(jdbc.queryForObject(
-                        "select count(*) from saspay_company_fee_events where payout_id=?",
-                        Integer.class,
-                        payoutId))
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from saspay_company_fee_events where payout_id=?",
+                                Integer.class,
+                                payoutId))
                 .isZero();
 
         // Only a separately verified, company-owned funding source may credit this
@@ -288,20 +294,29 @@ class UnifiedMerchantPayoutIntegrationTests {
         tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling));
         tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling));
         assertThatThrownBy(
-                        () -> tx.executeWithoutResult(
-                                s -> feeStore.reserveCompanyFee(account, payoutId, new BigDecimal("81"))))
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.reserveCompanyFee(
+                                                        account, payoutId, new BigDecimal("81"))))
                 .hasMessage("SASPAY_COMPANY_FEE_RESERVATION_CONFLICT");
         assertThatThrownBy(
-                        () -> tx.executeWithoutResult(
-                                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("81"))))
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.settleCompanyFee(
+                                                        account, payoutId, new BigDecimal("81"))))
                 .hasMessage("SASPAY_COMPANY_FEE_OVER_BUDGET");
         tx.executeWithoutResult(
                 s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("50")));
         tx.executeWithoutResult(
                 s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("50")));
         assertThatThrownBy(
-                        () -> tx.executeWithoutResult(
-                                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("51"))))
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.settleCompanyFee(
+                                                        account, payoutId, new BigDecimal("51"))))
                 .hasMessage("SASPAY_COMPANY_FEE_SETTLEMENT_CONFLICT");
 
         assertThat(

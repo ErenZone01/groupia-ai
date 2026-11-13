@@ -154,10 +154,7 @@ class SaspayMerchantPayoutProviderTests {
     @Test
     void payoutPreflightPricesObservedAddOnDefaultAtThreePointSevenPercent() throws Exception {
         var payout = payout(null);
-        var rates =
-                json.readTree(
-                        payoutRates("ADD_ON")
-                                .replace("2.000", "3.700"));
+        var rates = json.readTree(payoutRates("ADD_ON").replace("2.000", "3.700"));
         var fee = SaspayPayoutPreflight.quoteRates(rates, payout.amount(), "wave_sn");
         assertThat(fee).isEqualByComparingTo("37.00");
         assertThat(payout.amount().subtract(fee)).isEqualByComparingTo("963.00");

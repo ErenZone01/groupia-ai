@@ -32,6 +32,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     // contractually unresolved. Test-only loopback fixtures exercise the protocol.
     private static final boolean PRODUCTION_PAYOUT_RELEASED = false;
     private final boolean syntheticTransport;
+    private BigDecimal approvedFeeReservationCeiling = BigDecimal.ZERO;
     private final Connection payin;
     private final RestClient http;
     private final ObjectMapper json;
@@ -62,6 +63,16 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         false),
                 makeHttp(Connection.from(env)),
                 false);
+        // Operator-approved *ceiling*, not a SasPay quote or proof of wallet funding.
+        // Defaults to zero and must remain zero until independent rate validation.
+        try {
+            var cap = new BigDecimal(env.getProperty(
+                    "groupia.settlement.saspay-payouts.approved-fee-ceiling-xof", "0"));
+            if (cap.signum() > 0 && cap.scale() <= 2 && cap.precision() <= 10)
+                approvedFeeReservationCeiling = cap;
+        } catch (NumberFormatException ex) {
+            approvedFeeReservationCeiling = BigDecimal.ZERO;
+        }
     }
 
     SaspayMerchantPayoutProvider(
@@ -182,6 +193,11 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     @Override
     public String fundingAccount() {
         return account();
+    }
+
+    @Override
+    public BigDecimal feeReservationCeiling(MerchantPayout p) {
+        return approvedFeeReservationCeiling;
     }
 
     @Override

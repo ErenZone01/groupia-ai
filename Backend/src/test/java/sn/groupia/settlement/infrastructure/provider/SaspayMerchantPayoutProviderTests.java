@@ -59,7 +59,7 @@ class SaspayMerchantPayoutProviderTests {
                         .baseUrl(origin + "/api/v1")
                         .build();
         return new SaspayMerchantPayoutProvider(
-                settings(), json, Clock.systemUTC(), enabled, true, true, true, http);
+                settings(), json, Clock.systemUTC(), enabled, true, true, http);
     }
 
     @Test

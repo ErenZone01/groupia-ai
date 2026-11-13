@@ -283,6 +283,128 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
             throw new IllegalStateException("PAYOUT_FEE_EVIDENCE_CONFLICT");
     }
 
+    /**
+     * Serializes ALL SasPay merchant fee reservations by account, not by seller. The funding
+     * events must originate from independent, reconciled company money (never seller pay-ins).
+     * There is deliberately no public API for inserting funding events.
+     */
+    @Override
+    public void reserveCompanyFee(String account, UUID payoutId, BigDecimal maxFee) {
+        validFeeBudgetInput(account, payoutId, maxFee);
+        lockFeeBudgetAccount(account);
+        var source =
+                jdbc.queryForObject(
+                        """
+                        select count(*) from merchant_payouts
+                        where id=? and provider='SASPAY' and provider_account_reference=?
+                        """,
+                        Integer.class,
+                        payoutId,
+                        account);
+        if (!Integer.valueOf(1).equals(source))
+            throw new IllegalStateException("SASPAY_COMPANY_FEE_PAYOUT_MISMATCH");
+        var reservations = feeEvents(account, payoutId, "RESERVE");
+        if (!reservations.isEmpty()) {
+            if (reservations.getFirst().compareTo(maxFee) != 0
+                    || !feeEvents(account, payoutId, "RELEASE").isEmpty()
+                    || !feeEvents(account, payoutId, "SETTLE").isEmpty())
+                throw new IllegalStateException("SASPAY_COMPANY_FEE_RESERVATION_CONFLICT");
+            return; // Idempotent replay of exactly the same immutable authorization.
+        }
+
+        BigDecimal available =
+                jdbc.queryForObject(
+                        """
+                        select coalesce(sum(
+                            case
+                                when e.event_type='FUNDING' then e.amount_xof
+                                when e.event_type='SETTLE' then -e.amount_xof
+                                when e.event_type='RESERVE' and not exists (
+                                    select 1 from saspay_company_fee_events later
+                                    where later.provider_account_reference=e.provider_account_reference
+                                      and later.payout_id=e.payout_id
+                                      and later.event_type in ('SETTLE','RELEASE')
+                                ) then -e.amount_xof
+                                else 0
+                            end
+                        ),0) from saspay_company_fee_events e
+                        where e.provider_account_reference=?
+                        """,
+                        BigDecimal.class,
+                        account);
+        if (available == null || available.compareTo(maxFee) < 0)
+            throw new IllegalStateException("SASPAY_COMPANY_FEE_BUDGET_UNFUNDED");
+        jdbc.update(
+                """
+                insert into saspay_company_fee_events
+                    (id,provider_account_reference,event_type,payout_id,amount_xof)
+                values (?,?,'RESERVE',?,?)
+                """,
+                UUID.randomUUID(),
+                account,
+                payoutId,
+                maxFee);
+    }
+
+    @Override
+    public void settleCompanyFee(String account, UUID payoutId, BigDecimal chargedFee) {
+        validFeeBudgetInput(account, payoutId, chargedFee);
+        lockFeeBudgetAccount(account);
+        var reservations = feeEvents(account, payoutId, "RESERVE");
+        if (reservations.size() != 1
+                || !feeEvents(account, payoutId, "RELEASE").isEmpty())
+            throw new IllegalStateException("SASPAY_COMPANY_FEE_RESERVATION_MISSING");
+        if (chargedFee.compareTo(reservations.getFirst()) > 0)
+            throw new IllegalStateException("SASPAY_COMPANY_FEE_OVER_BUDGET");
+        var already = feeEvents(account, payoutId, "SETTLE");
+        if (!already.isEmpty()) {
+            if (already.getFirst().compareTo(chargedFee) != 0)
+                throw new IllegalStateException("SASPAY_COMPANY_FEE_SETTLEMENT_CONFLICT");
+            return;
+        }
+        jdbc.update(
+                """
+                insert into saspay_company_fee_events
+                    (id,provider_account_reference,event_type,payout_id,amount_xof)
+                values (?,?,'SETTLE',?,?)
+                """,
+                UUID.randomUUID(),
+                account,
+                payoutId,
+                chargedFee);
+    }
+
+    private static void validFeeBudgetInput(String account, UUID payoutId, BigDecimal fee) {
+        if (account == null
+                || account.isBlank()
+                || account.length() > 128
+                || payoutId == null
+                || fee == null
+                || fee.signum() < 0
+                || fee.scale() > 2
+                || fee.precision() > 18)
+            throw new IllegalStateException("SASPAY_COMPANY_FEE_INVALID_AMOUNT");
+    }
+
+    private void lockFeeBudgetAccount(String account) {
+        jdbc.query(
+                "select pg_advisory_xact_lock(hashtextextended(?,0))",
+                (r, n) -> 0,
+                "saspay-company-fees:" + account);
+    }
+
+    private List<BigDecimal> feeEvents(String account, UUID payoutId, String type) {
+        return jdbc.query(
+                """
+                select amount_xof from saspay_company_fee_events
+                where provider_account_reference=? and payout_id=? and event_type=?
+                """,
+                (r, n) -> r.getBigDecimal("amount_xof"),
+                account,
+                payoutId,
+                type);
+    }
+
     public void state(
             UUID id,
             String status,

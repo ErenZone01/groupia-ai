@@ -219,6 +219,16 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 Map.of(
                         "groupia_payout_id", p.id().toString(),
                         "groupia_reference", p.businessReference()));
+        // Before any irreversible transfer, validate the currently advertised payout
+        // rate and SN/XOF wallet liquidity. This does NOT establish fund ownership:
+        // claim() has already reserved the fee in Groupia's independent budget.
+        String payoutNetwork = network(p.method());
+        JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
+        BigDecimal quotedFee =
+                SaspayPayoutPreflight.checkRates(
+                        rates, p, payoutNetwork, feeReservationCeiling(p));
+        JsonNode balances = exchange(http.get().uri("/merchant-balances/"), 200);
+        SaspayPayoutPreflight.checkWallet(balances, p, quotedFee, account());
         JsonNode ack =
                 exchange(
                         http.post()
@@ -400,12 +410,13 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         if (bytes.length > 65536)
                             throw new IllegalStateException("SASPAY_PAYOUT_RESPONSE_TOO_LARGE");
                         JsonNode root = json.readTree(bytes);
-                        if (root == null || !root.isObject())
+                        if (root == null || (!root.isObject() && !root.isArray()))
                             throw new IllegalStateException("SASPAY_PAYOUT_INVALID_JSON");
                         if (root.has("success")) {
                             if (!root.path("success").isBoolean()
                                     || !root.path("success").booleanValue()
-                                    || !root.path("data").isObject())
+                                    || (!root.path("data").isObject()
+                                            && !root.path("data").isArray()))
                                 throw new IllegalStateException("SASPAY_PAYOUT_PROVIDER_REJECTED");
                             root = root.path("data");
                         }

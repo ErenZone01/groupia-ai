@@ -368,6 +368,24 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void compactUuidResponsesAreNormalizedWithoutWeakeningIdentifierValidation() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        String compactId = TX.toString().replace("-", "");
+        String compactMerchant = MERCHANT.toString().replace("-", "");
+        String source =
+                verified("771234567", "wave_sn")
+                        .replace(TX.toString(), compactId)
+                        .replace(MERCHANT.toString(), compactMerchant);
+        assertThat(provider.validateProof(p, json.readTree(source), Instant.now()).transactionId())
+                .isEqualTo(TX.toString());
+        String corrupted = source.replace(compactId, "not-a-uuid");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(corrupted), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_IDENTIFIER_INVALID");
+    }
+
+    @Test
     void wrongMerchantAndNetAreRejectedBeforeSettlement() throws Exception {
         var p = payout(TX.toString());
         var provider = adapter(true, "http://127.0.0.1:1");

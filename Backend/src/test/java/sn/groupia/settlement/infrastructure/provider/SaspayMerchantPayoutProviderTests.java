@@ -277,7 +277,7 @@ class SaspayMerchantPayoutProviderTests {
                 transactionDetail("771234567", "wave_sn")
                         .replace("\"client_fee\":\"52.00\"", "\"client_fee\":\"53.00\"")
                         .replace(
-                                "\"debited_amount\":\"1052.00\"", "\"debited_amount\":\"1053.00\""),
+                                "\"net_amount\":\"948.00\"", "\"net_amount\":\"947.00\""),
                 "SASPAY_PAYOUT_FINANCIAL_MISMATCH");
         assertInvalidDualGet(
                 verified(null, null),
@@ -515,8 +515,8 @@ class SaspayMerchantPayoutProviderTests {
                                         p,
                                         json.readTree(
                                                 valid.replace(
-                                                        "\"net_amount\":\"1000.00\"",
-                                                        "\"net_amount\":\"948.00\"")),
+                                                        "\"net_amount\":\"948.00\"",
+                                                        "\"net_amount\":\"949.00\"")),
                                         Instant.now()))
                 .hasMessage("SASPAY_PAYOUT_FINANCIAL_MISMATCH");
     }

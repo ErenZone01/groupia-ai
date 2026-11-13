@@ -172,6 +172,38 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void pendingFailedAndCancelledCanBeReconciledWithoutRecipientEvidence() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        for (String status : List.of("PENDING", "FAILED", "CANCELLED")) {
+            var payload =
+                    verified(null, null).replace("\"status\":\"SUCCESS\"", "\"status\":\"" + status + "\"");
+            var proof = provider.validateProof(p, json.readTree(payload), Instant.now());
+            assertThat(proof.status()).isEqualTo(status);
+            assertThat(proof.phoneE164()).isNull();
+            assertThat(proof.transactionId()).isEqualTo(TX.toString());
+        }
+    }
+
+    @Test
+    void anySuppliedPayoutDestinationEvidenceMustStillMatchOnNonSuccess() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        var wrongPhone =
+                verified("771234568", "wave_sn")
+                        .replace("\"status\":\"SUCCESS\"", "\"status\":\"FAILED\"");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(wrongPhone), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        var wrongNetwork =
+                verified(null, "orange_sn")
+                        .replace("\"status\":\"SUCCESS\"", "\"status\":\"PENDING\"");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(wrongNetwork), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+    }
+
+    @Test
     void verifiedRecipientAndCompanyFundedFeesMustMatchExactly() throws Exception {
         var p = payout(TX.toString());
         var provider = adapter(true, "http://127.0.0.1:1");

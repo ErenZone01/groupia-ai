@@ -548,7 +548,8 @@ public class MerchantPayoutTransactions {
                         e.method(),
                         e.recipientPhone(),
                         e.status(),
-                        e.occurredAt());
+                        e.occurredAt(),
+                        e.providerFee());
         if (error == null) error = correlate(p, proof);
         if (error == null && p.succeeded() && !"SUCCEEDED".equals(e.status()))
             error = "PAYOUT_CONTRADICTORY_EVIDENCE";

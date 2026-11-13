@@ -106,6 +106,61 @@ Seuls des codes et droits **confirmés par SasPay** pourront être ajoutés
 ensuite à la configuration de retrait. Ne pas activer les variables de
 payout ou le verrou de production sur la seule base d'un candidat tarifaire.
 
+## Préparation du pilote local : retrait partiel et blocage par défaut
+
+La confirmation de l'IP publique sortante du PC dans la whitelist SasPay
+est nécessaire pour les appels depuis ce PC, mais elle ne suffit pas à autoriser
+un retrait. Elle devra être revérifiée si la connexion Internet ou le serveur
+change. Le serveur de production aura sa propre IP sortante.
+
+Pour un pilote contrôlé, les paramètres backend suivants ont été ajoutés
+(**ne pas les activer avant la recette finale**) :
+
+```dotenv
+SASPAY_PAYOUT_PILOT_ENABLED=false
+SASPAY_PAYOUT_PILOT_ORGANIZATION_ID=
+SASPAY_PAYOUT_PILOT_MAX_XOF=1000
+```
+
+- Le premier paramètre est **false par défaut** : même un fournisseur SasPay
+  actif ne peut pas obtenir un devis de retrait ni réserver un nouveau retrait
+  hors pilote. Le verrou compilé `PRODUCTION_PAYOUT_RELEASED=false` reste
+  indépendant et **aucune sortie d'argent LIVE n'est activée** par ce changement.
+- Seule la boutique dont l'UUID correspond à la configuration peut obtenir un
+  devis de retrait SasPay. Le plafond est vérifié côté serveur : valeur entière
+  strictement positive et jamais plus de 1 000 XOF, même en cas de configuration
+  erronée du plafond.
+- Une seule demande SasPay peut être enregistrée au total pour la boutique
+  durant ce pilote, **y compris après échec ou incertitude**, afin d'éviter
+  les tentatives multiples. Le déblocage exige une revue explicite, pas un
+  retry automatique.
+- La vendeuse choisit un montant partiel, puis le serveur vérifie
+  `0 < amount <= availableForPayout` et le plafond pilote. Le
+  `GET .../merchant-payout-quote?destinationId=<UUID>&amount=1000`
+  est en **lecture seule côté fournisseur** ; il crée un devis de frais
+  enregistré, mais jamais un transfert.
+- Le POST de confirmation ne contient **pas** de montant transmis par le
+  navigateur : seul le devis serveur `feeQuoteId` détermine le brut réservé.
+  Le montant et les fonds sont revérifiés après verrouillage de la boutique.
+  Le mode de frais demeure `DEDUCTED`, avec vérification complète du débit,
+  du net, de l'identité et du bénéficiaire.
+
+Une whitelist d'IP correcte, des tests verts ou un devis GET ne prouvent
+toujours pas le droit PAYOUT ni la réussite d'un retrait réel.
+
+### Recette locale sans déclencher de retrait
+
+```powershell
+cd Backend
+.\\mvnw.cmd spotless:check
+.\\mvnw.cmd "-Dtest=SaspayPayoutPilotPolicyTests,SaspayMerchantPayoutProviderTests,MerchantPayoutFeeBudgetTests,UnifiedMerchantPayoutIntegrationTests,MerchantSettlementIntegrationTests" test
+cd ..
+python -m unittest discover -s tools -p "test_saspay_diagnostics.py"
+cd Frontend
+npm test
+npm run build
+```
+
 ## Points à valider avant le premier retrait réel
 
 - L'accord de SasPay sur les retraits via la clé LIVE du compte, les réseaux

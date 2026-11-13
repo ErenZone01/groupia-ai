@@ -286,12 +286,15 @@ export class MerchantSettlementStore {
     this.busy.set(true);
     this.error.set('');
     let failure = '';
+    const body = acceptedQuote
+      ? { destinationId: d.id, feeQuoteId: acceptedQuote.quoteId, confirmed: true }
+      : { destinationId: d.id, confirmed: true };
     try {
       if (direct) {
         await firstValueFrom(
           this.http.post<MerchantPayoutView>(
             `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payouts`,
-            { destinationId: d.id, feeQuoteId: acceptedQuote?.quoteId, confirmed: true },
+            body,
             { headers: { 'Idempotency-Key': key } },
           ).pipe(timeout(40000)),
         );
@@ -302,7 +305,7 @@ export class MerchantSettlementStore {
               organizationId: org,
               campaignId: targetId,
               'Idempotency-Key': key,
-              body: { destinationId: d.id, feeQuoteId: acceptedQuote?.quoteId, confirmed: true },
+              body,
             })
             .pipe(timeout(40000)),
         );

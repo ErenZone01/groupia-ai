@@ -187,24 +187,24 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
             ),
         )
 
-    def test_payout_diagnostic_requires_exact_add_on_and_integer_fee(self):
+    def test_payout_diagnostic_requires_deducted_and_positive_net(self):
         from decimal import Decimal
         from saspay_diagnostics import payout_quote_reason
         tier = {
             "min_amount": "0.00", "max_amount": "500000.00",
-            "currency": "XOF", "fee_charge_mode": "ADD_ON",
+            "currency": "XOF", "fee_charge_mode": "DEDUCTED",
             "percent": "2.0", "fixed": "10.00",
             "floor_amount": None, "cap_amount": None,
         }
         rate = {"country_code": "SN", "currency": "XOF",
                 "payout": {"available": True, "otp_required": False, "tiers": [tier]}}
         self.assertEqual(payout_quote_reason(rate, Decimal(1000)),
-                         ("ADD_ON compatible à titre indicatif", Decimal(30)))
-        tier["fee_charge_mode"] = "DEDUCTED"
-        self.assertIn("ADD_ON non confirmé", payout_quote_reason(rate, Decimal(1000))[0])
+                         ("DEDUCTED compatible à titre indicatif", Decimal(30)))
         tier["fee_charge_mode"] = "ADD_ON"
+        self.assertIn("DEDUCTED non confirmé", payout_quote_reason(rate, Decimal(1000))[0])
+        tier["fee_charge_mode"] = "DEDUCTED"
         tier["percent"] = "2.25"
-        self.assertIn("fractionnaires", payout_quote_reason(rate, Decimal(1020))[0])
+        self.assertEqual(payout_quote_reason(rate, Decimal(1020))[0], "DEDUCTED compatible à titre indicatif")
         rate["payout"]["available"] = False
         self.assertIn("non disponible", payout_quote_reason(rate, Decimal(1000))[0])
 
@@ -217,7 +217,7 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
             "country_code": "SN", "currency": "XOF", "network_code": "wave_sn",
             "payout": {"available": True, "otp_required": False, "tiers": [{
                 "min_amount": "0", "max_amount": None,
-                "currency": "XOF", "fee_charge_mode": "ADD_ON",
+                "currency": "XOF", "fee_charge_mode": "DEDUCTED",
                 "percent": "2", "fixed": "0",
                 "floor_amount": None, "cap_amount": None,
             }]},
@@ -228,10 +228,10 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         with redirect_stdout(output):
             print_payout_diagnostic(rates, env, Decimal(1000))
         text = output.getvalue()
-        self.assertIn("ADD_ON compatible", text)
-        self.assertIn("débit wallet 1020 XOF", text)
+        self.assertIn("DEDUCTED compatible", text)
+        self.assertIn("net vendeur 980 XOF", text)
         self.assertIn("Orange Money: code réseau payout non configuré", text)
-        self.assertIn("ne certifie ni le financement", text.lower())
+        self.assertIn("net final reste à rapprocher", text.lower())
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

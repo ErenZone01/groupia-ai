@@ -25,12 +25,9 @@ public interface MerchantPayoutProvider {
         return account();
     }
 
-    /**
-     * Explicit maximum company-funded fee that may be reserved before a payout is sent. Null means
-     * no validated ceiling is available: fail closed for SasPay.
-     */
-    default BigDecimal feeReservationCeiling(MerchantPayout payout) {
-        return null;
+    /** GET-only provider fee quotation. Must not initiate a payout. */
+    default BigDecimal payoutFeeQuote(BigDecimal grossAmount, String method) {
+        throw new IllegalStateException("PAYOUT_FEE_QUOTE_UNAVAILABLE");
     }
 
     String initiate(MerchantPayout payout);

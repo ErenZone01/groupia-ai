@@ -13,6 +13,8 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import sn.groupia.settlement.domain.model.MerchantPayout;
+import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
+import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -22,27 +24,22 @@ import tools.jackson.databind.ObjectMapper;
  * payout; an initiation ACK is never evidence of settlement.
  *
  * <p>Disabled until SasPay authorizes marketplace withdrawals, approves beneficiary evidence, and
- * Groupia funds payout fees separately from merchant principal.
+ * The seller explicitly confirms DEDUCTED fees before the provider is called.
  */
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
 public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
-    // A production deployment must not be able to transfer money just by flipping
-    // flags: verified recipient identity and separately funded payout fees remain
-    // contractually unresolved. Test-only loopback fixtures exercise the protocol.
+    // All LIVE payout calls stay locked until the seller-paid DEDUCTED contract is
+    // validated end-to-end. Local synthetic transports exercise the protocol.
     private static final boolean PRODUCTION_PAYOUT_RELEASED = false;
     private final boolean syntheticTransport;
-    private BigDecimal approvedFeeReservationCeiling = BigDecimal.ZERO;
     private final Connection payin;
     private final RestClient http;
     private final ObjectMapper json;
     private final Clock clock;
-    private final boolean enabled,
-            marketplaceAuthorized,
-            beneficiaryProofApproved,
-            feeBudgetApproved;
+    private MerchantFinanceStore financeStore;
+    private final boolean enabled, marketplaceAuthorized, beneficiaryProofApproved;
 
-    @Autowired
     public SaspayMerchantPayoutProvider(ObjectMapper json, Clock clock, Environment env) {
         this(
                 Connection.from(env),
@@ -57,25 +54,15 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         "groupia.settlement.saspay-payouts.beneficiary-proof-approved",
                         Boolean.class,
                         false),
-                env.getProperty(
-                        "groupia.settlement.saspay-payouts.company-fee-budget-approved",
-                        Boolean.class,
-                        false),
                 makeHttp(Connection.from(env)),
                 false);
-        // Operator-approved *ceiling*, not a SasPay quote or proof of wallet funding.
-        // Defaults to zero and must remain zero until independent rate validation.
-        try {
-            var cap =
-                    new BigDecimal(
-                            env.getProperty(
-                                    "groupia.settlement.saspay-payouts.approved-fee-ceiling-xof",
-                                    "0"));
-            if (cap.signum() > 0 && cap.scale() <= 2 && cap.precision() <= 10)
-                approvedFeeReservationCeiling = cap;
-        } catch (NumberFormatException ex) {
-            approvedFeeReservationCeiling = BigDecimal.ZERO;
-        }
+    }
+
+    @Autowired
+    public SaspayMerchantPayoutProvider(
+            ObjectMapper json, Clock clock, Environment env, MerchantFinanceStore financeStore) {
+        this(json, clock, env);
+        this.financeStore = financeStore;
     }
 
     SaspayMerchantPayoutProvider(
@@ -85,7 +72,6 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean enabled,
             boolean marketplaceAuthorized,
             boolean beneficiaryProofApproved,
-            boolean feeBudgetApproved,
             RestClient http) {
         this(
                 payin,
@@ -94,7 +80,6 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 enabled,
                 marketplaceAuthorized,
                 beneficiaryProofApproved,
-                feeBudgetApproved,
                 http,
                 true);
     }
@@ -106,20 +91,15 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean enabled,
             boolean marketplaceAuthorized,
             boolean beneficiaryProofApproved,
-            boolean feeBudgetApproved,
             RestClient http,
             boolean syntheticTransport) {
         this.syntheticTransport = syntheticTransport;
-        // Tests use only injected localhost transports, never production credentials.
-        // Their synthetic approved ceiling is independent of live configuration.
-        if (syntheticTransport) approvedFeeReservationCeiling = new BigDecimal("200");
         this.payin = payin;
         this.json = json;
         this.clock = clock;
         this.enabled = enabled;
         this.marketplaceAuthorized = marketplaceAuthorized;
         this.beneficiaryProofApproved = beneficiaryProofApproved;
-        this.feeBudgetApproved = feeBudgetApproved;
         this.http = http;
     }
 
@@ -177,8 +157,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 && payin.enabled()
                 && payin.isLive()
                 && marketplaceAuthorized
-                && beneficiaryProofApproved
-                && feeBudgetApproved;
+                && beneficiaryProofApproved;
     }
 
     @Override
@@ -202,8 +181,10 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     @Override
-    public BigDecimal feeReservationCeiling(MerchantPayout p) {
-        return approvedFeeReservationCeiling;
+    public BigDecimal payoutFeeQuote(BigDecimal grossAmount, String method) {
+        requireEnabled();
+        JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
+        return SaspayPayoutPreflight.quoteRates(rates, grossAmount, network(method));
     }
 
     @Override
@@ -219,19 +200,32 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         body.put("customer", Map.of("phone", recipientPhone));
         body.put("recipient", Map.of("msisdn", recipientPhone.substring(4)));
         body.put("description", "Versement Groupia");
-        body.put("fee_charge_mode", "ADD_ON");
+        body.put("fee_charge_mode", "DEDUCTED");
         body.put(
                 "metadata",
                 Map.of(
                         "groupia_payout_id", p.id().toString(),
                         "groupia_reference", p.businessReference()));
-        // Before any irreversible transfer, validate the currently advertised payout
-        // rate and SN/XOF wallet liquidity. This does NOT establish fund ownership:
-        // claim() has already reserved the fee in Groupia's independent budget.
+        // A provider quotation never substitutes for the persisted quote explicitly
+        // accepted by the seller. Any rate change aborts before the irreversible POST.
+        MerchantPayoutFeeQuote accepted = null;
+        if (!syntheticTransport) {
+            if (financeStore == null)
+                throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISSING");
+            accepted = financeStore.payoutFeeQuote(p.id());
+            if (!p.organizationId().equals(accepted.organizationId())
+                    || !p.destinationId().equals(accepted.destinationId())
+                    || !p.method().equals(accepted.method())
+                    || !p.phoneE164().equals(accepted.phoneE164())
+                    || p.amount().compareTo(accepted.grossAmount()) != 0
+                    || !account().equals(accepted.providerAccountReference()))
+                throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISMATCH");
+        }
         String payoutNetwork = network(p.method());
         JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
         BigDecimal quotedFee =
-                SaspayPayoutPreflight.checkRates(rates, p, payoutNetwork, feeReservationCeiling(p));
+                SaspayPayoutPreflight.checkRates(
+                        rates, p, payoutNetwork, feeReservationCeiling(p));
         JsonNode balances = exchange(http.get().uri("/merchant-balances/"), 200);
         SaspayPayoutPreflight.checkWallet(balances, p, quotedFee, account());
         JsonNode ack =
@@ -341,7 +335,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 || !"RETRAIT".equals(text(data, "transaction_type"))
                 || !"OUTBOUND".equals(text(data, "flow_direction"))
                 || !"XOF".equals(text(data, "currency"))
-                || !"ADD_ON".equals(text(data, "fee_charge_mode")))
+                || !"DEDUCTED".equals(text(data, "fee_charge_mode")))
             throw new IllegalStateException("SASPAY_PAYOUT_EVIDENCE_MISMATCH");
         BigDecimal amount = money(data, "requested_amount");
         BigDecimal fee = money(data, "client_fee");
@@ -349,8 +343,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         BigDecimal net = money(data, "net_amount");
         if (p.amount().compareTo(amount) != 0
                 || fee.signum() < 0
-                || charged.compareTo(amount.add(fee)) != 0
-                || net.compareTo(amount) != 0)
+                || fee.compareTo(amount) >= 0
+                || charged.compareTo(amount) != 0
+                || net.compareTo(amount.subtract(fee)) != 0)
             throw new IllegalStateException("SASPAY_PAYOUT_FINANCIAL_MISMATCH");
         return switch (Objects.toString(text(data, "status"), "")) {
             case "PENDING" -> "PENDING";

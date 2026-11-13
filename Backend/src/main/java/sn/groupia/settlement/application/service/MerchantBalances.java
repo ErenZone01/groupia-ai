@@ -185,6 +185,7 @@ public class MerchantBalances {
                 destination,
                 provider,
                 limited,
-                directOrders);
+                directOrders,
+                "SASPAY".equals(payoutProvider.name()) ? "DEDUCTED" : "EXTERNAL");
     }
 }

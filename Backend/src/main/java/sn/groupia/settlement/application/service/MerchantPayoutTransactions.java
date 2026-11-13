@@ -57,8 +57,77 @@ public class MerchantPayoutTransactions {
         return enabled && provider.enabled();
     }
 
+    private MerchantPayoutFeeQuote requireQuote(MerchantPayout payout, UUID quoteId) {
+        if (quoteId == null)
+            throw error(409, "PAYOUT_FEE_QUOTE_REQUIRED",
+                    "Veuillez accepter le devis de retrait et ses frais avant de confirmer.");
+        return store.feeQuote(payout.organizationId(), quoteId);
+    }
+
+    public MerchantPayoutFeeQuote quoteCampaign(
+            UUID org, UUID campaign, UUID expectedDestination) {
+        access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        if (!available() || !"SASPAY".equals(provider.name()))
+            throw error(503, "PAYOUT_FEE_QUOTE_UNAVAILABLE",
+                    "Le devis de retrait SasPay est indisponible.");
+        store.lockOrganization(org);
+        var campaignFacts = campaigns.lock(org, campaign);
+        if (!campaignFacts.available())
+            throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Ce groupage n'est pas clôturé.");
+        BigDecimal gross = balances.calculate(org, campaign, true, false, true).campaigns()
+                .stream().filter(row -> campaign.equals(row.campaignId()))
+                .findFirst().orElseThrow().availableForPayout();
+        return issueQuote(org, campaign, null, expectedDestination, gross);
+    }
+
+    public MerchantPayoutFeeQuote quoteDirect(
+            UUID org, UUID directOrderId, UUID expectedDestination) {
+        access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        if (!available() || !directPayoutsEnabled || !"SASPAY".equals(provider.name()))
+            throw error(503, "PAYOUT_FEE_QUOTE_UNAVAILABLE",
+                    "Le devis de retrait SasPay est indisponible.");
+        store.lockOrganization(org);
+        direct.lock(org, directOrderId);
+        BigDecimal gross = direct.calculate(org).stream()
+                .filter(row -> directOrderId.equals(row.directOrderId()))
+                .findFirst()
+                .orElseThrow(() -> error(409, "MERCHANT_FUNDS_NOT_AVAILABLE",
+                        "Cette vente n'a pas de fonds disponibles."))
+                .availableForPayout();
+        return issueQuote(org, null, directOrderId, expectedDestination, gross);
+    }
+
+    private MerchantPayoutFeeQuote issueQuote(
+            UUID org, UUID campaign, UUID directOrderId,
+            UUID expectedDestination, BigDecimal gross) {
+        if (gross == null || gross.signum() <= 0)
+            throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
+        var destination = store.destination(org)
+                .orElseThrow(() -> error(409, "PAYOUT_DESTINATION_REQUIRED",
+                        "Renseignez une destination de versement."));
+        if (!destination.id().equals(expectedDestination))
+            throw error(409, "PAYOUT_DESTINATION_CHANGED",
+                    "La destination a changé. Actualisez le devis.");
+        BigDecimal fee = provider.payoutFeeQuote(gross, destination.method());
+        if (fee == null || fee.signum() < 0 || fee.scale() > 2 || fee.compareTo(gross) >= 0)
+            throw error(409, "PAYOUT_FEE_QUOTE_INVALID", "Frais de retrait non fiables.");
+        var quote = new MerchantPayoutFeeQuote(
+                UUID.randomUUID(), org, campaign, directOrderId,
+                destination.id(), destination.method(), destination.phoneE164(),
+                provider.name(), provider.account(), gross, fee, gross.subtract(fee),
+                now().plusSeconds(180));
+        store.createFeeQuote(quote);
+        return quote;
+    }
+
     public MerchantPayout reserve(
             UUID org, UUID campaign, UUID key, UUID expectedDestination, boolean confirmed) {
+        return reserve(org, campaign, key, expectedDestination, confirmed, null);
+    }
+
+    public MerchantPayout reserve(
+            UUID org, UUID campaign, UUID key, UUID expectedDestination,
+            boolean confirmed, UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
@@ -135,6 +204,8 @@ public class MerchantPayoutTransactions {
                         "AWAITING_DISPATCH",
                         0);
         store.create(p);
+        if ("SASPAY".equals(p.provider()))
+            store.bindFeeQuote(requireQuote(p, quoteId), p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
                         Kind.MERCHANT_PAYOUT,
@@ -153,6 +224,12 @@ public class MerchantPayoutTransactions {
 
     public MerchantPayout reserveDirect(
             UUID org, UUID directOrderId, UUID key, UUID expectedDestination, boolean confirmed) {
+        return reserveDirect(org, directOrderId, key, expectedDestination, confirmed, null);
+    }
+
+    public MerchantPayout reserveDirect(
+            UUID org, UUID directOrderId, UUID key, UUID expectedDestination,
+            boolean confirmed, UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
@@ -233,6 +310,8 @@ public class MerchantPayoutTransactions {
                         0,
                         directOrderId);
         store.create(p);
+        if ("SASPAY".equals(p.provider()))
+            store.bindFeeQuote(requireQuote(p, quoteId), p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
                         Kind.MERCHANT_PAYOUT,
@@ -334,20 +413,21 @@ public class MerchantPayoutTransactions {
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
         if ("SASPAY".equals(p.provider())) {
-            BigDecimal ceiling = provider.feeReservationCeiling(p);
-            if (ceiling == null || ceiling.signum() <= 0 || ceiling.scale() > 2)
-                throw error(
-                        503,
-                        "SASPAY_COMPANY_FEE_CEILING_UNCONFIRMED",
-                        "Le budget des frais de retrait n'est pas encore configuré.");
-            try {
-                store.reserveCompanyFee(p.providerAccountReference(), p.id(), ceiling);
-            } catch (IllegalStateException ex) {
-                throw error(
-                        409,
-                        "SASPAY_COMPANY_FEE_BUDGET_UNAVAILABLE",
-                        "Le budget de frais appartenant à Groupia est insuffisant.");
-            }
+            var quote = store.payoutFeeQuote(p.id());
+            if (quote == null)
+                throw error(409, "PAYOUT_FEE_QUOTE_MISSING",
+                        "Aucun devis accepté n'est lié au retrait.");
+            if (!p.organizationId().equals(quote.organizationId())
+                    || !p.destinationId().equals(quote.destinationId())
+                    || !p.method().equals(quote.method())
+                    || !p.phoneE164().equals(quote.phoneE164())
+                    || !p.providerAccountReference().equals(quote.providerAccountReference())
+                    || p.amount().compareTo(quote.grossAmount()) != 0
+                    || quote.netAmount().compareTo(
+                            quote.grossAmount().subtract(quote.providerFee())) != 0
+                    || quote.netAmount().signum() <= 0)
+                throw error(409, "PAYOUT_FEE_QUOTE_MISMATCH",
+                        "Le devis accepté ne correspond plus au retrait.");
         }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");
         io.micrometer.core.instrument.Metrics.counter(
@@ -436,9 +516,7 @@ public class MerchantPayoutTransactions {
             return;
         }
         if (proof.status().equals("SUCCEEDED")) {
-            // SasPay debits the merchant wallet for principal PLUS the provider fee.
-            // Preserve the fee as independent, immutable evidence; do not debit the
-            // seller ledger for it. Company-fee funding must be authorized separately.
+            // DEDUCTED: gross is debited, net is gross minus the fee borne by the seller.
             if ("SASPAY".equals(p.provider())) {
                 BigDecimal fee = proof.providerFee();
                 if (fee == null || fee.signum() < 0 || fee.scale() > 2) {
@@ -446,8 +524,11 @@ public class MerchantPayoutTransactions {
                     return;
                 }
                 try {
-                    store.settleCompanyFee(p.providerAccountReference(), p.id(), fee);
-                    store.recordProviderFee(p.id(), p.amount(), fee);
+                    var accepted = store.payoutFeeQuote(p.id());
+                    if (accepted.providerFee().compareTo(fee) != 0
+                            || accepted.grossAmount().compareTo(p.amount()) != 0)
+                        throw new IllegalStateException("PAYOUT_FEE_QUOTE_MISMATCH");
+                    store.recordDeductedProviderFee(p.id(), p.amount(), fee);
                 } catch (IllegalStateException ex) {
                     review(p, "PAYOUT_FEE_EVIDENCE_CONFLICT");
                     return;

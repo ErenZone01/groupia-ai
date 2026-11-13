@@ -26,6 +26,8 @@ import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
 import sn.groupia.payment.application.service.CommercialRefundService;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
+import sn.groupia.settlement.domain.model.MerchantPayout;
+import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
 import tools.jackson.databind.*;
 
 /** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
@@ -58,7 +60,7 @@ class UnifiedMerchantPayoutIntegrationTests {
     @BeforeEach
     void setup() {
         jdbc.execute(
-                "TRUNCATE saspay_company_fee_events,merchant_payout_provider_fees,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,"
+                "TRUNCATE merchant_payout_fee_quote_bindings,merchant_payout_fee_quotes,saspay_company_fee_events,merchant_payout_provider_fees,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,"
                         + "outgoing_provider_operations,provider_collections,direct_orders,"
                         + "direct_storefronts,organizations,user_accounts,event_publication CASCADE");
         provider.reset();
@@ -386,6 +388,50 @@ class UnifiedMerchantPayoutIntegrationTests {
                                 BigDecimal.class,
                                 org))
                 .isEqualByComparingTo("20000");
+    }
+
+    @Test
+    void sellerPaidQuoteIsBoundToOneDestinationAndProofRecordsNetNotCompanyFees()
+            throws Exception {
+        UUID destinationId = destination();
+        UUID payoutId = UUID.randomUUID();
+        String account = UUID.randomUUID().toString();
+        var p = new MerchantPayout(
+                payoutId, org, null, new BigDecimal("20000"), "XOF", "CREATED",
+                destinationId, "WAVE", "+221771234567", "Vendeuse pilote", "SASPAY",
+                account, "MERCHANT_PAYOUT:" + org + ":" + UUID.randomUUID(),
+                UUID.randomUUID(), null, actor, Instant.now(),
+                null, null, true, "AWAITING_DISPATCH", 0, orderId);
+        var q = new MerchantPayoutFeeQuote(
+                UUID.randomUUID(), org, null, orderId, destinationId, "WAVE",
+                "+221771234567", "SASPAY", account, p.amount(),
+                new BigDecimal("150"), new BigDecimal("19850"),
+                Instant.now().plusSeconds(180).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        feeStore.createFeeQuote(q);
+        feeStore.create(p);
+        feeStore.bindFeeQuote(q, p);
+        assertThat(feeStore.payoutFeeQuote(p.id()).netAmount()).isEqualByComparingTo("19850");
+        assertThatThrownBy(() -> feeStore.bindFeeQuote(q, p))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        feeStore.recordDeductedProviderFee(p.id(), p.amount(), q.providerFee());
+        feeStore.recordDeductedProviderFee(p.id(), p.amount(), q.providerFee());
+        assertThatThrownBy(
+                        () -> feeStore.recordDeductedProviderFee(
+                                p.id(), p.amount(), new BigDecimal("151")))
+                .hasMessage("PAYOUT_FEE_EVIDENCE_CONFLICT");
+
+        assertThat(jdbc.queryForObject(
+                "select fee_charge_mode from merchant_payout_provider_fees where payout_id=?",
+                String.class, payoutId)).isEqualTo("DEDUCTED");
+        assertThat(jdbc.queryForObject(
+                "select wallet_debited_xof from merchant_payout_provider_fees where payout_id=?",
+                BigDecimal.class, payoutId)).isEqualByComparingTo("20000");
+        assertThat(jdbc.queryForObject(
+                "select net_amount_xof from merchant_payout_provider_fees where payout_id=?",
+                BigDecimal.class, payoutId)).isEqualByComparingTo("19850");
+        assertThat(jdbc.queryForObject(
+                "select count(*) from saspay_company_fee_events where payout_id=?",
+                Integer.class, payoutId)).isZero();
     }
 
     @Test

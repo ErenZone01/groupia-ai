@@ -79,7 +79,7 @@
               "
               (click)="ask(row)"
             >
-              Recevoir {{ money(row.availableForPayout) }}
+              {{ store.deductedFees ? 'Retirer' : 'Recevoir' }} {{ money(row.availableForPayout) }}
             </button>
           }
         </article>
@@ -117,7 +117,7 @@
               "
               (click)="askDirect(row)"
             >
-              Recevoir {{ money(row.availableForPayout) }}
+              {{ store.deductedFees ? 'Retirer' : 'Recevoir' }} {{ money(row.availableForPayout) }}
             </button>
           }
         </article>
@@ -129,7 +129,11 @@
       ><h2>Historique des versements</h2>
       @for (p of store.history(); track p.id) {
         <article>
-          <h3>{{ status(p.status) }} · {{ money(p.amount) }}</h3>
+          <h3>{{ status(p.status) }} · {{ money(p.amount) }} demandés</h3>
+          @if (p.feeChargeMode === 'DEDUCTED') {
+            <p>Frais du retrait : {{ money(p.providerFee) }} ·
+              Net attendu sur le compte : <strong>{{ money(p.netAmount) }}</strong></p>
+          }
           <p>{{ payoutSource(p) }}</p>
           <p>
             {{ method(p.method) }} · {{ p.maskedPhone }} ·
@@ -166,32 +170,64 @@
 }
 <dialog #modal aria-label="Confirmer le versement" (cancel)="cancel($event)">
   @if (selected(); as row) {
-    <h2>Recevoir {{ money(row.availableForPayout) }}</h2>
+    <h2>{{ store.deductedFees ? 'Retirer' : 'Recevoir' }} {{ money(row.availableForPayout) }}</h2>
     <p>{{ row.title }}</p>
     <p>
       {{ method(store.destination()?.method) }} · {{ store.destination()?.holderName }} ·
       {{ store.destination()?.maskedPhone }}
     </p>
     <p>
-      Le montant disponible sera recalculé par Groupia. Vérifiez la destination avant de confirmer.
+      Groupia revérifie le solde et les frais avant de déclencher le versement. Si le tarif change, la demande est suspendue.
     </p>
+    @if (store.deductedFees) {
+      @if (store.quote(); as q) {
+        <div class="notice" aria-label="Détail des frais de retrait SasPay">
+          <p>Montant retiré du solde : <strong>{{ money(q.grossAmount) }}</strong></p>
+          <p>Frais de retrait SasPay à votre charge : <strong>{{ money(q.providerFee) }}</strong></p>
+          <p>Net estimé reçu sur {{ method(q.method) }} :
+            <strong>{{ money(q.netAmount) }}</strong></p>
+          <p>Devis valable 3 minutes. En cas de changement des frais, aucun virement
+            ne sera lancé sans un nouveau devis.</p>
+        </div>
+      } @else {
+        <p class="notice">Impossible de confirmer sans devis de frais SasPay.</p>
+      }
+    }
     <div class="actions">
-      <button gButton [loading]="store.busy()" (click)="confirm()">Confirmer le versement</button>
+      <button gButton [loading]="store.busy()"
+        [disabled]="store.deductedFees && !store.quote()"
+        (click)="confirm()">Confirmer le versement</button>
       <button gButton variant="ghost" [disabled]="store.busy()" (click)="close()">Annuler</button>
     </div>
   } @else if (selectedDirect(); as direct) {
-    <h2>Recevoir {{ money(direct.availableForPayout) }}</h2>
+    <h2>{{ store.deductedFees ? 'Retirer' : 'Recevoir' }} {{ money(direct.availableForPayout) }}</h2>
     <p>Vente directe {{ direct.orderNumber }} · {{ direct.provider }}</p>
     <p>
       {{ method(store.destination()?.method) }} · {{ store.destination()?.holderName }} ·
       {{ store.destination()?.maskedPhone }}
     </p>
     <p>
-      Groupia revérifie les fonds, l'identité du compte marchand et les éventuelles
-      réservations avant toute demande. Aucun transfert SasPay réel n'est activé.
+      Groupia revérifie les fonds, le bénéficiaire et les frais avant toute demande.
+      Les retraits SasPay réels restent désactivés pendant cette phase de validation.
     </p>
+    @if (store.deductedFees) {
+      @if (store.quote(); as q) {
+        <div class="notice" aria-label="Détail des frais de retrait SasPay">
+          <p>Montant retiré du solde : <strong>{{ money(q.grossAmount) }}</strong></p>
+          <p>Frais de retrait SasPay à votre charge : <strong>{{ money(q.providerFee) }}</strong></p>
+          <p>Net estimé reçu sur {{ method(q.method) }} :
+            <strong>{{ money(q.netAmount) }}</strong></p>
+          <p>Devis valable 3 minutes. En cas de changement des frais, aucun virement
+            ne sera lancé sans un nouveau devis.</p>
+        </div>
+      } @else {
+        <p class="notice">Impossible de confirmer sans devis de frais SasPay.</p>
+      }
+    }
     <div class="actions">
-      <button gButton [loading]="store.busy()" (click)="confirm()">Confirmer le versement</button>
+      <button gButton [loading]="store.busy()"
+        [disabled]="store.deductedFees && !store.quote()"
+        (click)="confirm()">Confirmer le versement</button>
       <button gButton variant="ghost" [disabled]="store.busy()" (click)="close()">Annuler</button>
     </div>
   }

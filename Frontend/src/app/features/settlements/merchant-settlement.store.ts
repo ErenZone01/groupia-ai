@@ -1,5 +1,5 @@
 import { effect, inject, Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, timeout } from 'rxjs';
 import { MerchantSettlementControllerService } from '../../api/generated/services';
 import type {
@@ -25,7 +25,22 @@ export interface DirectSettlement {
   availableForPayout: number;
   deficit: number;
 }
-type UnifiedBalance = MerchantBalance & { directOrders?: DirectSettlement[] };
+export interface PayoutFeeQuote {
+  quoteId: string;
+  destinationId: string;
+  method: string;
+  maskedPhone: string;
+  grossAmount: number;
+  providerFee: number;
+  netAmount: number;
+  currency: string;
+  feeChargeMode: 'DEDUCTED';
+  expiresAt: string;
+}
+type UnifiedBalance = MerchantBalance & {
+  directOrders?: DirectSettlement[];
+  payoutFeePolicy?: 'DEDUCTED' | 'EXTERNAL';
+};
 type UnifiedPayout = MerchantPayoutView & { directOrderId?: string | null };
 @Injectable()
 export class MerchantSettlementStore {
@@ -34,6 +49,8 @@ export class MerchantSettlementStore {
   readonly balance = signal<MerchantBalance | null>(null);
   readonly directOrders = signal<DirectSettlement[]>([]);
   readonly destination = signal<PayoutDestinationView | null>(null);
+  readonly quote = signal<PayoutFeeQuote | null>(null);
+  private quotedTarget: string | null = null;
   readonly history = signal<MerchantPayoutView[]>([]);
   readonly loading = signal(false);
   readonly busy = signal(false);
@@ -61,6 +78,8 @@ export class MerchantSettlementStore {
     this.balance.set(null);
     this.directOrders.set([]);
     this.destination.set(null);
+    this.quote.set(null);
+    this.quotedTarget = null;
     this.history.set([]);
     this.loading.set(false);
     this.busy.set(false);
@@ -85,6 +104,8 @@ export class MerchantSettlementStore {
       this.balance.set(null);
       this.directOrders.set([]);
       this.destination.set(null);
+      this.quote.set(null);
+      this.quotedTarget = null;
       this.history.set([]);
       this.error.set('');
     }
@@ -126,6 +147,8 @@ export class MerchantSettlementStore {
         this.balance.set(null);
         this.directOrders.set([]);
         this.destination.set(null);
+      this.quote.set(null);
+      this.quotedTarget = null;
         this.history.set([]);
       }
     } finally {
@@ -171,6 +194,48 @@ export class MerchantSettlementStore {
       if (operation === this.operation) this.busy.set(false);
     }
   }
+  get deductedFees() {
+    return (this.balance() as UnifiedBalance | null)?.payoutFeePolicy === 'DEDUCTED';
+  }
+
+  async prepareQuote(targetId: string, direct: boolean): Promise<boolean> {
+    this.quote.set(null);
+    this.quotedTarget = null;
+    if (!this.deductedFees) return true;
+    const org = this.org;
+    const destinationId = this.destination()?.id;
+    if (!destinationId || !org || this.busy()) return false;
+    const context = this.contextGeneration, session = this.session;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const path = direct
+        ? `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payout-quote`
+        : `/api/organizations/${encodeURIComponent(org)}/grouping-campaigns/${encodeURIComponent(targetId)}/merchant-payout-quote`;
+      const quote = await firstValueFrom(
+        this.http.get<PayoutFeeQuote>(path, { params: { destinationId } }).pipe(timeout(20000)),
+      );
+      if (!this.current(org, context, session)) return false;
+      if (quote.feeChargeMode !== 'DEDUCTED'
+        || quote.destinationId !== destinationId
+        || !(quote.netAmount > 0)
+        || Math.round(quote.grossAmount * 100) !==
+           Math.round(quote.netAmount * 100) + Math.round(quote.providerFee * 100)
+        || Date.parse(quote.expiresAt) <= Date.now()) {
+        this.error.set('Devis de retrait invalide. Veuillez réessayer.');
+        return false;
+      }
+      this.quote.set(quote);
+      this.quotedTarget = (direct ? 'direct:' : 'campaign:') + targetId;
+      return true;
+    } catch (e) {
+      if (this.current(org, context, session)) this.error.set(apiMessage(e));
+      return false;
+    } finally {
+      if (this.current(org, context, session)) this.busy.set(false);
+    }
+  }
+
   async request(campaignId: string) {
     return this.requestTarget(campaignId, false);
   }
@@ -196,6 +261,17 @@ export class MerchantSettlementStore {
       !((row?.availableForPayout ?? 0) > 0)
     )
       return;
+    const acceptedQuote = this.deductedFees ? this.quote() : null;
+    if (this.deductedFees && (
+      !acceptedQuote ||
+      this.quotedTarget !== (direct ? 'direct:' : 'campaign:') + targetId ||
+      acceptedQuote.destinationId !== d.id ||
+      acceptedQuote.grossAmount !== row?.availableForPayout ||
+      Date.parse(acceptedQuote.expiresAt) <= Date.now()
+    )) {
+      this.error.set('Devis de retrait expiré ou modifié. Rechargez les frais avant de confirmer.');
+      return;
+    }
     const org = this.org,
       scope = org + ':' + (direct ? 'direct:' : '') + targetId,
       context = this.contextGeneration,
@@ -211,12 +287,15 @@ export class MerchantSettlementStore {
     this.busy.set(true);
     this.error.set('');
     let failure = '';
+    const body = acceptedQuote
+      ? { destinationId: d.id, feeQuoteId: acceptedQuote.quoteId, confirmed: true }
+      : { destinationId: d.id, confirmed: true };
     try {
       if (direct) {
         await firstValueFrom(
           this.http.post<MerchantPayoutView>(
             `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payouts`,
-            { destinationId: d.id, confirmed: true },
+            body,
             { headers: { 'Idempotency-Key': key } },
           ).pipe(timeout(40000)),
         );
@@ -227,16 +306,25 @@ export class MerchantSettlementStore {
               organizationId: org,
               campaignId: targetId,
               'Idempotency-Key': key,
-              body: { destinationId: d.id, confirmed: true },
+              body,
             })
             .pipe(timeout(40000)),
         );
       }
       if (this.keys.get(scope) === key) this.keys.delete(scope);
-    } catch {
-      this.uncertain.set(scope, previous);
-      if (this.current(org, context, session))
-        failure = 'Versement en cours de vérification. Ne relancez pas un nouveau versement.';
+      this.quote.set(null);
+      this.quotedTarget = null;
+    } catch (e) {
+      if (e instanceof HttpErrorResponse && e.status >= 400 && e.status < 500) {
+        this.keys.delete(scope);
+        this.quote.set(null);
+        this.quotedTarget = null;
+        if (this.current(org, context, session)) failure = apiMessage(e);
+      } else {
+        this.uncertain.set(scope, previous);
+        if (this.current(org, context, session))
+          failure = 'Versement en cours de vérification. Ne relancez pas un nouveau versement.';
+      }
     } finally {
       if (this.current(org, context, session)) {
         await this.load(org);

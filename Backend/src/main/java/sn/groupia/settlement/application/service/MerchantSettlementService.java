@@ -60,20 +60,43 @@ public class MerchantSettlementService {
     @Transactional(readOnly = true)
     public List<MerchantPayoutView> payouts(UUID org) {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
-        return store.payouts(org).stream().map(MerchantSettlementService::view).toList();
+        return store.payouts(org).stream().map(this::view).toList();
+    }
+
+    public PayoutFeeQuoteView quoteCampaign(UUID org, UUID campaign, UUID destination) {
+        return PayoutFeeQuoteView.from(transactions.quoteCampaign(org, campaign, destination));
+    }
+
+    public PayoutFeeQuoteView quoteDirect(UUID org, UUID directOrder, UUID destination) {
+        return PayoutFeeQuoteView.from(transactions.quoteDirect(org, directOrder, destination));
     }
 
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView request(
             UUID org, UUID campaign, UUID key, UUID destination, boolean confirmed) {
-        return dispatch(transactions.reserve(org, campaign, key, destination, confirmed));
+        return request(org, campaign, key, destination, confirmed, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView request(
+            UUID org, UUID campaign, UUID key, UUID destination,
+            boolean confirmed, UUID feeQuoteId) {
+        return dispatch(transactions.reserve(org, campaign, key, destination, confirmed, feeQuoteId));
     }
 
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView requestDirect(
             UUID org, UUID directOrderId, UUID key, UUID destination, boolean confirmed) {
+        return requestDirect(org, directOrderId, key, destination, confirmed, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView requestDirect(
+            UUID org, UUID directOrderId, UUID key, UUID destination,
+            boolean confirmed, UUID feeQuoteId) {
         return dispatch(
-                transactions.reserveDirect(org, directOrderId, key, destination, confirmed));
+                transactions.reserveDirect(org, directOrderId, key, destination, confirmed,
+                        feeQuoteId));
     }
 
     private MerchantPayoutView dispatch(MerchantPayout p) {
@@ -130,7 +153,8 @@ public class MerchantSettlementService {
                 d.createdAt());
     }
 
-    private static MerchantPayoutView view(MerchantPayout p) {
+    private MerchantPayoutView view(MerchantPayout p) {
+        var sellerQuote = store.findPayoutFeeQuote(p.id());
         return new MerchantPayoutView(
                 p.id(),
                 p.campaignId(),
@@ -144,6 +168,11 @@ public class MerchantSettlementService {
                 p.succeededAt(),
                 p.reconciliationRequired(),
                 p.reconciliationReason(),
-                p.directOrderId());
+                p.directOrderId(),
+                sellerQuote.map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::providerFee)
+                        .orElse(null),
+                sellerQuote.map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::netAmount)
+                        .orElse(null),
+                sellerQuote.isPresent() ? "DEDUCTED" : null);
     }
 }

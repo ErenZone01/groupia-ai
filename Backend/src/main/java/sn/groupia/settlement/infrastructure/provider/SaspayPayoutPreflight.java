@@ -51,8 +51,8 @@ final class SaspayPayoutPreflight {
         if (tiers.size() != 1) throw new IllegalStateException("SASPAY_PAYOUT_RATE_AMBIGUOUS");
         var tier = tiers.getFirst();
         if (!"XOF".equals(string(tier, "currency"))
-                || !"ADD_ON".equals(string(tier, "fee_charge_mode")))
-            throw new IllegalStateException("SASPAY_PAYOUT_ADD_ON_UNAVAILABLE");
+                || !"DEDUCTED".equals(string(tier, "fee_charge_mode")))
+            throw new IllegalStateException("SASPAY_PAYOUT_DEDUCTED_UNAVAILABLE");
 
         BigDecimal percent = decimal(tier, "percent");
         BigDecimal fixed = decimal(tier, "fixed");
@@ -60,7 +60,7 @@ final class SaspayPayoutPreflight {
         BigDecimal cap = optional(tier, "cap_amount");
         if (floor != null && cap != null && floor.compareTo(cap) > 0)
             throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
-        BigDecimal fee = payout.amount().multiply(percent).movePointLeft(2).add(fixed);
+        BigDecimal fee = grossAmount.multiply(percent).movePointLeft(2).add(fixed);
         if (floor != null) fee = fee.max(floor);
         if (cap != null) fee = fee.min(cap);
         try {
@@ -69,8 +69,8 @@ final class SaspayPayoutPreflight {
         } catch (ArithmeticException ex) {
             throw new IllegalStateException("SASPAY_PAYOUT_FEE_PRECISION_UNCONFIRMED");
         }
-        if (fee.compareTo(approvedCeiling) > 0)
-            throw new IllegalStateException("SASPAY_PAYOUT_FEE_EXCEEDS_RESERVATION");
+        if (fee.compareTo(grossAmount) >= 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_NET_AMOUNT_NOT_POSITIVE");
         return fee;
     }
 
@@ -98,7 +98,7 @@ final class SaspayPayoutPreflight {
         if (!wallet.path("is_frozen").isBoolean() || wallet.path("is_frozen").booleanValue())
             throw new IllegalStateException("SASPAY_PAYOUT_WALLET_FROZEN");
         BigDecimal available = decimal(wallet, "available_amount");
-        if (available.compareTo(payout.amount().add(fee)) < 0)
+        if (available.compareTo(payout.amount()) < 0)
             throw new IllegalStateException("SASPAY_PAYOUT_WALLET_INSUFFICIENT");
     }
 

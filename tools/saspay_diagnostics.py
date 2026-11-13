@@ -224,8 +224,8 @@ def payout_quote_reason(rate, amount):
         if len(matching) != 1:
             return "pas de palier payout unique au montant demandé", None
         tier = matching[0]
-        if tier.get("currency") != "XOF" or tier.get("fee_charge_mode") != "ADD_ON":
-            return "ADD_ON non confirmé : principal vendeur non garanti", None
+        if tier.get("currency") != "XOF" or tier.get("fee_charge_mode") != "DEDUCTED":
+            return "DEDUCTED non confirmé : frais vendeur non vérifiables", None
         fee = (amount * _tariff_field(tier, "percent") / Decimal("100")
                + _tariff_field(tier, "fixed"))
         floor = _tariff_field(tier, "floor_amount", nullable=True)
@@ -238,9 +238,9 @@ def payout_quote_reason(rate, amount):
             fee = min(fee, cap)
         if fee.normalize().as_tuple().exponent < -2:
             return "frais payout à plus de deux décimales", None
-        if fee != fee.to_integral_value():
-            return "frais payout fractionnaires XOF : règle d'arrondi à confirmer", None
-        return "ADD_ON compatible à titre indicatif", fee
+        if fee >= amount:
+            return "frais payout supérieurs ou égaux au brut : net nul", None
+        return "DEDUCTED compatible à titre indicatif", fee
     except (ValueError, InvalidOperation, TypeError, KeyError, AttributeError) as exc:
         return "grille payout non exploitable : " + (str(exc) if isinstance(exc, ValueError) else "format invalide"), None
 
@@ -264,10 +264,10 @@ def print_payout_diagnostic(rates, env, amount):
         reason, fee = payout_quote_reason(matches[0], amount)
         print("  " + label + " (" + code + ") : " + reason)
         if fee is not None:
-            print("    Estimation seulement : principal " + str(amount) +
-                  " XOF, frais Groupia " + str(fee) + " XOF, débit wallet " +
-                  str(amount + fee) + " XOF, net vendeur " + str(amount) + " XOF.")
-            print("    Ce diagnostic ne certifie ni le financement Groupia ni ses réservations en base.")
+            print("    Estimation seulement : brut débité au wallet " + str(amount) +
+                  " XOF, frais vendeur " + str(fee) + " XOF, net vendeur " +
+                  str(amount - fee) + " XOF, commission Groupia 0 XOF.")
+            print("    Le net final reste à rapprocher avec la transaction SasPay.")
 
 
 def diagnose_webhooks(env, key):

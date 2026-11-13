@@ -12,6 +12,7 @@ import sn.groupia.grouping.api.MerchantCampaignFacts;
 import sn.groupia.organization.api.OrganizationAccess;
 import sn.groupia.payment.api.OutgoingPayoutOperations;
 import sn.groupia.settlement.domain.model.MerchantPayout;
+import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import sn.groupia.shared.api.ApiException;
@@ -63,52 +64,51 @@ class MerchantPayoutFeeBudgetTests {
                 false);
     }
 
+    private MerchantPayoutFeeQuote approvedQuote() {
+        return new MerchantPayoutFeeQuote(
+                UUID.randomUUID(), org, payout.campaignId(), null, payout.destinationId(),
+                payout.method(), payout.phoneE164(), "SASPAY", account,
+                payout.amount(), new BigDecimal("20"), new BigDecimal("980"),
+                Instant.parse("2026-11-15T00:00:00Z"));
+    }
+
     @Test
-    void missingApprovedCeilingDoesNotClaimOrSendPayout() {
+    void missingSellerFeeQuoteBlocksPayoutBeforeProviderCall() {
         var transactions = transactions();
         assertThatThrownBy(() -> transactions.claim(org, payoutId))
                 .isInstanceOf(ApiException.class)
-                .satisfies(
-                        ex ->
-                                assertThat(((ApiException) ex).code())
-                                        .isEqualTo("SASPAY_COMPANY_FEE_CEILING_UNCONFIRMED"));
+                .satisfies(ex -> assertThat(((ApiException) ex).code())
+                        .isEqualTo("PAYOUT_FEE_QUOTE_MISSING"));
         verify(store, never()).reserveCompanyFee(any(), any(), any());
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 
     @Test
-    void noCompanyFundingDoesNotClaimOrSendPayout() {
+    void contradictoryNetQuoteBlocksPayout() {
         var transactions = transactions();
-        BigDecimal ceiling = new BigDecimal("80");
-        when(provider.feeReservationCeiling(payout)).thenReturn(ceiling);
-        doThrow(new IllegalStateException("SASPAY_COMPANY_FEE_BUDGET_UNFUNDED"))
-                .when(store)
-                .reserveCompanyFee(account, payoutId, ceiling);
+        var valid = approvedQuote();
+        var changed = new MerchantPayoutFeeQuote(
+                valid.id(), valid.organizationId(), valid.campaignId(), null,
+                valid.destinationId(), valid.method(), valid.phoneE164(),
+                valid.provider(), valid.providerAccountReference(),
+                valid.grossAmount(), valid.providerFee(), new BigDecimal("981"),
+                valid.expiresAt());
+        when(store.payoutFeeQuote(payoutId)).thenReturn(changed);
         assertThatThrownBy(() -> transactions.claim(org, payoutId))
                 .isInstanceOf(ApiException.class)
-                .satisfies(
-                        ex ->
-                                assertThat(((ApiException) ex).code())
-                                        .isEqualTo("SASPAY_COMPANY_FEE_BUDGET_UNAVAILABLE"));
+                .satisfies(ex -> assertThat(((ApiException) ex).code())
+                        .isEqualTo("PAYOUT_FEE_QUOTE_MISMATCH"));
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 
     @Test
-    void fundedCompanyFeeIsReservedBeforePayoutCanBeClaimed() {
+    void approvedSellerQuoteClaimsWithoutAnyCompanyFeeReservation() {
         var transactions = transactions();
-        BigDecimal ceiling = new BigDecimal("80");
-        when(provider.feeReservationCeiling(payout)).thenReturn(ceiling);
+        when(store.payoutFeeQuote(payoutId)).thenReturn(approvedQuote());
         assertThat(transactions.claim(org, payoutId)).isTrue();
-        var order = inOrder(store);
-        order.verify(store).reserveCompanyFee(account, payoutId, ceiling);
-        order.verify(store)
-                .state(
-                        eq(payoutId),
-                        eq("PENDING"),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(true),
-                        eq("PAYOUT_INITIATION_IN_PROGRESS"));
+        verify(store, never()).reserveCompanyFee(any(), any(), any());
+        verify(store).state(
+                eq(payoutId), eq("PENDING"), isNull(), isNull(), isNull(), eq(true),
+                eq("PAYOUT_INITIATION_IN_PROGRESS"));
     }
 }

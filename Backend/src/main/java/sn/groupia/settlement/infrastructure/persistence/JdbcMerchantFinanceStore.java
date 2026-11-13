@@ -321,7 +321,14 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 payoutFeeQuote,
                 p.organizationId(),
                 quote.id());
-        if (found.size() != 1 || !found.getFirst().equals(quote)
+        if (found.size() != 1
+                || !found.getFirst().id().equals(quote.id())
+                || !found.getFirst().organizationId().equals(quote.organizationId())
+                || !found.getFirst().destinationId().equals(quote.destinationId())
+                || !found.getFirst().expiresAt().equals(quote.expiresAt())
+                || found.getFirst().grossAmount().compareTo(quote.grossAmount()) != 0
+                || found.getFirst().providerFee().compareTo(quote.providerFee()) != 0
+                || found.getFirst().netAmount().compareTo(quote.netAmount()) != 0
                 || !quote.expiresAt().isAfter(p.requestedAt())
                 || !"SASPAY".equals(p.provider())
                 || !p.provider().equals(quote.provider())

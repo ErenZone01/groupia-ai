@@ -113,26 +113,27 @@ describe('Versements unifiés - vente directe', () => {
     );
     expect(store.error()).toContain('Devis de retrait');
 
-    const quotePromise = store.prepareQuote('direct-order-1', true);
+    const quotePromise = store.prepareQuote('direct-order-1', true, 1000);
     const getQuote = http.expectOne(req =>
       req.method === 'GET'
       && req.url === '/api/organizations/shop-1/direct-orders/direct-order-1/merchant-payout-quote'
-      && req.params.get('destinationId') === 'destination-1',
+      && req.params.get('destinationId') === 'destination-1'
+      && req.params.get('amount') === '1000',
     );
     getQuote.flush({
       quoteId: 'quote-1',
       destinationId: 'destination-1',
       method: 'WAVE',
       maskedPhone: '+221 ••• 4567',
-      grossAmount: 20000,
-      providerFee: 150,
-      netAmount: 19850,
+      grossAmount: 1000,
+      providerFee: 37,
+      netAmount: 963,
       currency: 'XOF',
       feeChargeMode: 'DEDUCTED',
       expiresAt: new Date(Date.now() + 180_000).toISOString(),
     });
     expect(await quotePromise).toBe(true);
-    expect(store.quote()?.netAmount).toBe(19850);
+    expect(store.quote()?.netAmount).toBe(963);
 
     const action = store.requestDirect('direct-order-1');
     const payout = http.expectOne(

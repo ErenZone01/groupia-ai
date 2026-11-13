@@ -8,8 +8,8 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Strict, read-only SasPay preflight before the irreversible POST. A wallet balance is only
- * liquidity evidence, never proof of Groupia ownership of the funds. Company-owned fees must also
- * be reserved durably in the separate fee ledger.
+ * liquidity evidence, never proof of a seller's available settled funds. In DEDUCTED mode,
+ * the provider debits the gross payout and transfers gross minus its fees.
  */
 final class SaspayPayoutPreflight {
     private static final BigDecimal MAX = new BigDecimal("100000000000000");
@@ -17,13 +17,21 @@ final class SaspayPayoutPreflight {
     private SaspayPayoutPreflight() {}
 
     static BigDecimal checkRates(
-            JsonNode rows, MerchantPayout payout, String network, BigDecimal approvedCeiling) {
-        if (rows == null
-                || !rows.isArray()
+            JsonNode rows, MerchantPayout payout, String network, BigDecimal expectedFee) {
+        if (payout == null || expectedFee == null || expectedFee.signum() < 0
+                || expectedFee.scale() > 2)
+            throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
+        BigDecimal actual = quoteRates(rows, payout.amount(), network);
+        if (actual.compareTo(expectedFee) != 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_QUOTE_CHANGED");
+        return actual;
+    }
+
+    static BigDecimal quoteRates(JsonNode rows, BigDecimal grossAmount, String network) {
+        if (rows == null || !rows.isArray() || network == null
                 || !network.matches("[a-z0-9_]{3,64}")
-                || approvedCeiling == null
-                || approvedCeiling.signum() <= 0
-                || approvedCeiling.scale() > 2)
+                || grossAmount == null || grossAmount.signum() <= 0
+                || grossAmount.stripTrailingZeros().scale() > 0)
             throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
         var matchedNetworks = new ArrayList<JsonNode>();
         for (JsonNode row : rows) {

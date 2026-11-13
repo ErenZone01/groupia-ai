@@ -200,6 +200,40 @@ cd ..
 python tools/check_migrations.py
 ```
 
+## Précontrôle SasPay avant transfert (GET uniquement)
+
+Le fournisseur SasPay interroge maintenant, **avant le POST de retrait** :
+
+1. `GET /pricing/my-rates/` : réseau SN/XOF unique, `payout.available`,
+   `otp_required=false`, palier applicable unique, mode `ADD_ON` et
+   frais exacts à deux décimales sans arrondi improvisé ;
+2. `GET /merchant-balances/` : un solde SN/XOF du bon compte marchand,
+   non gelé, lecture complète (pagination incomplète refusée), et montant
+   disponible couvrant principal + frais calculés.
+
+Le transfert est refusé si les frais dépassent
+`SASPAY_PAYOUTS_APPROVED_FEE_CEILING_XOF`, si le solde est insuffisant ou
+si les réponses sont incomplètes/contradictoires. Les GET sont des lectures
+de liquidité et de tarification : **ils ne prouvent pas que les sommes
+appartiennent à Groupia**. La réservation préalable des frais dans le
+journal séparé reste obligatoire.
+
+Un échec de ce précontrôle laisse le retrait réservé pour examen par
+l'opérateur ; le backend n'envoie pas de POST de retrait à SasPay et ne
+relâche pas arbitrairement les fonds sur une simple exception.
+
+La documentation fournisseur consultée :
+- https://docs.saspay.me/api-reference/reference/my-rates
+- https://docs.saspay.me/api-reference/wallet/balances-list
+
+Pour permettre un premier retrait réel, il manque encore la source de
+`FUNDING` vérifiée (par exemple apport séparé de Groupia, **ou** une
+allocation explicite des abonnements déjà encaissés et définitivement
+acquis), son rapprochement avec SasPay et l'acceptation opérationnelle des
+règles de plafonds. Ne créditer aucune somme issue d'une commande vendeuse
+dans ce journal, même si elle apparaît dans le même portefeuille.
+Le verrou de production reste `PRODUCTION_PAYOUT_RELEASED=false`.
+
 ## Diagnostic des réseaux payout et frais (lecture seule)
 
 Depuis la racine du dépôt, après avoir mis à jour la branche et configuré

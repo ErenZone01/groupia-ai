@@ -170,7 +170,7 @@
 }
 <dialog #modal aria-label="Confirmer le versement" (cancel)="cancel($event)">
   @if (selected(); as row) {
-    <h2>{{ store.deductedFees ? 'Retirer' : 'Recevoir' }} {{ money(row.availableForPayout) }}</h2>
+    <h2>{{ store.deductedFees ? 'Retrait du groupage' : 'Recevoir ' + money(row.availableForPayout) }}</h2>
     <p>{{ row.title }}</p>
     <p>
       {{ method(store.destination()?.method) }} · {{ store.destination()?.holderName }} ·
@@ -179,6 +179,21 @@
     <p>
       Groupia revérifie le solde et les frais avant de déclencher le versement. Si le tarif change, la demande est suspendue.
     </p>
+    @if (store.deductedFees) {
+      <div class="notice">
+        <label for="grouping-payout-amount">Montant à retirer (FCFA)</label>
+        <input
+          id="grouping-payout-amount" type="number" inputmode="numeric" min="1" max="1000" step="1"
+          [value]="requestedAmount()"
+          [disabled]="store.busy()"
+          (input)="changeAmount($event)"
+        />
+        <p>Le montant doit être inférieur ou égal au solde disponible. Plafond pilote : 1 000 FCFA.</p>
+        <button gButton variant="secondary" [disabled]="store.busy()" (click)="calculateQuote()">
+          Calculer les frais
+        </button>
+      </div>
+    }
     @if (store.deductedFees) {
       @if (store.quote(); as q) {
         <div class="notice" aria-label="Détail des frais de retrait SasPay">
@@ -200,7 +215,7 @@
       <button gButton variant="ghost" [disabled]="store.busy()" (click)="close()">Annuler</button>
     </div>
   } @else if (selectedDirect(); as direct) {
-    <h2>{{ store.deductedFees ? 'Retirer' : 'Recevoir' }} {{ money(direct.availableForPayout) }}</h2>
+    <h2>{{ store.deductedFees ? 'Retrait de la vente directe' : 'Recevoir ' + money(direct.availableForPayout) }}</h2>
     <p>Vente directe {{ direct.orderNumber }} · {{ direct.provider }}</p>
     <p>
       {{ method(store.destination()?.method) }} · {{ store.destination()?.holderName }} ·
@@ -210,6 +225,21 @@
       Groupia revérifie les fonds, le bénéficiaire et les frais avant toute demande.
       Les retraits SasPay réels restent désactivés pendant cette phase de validation.
     </p>
+    @if (store.deductedFees) {
+      <div class="notice">
+        <label for="direct-payout-amount">Montant à retirer (FCFA)</label>
+        <input
+          id="direct-payout-amount" type="number" inputmode="numeric" min="1" max="1000" step="1"
+          [value]="requestedAmount()"
+          [disabled]="store.busy()"
+          (input)="changeAmount($event)"
+        />
+        <p>Le montant doit être inférieur ou égal au solde disponible. Plafond pilote : 1 000 FCFA.</p>
+        <button gButton variant="secondary" [disabled]="store.busy()" (click)="calculateQuote()">
+          Calculer les frais
+        </button>
+      </div>
+    }
     @if (store.deductedFees) {
       @if (store.quote(); as q) {
         <div class="notice" aria-label="Détail des frais de retrait SasPay">

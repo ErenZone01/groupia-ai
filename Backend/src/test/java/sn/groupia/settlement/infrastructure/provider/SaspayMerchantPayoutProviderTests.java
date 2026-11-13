@@ -98,15 +98,15 @@ class SaspayMerchantPayoutProviderTests {
     @Test
     void payoutPreflightRejectsUnapprovedFeesAndUnverifiedWallets() throws Exception {
         var p = payout(null);
-        var rates = json.readTree(payoutRates("ADD_ON"));
+        var rates = json.readTree(payoutRates("DEDUCTED"));
         var fee = SaspayPayoutPreflight.checkRates(
-                rates, p, "wave_sn", new BigDecimal("200"));
+                rates, p, "wave_sn", new BigDecimal("20"));
         assertThat(fee).isEqualByComparingTo("20");
         assertThatThrownBy(
                         () ->
                                 SaspayPayoutPreflight.checkRates(
                                         rates, p, "wave_sn", new BigDecimal("19")))
-                .hasMessage("SASPAY_PAYOUT_FEE_EXCEEDS_RESERVATION");
+                .hasMessage("SASPAY_PAYOUT_QUOTE_CHANGED");
         assertThatThrownBy(
                         () ->
                                 SaspayPayoutPreflight.checkRates(
@@ -117,7 +117,7 @@ class SaspayMerchantPayoutProviderTests {
         assertThatThrownBy(
                         () ->
                                 SaspayPayoutPreflight.checkWallet(
-                                        json.readTree(walletBalance("1019.00", false)),
+                                        json.readTree(walletBalance("999.00", false)),
                                         p,
                                         fee,
                                         MERCHANT.toString()))
@@ -149,7 +149,7 @@ class SaspayMerchantPayoutProviderTests {
                 "/api/v1/pricing/my-rates/",
                 exchange -> {
                     assertThat(exchange.getRequestMethod()).isEqualTo("GET");
-                    respond(exchange, payoutRates("ADD_ON"));
+                    respond(exchange, payoutRates("DEDUCTED"));
                 });
         server.createContext(
                 "/api/v1/merchant-balances/",
@@ -169,7 +169,7 @@ class SaspayMerchantPayoutProviderTests {
                     assertThat(body.path("currency").asText()).isEqualTo("XOF");
                     assertThat(body.path("country").asText()).isEqualTo("SN");
                     assertThat(body.path("method").asText()).isEqualTo("wave_sn");
-                    assertThat(body.path("fee_charge_mode").asText()).isEqualTo("ADD_ON");
+                    assertThat(body.path("fee_charge_mode").asText()).isEqualTo("DEDUCTED");
                     assertThat(body.path("recipient").path("msisdn").asText())
                             .isEqualTo("771234567");
                     assertThat(body.path("metadata").path("groupia_payout_id").asText())
@@ -331,7 +331,7 @@ class SaspayMerchantPayoutProviderTests {
                     exchange -> respond(exchange, payoutRates(mode)));
             server.createContext(
                     "/api/v1/merchant-balances/",
-                    exchange -> respond(exchange, walletBalance("1000.00", false)));
+                    exchange -> respond(exchange, walletBalance("999.00", false)));
             server.createContext(
                     "/api/v1/payouts/initialize/",
                     exchange -> {
@@ -343,8 +343,8 @@ class SaspayMerchantPayoutProviderTests {
                 var provider =
                         adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
                 String expected =
-                        "DEDUCTED".equals(mode)
-                                ? "SASPAY_PAYOUT_ADD_ON_UNAVAILABLE"
+                        "ADD_ON".equals(mode)
+                                ? "SASPAY_PAYOUT_DEDUCTED_UNAVAILABLE"
                                 : "SASPAY_PAYOUT_WALLET_INSUFFICIENT";
                 assertThatThrownBy(() -> provider.initiate(payout(null)))
                         .hasMessage(expected);
@@ -529,9 +529,9 @@ class SaspayMerchantPayoutProviderTests {
                 + "\",\"merchant\":\""
                 + MERCHANT
                 + "\",\"transaction_type\":\"RETRAIT\",\"flow_direction\":\"OUTBOUND\","
-                + "\"currency\":\"XOF\",\"fee_charge_mode\":\"ADD_ON\","
+                + "\"currency\":\"XOF\",\"fee_charge_mode\":\"DEDUCTED\","
                 + "\"requested_amount\":\"1000.00\",\"client_fee\":\"52.00\","
-                + "\"debited_amount\":\"1052.00\",\"net_amount\":\"1000.00\","
+                + "\"debited_amount\":\"1000.00\",\"net_amount\":\"948.00\","
                 + "\"status\":\"SUCCESS\""
                 + recipient
                 + gateway

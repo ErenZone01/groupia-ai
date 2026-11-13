@@ -224,8 +224,13 @@ def payout_quote_reason(rate, amount):
         if len(matching) != 1:
             return "pas de palier payout unique au montant demandé", None
         tier = matching[0]
-        if tier.get("currency") != "XOF" or tier.get("fee_charge_mode") != "DEDUCTED":
-            return "DEDUCTED non confirmé : frais vendeur non vérifiables", None
+        if tier.get("currency") != "XOF":
+            return "devise du palier payout non conforme à XOF", None
+        mode = tier.get("fee_charge_mode")
+        if mode != "DEDUCTED":
+            known_mode = mode if mode in ("ADD_ON", "DEDUCTED") else "absent/inconnu"
+            return ("DEDUCTED non confirmé (mode du tarif payout : " +
+                    known_mode + ") ; demander confirmation à SasPay", None)
         fee = (amount * _tariff_field(tier, "percent") / Decimal("100")
                + _tariff_field(tier, "fixed"))
         floor = _tariff_field(tier, "floor_amount", nullable=True)

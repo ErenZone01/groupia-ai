@@ -99,8 +99,7 @@ class SaspayMerchantPayoutProviderTests {
     void payoutPreflightRejectsUnapprovedFeesAndUnverifiedWallets() throws Exception {
         var p = payout(null);
         var rates = json.readTree(payoutRates("ADD_ON"));
-        var fee = SaspayPayoutPreflight.checkRates(
-                rates, p, "wave_sn", new BigDecimal("200"));
+        var fee = SaspayPayoutPreflight.checkRates(rates, p, "wave_sn", new BigDecimal("200"));
         assertThat(fee).isEqualByComparingTo("20");
         assertThatThrownBy(
                         () ->
@@ -308,17 +307,25 @@ class SaspayMerchantPayoutProviderTests {
                 + "\"available\":true,\"otp_required\":false,"
                 + "\"tiers\":[{\"min_amount\":\"0.00\","
                 + "\"max_amount\":\"500000.00\",\"currency\":\"XOF\","
-                + "\"fee_charge_mode\":\"" + mode + "\","
+                + "\"fee_charge_mode\":\""
+                + mode
+                + "\","
                 + "\"percent\":\"2.000\",\"fixed\":\"0.00\","
                 + "\"floor_amount\":null,\"cap_amount\":null}]}}]";
     }
 
     private String walletBalance(String available, boolean frozen) {
         return "{\"count\":1,\"next\":null,\"results\":[{"
-                + "\"merchant\":\"" + MERCHANT + "\","
+                + "\"merchant\":\""
+                + MERCHANT
+                + "\","
                 + "\"country\":\"SN\",\"currency\":\"XOF\","
-                + "\"available_amount\":\"" + available + "\","
-                + "\"is_frozen\":" + frozen + "}]}";
+                + "\"available_amount\":\""
+                + available
+                + "\","
+                + "\"is_frozen\":"
+                + frozen
+                + "}]}";
     }
 
     @Test
@@ -327,8 +334,7 @@ class SaspayMerchantPayoutProviderTests {
             var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             var posts = new AtomicInteger();
             server.createContext(
-                    "/api/v1/pricing/my-rates/",
-                    exchange -> respond(exchange, payoutRates(mode)));
+                    "/api/v1/pricing/my-rates/", exchange -> respond(exchange, payoutRates(mode)));
             server.createContext(
                     "/api/v1/merchant-balances/",
                     exchange -> respond(exchange, walletBalance("1000.00", false)));
@@ -340,14 +346,12 @@ class SaspayMerchantPayoutProviderTests {
                     });
             server.start();
             try {
-                var provider =
-                        adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+                var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
                 String expected =
                         "DEDUCTED".equals(mode)
                                 ? "SASPAY_PAYOUT_ADD_ON_UNAVAILABLE"
                                 : "SASPAY_PAYOUT_WALLET_INSUFFICIENT";
-                assertThatThrownBy(() -> provider.initiate(payout(null)))
-                        .hasMessage(expected);
+                assertThatThrownBy(() -> provider.initiate(payout(null))).hasMessage(expected);
                 assertThat(posts.get()).isZero();
             } finally {
                 server.stop(0);

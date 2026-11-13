@@ -35,6 +35,8 @@ public interface MerchantFinanceStore {
 
     MerchantPayoutFeeQuote payoutFeeQuote(UUID payoutId);
 
+    Optional<MerchantPayoutFeeQuote> findPayoutFeeQuote(UUID payoutId);
+
     void bindFeeQuote(MerchantPayoutFeeQuote quote, MerchantPayout payout);
 
 

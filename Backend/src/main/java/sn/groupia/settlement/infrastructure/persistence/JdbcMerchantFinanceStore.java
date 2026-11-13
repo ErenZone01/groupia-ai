@@ -240,6 +240,48 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 p.directOrderId());
     }
 
+    /** One immutable provider-confirmed fee per payout, independent of seller ledger entries. */
+    @Override
+    public void recordProviderFee(UUID payoutId, BigDecimal principal, BigDecimal providerFee) {
+        if (payoutId == null
+                || principal == null
+                || providerFee == null
+                || principal.signum() <= 0
+                || principal.stripTrailingZeros().scale() > 0
+                || providerFee.signum() < 0
+                || providerFee.scale() > 2)
+            throw new IllegalStateException("PAYOUT_FEE_EVIDENCE_INVALID");
+        BigDecimal total = principal.add(providerFee);
+        jdbc.update(
+                """
+                insert into merchant_payout_provider_fees
+                    (payout_id,principal_xof,provider_fee_xof,wallet_debited_xof)
+                values (?,?,?,?)
+                on conflict(payout_id) do nothing
+                """,
+                payoutId,
+                principal,
+                providerFee,
+                total);
+        var recorded =
+                jdbc.query(
+                        """
+                        select principal_xof,provider_fee_xof,wallet_debited_xof
+                        from merchant_payout_provider_fees where payout_id=?
+                        """,
+                        (rs, row) ->
+                                new BigDecimal[] {
+                                    rs.getBigDecimal("principal_xof"),
+                                    rs.getBigDecimal("provider_fee_xof"),
+                                    rs.getBigDecimal("wallet_debited_xof")
+                                },
+                        payoutId).getFirst();
+        if (recorded[0].compareTo(principal) != 0
+                || recorded[1].compareTo(providerFee) != 0
+                || recorded[2].compareTo(total) != 0)
+            throw new IllegalStateException("PAYOUT_FEE_EVIDENCE_CONFLICT");
+    }
+
     public void state(
             UUID id,
             String status,

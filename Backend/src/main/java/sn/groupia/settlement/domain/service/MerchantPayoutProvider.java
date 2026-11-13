@@ -59,8 +59,19 @@ public interface MerchantPayoutProvider {
                 String phoneE164,
                 String status,
                 Instant occurredAt) {
-            this(authenticated, provider, account, businessReference, transactionId, amount,
-                    currency, method, phoneE164, status, occurredAt, null);
+            this(
+                    authenticated,
+                    provider,
+                    account,
+                    businessReference,
+                    transactionId,
+                    amount,
+                    currency,
+                    method,
+                    phoneE164,
+                    status,
+                    occurredAt,
+                    null);
         }
 
         @Override

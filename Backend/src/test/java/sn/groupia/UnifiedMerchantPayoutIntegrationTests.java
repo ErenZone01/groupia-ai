@@ -242,8 +242,7 @@ class UnifiedMerchantPayoutIntegrationTests {
     void providerFeeEvidenceIsImmutableAndNeverDebitsSellerPrincipal() throws Exception {
         UUID destination = destination();
         UUID payoutId =
-                UUID.fromString(
-                        read(request(destination, UUID.randomUUID())).path("id").asText());
+                UUID.fromString(read(request(destination, UUID.randomUUID())).path("id").asText());
 
         var principal = new BigDecimal("20000");
         var fee = new BigDecimal("52.00");
@@ -251,7 +250,9 @@ class UnifiedMerchantPayoutIntegrationTests {
         // Identical proofs are idempotent, but altered proofs may not rewrite history.
         feeStore.recordProviderFee(payoutId, principal, fee);
         assertThatThrownBy(
-                        () -> feeStore.recordProviderFee(payoutId, principal, new BigDecimal("53.00")))
+                        () ->
+                                feeStore.recordProviderFee(
+                                        payoutId, principal, new BigDecimal("53.00")))
                 .hasMessage("PAYOUT_FEE_EVIDENCE_CONFLICT");
 
         assertThat(

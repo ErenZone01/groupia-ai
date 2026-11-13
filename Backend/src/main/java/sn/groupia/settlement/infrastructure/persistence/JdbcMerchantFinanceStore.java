@@ -1,7 +1,7 @@
 package sn.groupia.settlement.infrastructure.persistence;
 
-import java.sql.*;
 import java.math.BigDecimal;
+import java.sql.*;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.jdbc.core.*;
@@ -265,17 +265,18 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 total);
         var recorded =
                 jdbc.query(
-                        """
+                                """
                         select principal_xof,provider_fee_xof,wallet_debited_xof
                         from merchant_payout_provider_fees where payout_id=?
                         """,
-                        (rs, row) ->
-                                new BigDecimal[] {
-                                    rs.getBigDecimal("principal_xof"),
-                                    rs.getBigDecimal("provider_fee_xof"),
-                                    rs.getBigDecimal("wallet_debited_xof")
-                                },
-                        payoutId).getFirst();
+                                (rs, row) ->
+                                        new BigDecimal[] {
+                                            rs.getBigDecimal("principal_xof"),
+                                            rs.getBigDecimal("provider_fee_xof"),
+                                            rs.getBigDecimal("wallet_debited_xof")
+                                        },
+                                payoutId)
+                        .getFirst();
         if (recorded[0].compareTo(principal) != 0
                 || recorded[1].compareTo(providerFee) != 0
                 || recorded[2].compareTo(total) != 0)

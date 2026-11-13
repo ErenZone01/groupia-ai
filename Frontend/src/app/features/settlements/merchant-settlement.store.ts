@@ -219,7 +219,8 @@ export class MerchantSettlementStore {
       if (quote.feeChargeMode !== 'DEDUCTED'
         || quote.destinationId !== destinationId
         || !(quote.netAmount > 0)
-        || quote.grossAmount !== quote.netAmount + quote.providerFee
+        || Math.round(quote.grossAmount * 100) !==
+           Math.round(quote.netAmount * 100) + Math.round(quote.providerFee * 100)
         || Date.parse(quote.expiresAt) <= Date.now()) {
         this.error.set('Devis de retrait invalide. Veuillez réessayer.');
         return false;

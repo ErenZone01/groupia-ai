@@ -96,14 +96,32 @@ export class SettlementsPage {
     });
   }
   ask(row: CampaignSettlement) {
-    this.selectedDirect.set(null);
-    this.selected.set(row);
-    this.modal()?.nativeElement.showModal();
+    if (!this.store.deductedFees) {
+      this.selectedDirect.set(null);
+      this.selected.set(row);
+      this.modal()?.nativeElement.showModal();
+      return;
+    }
+    void this.store.prepareQuote(row.campaignId!, false).then((ready) => {
+      if (!ready) return;
+      this.selectedDirect.set(null);
+      this.selected.set(row);
+      this.modal()?.nativeElement.showModal();
+    });
   }
   askDirect(row: DirectSettlement) {
-    this.selected.set(null);
-    this.selectedDirect.set(row);
-    this.modal()?.nativeElement.showModal();
+    if (!this.store.deductedFees) {
+      this.selected.set(null);
+      this.selectedDirect.set(row);
+      this.modal()?.nativeElement.showModal();
+      return;
+    }
+    void this.store.prepareQuote(row.directOrderId, true).then((ready) => {
+      if (!ready) return;
+      this.selected.set(null);
+      this.selectedDirect.set(row);
+      this.modal()?.nativeElement.showModal();
+    });
   }
   close() {
     if (!this.store.busy()) {
@@ -123,6 +141,10 @@ export class SettlementsPage {
     const campaignId = this.selected()?.campaignId;
     const directOrderId = this.selectedDirect()?.directOrderId;
     if (this.store.busy() || (!campaignId && !directOrderId)) return;
+    if (this.store.deductedFees && !this.store.quote()) {
+      this.store.error.set('Le devis de retrait est indispensable avant confirmation.');
+      return;
+    }
     if (directOrderId) await this.store.requestDirect(directOrderId);
     else if (campaignId) await this.store.request(campaignId);
     this.close();

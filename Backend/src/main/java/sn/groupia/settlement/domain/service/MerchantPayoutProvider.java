@@ -33,6 +33,11 @@ public interface MerchantPayoutProvider {
         return null;
     }
 
+    /** GET-only provider fee quotation. Must not initiate a payout. */
+    default BigDecimal payoutFeeQuote(BigDecimal grossAmount, String method) {
+        throw new IllegalStateException("PAYOUT_FEE_QUOTE_UNAVAILABLE");
+    }
+
     String initiate(MerchantPayout payout);
 
     Proof verify(MerchantPayout payout);

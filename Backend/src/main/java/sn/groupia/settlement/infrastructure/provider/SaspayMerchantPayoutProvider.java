@@ -107,6 +107,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             RestClient http,
             boolean syntheticTransport) {
         this.syntheticTransport = syntheticTransport;
+        // Tests use only injected localhost transports, never production credentials.
+        // Their synthetic approved ceiling is independent of live configuration.
+        if (syntheticTransport) approvedFeeReservationCeiling = new BigDecimal("200");
         this.payin = payin;
         this.json = json;
         this.clock = clock;

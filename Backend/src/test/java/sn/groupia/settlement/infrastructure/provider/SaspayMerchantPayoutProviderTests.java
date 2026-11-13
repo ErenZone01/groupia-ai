@@ -157,7 +157,7 @@ class SaspayMerchantPayoutProviderTests {
         var rates =
                 json.readTree(
                         payoutRates("ADD_ON")
-                                .replace("\\\"percent\\\":\\\"2.000\\\"", "\\\"percent\\\":\\\"3.700\\\""));
+                                .replace("2.000", "3.700"));
         var fee = SaspayPayoutPreflight.quoteRates(rates, payout.amount(), "wave_sn");
         assertThat(fee).isEqualByComparingTo("37.00");
         assertThat(payout.amount().subtract(fee)).isEqualByComparingTo("963.00");

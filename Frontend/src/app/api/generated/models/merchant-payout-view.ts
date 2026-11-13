@@ -9,6 +9,9 @@ export interface MerchantPayoutView {
   holderName?: string;
   id?: string;
   maskedPhone?: string;
+  providerFee?: number;
+  netAmount?: number;
+  feeChargeMode?: string;
   method?: string;
   reconciliationReason?: string;
   reconciliationRequired?: boolean;

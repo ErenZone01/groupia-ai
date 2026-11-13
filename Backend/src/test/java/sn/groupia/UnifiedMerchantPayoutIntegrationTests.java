@@ -44,6 +44,7 @@ import tools.jackson.databind.*;
 class UnifiedMerchantPayoutIntegrationTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired MerchantFinanceStore feeStore;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JwtEncoder encoder;
@@ -236,6 +237,97 @@ class UnifiedMerchantPayoutIntegrationTests {
                 post(base() + "/direct-orders/" + orderId + "/merchant-payouts")
                         .header("Idempotency-Key", key),
                 Map.of("destinationId", destination, "confirmed", true));
+    }
+
+    @Test
+    void saspayCompanyFeeBudgetIsFundedSeparatelyAndCannotBeOverspent() throws Exception {
+        UUID dest = destination();
+        UUID payoutId = UUID.randomUUID();
+        String account = UUID.randomUUID().toString();
+        jdbc.update(
+                """
+                insert into merchant_payouts
+                (id,organization_id,direct_order_id,amount,currency,status,destination_id,
+                 method,phone_e164,holder_name,provider,provider_account_reference,
+                 business_reference,provider_idempotency_key,requested_by,requested_at,
+                 reconciliation_required,reconciliation_reason)
+                values (?,?,?,1000,'XOF','CREATED',?,'WAVE','+221771234567',
+                        'Vendeuse pilote','SASPAY',?,?,?, ?,now(),true,'AWAITING_DISPATCH')
+                """,
+                payoutId,
+                org,
+                orderId,
+                dest,
+                account,
+                "MERCHANT_PAYOUT:" + org + ":" + UUID.randomUUID(),
+                UUID.randomUUID(),
+                actor);
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        BigDecimal ceiling = new BigDecimal("80.00");
+        // No funding means no payout reservation, even when sellers have funds.
+        assertThatThrownBy(
+                        () -> tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling)))
+                .hasMessage("SASPAY_COMPANY_FEE_BUDGET_UNFUNDED");
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from saspay_company_fee_events where payout_id=?",
+                        Integer.class,
+                        payoutId))
+                .isZero();
+
+        // Only a separately verified, company-owned funding source may credit this
+        // ledger. This synthetic credit exists in isolated Testcontainers only.
+        jdbc.update(
+                """
+                insert into saspay_company_fee_events
+                (id,provider_account_reference,event_type,funding_reference,amount_xof)
+                values (?,?,'FUNDING',?,100)
+                """,
+                UUID.randomUUID(),
+                account,
+                "test-company-funding-" + UUID.randomUUID());
+        tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling));
+        tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling));
+        assertThatThrownBy(
+                        () -> tx.executeWithoutResult(
+                                s -> feeStore.reserveCompanyFee(account, payoutId, new BigDecimal("81"))))
+                .hasMessage("SASPAY_COMPANY_FEE_RESERVATION_CONFLICT");
+        assertThatThrownBy(
+                        () -> tx.executeWithoutResult(
+                                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("81"))))
+                .hasMessage("SASPAY_COMPANY_FEE_OVER_BUDGET");
+        tx.executeWithoutResult(
+                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("50")));
+        tx.executeWithoutResult(
+                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("50")));
+        assertThatThrownBy(
+                        () -> tx.executeWithoutResult(
+                                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("51"))))
+                .hasMessage("SASPAY_COMPANY_FEE_SETTLEMENT_CONFLICT");
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from saspay_company_fee_events where provider_account_reference=?",
+                                Integer.class,
+                                account))
+                .isEqualTo(3);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select sum(amount_xof) from saspay_company_fee_events where provider_account_reference=? and event_type='SETTLE'",
+                                BigDecimal.class,
+                                account))
+                .isEqualByComparingTo("50");
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "update saspay_company_fee_events set amount_xof=999 where provider_account_reference=?",
+                                        account))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select seller_principal from provider_collections where organization_id=?",
+                                BigDecimal.class,
+                                org))
+                .isEqualByComparingTo("20000");
     }
 
     @Test

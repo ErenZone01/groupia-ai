@@ -258,22 +258,22 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     private String payoutRates(String mode) {
-        return "[{\\"country_code\\":\\"SN\\",\\"currency\\":\\"XOF\\","
-                + "\\"network_code\\":\\"wave_sn\\",\\"payout\\":{"
-                + "\\"available\\":true,\\"otp_required\\":false,"
-                + "\\"tiers\\":[{\\"min_amount\\":\\"0.00\\","
-                + "\\"max_amount\\":\\"500000.00\\",\\"currency\\":\\"XOF\\","
-                + "\\"fee_charge_mode\\":\\"" + mode + "\\","
-                + "\\"percent\\":\\"2.000\\",\\"fixed\\":\\"0.00\\","
-                + "\\"floor_amount\\":null,\\"cap_amount\\":null}]}}]";
+        return "[{\"country_code\":\"SN\",\"currency\":\"XOF\","
+                + "\"network_code\":\"wave_sn\",\"payout\":{"
+                + "\"available\":true,\"otp_required\":false,"
+                + "\"tiers\":[{\"min_amount\":\"0.00\","
+                + "\"max_amount\":\"500000.00\",\"currency\":\"XOF\","
+                + "\"fee_charge_mode\":\"" + mode + "\","
+                + "\"percent\":\"2.000\",\"fixed\":\"0.00\","
+                + "\"floor_amount\":null,\"cap_amount\":null}]}}]";
     }
 
     private String walletBalance(String available, boolean frozen) {
-        return "{\\"count\\":1,\\"next\\":null,\\"results\\":[{"
-                + "\\"merchant\\":\\"" + MERCHANT + "\\","
-                + "\\"country\\":\\"SN\\",\\"currency\\":\\"XOF\\","
-                + "\\"available_amount\\":\\"" + available + "\\","
-                + "\\"is_frozen\\":" + frozen + "}]}";
+        return "{\"count\":1,\"next\":null,\"results\":[{"
+                + "\"merchant\":\"" + MERCHANT + "\","
+                + "\"country\":\"SN\",\"currency\":\"XOF\","
+                + "\"available_amount\":\"" + available + "\","
+                + "\"is_frozen\":" + frozen + "}]}";
     }
 
     @Test
@@ -291,7 +291,7 @@ class SaspayMerchantPayoutProviderTests {
                     "/api/v1/payouts/initialize/",
                     exchange -> {
                         posts.incrementAndGet();
-                        respond(exchange, "{\\"id\\":\\"" + TX + "\\"}");
+                        respond(exchange, "{\"id\":\"" + TX + "\"}");
                     });
             server.start();
             try {

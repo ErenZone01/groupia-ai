@@ -231,7 +231,7 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertIn("ADD_ON compatible", text)
         self.assertIn("débit wallet 1020 XOF", text)
         self.assertIn("Orange Money: code réseau payout non configuré", text)
-        self.assertIn("aucun budget", text.lower())
+        self.assertIn("ne certifie ni le financement", text.lower())
 
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):

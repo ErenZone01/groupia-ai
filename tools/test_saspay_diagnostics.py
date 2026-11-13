@@ -233,6 +233,46 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertIn("Orange Money: code réseau payout non configuré", text)
         self.assertIn("net final reste à rapprocher", text.lower())
 
+    def test_unconfigured_networks_show_tariff_candidates_without_activating_payouts(self):
+        from decimal import Decimal
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from saspay_diagnostics import print_payout_diagnostic
+
+        deductible = {
+            "min_amount": "0", "max_amount": "500000",
+            "currency": "XOF", "fee_charge_mode": "DEDUCTED",
+            "percent": "2", "fixed": "0",
+            "floor_amount": None, "cap_amount": None,
+        }
+        rates = [
+            {"country_code": "SN", "currency": "XOF", "network_code": "wave_sn",
+             "payin": {"available": True},
+             "payout": {"available": True, "otp_required": False,
+                        "tiers": [deductible]}},
+            {"country_code": "SN", "currency": "XOF", "network_code": "orange_sn",
+             "payin": {"available": True},
+             "payout": {"available": False, "otp_required": False,
+                        "tiers": [deductible]}},
+            {"country_code": "SN", "currency": "XOF", "network_code": "wizall_sn",
+             "payout": {"available": True, "otp_required": False,
+                        "tiers": [deductible]}},
+        ]
+        env = {"SASPAY_PAYOUTS_WAVE_NETWORK": "",
+               "SASPAY_PAYOUTS_ORANGE_NETWORK": ""}
+        output = StringIO()
+        with redirect_stdout(output):
+            print_payout_diagnostic(rates, env, Decimal(1000))
+        text = output.getvalue()
+        self.assertIn("Candidat tarifaire wave_sn (non autorisé automatiquement)", text)
+        self.assertIn("Estimation indicative : frais 20 XOF ; net vendeur 980 XOF", text)
+        self.assertIn("Candidat tarifaire orange_sn (non autorisé automatiquement)", text)
+        self.assertIn("payout non disponible", text)
+        self.assertNotIn("Candidat tarifaire wizall_sn", text)
+        self.assertNotIn("SASPAY_API_KEY=", text)
+        self.assertEqual(env["SASPAY_PAYOUTS_WAVE_NETWORK"], "")
+        self.assertEqual(env["SASPAY_PAYOUTS_ORANGE_NETWORK"], "")
+
     def test_refuses_other_network_paths(self):
         with self.assertRaises(ValueError):
             read_only_get("/payouts/initialize/", "sk_test_dummy")

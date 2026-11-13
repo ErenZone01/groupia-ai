@@ -104,8 +104,8 @@ export class MerchantSettlementStore {
       this.balance.set(null);
       this.directOrders.set([]);
       this.destination.set(null);
-    this.quote.set(null);
-    this.quotedTarget = null;
+      this.quote.set(null);
+      this.quotedTarget = null;
       this.history.set([]);
       this.error.set('');
     }
@@ -147,8 +147,8 @@ export class MerchantSettlementStore {
         this.balance.set(null);
         this.directOrders.set([]);
         this.destination.set(null);
-    this.quote.set(null);
-    this.quotedTarget = null;
+      this.quote.set(null);
+      this.quotedTarget = null;
         this.history.set([]);
       }
     } finally {
@@ -321,7 +321,7 @@ export class MerchantSettlementStore {
         this.quotedTarget = null;
         if (this.current(org, context, session)) failure = apiMessage(e);
       } else {
-      this.uncertain.set(scope, previous);
+        this.uncertain.set(scope, previous);
         if (this.current(org, context, session))
           failure = 'Versement en cours de vérification. Ne relancez pas un nouveau versement.';
       }

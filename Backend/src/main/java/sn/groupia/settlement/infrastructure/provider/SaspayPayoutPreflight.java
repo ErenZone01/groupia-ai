@@ -8,8 +8,8 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Strict, read-only SasPay preflight before the irreversible POST. A wallet balance is only
- * liquidity evidence, never proof of a seller's available settled funds. In DEDUCTED mode,
- * the provider debits the gross payout and transfers gross minus its fees.
+ * liquidity evidence, never proof of a seller's available settled funds. In DEDUCTED mode, the
+ * provider debits the gross payout and transfers gross minus its fees.
  */
 final class SaspayPayoutPreflight {
     private static final BigDecimal MAX = new BigDecimal("100000000000000");
@@ -18,7 +18,9 @@ final class SaspayPayoutPreflight {
 
     static BigDecimal checkRates(
             JsonNode rows, MerchantPayout payout, String network, BigDecimal expectedFee) {
-        if (payout == null || expectedFee == null || expectedFee.signum() < 0
+        if (payout == null
+                || expectedFee == null
+                || expectedFee.signum() < 0
                 || expectedFee.scale() > 2)
             throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
         BigDecimal actual = quoteRates(rows, payout.amount(), network);
@@ -28,9 +30,12 @@ final class SaspayPayoutPreflight {
     }
 
     static BigDecimal quoteRates(JsonNode rows, BigDecimal grossAmount, String network) {
-        if (rows == null || !rows.isArray() || network == null
+        if (rows == null
+                || !rows.isArray()
+                || network == null
                 || !network.matches("[a-z0-9_]{3,64}")
-                || grossAmount == null || grossAmount.signum() <= 0
+                || grossAmount == null
+                || grossAmount.signum() <= 0
                 || grossAmount.stripTrailingZeros().scale() > 0)
             throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
         var matchedNetworks = new ArrayList<JsonNode>();

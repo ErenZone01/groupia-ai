@@ -101,6 +101,18 @@ class SaspayMerchantPayoutProviderTests {
         var requests = new AtomicInteger();
         var original = payout(null);
         server.createContext(
+                "/api/v1/pricing/my-rates/",
+                exchange -> {
+                    assertThat(exchange.getRequestMethod()).isEqualTo("GET");
+                    respond(exchange, payoutRates("ADD_ON"));
+                });
+        server.createContext(
+                "/api/v1/merchant-balances/",
+                exchange -> {
+                    assertThat(exchange.getRequestMethod()).isEqualTo("GET");
+                    respond(exchange, walletBalance("1500.00", false));
+                });
+        server.createContext(
                 "/api/v1/payouts/initialize/",
                 exchange -> {
                     requests.incrementAndGet();
@@ -242,6 +254,59 @@ class SaspayMerchantPayoutProviderTests {
             assertThatThrownBy(() -> provider.verify(payout(TX.toString()))).hasMessage(error);
         } finally {
             server.stop(0);
+        }
+    }
+
+    private String payoutRates(String mode) {
+        return "[{\\"country_code\\":\\"SN\\",\\"currency\\":\\"XOF\\","
+                + "\\"network_code\\":\\"wave_sn\\",\\"payout\\":{"
+                + "\\"available\\":true,\\"otp_required\\":false,"
+                + "\\"tiers\\":[{\\"min_amount\\":\\"0.00\\","
+                + "\\"max_amount\\":\\"500000.00\\",\\"currency\\":\\"XOF\\","
+                + "\\"fee_charge_mode\\":\\"" + mode + "\\","
+                + "\\"percent\\":\\"2.000\\",\\"fixed\\":\\"0.00\\","
+                + "\\"floor_amount\\":null,\\"cap_amount\\":null}]}}]";
+    }
+
+    private String walletBalance(String available, boolean frozen) {
+        return "{\\"count\\":1,\\"next\\":null,\\"results\\":[{"
+                + "\\"merchant\\":\\"" + MERCHANT + "\\","
+                + "\\"country\\":\\"SN\\",\\"currency\\":\\"XOF\\","
+                + "\\"available_amount\\":\\"" + available + "\\","
+                + "\\"is_frozen\\":" + frozen + "}]}";
+    }
+
+    @Test
+    void payoutPreflightRefusesUnsupportedRateOrInsufficientWalletBeforePost() throws Exception {
+        for (String mode : List.of("DEDUCTED", "ADD_ON")) {
+            var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            var posts = new AtomicInteger();
+            server.createContext(
+                    "/api/v1/pricing/my-rates/",
+                    exchange -> respond(exchange, payoutRates(mode)));
+            server.createContext(
+                    "/api/v1/merchant-balances/",
+                    exchange -> respond(exchange, walletBalance("1000.00", false)));
+            server.createContext(
+                    "/api/v1/payouts/initialize/",
+                    exchange -> {
+                        posts.incrementAndGet();
+                        respond(exchange, "{\\"id\\":\\"" + TX + "\\"}");
+                    });
+            server.start();
+            try {
+                var provider =
+                        adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+                String expected =
+                        "DEDUCTED".equals(mode)
+                                ? "SASPAY_PAYOUT_ADD_ON_UNAVAILABLE"
+                                : "SASPAY_PAYOUT_WALLET_INSUFFICIENT";
+                assertThatThrownBy(() -> provider.initiate(payout(null)))
+                        .hasMessage(expected);
+                assertThat(posts.get()).isZero();
+            } finally {
+                server.stop(0);
+            }
         }
     }
 

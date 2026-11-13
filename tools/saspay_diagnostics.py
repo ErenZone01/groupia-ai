@@ -245,6 +245,35 @@ def payout_quote_reason(rate, amount):
         return "grille payout non exploitable : " + (str(exc) if isinstance(exc, ValueError) else "format invalide"), None
 
 
+def print_unconfigured_payout_candidates(rates, label, amount):
+    """List tariff-code candidates ONLY; never authorize or configure withdrawals."""
+    prefix = "wave_" if label == "Wave" else "orange_"
+    candidates = [
+        rate for rate in rates
+        if isinstance(rate, dict) and rate.get("country_code") == "SN"
+        and rate.get("currency") == "XOF"
+        and isinstance(rate.get("network_code"), str)
+        and re.fullmatch(r"[a-z0-9_]{3,64}", rate["network_code"])
+        and rate["network_code"].startswith(prefix)
+    ]
+    if not candidates:
+        print("    Aucun code candidat correspondant dans les tarifs SN/XOF du compte.")
+        return
+    codes = [item["network_code"] for item in candidates]
+    for rate in sorted(candidates, key=lambda item: item["network_code"]):
+        code = rate["network_code"]
+        if codes.count(code) != 1:
+            print("    " + code + " : code dupliqué, devis non fiable.")
+            continue
+        reason, fee = payout_quote_reason(rate, amount)
+        print("    Candidat tarifaire " + code + " (non autorisé automatiquement) : " + reason)
+        if fee is not None:
+            print("      Estimation indicative : frais " + str(fee) +
+                  " XOF ; net vendeur " + str(amount - fee) + " XOF.")
+    print("    Un code candidat ne prouve ni la permission PAYOUT, ni l'IP autorisée,")
+    print("    ni l'autorisation contractuelle de SasPay pour un retrait LIVE.")
+
+
 def print_payout_diagnostic(rates, env, amount):
     """Print approved-code candidates without a payout POST or leaking credentials."""
     print("Pré-diagnostic retraits SasPay, lecture seule ; montant vendeur : " + str(amount) + " XOF.")
@@ -254,6 +283,7 @@ def print_payout_diagnostic(rates, env, amount):
         code = env.get(variable, "").strip()
         if not re.fullmatch(r"[a-z0-9_]{3,64}", code):
             print("  " + label + ": code réseau payout non configuré/invalidé.")
+            print_unconfigured_payout_candidates(rates, label, amount)
             continue
         matches = [r for r in rates if isinstance(r, dict)
                    and r.get("country_code") == "SN" and r.get("currency") == "XOF"

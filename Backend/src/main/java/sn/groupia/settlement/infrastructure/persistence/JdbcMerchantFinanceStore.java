@@ -291,6 +291,8 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
     @Override
     public void reserveCompanyFee(String account, UUID payoutId, BigDecimal maxFee) {
         validFeeBudgetInput(account, payoutId, maxFee);
+        if (maxFee.signum() == 0)
+            throw new IllegalStateException("SASPAY_COMPANY_FEE_INVALID_AMOUNT");
         lockFeeBudgetAccount(account);
         var source =
                 jdbc.queryForObject(

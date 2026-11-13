@@ -60,7 +60,7 @@ public class MerchantSettlementService {
     @Transactional(readOnly = true)
     public List<MerchantPayoutView> payouts(UUID org) {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
-        return store.payouts(org).stream().map(MerchantSettlementService::view).toList();
+        return store.payouts(org).stream().map(this::view).toList();
     }
 
     public PayoutFeeQuoteView quoteCampaign(UUID org, UUID campaign, UUID destination) {

@@ -28,6 +28,7 @@ public class MerchantPayoutTransactions {
     private final Clock clock;
     private final boolean enabled;
     private final boolean directPayoutsEnabled;
+
     // LIVE pilot remains fail-closed: only one approved organization, <= 1000 XOF,
     // and at most one SasPay payout intent until the pilot is explicitly reviewed.
     @Value("${groupia.settlement.saspay-payout-pilot.enabled:false}")
@@ -81,7 +82,10 @@ public class MerchantPayoutTransactions {
                 || saspayPayoutPilotMaxXof.compareTo(new BigDecimal("1000")) > 0)
             throw error(503, "SASPAY_PAYOUT_PILOT_LOCKED", "Pilote SasPay non autorisé.");
         if (!org.toString().equals(saspayPayoutPilotOrganizationId))
-            throw error(403, "SASPAY_PAYOUT_PILOT_ORGANIZATION", "Boutique non autorisée pour le pilote.");
+            throw error(
+                    403,
+                    "SASPAY_PAYOUT_PILOT_ORGANIZATION",
+                    "Boutique non autorisée pour le pilote.");
         if (gross == null
                 || gross.signum() <= 0
                 || gross.stripTrailingZeros().scale() > 0
@@ -93,7 +97,9 @@ public class MerchantPayoutTransactions {
         if ("SASPAY".equals(provider.name())
                 && saspayPayoutPilotEnabled
                 && store.payouts(org).stream().anyMatch(p -> "SASPAY".equals(p.provider())))
-            throw error(409, "SASPAY_PAYOUT_PILOT_ALREADY_USED",
+            throw error(
+                    409,
+                    "SASPAY_PAYOUT_PILOT_ALREADY_USED",
                     "Un retrait SasPay pilote existe déjà. Vérifiez-le avant un autre essai.");
     }
 
@@ -170,7 +176,8 @@ public class MerchantPayoutTransactions {
         if (availableGross == null || availableGross.signum() <= 0)
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
         if ("SASPAY".equals(provider.name()) && saspayPayoutPilotEnabled && requestedAmount == null)
-            throw error(400, "SASPAY_PAYOUT_PILOT_AMOUNT_REQUIRED", "Indiquez le montant à retirer.");
+            throw error(
+                    400, "SASPAY_PAYOUT_PILOT_AMOUNT_REQUIRED", "Indiquez le montant à retirer.");
         BigDecimal gross = requestedAmount == null ? availableGross : requestedAmount;
         if (gross == null
                 || gross.signum() <= 0
@@ -554,7 +561,10 @@ public class MerchantPayoutTransactions {
         }
         if ("SASPAY".equals(p.provider())) {
             if (!"SASPAY".equals(provider.name()))
-                throw error(503, "SASPAY_PAYOUT_PROVIDER_CHANGED", "Le fournisseur de retrait a changé.");
+                throw error(
+                        503,
+                        "SASPAY_PAYOUT_PROVIDER_CHANGED",
+                        "Le fournisseur de retrait a changé.");
             requireSaspayPilot(org, p.amount());
             var quote = store.payoutFeeQuote(p.id());
             if (quote == null)

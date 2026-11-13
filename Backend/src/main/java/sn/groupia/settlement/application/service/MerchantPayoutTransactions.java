@@ -73,7 +73,7 @@ public class MerchantPayoutTransactions {
         return store.feeQuote(org, quoteId);
     }
 
-    private void requireSaspayPilot(UUID org, BigDecimal gross) {
+    void requireSaspayPilot(UUID org, BigDecimal gross) {
         if (!"SASPAY".equals(provider.name())) return;
         if (!saspayPayoutPilotEnabled
                 || saspayPayoutPilotMaxXof == null
@@ -89,8 +89,9 @@ public class MerchantPayoutTransactions {
             throw error(409, "SASPAY_PAYOUT_PILOT_LIMIT", "Montant supérieur au plafond pilote.");
     }
 
-    private void checkPilotUsage(UUID org) {
-        if (saspayPayoutPilotEnabled
+    void checkPilotUsage(UUID org) {
+        if ("SASPAY".equals(provider.name())
+                && saspayPayoutPilotEnabled
                 && store.payouts(org).stream().anyMatch(p -> "SASPAY".equals(p.provider())))
             throw error(409, "SASPAY_PAYOUT_PILOT_ALREADY_USED",
                     "Un retrait SasPay pilote existe déjà. Vérifiez-le avant un autre essai.");
@@ -168,7 +169,7 @@ public class MerchantPayoutTransactions {
             BigDecimal requestedAmount) {
         if (availableGross == null || availableGross.signum() <= 0)
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
-        if (saspayPayoutPilotEnabled && requestedAmount == null)
+        if ("SASPAY".equals(provider.name()) && saspayPayoutPilotEnabled && requestedAmount == null)
             throw error(400, "SASPAY_PAYOUT_PILOT_AMOUNT_REQUIRED", "Indiquez le montant à retirer.");
         BigDecimal gross = requestedAmount == null ? availableGross : requestedAmount;
         if (gross == null
@@ -177,6 +178,7 @@ public class MerchantPayoutTransactions {
                 || gross.compareTo(availableGross) > 0)
             throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Montant de retrait indisponible.");
         requireSaspayPilot(org, gross);
+        checkPilotUsage(org);
         var destination =
                 store.destination(org)
                         .orElseThrow(
@@ -529,6 +531,8 @@ public class MerchantPayoutTransactions {
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
         if ("SASPAY".equals(p.provider())) {
+            if (!"SASPAY".equals(provider.name()))
+                throw error(503, "SASPAY_PAYOUT_PROVIDER_CHANGED", "Le fournisseur de retrait a changé.");
             requireSaspayPilot(org, p.amount());
             var quote = store.payoutFeeQuote(p.id());
             if (quote == null)

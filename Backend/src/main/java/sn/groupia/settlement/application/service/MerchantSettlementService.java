@@ -153,7 +153,8 @@ public class MerchantSettlementService {
                 d.createdAt());
     }
 
-    private static MerchantPayoutView view(MerchantPayout p) {
+    private MerchantPayoutView view(MerchantPayout p) {
+        var sellerQuote = store.findPayoutFeeQuote(p.id());
         return new MerchantPayoutView(
                 p.id(),
                 p.campaignId(),
@@ -167,6 +168,11 @@ public class MerchantSettlementService {
                 p.succeededAt(),
                 p.reconciliationRequired(),
                 p.reconciliationReason(),
-                p.directOrderId());
+                p.directOrderId(),
+                sellerQuote.map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::providerFee)
+                        .orElse(null),
+                sellerQuote.map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::netAmount)
+                        .orElse(null),
+                sellerQuote.isPresent() ? "DEDUCTED" : null);
     }
 }

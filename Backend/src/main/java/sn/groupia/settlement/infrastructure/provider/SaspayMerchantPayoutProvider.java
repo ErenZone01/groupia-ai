@@ -300,7 +300,8 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 p.method(),
                 verifiedPhone,
                 status,
-                occurredAt);
+                occurredAt,
+                money(data, "client_fee"));
     }
 
     private String validateFinancialState(MerchantPayout p, JsonNode data) {

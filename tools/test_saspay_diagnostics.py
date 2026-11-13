@@ -201,7 +201,14 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
         self.assertEqual(payout_quote_reason(rate, Decimal(1000)),
                          ("DEDUCTED compatible à titre indicatif", Decimal(30)))
         tier["fee_charge_mode"] = "ADD_ON"
-        self.assertIn("DEDUCTED non confirmé", payout_quote_reason(rate, Decimal(1000))[0])
+        reason, fee = payout_quote_reason(rate, Decimal(1000))
+        self.assertIn("DEDUCTED non confirmé", reason)
+        self.assertIn("mode du tarif payout : ADD_ON", reason)
+        self.assertIsNone(fee)
+        tier["fee_charge_mode"] = None
+        reason, fee = payout_quote_reason(rate, Decimal(1000))
+        self.assertIn("mode du tarif payout : absent/inconnu", reason)
+        self.assertIsNone(fee)
         tier["fee_charge_mode"] = "DEDUCTED"
         tier["percent"] = "2.25"
         self.assertEqual(payout_quote_reason(rate, Decimal(1020))[0], "DEDUCTED compatible à titre indicatif")

@@ -187,7 +187,7 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
             ),
         )
 
-    def test_payout_diagnostic_requires_deducted_and_positive_net(self):
+    def test_payout_diagnostic_accepts_explicit_deducted_override_and_positive_net(self):
         from decimal import Decimal
         from saspay_diagnostics import payout_quote_reason
         tier = {
@@ -202,18 +202,39 @@ class ReadOnlySaspayDiagnosticsTests(unittest.TestCase):
                          ("DEDUCTED compatible à titre indicatif", Decimal(30)))
         tier["fee_charge_mode"] = "ADD_ON"
         reason, fee = payout_quote_reason(rate, Decimal(1000))
-        self.assertIn("DEDUCTED non confirmé", reason)
-        self.assertIn("mode du tarif payout : ADD_ON", reason)
-        self.assertIsNone(fee)
+        self.assertIn("DEDUCTED explicite documenté", reason)
+        self.assertIn("tarif GET par défaut ADD_ON", reason)
+        self.assertEqual(fee, Decimal(30))
         tier["fee_charge_mode"] = None
         reason, fee = payout_quote_reason(rate, Decimal(1000))
-        self.assertIn("mode du tarif payout : absent/inconnu", reason)
+        self.assertIn("mode des frais payout inconnu", reason)
         self.assertIsNone(fee)
         tier["fee_charge_mode"] = "DEDUCTED"
         tier["percent"] = "2.25"
         self.assertEqual(payout_quote_reason(rate, Decimal(1020))[0], "DEDUCTED compatible à titre indicatif")
         rate["payout"]["available"] = False
         self.assertIn("non disponible", payout_quote_reason(rate, Decimal(1000))[0])
+
+    def test_payout_diagnostic_estimates_37_xof_on_add_on_default_tariff(self):
+        from decimal import Decimal
+        from saspay_diagnostics import payout_quote_reason
+        rate = {
+            "country_code": "SN", "currency": "XOF",
+            "network_code": "wave_sn",
+            "payout": {
+                "available": True, "otp_required": False,
+                "tiers": [{
+                    "min_amount": "0", "max_amount": "10000000",
+                    "currency": "XOF", "fee_charge_mode": "ADD_ON",
+                    "percent": "3.7", "fixed": "0",
+                    "floor_amount": None, "cap_amount": None,
+                }],
+            },
+        }
+        reason, fee = payout_quote_reason(rate, Decimal(1000))
+        self.assertIn("DEDUCTED explicite documenté", reason)
+        self.assertEqual(fee, Decimal(37))
+        self.assertEqual(Decimal(1000) - fee, Decimal(963))
 
     def test_payout_diagnostic_reports_only_authorized_configured_network_codes(self):
         from decimal import Decimal

@@ -13,6 +13,8 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import sn.groupia.settlement.domain.model.MerchantPayout;
+import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
+import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -22,7 +24,7 @@ import tools.jackson.databind.ObjectMapper;
  * payout; an initiation ACK is never evidence of settlement.
  *
  * <p>Disabled until SasPay authorizes marketplace withdrawals, approves beneficiary evidence, and
- * Groupia funds payout fees separately from merchant principal.
+ * The seller explicitly confirms DEDUCTED fees before the provider is called.
  */
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
@@ -37,12 +39,12 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     private final RestClient http;
     private final ObjectMapper json;
     private final Clock clock;
+    private MerchantFinanceStore financeStore;
     private final boolean enabled,
             marketplaceAuthorized,
             beneficiaryProofApproved,
             feeBudgetApproved;
 
-    @Autowired
     public SaspayMerchantPayoutProvider(ObjectMapper json, Clock clock, Environment env) {
         this(
                 Connection.from(env),
@@ -76,6 +78,13 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         } catch (NumberFormatException ex) {
             approvedFeeReservationCeiling = BigDecimal.ZERO;
         }
+    }
+
+    @Autowired
+    public SaspayMerchantPayoutProvider(
+            ObjectMapper json, Clock clock, Environment env, MerchantFinanceStore financeStore) {
+        this(json, clock, env);
+        this.financeStore = financeStore;
     }
 
     SaspayMerchantPayoutProvider(
@@ -177,8 +186,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 && payin.enabled()
                 && payin.isLive()
                 && marketplaceAuthorized
-                && beneficiaryProofApproved
-                && feeBudgetApproved;
+                && beneficiaryProofApproved;
     }
 
     @Override
@@ -207,6 +215,13 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     @Override
+    public BigDecimal payoutFeeQuote(BigDecimal grossAmount, String method) {
+        requireEnabled();
+        JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
+        return SaspayPayoutPreflight.quoteRates(rates, grossAmount, network(method));
+    }
+
+    @Override
     public String initiate(MerchantPayout p) {
         requireEnabled();
         assertIdentity(p);
@@ -219,20 +234,32 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         body.put("customer", Map.of("phone", recipientPhone));
         body.put("recipient", Map.of("msisdn", recipientPhone.substring(4)));
         body.put("description", "Versement Groupia");
-        body.put("fee_charge_mode", "ADD_ON");
+        body.put("fee_charge_mode", "DEDUCTED");
         body.put(
                 "metadata",
                 Map.of(
                         "groupia_payout_id", p.id().toString(),
                         "groupia_reference", p.businessReference()));
-        // Before any irreversible transfer, validate the currently advertised payout
-        // rate and SN/XOF wallet liquidity. This does NOT establish fund ownership:
-        // claim() has already reserved the fee in Groupia's independent budget.
+        // A provider quotation never substitutes for the persisted quote explicitly
+        // accepted by the seller. Any rate change aborts before the irreversible POST.
+        MerchantPayoutFeeQuote accepted = null;
+        if (!syntheticTransport) {
+            if (financeStore == null)
+                throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISSING");
+            accepted = financeStore.payoutFeeQuote(p.id());
+            if (!p.organizationId().equals(accepted.organizationId())
+                    || !p.destinationId().equals(accepted.destinationId())
+                    || !p.method().equals(accepted.method())
+                    || !p.phoneE164().equals(accepted.phoneE164())
+                    || p.amount().compareTo(accepted.grossAmount()) != 0
+                    || !account().equals(accepted.providerAccountReference()))
+                throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISMATCH");
+        }
         String payoutNetwork = network(p.method());
         JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
-        BigDecimal quotedFee =
-                SaspayPayoutPreflight.checkRates(
-                        rates, p, payoutNetwork, feeReservationCeiling(p));
+        BigDecimal quotedFee = SaspayPayoutPreflight.quoteRates(rates, p.amount(), payoutNetwork);
+        if (accepted != null && quotedFee.compareTo(accepted.providerFee()) != 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_QUOTE_CHANGED");
         JsonNode balances = exchange(http.get().uri("/merchant-balances/"), 200);
         SaspayPayoutPreflight.checkWallet(balances, p, quotedFee, account());
         JsonNode ack =
@@ -342,7 +369,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 || !"RETRAIT".equals(text(data, "transaction_type"))
                 || !"OUTBOUND".equals(text(data, "flow_direction"))
                 || !"XOF".equals(text(data, "currency"))
-                || !"ADD_ON".equals(text(data, "fee_charge_mode")))
+                || !"DEDUCTED".equals(text(data, "fee_charge_mode")))
             throw new IllegalStateException("SASPAY_PAYOUT_EVIDENCE_MISMATCH");
         BigDecimal amount = money(data, "requested_amount");
         BigDecimal fee = money(data, "client_fee");
@@ -350,8 +377,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         BigDecimal net = money(data, "net_amount");
         if (p.amount().compareTo(amount) != 0
                 || fee.signum() < 0
-                || charged.compareTo(amount.add(fee)) != 0
-                || net.compareTo(amount) != 0)
+                || fee.compareTo(amount) >= 0
+                || charged.compareTo(amount) != 0
+                || net.compareTo(amount.subtract(fee)) != 0)
             throw new IllegalStateException("SASPAY_PAYOUT_FINANCIAL_MISMATCH");
         return switch (Objects.toString(text(data, "status"), "")) {
             case "PENDING" -> "PENDING";

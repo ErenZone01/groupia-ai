@@ -224,7 +224,10 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         String payoutNetwork = network(p.method());
         JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
         BigDecimal quotedFee =
-                SaspayPayoutPreflight.checkRates(rates, p, payoutNetwork, feeReservationCeiling(p));
+                accepted == null
+                        ? SaspayPayoutPreflight.quoteRates(rates, p.amount(), payoutNetwork)
+                        : SaspayPayoutPreflight.checkRates(
+                                rates, p, payoutNetwork, accepted.providerFee());
         JsonNode balances = exchange(http.get().uri("/merchant-balances/"), 200);
         SaspayPayoutPreflight.checkWallet(balances, p, quotedFee, account());
         JsonNode ack =

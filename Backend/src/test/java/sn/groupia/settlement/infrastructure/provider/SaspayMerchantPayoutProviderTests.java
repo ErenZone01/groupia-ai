@@ -98,8 +98,9 @@ class SaspayMerchantPayoutProviderTests {
     @Test
     void payoutPreflightRejectsUnapprovedFeesAndUnverifiedWallets() throws Exception {
         var p = payout(null);
-        var rates = json.readTree(payoutRates("ADD_ON"));
-        var fee = SaspayPayoutPreflight.checkRates(rates, p, "wave_sn", new BigDecimal("200"));
+        // The accepted seller quote uses DEDUCTED, with 2% of 1000 = 20 XOF.
+        var rates = json.readTree(payoutRates("DEDUCTED"));
+        var fee = SaspayPayoutPreflight.checkRates(rates, p, "wave_sn", new BigDecimal("20"));
         assertThat(fee).isEqualByComparingTo("20");
         assertThatThrownBy(
                         () ->
@@ -109,7 +110,7 @@ class SaspayMerchantPayoutProviderTests {
         assertThatThrownBy(
                         () ->
                                 SaspayPayoutPreflight.checkRates(
-                                        rates, p, "orange_sn", new BigDecimal("200")))
+                                        rates, p, "orange_sn", new BigDecimal("20")))
                 .hasMessage("SASPAY_PAYOUT_NETWORK_UNAVAILABLE");
         SaspayPayoutPreflight.checkWallet(
                 json.readTree(walletBalance("1020.00", false)), p, fee, MERCHANT.toString());

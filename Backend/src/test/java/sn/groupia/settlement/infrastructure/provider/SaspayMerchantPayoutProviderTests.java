@@ -152,6 +152,23 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void payoutPreflightPricesObservedAddOnDefaultAtThreePointSevenPercent() throws Exception {
+        var payout = payout(null);
+        var rates =
+                json.readTree(
+                        payoutRates("ADD_ON")
+                                .replace("\\\"percent\\\":\\\"2.000\\\"", "\\\"percent\\\":\\\"3.700\\\""));
+        var fee = SaspayPayoutPreflight.quoteRates(rates, payout.amount(), "wave_sn");
+        assertThat(fee).isEqualByComparingTo("37.00");
+        assertThat(payout.amount().subtract(fee)).isEqualByComparingTo("963.00");
+        assertThatThrownBy(
+                        () ->
+                                SaspayPayoutPreflight.checkRates(
+                                        rates, payout, "wave_sn", new BigDecimal("36.00")))
+                .hasMessage("SASPAY_PAYOUT_QUOTE_CHANGED");
+    }
+
+    @Test
     void initializedPayoutOverridesAddOnTariffAndPreservesIdempotency() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         var requests = new AtomicInteger();

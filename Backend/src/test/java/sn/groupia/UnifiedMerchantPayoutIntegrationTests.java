@@ -58,7 +58,7 @@ class UnifiedMerchantPayoutIntegrationTests {
     @BeforeEach
     void setup() {
         jdbc.execute(
-                "TRUNCATE saspay_company_fee_events,merchant_payout_provider_fees,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,"
+                "TRUNCATE merchant_payout_fee_quote_bindings,merchant_payout_fee_quotes,saspay_company_fee_events,merchant_payout_provider_fees,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,"
                         + "outgoing_provider_operations,provider_collections,direct_orders,"
                         + "direct_storefronts,organizations,user_accounts,event_publication CASCADE");
         provider.reset();

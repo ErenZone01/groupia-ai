@@ -29,21 +29,16 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
 public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
-    // A production deployment must not be able to transfer money just by flipping
-    // flags: verified recipient identity and separately funded payout fees remain
-    // contractually unresolved. Test-only loopback fixtures exercise the protocol.
+    // All LIVE payout calls stay locked until the seller-paid DEDUCTED contract is
+    // validated end-to-end. Local synthetic transports exercise the protocol.
     private static final boolean PRODUCTION_PAYOUT_RELEASED = false;
     private final boolean syntheticTransport;
-    private BigDecimal approvedFeeReservationCeiling = BigDecimal.ZERO;
     private final Connection payin;
     private final RestClient http;
     private final ObjectMapper json;
     private final Clock clock;
     private MerchantFinanceStore financeStore;
-    private final boolean enabled,
-            marketplaceAuthorized,
-            beneficiaryProofApproved,
-            feeBudgetApproved;
+    private final boolean enabled, marketplaceAuthorized, beneficiaryProofApproved;
 
     public SaspayMerchantPayoutProvider(ObjectMapper json, Clock clock, Environment env) {
         this(
@@ -59,25 +54,8 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         "groupia.settlement.saspay-payouts.beneficiary-proof-approved",
                         Boolean.class,
                         false),
-                env.getProperty(
-                        "groupia.settlement.saspay-payouts.company-fee-budget-approved",
-                        Boolean.class,
-                        false),
                 makeHttp(Connection.from(env)),
                 false);
-        // Operator-approved *ceiling*, not a SasPay quote or proof of wallet funding.
-        // Defaults to zero and must remain zero until independent rate validation.
-        try {
-            var cap =
-                    new BigDecimal(
-                            env.getProperty(
-                                    "groupia.settlement.saspay-payouts.approved-fee-ceiling-xof",
-                                    "0"));
-            if (cap.signum() > 0 && cap.scale() <= 2 && cap.precision() <= 10)
-                approvedFeeReservationCeiling = cap;
-        } catch (NumberFormatException ex) {
-            approvedFeeReservationCeiling = BigDecimal.ZERO;
-        }
     }
 
     @Autowired
@@ -94,7 +72,6 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean enabled,
             boolean marketplaceAuthorized,
             boolean beneficiaryProofApproved,
-            boolean feeBudgetApproved,
             RestClient http) {
         this(
                 payin,
@@ -103,7 +80,6 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 enabled,
                 marketplaceAuthorized,
                 beneficiaryProofApproved,
-                feeBudgetApproved,
                 http,
                 true);
     }
@@ -115,20 +91,15 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean enabled,
             boolean marketplaceAuthorized,
             boolean beneficiaryProofApproved,
-            boolean feeBudgetApproved,
             RestClient http,
             boolean syntheticTransport) {
         this.syntheticTransport = syntheticTransport;
-        // Tests use only injected localhost transports, never production credentials.
-        // Their synthetic approved ceiling is independent of live configuration.
-        if (syntheticTransport) approvedFeeReservationCeiling = new BigDecimal("200");
         this.payin = payin;
         this.json = json;
         this.clock = clock;
         this.enabled = enabled;
         this.marketplaceAuthorized = marketplaceAuthorized;
         this.beneficiaryProofApproved = beneficiaryProofApproved;
-        this.feeBudgetApproved = feeBudgetApproved;
         this.http = http;
     }
 
@@ -207,11 +178,6 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     @Override
     public String fundingAccount() {
         return account();
-    }
-
-    @Override
-    public BigDecimal feeReservationCeiling(MerchantPayout p) {
-        return approvedFeeReservationCeiling;
     }
 
     @Override

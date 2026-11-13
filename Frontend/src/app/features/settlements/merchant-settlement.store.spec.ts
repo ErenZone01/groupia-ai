@@ -94,6 +94,60 @@ describe('Versements unifiés - vente directe', () => {
     expect(store.error()).toBe('');
   });
 
+  it('requires a DEDUCTED seller quote and submits its exact ID and amount', async () => {
+    const b = {
+      currency: 'XOF',
+      campaigns: [],
+      directOrders: [direct],
+      canManageSettlements: true,
+      canManageDestination: true,
+      providerAvailable: true,
+      payoutFeePolicy: 'DEDUCTED',
+    } as unknown as MerchantBalance;
+    api.merchantBalance.mockReturnValue(of(b));
+    await store.load('shop-1');
+
+    await store.requestDirect('direct-order-1');
+    http.expectNone(
+      '/api/organizations/shop-1/direct-orders/direct-order-1/merchant-payouts',
+    );
+    expect(store.error()).toContain('Devis de retrait');
+
+    const quotePromise = store.prepareQuote('direct-order-1', true);
+    const getQuote = http.expectOne(req =>
+      req.method === 'GET'
+      && req.url === '/api/organizations/shop-1/direct-orders/direct-order-1/merchant-payout-quote'
+      && req.params.get('destinationId') === 'destination-1',
+    );
+    getQuote.flush({
+      quoteId: 'quote-1',
+      destinationId: 'destination-1',
+      method: 'WAVE',
+      maskedPhone: '+221 ••• 4567',
+      grossAmount: 20000,
+      providerFee: 150,
+      netAmount: 19850,
+      currency: 'XOF',
+      feeChargeMode: 'DEDUCTED',
+      expiresAt: new Date(Date.now() + 180_000).toISOString(),
+    });
+    expect(await quotePromise).toBe(true);
+    expect(store.quote()?.netAmount).toBe(19850);
+
+    const action = store.requestDirect('direct-order-1');
+    const payout = http.expectOne(
+      '/api/organizations/shop-1/direct-orders/direct-order-1/merchant-payouts',
+    );
+    expect(payout.request.body).toEqual({
+      destinationId: 'destination-1',
+      feeQuoteId: 'quote-1',
+      confirmed: true,
+    });
+    payout.flush({ id: 'payout-1', status: 'PENDING' });
+    await action;
+    expect(store.quote()).toBeNull();
+  });
+
   it('does not initiate a payout if no direct funds are withdrawable', async () => {
     await store.load('shop-1');
     store.directOrders.set([{ ...direct, availableForPayout: 0 }]);

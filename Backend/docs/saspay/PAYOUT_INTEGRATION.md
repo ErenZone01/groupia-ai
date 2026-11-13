@@ -35,13 +35,25 @@ Documentation :
   En cas d'ACK perdu, la réservation reste bloquée ; la résolution
   doit conserver la même clé et investiguer l'état fournisseur.
 
-La route standard de vérification SasPay documente `customer` et
-`network` comme des **UUID**, pas le téléphone final en clair.
-Par conséquent notre validateur refuse de marquer un payout
-`SUCCEEDED` sans champs de bénéficiaire et code réseau
-**authentifiés par le fournisseur**. La validation écrite de ce
-contrat de preuve est un blocage de mise en service, pas une
-simple préférence d'interface.
+La route standard `GET /payouts/{id}/verify/` documente `customer` et
+`network` comme des **UUID** et actualise le statut auprès du gateway.
+Le complément officiel `GET /transactions/{id}/` documente
+`operation_msisdn` (numéro effectivement crédité sur un retrait) et
+`network_code`, ainsi que les montants détaillés :
+https://docs.saspay.me/api-reference/transactions/get
+
+**Correctif de vérification dans la PR #86** : un payout `PENDING`, `FAILED`
+ou `CANCELLED` est rapproché avec le seul endpoint payout, sans inventer de
+preuve de réception. Pour `SUCCESS`, le backend appelle **aussi** le détail
+de transaction, contrôle l'identité et les montants indépendamment sur
+les deux réponses, leur cohérence, `operation_msisdn` et `network_code`
+contre la destination sauvegardée. Une preuve incomplète, contradictoire
+ou non vérifiable reste en revue sans libérer le solde. Aucun POST de
+retrait n'est fait pendant la vérification.
+
+Ce correctif repose sur les champs documentés mais nécessite toujours
+une validation de contrat réelle avec le compte concerné, sans
+transactions nouvelles pendant la recette initiale.
 
 Le réseau `wave_sn` a été observé sur l'encaissement LIVE Wave,
 mais son **support en payout** doit être validé séparément.
@@ -125,6 +137,32 @@ Le retrait et le remboursement client sont des opérations
 financières distinctes. Aucun remboursement automatique SasPay
 n'est intégré par ce lot.
 
+## Diagnostic des réseaux payout et frais (lecture seule)
+
+Depuis la racine du dépôt, après avoir mis à jour la branche et configuré
+localement **sans publier la clé** :
+
+```powershell
+python tools/saspay_diagnostics.py --env-file Backend/.env --payout-amount-xof 1000
+```
+
+Ce diagnostic vérifie les codes `SASPAY_PAYOUTS_WAVE_NETWORK` et
+`SASPAY_PAYOUTS_ORANGE_NETWORK` contre les tarifs SN/XOF renvoyés
+par `GET /pricing/my-rates/`, distingue `payout.available`,
+`ADD_ON` et `DEDUCTED`, et affiche uniquement une **estimation**
+du débit wallet, des frais et du principal reçu pour un montant test.
+Les erreurs d'arrondi ou de palier bloquent la compatibilité indicative.
+Le script ne fait **aucun POST**, ne valide ni scope `PAYOUT`, ni IP,
+ni fonds disponibles, ni autorisation de redistribuer les fonds de tiers.
+Un tarif déclaré compatible ne donne aucun droit d'activation.
+
+**Blocage conservé** : la comptabilité des frais `ADD_ON` financés
+par Groupia n'a pas de réservation durable indépendante du principal
+vendeur ni de rapprochement final dans ce lot. La preuve de bénéfice
+ci-dessus ne règle pas cette comptabilité ; conserver
+`PRODUCTION_PAYOUT_RELEASED=false` et les flags désactivés
+jusqu'à validation de cette partie.
+
 ## Tests ciblés, sans argent réel
 
 ```powershell
@@ -134,6 +172,8 @@ $env:SPRING_PROFILES_ACTIVE = "test"
 .\mvnw.cmd spotless:apply
 .\mvnw.cmd spotless:check
 .\mvnw.cmd "-Dtest=SaspayMerchantPayoutProviderTests,MerchantSettlementIntegrationTests,SaspayHostedContractTests" test
+cd ..
+python -m unittest discover -s tools -p test_saspay_diagnostics.py
 ```
 
 Lancer ensuite tous les tests backend, lint, unit, build et

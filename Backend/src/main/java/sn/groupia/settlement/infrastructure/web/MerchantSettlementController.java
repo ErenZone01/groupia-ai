@@ -86,8 +86,9 @@ class MerchantSettlementController {
     ResponseEntity<PayoutFeeQuoteView> quoteCampaign(
             @PathVariable UUID organizationId,
             @PathVariable UUID campaignId,
-            @RequestParam UUID destinationId) {
-        return response(settlements.quoteCampaign(organizationId, campaignId, destinationId));
+            @RequestParam UUID destinationId,
+            @RequestParam(required = false) java.math.BigDecimal amount) {
+        return response(settlements.quoteCampaign(organizationId, campaignId, destinationId, amount));
     }
 
     @GetMapping("/direct-orders/{directOrderId}/merchant-payout-quote")
@@ -97,8 +98,9 @@ class MerchantSettlementController {
     ResponseEntity<PayoutFeeQuoteView> quoteDirect(
             @PathVariable UUID organizationId,
             @PathVariable UUID directOrderId,
-            @RequestParam UUID destinationId) {
-        return response(settlements.quoteDirect(organizationId, directOrderId, destinationId));
+            @RequestParam UUID destinationId,
+            @RequestParam(required = false) java.math.BigDecimal amount) {
+        return response(settlements.quoteDirect(organizationId, directOrderId, destinationId, amount));
     }
 
     @PostMapping("/grouping-campaigns/{campaignId}/merchant-payouts")

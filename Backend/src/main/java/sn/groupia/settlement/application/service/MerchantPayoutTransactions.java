@@ -412,8 +412,23 @@ public class MerchantPayoutTransactions {
                         "MERCHANT_FUNDS_NOT_AVAILABLE",
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
-        if ("SASPAY".equals(p.provider()))
-            store.payoutFeeQuote(p.id()); // Exact seller-approved quote must be bound.
+        if ("SASPAY".equals(p.provider())) {
+            var quote = store.payoutFeeQuote(p.id());
+            if (quote == null)
+                throw error(409, "PAYOUT_FEE_QUOTE_MISSING",
+                        "Aucun devis accepté n'est lié au retrait.");
+            if (!p.organizationId().equals(quote.organizationId())
+                    || !p.destinationId().equals(quote.destinationId())
+                    || !p.method().equals(quote.method())
+                    || !p.phoneE164().equals(quote.phoneE164())
+                    || !p.providerAccountReference().equals(quote.providerAccountReference())
+                    || p.amount().compareTo(quote.grossAmount()) != 0
+                    || quote.netAmount().compareTo(
+                            quote.grossAmount().subtract(quote.providerFee())) != 0
+                    || quote.netAmount().signum() <= 0)
+                throw error(409, "PAYOUT_FEE_QUOTE_MISMATCH",
+                        "Le devis accepté ne correspond plus au retrait.");
+        }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");
         io.micrometer.core.instrument.Metrics.counter(
                         "merchant_payout_initiated", "provider", p.provider(), "method", p.method())

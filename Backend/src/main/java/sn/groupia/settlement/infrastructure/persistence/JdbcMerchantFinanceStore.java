@@ -240,6 +240,150 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 p.directOrderId());
     }
 
+    private final RowMapper<MerchantPayoutFeeQuote> payoutFeeQuote =
+            (r, n) ->
+                    new MerchantPayoutFeeQuote(
+                            id(r, "id"),
+                            id(r, "organization_id"),
+                            id(r, "campaign_id"),
+                            id(r, "direct_order_id"),
+                            id(r, "destination_id"),
+                            r.getString("method"),
+                            r.getString("phone_e164"),
+                            r.getString("provider"),
+                            r.getString("provider_account_reference"),
+                            r.getBigDecimal("gross_amount_xof"),
+                            r.getBigDecimal("provider_fee_xof"),
+                            r.getBigDecimal("net_amount_xof"),
+                            at(r, "expires_at"));
+
+    @Override
+    public void createFeeQuote(MerchantPayoutFeeQuote q) {
+        if (q == null || q.netAmount().signum() <= 0
+                || q.netAmount().compareTo(q.grossAmount().subtract(q.providerFee())) != 0
+                || (q.campaignId() == null) == (q.directOrderId() == null))
+            throw new IllegalStateException("PAYOUT_FEE_QUOTE_INVALID");
+        jdbc.update(
+                """
+                insert into merchant_payout_fee_quotes
+                (id,organization_id,campaign_id,direct_order_id,destination_id,method,
+                 phone_e164,provider,provider_account_reference,gross_amount_xof,
+                 provider_fee_xof,net_amount_xof,fee_charge_mode,expires_at)
+                values (?,?,?,?,?,?,?,?,?,?,?,?, 'DEDUCTED',?)
+                """,
+                q.id(),
+                q.organizationId(),
+                q.campaignId(),
+                q.directOrderId(),
+                q.destinationId(),
+                q.method(),
+                q.phoneE164(),
+                q.provider(),
+                q.providerAccountReference(),
+                q.grossAmount(),
+                q.providerFee(),
+                q.netAmount(),
+                ts(q.expiresAt()));
+    }
+
+    @Override
+    public MerchantPayoutFeeQuote feeQuote(UUID org, UUID quoteId) {
+        return jdbc.query(
+                        "select * from merchant_payout_fee_quotes where organization_id=? and id=?",
+                        payoutFeeQuote,
+                        org,
+                        quoteId)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(
+                        409, "PAYOUT_FEE_QUOTE_NOT_FOUND", "Devis de retrait introuvable."));
+    }
+
+    @Override
+    public MerchantPayoutFeeQuote payoutFeeQuote(UUID payoutId) {
+        return jdbc.query(
+                        """
+                        select q.* from merchant_payout_fee_quotes q
+                        join merchant_payout_fee_quote_bindings b on b.quote_id=q.id
+                        where b.payout_id=?
+                        """,
+                        payoutFeeQuote,
+                        payoutId)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("PAYOUT_FEE_QUOTE_MISSING"));
+    }
+
+    @Override
+    public void bindFeeQuote(MerchantPayoutFeeQuote quote, MerchantPayout p) {
+        var found = jdbc.query(
+                "select * from merchant_payout_fee_quotes where organization_id=? and id=? for update",
+                payoutFeeQuote,
+                p.organizationId(),
+                quote.id());
+        if (found.size() != 1 || !found.getFirst().equals(quote)
+                || !quote.expiresAt().isAfter(p.requestedAt())
+                || !"SASPAY".equals(p.provider())
+                || !p.provider().equals(quote.provider())
+                || !p.providerAccountReference().equals(quote.providerAccountReference())
+                || !p.destinationId().equals(quote.destinationId())
+                || !p.method().equals(quote.method())
+                || !p.phoneE164().equals(quote.phoneE164())
+                || !Objects.equals(p.campaignId(), quote.campaignId())
+                || !Objects.equals(p.directOrderId(), quote.directOrderId())
+                || p.amount().compareTo(quote.grossAmount()) != 0)
+            throw new ApiException(
+                    409, "PAYOUT_FEE_QUOTE_STALE", "Le devis a changé ou a expiré.");
+        jdbc.update(
+                """
+                insert into merchant_payout_fee_quote_bindings(quote_id,payout_id)
+                values (?,?)
+                """,
+                quote.id(),
+                p.id());
+    }
+
+    @Override
+    public void recordDeductedProviderFee(
+            UUID payoutId, BigDecimal gross, BigDecimal providerFee) {
+        if (payoutId == null || gross == null || providerFee == null
+                || gross.signum() <= 0 || gross.stripTrailingZeros().scale() > 0
+                || providerFee.signum() < 0 || providerFee.scale() > 2
+                || gross.compareTo(providerFee) <= 0)
+            throw new IllegalStateException("PAYOUT_FEE_EVIDENCE_INVALID");
+        jdbc.update(
+                """
+                insert into merchant_payout_provider_fees
+                  (payout_id,principal_xof,provider_fee_xof,wallet_debited_xof,fee_charge_mode)
+                values (?, ?, ?, ?, 'DEDUCTED')
+                on conflict(payout_id) do nothing
+                """,
+                payoutId,
+                gross,
+                providerFee,
+                gross);
+        var current = jdbc.query(
+                """
+                select principal_xof,provider_fee_xof,wallet_debited_xof,
+                       net_amount_xof,fee_charge_mode
+                from merchant_payout_provider_fees where payout_id=?
+                """,
+                (r, n) -> new Object[] {
+                    r.getBigDecimal("principal_xof"),
+                    r.getBigDecimal("provider_fee_xof"),
+                    r.getBigDecimal("wallet_debited_xof"),
+                    r.getBigDecimal("net_amount_xof"),
+                    r.getString("fee_charge_mode")
+                },
+                payoutId).getFirst();
+        if (!"DEDUCTED".equals(current[4])
+                || ((BigDecimal) current[0]).compareTo(gross) != 0
+                || ((BigDecimal) current[1]).compareTo(providerFee) != 0
+                || ((BigDecimal) current[2]).compareTo(gross) != 0
+                || ((BigDecimal) current[3]).compareTo(gross.subtract(providerFee)) != 0)
+            throw new IllegalStateException("PAYOUT_FEE_EVIDENCE_CONFLICT");
+    }
+
     /** One immutable provider-confirmed fee per payout, independent of seller ledger entries. */
     @Override
     public void recordProviderFee(UUID payoutId, BigDecimal principal, BigDecimal providerFee) {

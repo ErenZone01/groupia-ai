@@ -26,6 +26,9 @@ public interface MerchantFinanceStore {
 
     /** Append-only SasPay fee evidence; never withdraw the fee from a seller ledger. */
     void recordProviderFee(UUID payoutId, BigDecimal principal, BigDecimal providerFee);
+    /** Company-owned XOF fee budget, never a seller balance. Caller must hold a transaction. */
+    void reserveCompanyFee(String providerAccount, UUID payoutId, BigDecimal maxFee);
+    void settleCompanyFee(String providerAccount, UUID payoutId, BigDecimal chargedFee);
 
     void state(
             UUID id,

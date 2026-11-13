@@ -53,8 +53,8 @@ final class SaspayPayoutPreflight {
         for (var tier : payoutRate.path("tiers")) {
             BigDecimal lower = decimal(tier, "min_amount");
             BigDecimal upper = optional(tier, "max_amount");
-            if (payout.amount().compareTo(lower) >= 0
-                    && (upper == null || payout.amount().compareTo(upper) <= 0)) tiers.add(tier);
+            if (grossAmount.compareTo(lower) >= 0
+                    && (upper == null || grossAmount.compareTo(upper) <= 0)) tiers.add(tier);
         }
         if (tiers.size() != 1) throw new IllegalStateException("SASPAY_PAYOUT_RATE_AMBIGUOUS");
         var tier = tiers.getFirst();

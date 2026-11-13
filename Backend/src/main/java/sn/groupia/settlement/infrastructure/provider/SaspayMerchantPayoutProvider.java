@@ -306,7 +306,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     private String validateFinancialState(MerchantPayout p, JsonNode data) {
         String transaction = uuid(text(data, "id"));
         if (!transaction.equals(uuid(p.providerTransactionId()))
-                || !account().equals(text(data, "merchant"))
+                || !account().equals(uuid(text(data, "merchant")))
                 || !"RETRAIT".equals(text(data, "transaction_type"))
                 || !"OUTBOUND".equals(text(data, "flow_direction"))
                 || !"XOF".equals(text(data, "currency"))
@@ -404,11 +404,24 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     private static String uuid(String id) {
-        try {
-            return UUID.fromString(id).toString();
-        } catch (RuntimeException ex) {
+        // Same strict 32/36-character UUID normalization as the SasPay pay-in client.
+        if (id == null) throw new IllegalStateException("SASPAY_PAYOUT_IDENTIFIER_INVALID");
+        String canonical = id;
+        if (id.matches("[0-9a-fA-F]{32}"))
+            canonical =
+                    id.substring(0, 8)
+                            + "-"
+                            + id.substring(8, 12)
+                            + "-"
+                            + id.substring(12, 16)
+                            + "-"
+                            + id.substring(16, 20)
+                            + "-"
+                            + id.substring(20);
+        if (!canonical.matches(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
             throw new IllegalStateException("SASPAY_PAYOUT_IDENTIFIER_INVALID");
-        }
+        return UUID.fromString(canonical).toString();
     }
 
     private static String text(JsonNode n, String field) {

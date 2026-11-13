@@ -300,7 +300,7 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
     }
 
     @Override
-    public MerchantPayoutFeeQuote payoutFeeQuote(UUID payoutId) {
+    public Optional<MerchantPayoutFeeQuote> findPayoutFeeQuote(UUID payoutId) {
         return jdbc.query(
                         """
                         select q.* from merchant_payout_fee_quotes q
@@ -310,7 +310,12 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                         payoutFeeQuote,
                         payoutId)
                 .stream()
-                .findFirst()
+                .findFirst();
+    }
+
+    @Override
+    public MerchantPayoutFeeQuote payoutFeeQuote(UUID payoutId) {
+        return findPayoutFeeQuote(payoutId)
                 .orElseThrow(() -> new IllegalStateException("PAYOUT_FEE_QUOTE_MISSING"));
     }
 

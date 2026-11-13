@@ -1,6 +1,7 @@
 package sn.groupia.settlement.infrastructure.persistence;
 
 import java.sql.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.jdbc.core.*;

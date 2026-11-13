@@ -28,6 +28,16 @@ public class MerchantPayoutTransactions {
     private final Clock clock;
     private final boolean enabled;
     private final boolean directPayoutsEnabled;
+    // LIVE pilot remains fail-closed: only one approved organization, <= 1000 XOF,
+    // and at most one SasPay payout intent until the pilot is explicitly reviewed.
+    @Value("${groupia.settlement.saspay-payout-pilot.enabled:false}")
+    private boolean saspayPayoutPilotEnabled;
+
+    @Value("${groupia.settlement.saspay-payout-pilot.organization-id:}")
+    private String saspayPayoutPilotOrganizationId;
+
+    @Value("${groupia.settlement.saspay-payout-pilot.max-xof:1000}")
+    private BigDecimal saspayPayoutPilotMaxXof;
 
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
@@ -57,6 +67,35 @@ public class MerchantPayoutTransactions {
         return enabled && provider.enabled();
     }
 
+    private MerchantPayoutFeeQuote requireQuoteForAmount(UUID org, UUID quoteId) {
+        if (quoteId == null)
+            throw error(409, "PAYOUT_FEE_QUOTE_REQUIRED", "Devis de retrait obligatoire.");
+        return store.feeQuote(org, quoteId);
+    }
+
+    private void requireSaspayPilot(UUID org, BigDecimal gross) {
+        if (!"SASPAY".equals(provider.name())) return;
+        if (!saspayPayoutPilotEnabled
+                || saspayPayoutPilotMaxXof == null
+                || saspayPayoutPilotMaxXof.signum() <= 0
+                || saspayPayoutPilotMaxXof.compareTo(new BigDecimal("1000")) > 0)
+            throw error(503, "SASPAY_PAYOUT_PILOT_LOCKED", "Pilote SasPay non autorisé.");
+        if (!org.toString().equals(saspayPayoutPilotOrganizationId))
+            throw error(403, "SASPAY_PAYOUT_PILOT_ORGANIZATION", "Boutique non autorisée pour le pilote.");
+        if (gross == null
+                || gross.signum() <= 0
+                || gross.stripTrailingZeros().scale() > 0
+                || gross.compareTo(saspayPayoutPilotMaxXof) > 0)
+            throw error(409, "SASPAY_PAYOUT_PILOT_LIMIT", "Montant supérieur au plafond pilote.");
+    }
+
+    private void checkPilotUsage(UUID org) {
+        if (saspayPayoutPilotEnabled
+                && store.payouts(org).stream().anyMatch(p -> "SASPAY".equals(p.provider())))
+            throw error(409, "SASPAY_PAYOUT_PILOT_ALREADY_USED",
+                    "Un retrait SasPay pilote existe déjà. Vérifiez-le avant un autre essai.");
+    }
+
     private MerchantPayoutFeeQuote requireQuote(MerchantPayout payout, UUID quoteId) {
         if (quoteId == null)
             throw error(
@@ -67,6 +106,11 @@ public class MerchantPayoutTransactions {
     }
 
     public MerchantPayoutFeeQuote quoteCampaign(UUID org, UUID campaign, UUID expectedDestination) {
+        return quoteCampaign(org, campaign, expectedDestination, null);
+    }
+
+    public MerchantPayoutFeeQuote quoteCampaign(
+            UUID org, UUID campaign, UUID expectedDestination, BigDecimal requestedAmount) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!available() || !"SASPAY".equals(provider.name()))
             throw error(
@@ -83,11 +127,16 @@ public class MerchantPayoutTransactions {
                         .findFirst()
                         .orElseThrow()
                         .availableForPayout();
-        return issueQuote(org, campaign, null, expectedDestination, gross);
+        return issueQuote(org, campaign, null, expectedDestination, gross, requestedAmount);
     }
 
     public MerchantPayoutFeeQuote quoteDirect(
             UUID org, UUID directOrderId, UUID expectedDestination) {
+        return quoteDirect(org, directOrderId, expectedDestination, null);
+    }
+
+    public MerchantPayoutFeeQuote quoteDirect(
+            UUID org, UUID directOrderId, UUID expectedDestination, BigDecimal requestedAmount) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
         if (!available() || !directPayoutsEnabled || !"SASPAY".equals(provider.name()))
             throw error(
@@ -107,7 +156,7 @@ public class MerchantPayoutTransactions {
                                                 "MERCHANT_FUNDS_NOT_AVAILABLE",
                                                 "Cette vente n'a pas de fonds disponibles."))
                         .availableForPayout();
-        return issueQuote(org, null, directOrderId, expectedDestination, gross);
+        return issueQuote(org, null, directOrderId, expectedDestination, gross, requestedAmount);
     }
 
     private MerchantPayoutFeeQuote issueQuote(
@@ -115,9 +164,19 @@ public class MerchantPayoutTransactions {
             UUID campaign,
             UUID directOrderId,
             UUID expectedDestination,
-            BigDecimal gross) {
-        if (gross == null || gross.signum() <= 0)
+            BigDecimal availableGross,
+            BigDecimal requestedAmount) {
+        if (availableGross == null || availableGross.signum() <= 0)
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
+        if (saspayPayoutPilotEnabled && requestedAmount == null)
+            throw error(400, "SASPAY_PAYOUT_PILOT_AMOUNT_REQUIRED", "Indiquez le montant à retirer.");
+        BigDecimal gross = requestedAmount == null ? availableGross : requestedAmount;
+        if (gross == null
+                || gross.signum() <= 0
+                || gross.stripTrailingZeros().scale() > 0
+                || gross.compareTo(availableGross) > 0)
+            throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Montant de retrait indisponible.");
+        requireSaspayPilot(org, gross);
         var destination =
                 store.destination(org)
                         .orElseThrow(
@@ -216,12 +275,21 @@ public class MerchantPayoutTransactions {
         if (position.availableForPayout().signum() <= 0)
             throw error(
                     409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun montant disponible au versement.");
+        BigDecimal requestedGross = position.availableForPayout();
+        if ("SASPAY".equals(provider.name())) {
+            var accepted = requireQuoteForAmount(org, quoteId);
+            requestedGross = accepted.grossAmount();
+            requireSaspayPilot(org, requestedGross);
+            checkPilotUsage(org);
+            if (requestedGross.compareTo(position.availableForPayout()) > 0)
+                throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
+        }
         var p =
                 new MerchantPayout(
                         UUID.randomUUID(),
                         org,
                         campaign,
-                        position.availableForPayout(),
+                        requestedGross,
                         "XOF",
                         "CREATED",
                         d.id(),
@@ -324,12 +392,21 @@ public class MerchantPayoutTransactions {
                     409,
                     "MERCHANT_FUNDS_NOT_AVAILABLE",
                     "Aucun montant vérifié disponible pour cette vente.");
+        BigDecimal requestedGross = position.availableForPayout();
+        if ("SASPAY".equals(provider.name())) {
+            var accepted = requireQuoteForAmount(org, quoteId);
+            requestedGross = accepted.grossAmount();
+            requireSaspayPilot(org, requestedGross);
+            checkPilotUsage(org);
+            if (requestedGross.compareTo(position.availableForPayout()) > 0)
+                throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
+        }
         var p =
                 new MerchantPayout(
                         UUID.randomUUID(),
                         org,
                         null,
-                        position.availableForPayout(),
+                        requestedGross,
                         "XOF",
                         "CREATED",
                         d.id(),
@@ -452,6 +529,7 @@ public class MerchantPayoutTransactions {
                         "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
         }
         if ("SASPAY".equals(p.provider())) {
+            requireSaspayPilot(org, p.amount());
             var quote = store.payoutFeeQuote(p.id());
             if (quote == null)
                 throw error(

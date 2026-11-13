@@ -31,7 +31,8 @@ class MerchantSettlementController {
         }
     }
 
-    public record PayoutRequest(@NotNull UUID destinationId, boolean confirmed) {
+    public record PayoutRequest(
+            @NotNull UUID destinationId, UUID feeQuoteId, boolean confirmed) {
         @JsonAnySetter
         public void unknown(String key, Object value) {
             throw new IllegalArgumentException("Unsupported payout field");
@@ -79,6 +80,26 @@ class MerchantSettlementController {
                         c.confirmed()));
     }
 
+    @GetMapping("/grouping-campaigns/{campaignId}/merchant-payout-quote")
+    @Operation(operationId = "quoteMerchantPayout",
+            summary = "Devis frais retrait, réseau et montant net, sans transfert")
+    ResponseEntity<PayoutFeeQuoteView> quoteCampaign(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID campaignId,
+            @RequestParam UUID destinationId) {
+        return response(settlements.quoteCampaign(organizationId, campaignId, destinationId));
+    }
+
+    @GetMapping("/direct-orders/{directOrderId}/merchant-payout-quote")
+    @Operation(operationId = "quoteDirectMerchantPayout",
+            summary = "Devis net du retrait d'une vente directe, sans transfert")
+    ResponseEntity<PayoutFeeQuoteView> quoteDirect(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID directOrderId,
+            @RequestParam UUID destinationId) {
+        return response(settlements.quoteDirect(organizationId, directOrderId, destinationId));
+    }
+
     @PostMapping("/grouping-campaigns/{campaignId}/merchant-payouts")
     @Operation(
             operationId = "requestMerchantPayout",
@@ -90,7 +111,7 @@ class MerchantSettlementController {
             @Valid @RequestBody PayoutRequest c) {
         return response(
                 settlements.request(
-                        organizationId, campaignId, key, c.destinationId(), c.confirmed()));
+                        organizationId, campaignId, key, c.destinationId(), c.confirmed(), c.feeQuoteId()));
     }
 
     @PostMapping("/direct-orders/{directOrderId}/merchant-payouts")
@@ -105,7 +126,7 @@ class MerchantSettlementController {
             @Valid @RequestBody PayoutRequest c) {
         return response(
                 settlements.requestDirect(
-                        organizationId, directOrderId, key, c.destinationId(), c.confirmed()));
+                        organizationId, directOrderId, key, c.destinationId(), c.confirmed(), c.feeQuoteId()));
     }
 
     @GetMapping("/merchant-payouts")

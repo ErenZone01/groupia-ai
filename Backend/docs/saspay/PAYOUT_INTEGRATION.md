@@ -72,6 +72,27 @@ Une ligne `DEDUCTED` historique retient :
 `net_amount_xof=principal_xof-provider_fee_xof`.
 Aucune modification d'une preuve déjà enregistrée n'est autorisée.
 
+## Diagnostic du compte LIVE sans transfert
+
+Depuis la racine du projet :
+
+```powershell
+python tools/saspay_diagnostics.py --env-file .\\Backend\\.env --payout-amount-xof 1000
+```
+
+Cette commande utilise exclusivement des GET. Les réseaux annoncés comme
+disponibles pour **pay-in** ne sont pas automatiquement éligibles au **payout**.
+Si `SASPAY_PAYOUTS_WAVE_NETWORK` ou
+`SASPAY_PAYOUTS_ORANGE_NETWORK` sont absentes ou invalides,
+le diagnostic affiche des **codes candidats fournis par l'API** avec leurs
+tarifs et leur éventuelle compatibilité `DEDUCTED`.
+Il n'ajoute pas ces codes au fichier `.env`, ne débloque pas les retraits et
+ne prouve ni le droit d'émettre un payout, ni l'IP autorisée.
+
+Seuls des codes et droits **confirmés par SasPay** pourront être ajoutés
+ensuite à la configuration de retrait. Ne pas activer les variables de
+payout ou le verrou de production sur la seule base d'un candidat tarifaire.
+
 ## Points à valider avant le premier retrait réel
 
 - L'accord de SasPay sur les retraits via la clé LIVE du compte, les réseaux

@@ -17,6 +17,17 @@ Un encaissement LIVE réussi ne prouve pas qu'un retrait est autorisé.
 SasPay documente les deux modes `ADD_ON` et `DEDUCTED`, et précise pour
 `DEDUCTED` : `debited_amount=requested_amount` et
 `net_amount=requested_amount-client_fee`.
+Le champ `fee_charge_mode` de l'initialisation est un **override par requête** ;
+s'il est absent, SasPay reprend la configuration par défaut du marchand.
+Le `fee_charge_mode` d'un palier `GET /pricing/my-rates/` indique donc
+le **mode tarifaire par défaut**, pas une interdiction de demander `DEDUCTED`.
+Groupia accepte un palier connu `ADD_ON` ou `DEDUCTED` pour établir une
+**estimation** calculée à partir des frais tarifaires, mais demande
+**toujours `DEDUCTED` explicitement dans le POST**. Un mode inconnu,
+un tarif ambigu, une précision de frais invérifiable ou des frais modifiés
+provoquent un refus avant le POST. La vérification du payout doit ensuite
+prouver le mode effectif, le montant débité et le net, sans considérer
+le devis GET comme une garantie de réussite.
 
 - https://docs.saspay.me/api-reference/payouts/initialize
 - https://docs.saspay.me/api-reference/payouts/verify
@@ -85,7 +96,9 @@ disponibles pour **pay-in** ne sont pas automatiquement éligibles au **payout**
 Si `SASPAY_PAYOUTS_WAVE_NETWORK` ou
 `SASPAY_PAYOUTS_ORANGE_NETWORK` sont absentes ou invalides,
 le diagnostic affiche des **codes candidats fournis par l'API** avec leurs
-tarifs et leur éventuelle compatibilité `DEDUCTED`.
+tarifs et une estimation du coût en demandant explicitement `DEDUCTED`.
+Un tarif GET affichant `ADD_ON` peut désormais être estimé : ce mode
+est le défaut annoncé, pas le mode imposé au POST.
 Il n'ajoute pas ces codes au fichier `.env`, ne débloque pas les retraits et
 ne prouve ni le droit d'émettre un payout, ni l'IP autorisée.
 

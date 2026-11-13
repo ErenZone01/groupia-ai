@@ -175,8 +175,7 @@ class SaspayMerchantPayoutProviderTests {
             var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             var details = new AtomicInteger();
             server.createContext(
-                    "/api/v1/payouts/" + TX + "/verify/",
-                    exchange -> respond(exchange, source));
+                    "/api/v1/payouts/" + TX + "/verify/", exchange -> respond(exchange, source));
             server.createContext(
                     "/api/v1/transactions/" + TX + "/",
                     exchange -> {
@@ -185,8 +184,7 @@ class SaspayMerchantPayoutProviderTests {
                     });
             server.start();
             try {
-                var provider =
-                        adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+                var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
                 var proof = provider.verify(payout(TX.toString()));
                 assertThat(proof.status()).isEqualTo(status);
                 assertThat(proof.phoneE164()).isNull();
@@ -221,7 +219,8 @@ class SaspayMerchantPayoutProviderTests {
                 verified(null, null),
                 transactionDetail("771234567", "wave_sn")
                         .replace("\"client_fee\":\"52.00\"", "\"client_fee\":\"53.00\"")
-                        .replace("\"debited_amount\":\"1052.00\"", "\"debited_amount\":\"1053.00\""),
+                        .replace(
+                                "\"debited_amount\":\"1052.00\"", "\"debited_amount\":\"1053.00\""),
                 "SASPAY_PAYOUT_FINANCIAL_MISMATCH");
         assertInvalidDualGet(
                 verified(null, null),
@@ -234,11 +233,9 @@ class SaspayMerchantPayoutProviderTests {
             throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext(
-                "/api/v1/payouts/" + TX + "/verify/",
-                exchange -> respond(exchange, verification));
+                "/api/v1/payouts/" + TX + "/verify/", exchange -> respond(exchange, verification));
         server.createContext(
-                "/api/v1/transactions/" + TX + "/",
-                exchange -> respond(exchange, transaction));
+                "/api/v1/transactions/" + TX + "/", exchange -> respond(exchange, transaction));
         server.start();
         try {
             var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
@@ -283,7 +280,8 @@ class SaspayMerchantPayoutProviderTests {
         var provider = adapter(true, "http://127.0.0.1:1");
         for (String status : List.of("PENDING", "FAILED", "CANCELLED")) {
             var payload =
-                    verified(null, null).replace("\"status\":\"SUCCESS\"", "\"status\":\"" + status + "\"");
+                    verified(null, null)
+                            .replace("\"status\":\"SUCCESS\"", "\"status\":\"" + status + "\"");
             var proof = provider.validateProof(p, json.readTree(payload), Instant.now());
             assertThat(proof.status()).isEqualTo(status);
             assertThat(proof.phoneE164()).isNull();
@@ -380,8 +378,7 @@ class SaspayMerchantPayoutProviderTests {
         assertThat(provider.validateProof(p, json.readTree(source), Instant.now()).transactionId())
                 .isEqualTo(TX.toString());
         String corrupted = source.replace(compactId, "not-a-uuid");
-        assertThatThrownBy(
-                        () -> provider.validateProof(p, json.readTree(corrupted), Instant.now()))
+        assertThatThrownBy(() -> provider.validateProof(p, json.readTree(corrupted), Instant.now()))
                 .hasMessage("SASPAY_PAYOUT_IDENTIFIER_INVALID");
     }
 

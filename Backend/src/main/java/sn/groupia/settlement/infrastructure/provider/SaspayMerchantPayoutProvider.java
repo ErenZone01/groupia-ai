@@ -248,8 +248,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         String phoneFromVerify = text(verification, "operation_msisdn");
         if (phoneFromVerify == null) {
             phoneFromVerify = text(verification.path("recipient"), "msisdn");
-            if (phoneFromVerify == null)
-                phoneFromVerify = text(verification, "recipient_msisdn");
+            if (phoneFromVerify == null) phoneFromVerify = text(verification, "recipient_msisdn");
         }
         if (phoneFromVerify != null && !detailProof.phoneE164().equals(phone(phoneFromVerify)))
             throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_MISMATCH");

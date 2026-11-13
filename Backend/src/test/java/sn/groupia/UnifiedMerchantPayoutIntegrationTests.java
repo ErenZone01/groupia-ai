@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import sn.groupia.payment.api.*;
 import sn.groupia.payment.api.dto.*;
 import sn.groupia.payment.application.service.CommercialRefundService;
+import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import tools.jackson.databind.*;
 
 /** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
@@ -42,6 +43,7 @@ import tools.jackson.databind.*;
 })
 class UnifiedMerchantPayoutIntegrationTests {
     @Autowired JdbcTemplate jdbc;
+    @Autowired MerchantFinanceStore feeStore;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JwtEncoder encoder;
@@ -234,6 +236,48 @@ class UnifiedMerchantPayoutIntegrationTests {
                 post(base() + "/direct-orders/" + orderId + "/merchant-payouts")
                         .header("Idempotency-Key", key),
                 Map.of("destinationId", destination, "confirmed", true));
+    }
+
+    @Test
+    void providerFeeEvidenceIsImmutableAndNeverDebitsSellerPrincipal() throws Exception {
+        UUID destination = destination();
+        UUID payoutId =
+                UUID.fromString(
+                        read(request(destination, UUID.randomUUID())).path("id").asText());
+
+        var principal = new BigDecimal("20000");
+        var fee = new BigDecimal("52.00");
+        feeStore.recordProviderFee(payoutId, principal, fee);
+        // Identical proofs are idempotent, but altered proofs may not rewrite history.
+        feeStore.recordProviderFee(payoutId, principal, fee);
+        assertThatThrownBy(
+                        () -> feeStore.recordProviderFee(payoutId, principal, new BigDecimal("53.00")))
+                .hasMessage("PAYOUT_FEE_EVIDENCE_CONFLICT");
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select provider_fee_xof from merchant_payout_provider_fees where payout_id=?",
+                                BigDecimal.class,
+                                payoutId))
+                .isEqualByComparingTo("52");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select wallet_debited_xof from merchant_payout_provider_fees where payout_id=?",
+                                BigDecimal.class,
+                                payoutId))
+                .isEqualByComparingTo("20052");
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "update merchant_payout_provider_fees set provider_fee_xof=53 where payout_id=?",
+                                        payoutId))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select seller_principal from provider_collections where organization_id=?",
+                                BigDecimal.class,
+                                org))
+                .isEqualByComparingTo("20000");
     }
 
     @Test

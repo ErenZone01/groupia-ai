@@ -226,11 +226,11 @@ def payout_quote_reason(rate, amount):
         tier = matching[0]
         if tier.get("currency") != "XOF":
             return "devise du palier payout non conforme à XOF", None
+        # my-rates reports the default pricing mode; SasPay's POST payout
+        # supports an explicit fee_charge_mode=DEDUCTED override.
         mode = tier.get("fee_charge_mode")
-        if mode != "DEDUCTED":
-            known_mode = mode if mode in ("ADD_ON", "DEDUCTED") else "absent/inconnu"
-            return ("DEDUCTED non confirmé (mode du tarif payout : " +
-                    known_mode + ") ; demander confirmation à SasPay", None)
+        if mode not in ("ADD_ON", "DEDUCTED"):
+            return "mode des frais payout inconnu : devis non fiable", None
         fee = (amount * _tariff_field(tier, "percent") / Decimal("100")
                + _tariff_field(tier, "fixed"))
         floor = _tariff_field(tier, "floor_amount", nullable=True)
@@ -245,6 +245,9 @@ def payout_quote_reason(rate, amount):
             return "frais payout à plus de deux décimales", None
         if fee >= amount:
             return "frais payout supérieurs ou égaux au brut : net nul", None
+        if mode == "ADD_ON":
+            return ("DEDUCTED explicite documenté (tarif GET par défaut ADD_ON) ; " +
+                    "estimation à confirmer à la vérification", fee)
         return "DEDUCTED compatible à titre indicatif", fee
     except (ValueError, InvalidOperation, TypeError, KeyError, AttributeError) as exc:
         return "grille payout non exploitable : " + (str(exc) if isinstance(exc, ValueError) else "format invalide"), None

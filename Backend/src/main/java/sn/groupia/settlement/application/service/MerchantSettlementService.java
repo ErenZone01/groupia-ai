@@ -64,11 +64,23 @@ public class MerchantSettlementService {
     }
 
     public PayoutFeeQuoteView quoteCampaign(UUID org, UUID campaign, UUID destination) {
-        return PayoutFeeQuoteView.from(transactions.quoteCampaign(org, campaign, destination));
+        return quoteCampaign(org, campaign, destination, null);
+    }
+
+    public PayoutFeeQuoteView quoteCampaign(
+            UUID org, UUID campaign, UUID destination, java.math.BigDecimal requestedAmount) {
+        return PayoutFeeQuoteView.from(
+                transactions.quoteCampaign(org, campaign, destination, requestedAmount));
     }
 
     public PayoutFeeQuoteView quoteDirect(UUID org, UUID directOrder, UUID destination) {
-        return PayoutFeeQuoteView.from(transactions.quoteDirect(org, directOrder, destination));
+        return quoteDirect(org, directOrder, destination, null);
+    }
+
+    public PayoutFeeQuoteView quoteDirect(
+            UUID org, UUID directOrder, UUID destination, java.math.BigDecimal requestedAmount) {
+        return PayoutFeeQuoteView.from(
+                transactions.quoteDirect(org, directOrder, destination, requestedAmount));
     }
 
     @Transactional(propagation = Propagation.NEVER)

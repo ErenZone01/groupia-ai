@@ -81,7 +81,8 @@ class MerchantPayoutFeeBudgetTests {
                         true,
                         false);
         ReflectionTestUtils.setField(transactions, "saspayPayoutPilotEnabled", true);
-        ReflectionTestUtils.setField(transactions, "saspayPayoutPilotOrganizationId", org.toString());
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutPilotOrganizationId", org.toString());
         ReflectionTestUtils.setField(
                 transactions, "saspayPayoutPilotMaxXof", new BigDecimal("1000"));
         return transactions;

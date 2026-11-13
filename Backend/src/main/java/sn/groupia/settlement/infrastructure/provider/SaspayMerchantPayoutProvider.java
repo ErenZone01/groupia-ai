@@ -249,19 +249,27 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                     case "CANCELLED" -> "CANCELLED";
                     default -> throw new IllegalStateException("SASPAY_PAYOUT_STATUS_UNKNOWN");
                 };
-        // The official GET example contains only a customer UUID and network UUID.
-        // Neither proves the actual recipient MSISDN or payment network.
-        // No ledger payout may succeed until the provider returns verified
-        // beneficiary details with the transaction, not merely our POST echo.
+        // SasPay's documented GET may contain only customer/network UUIDs.
+        // PENDING/FAILED/CANCELLED can be reconciled without recipient evidence,
+        // but a successful transfer must never be credited without independent
+        // recipient AND network proof. Any evidence that IS supplied must match.
         String recipient = text(data.path("recipient"), "msisdn");
         if (recipient == null) recipient = text(data, "recipient_msisdn");
-        if (recipient == null)
+        String verifiedPhone = null;
+        if (recipient != null) {
+            verifiedPhone = phone(recipient);
+            if (!p.phoneE164().equals(verifiedPhone))
+                throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
+        } else if ("SUCCEEDED".equals(status)) {
             throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_EVIDENCE_MISSING");
-        String verifiedPhone = phone(recipient);
-        if (!p.phoneE164().equals(verifiedPhone))
-            throw new IllegalStateException("SASPAY_PAYOUT_RECIPIENT_MISMATCH");
-        if (!network(p.method()).equals(text(data, "network_code")))
+        }
+        String verifiedNetwork = text(data, "network_code");
+        if (verifiedNetwork != null) {
+            if (!network(p.method()).equals(verifiedNetwork))
+                throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+        } else if ("SUCCEEDED".equals(status)) {
             throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_EVIDENCE_MISSING");
+        }
         Instant occurredAt = checkedAt;
         String updated = text(data, "updated_at");
         if (updated != null)

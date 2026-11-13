@@ -102,6 +102,17 @@ class SaspayMerchantPayoutProviderTests {
         var rates = json.readTree(payoutRates("DEDUCTED"));
         var fee = SaspayPayoutPreflight.checkRates(rates, p, "wave_sn", new BigDecimal("20"));
         assertThat(fee).isEqualByComparingTo("20");
+        // ADD_ON in my-rates is the merchant default; initialize overrides it.
+        var addOnDefault = json.readTree(payoutRates("ADD_ON"));
+        assertThat(SaspayPayoutPreflight.checkRates(addOnDefault, p, "wave_sn", fee))
+                .isEqualByComparingTo("20");
+        assertThatThrownBy(
+                        () ->
+                                SaspayPayoutPreflight.quoteRates(
+                                        json.readTree(payoutRates("UNKNOWN")),
+                                        p.amount(),
+                                        "wave_sn"))
+                .hasMessage("SASPAY_PAYOUT_FEE_MODE_UNKNOWN");
         assertThatThrownBy(
                         () ->
                                 SaspayPayoutPreflight.checkRates(
@@ -141,7 +152,7 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
-    void initializedPayoutHasBoundNetworkNetAndDurableIdempotency() throws Exception {
+    void initializedPayoutOverridesAddOnTariffAndPreservesIdempotency() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         var requests = new AtomicInteger();
         var original = payout(null);
@@ -149,7 +160,7 @@ class SaspayMerchantPayoutProviderTests {
                 "/api/v1/pricing/my-rates/",
                 exchange -> {
                     assertThat(exchange.getRequestMethod()).isEqualTo("GET");
-                    respond(exchange, payoutRates("DEDUCTED"));
+                    respond(exchange, payoutRates("ADD_ON"));
                 });
         server.createContext(
                 "/api/v1/merchant-balances/",
@@ -330,7 +341,7 @@ class SaspayMerchantPayoutProviderTests {
 
     @Test
     void payoutPreflightRefusesUnsupportedRateOrInsufficientWalletBeforePost() throws Exception {
-        for (String mode : List.of("DEDUCTED", "ADD_ON")) {
+        for (String mode : List.of("DEDUCTED", "ADD_ON", "UNKNOWN")) {
             var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             var posts = new AtomicInteger();
             server.createContext(
@@ -348,8 +359,8 @@ class SaspayMerchantPayoutProviderTests {
             try {
                 var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
                 String expected =
-                        "ADD_ON".equals(mode)
-                                ? "SASPAY_PAYOUT_DEDUCTED_UNAVAILABLE"
+                        "UNKNOWN".equals(mode)
+                                ? "SASPAY_PAYOUT_FEE_MODE_UNKNOWN"
                                 : "SASPAY_PAYOUT_WALLET_INSUFFICIENT";
                 assertThatThrownBy(() -> provider.initiate(payout(null))).hasMessage(expected);
                 assertThat(posts.get()).isZero();

@@ -106,7 +106,7 @@ class MerchantSettlementController {
     @PostMapping("/grouping-campaigns/{campaignId}/merchant-payouts")
     @Operation(
             operationId = "requestMerchantPayout",
-            summary = "Demander tout le disponible du groupage")
+            summary = "Demander le montant du devis accepté pour un groupage")
     ResponseEntity<MerchantPayoutView> request(
             @PathVariable UUID organizationId,
             @PathVariable UUID campaignId,
@@ -126,7 +126,7 @@ class MerchantSettlementController {
     @Operation(
             operationId = "requestDirectMerchantPayout",
             summary =
-                    "Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties")
+                    "Demander le montant du devis accepté d'une vente directe, avec vérification des fonds")
     ResponseEntity<MerchantPayoutView> requestDirect(
             @PathVariable UUID organizationId,
             @PathVariable UUID directOrderId,

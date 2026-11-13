@@ -9,7 +9,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * Strict, read-only SasPay preflight before the irreversible POST. A wallet balance
  * is only liquidity evidence, never proof of Groupia ownership of the funds.
- * Company-owned fees must also be reserved durably in the separate fee ledger.
+ * DEDUCTED fees are paid from the seller's gross payout, not Groupia's funds.
  */
 final class SaspayPayoutPreflight {
     private static final BigDecimal MAX = new BigDecimal("100000000000000");
@@ -17,10 +17,19 @@ final class SaspayPayoutPreflight {
     private SaspayPayoutPreflight() {}
 
     static BigDecimal checkRates(
-            JsonNode rows, MerchantPayout payout, String network, BigDecimal approvedCeiling) {
-        if (rows == null || !rows.isArray() || !network.matches("[a-z0-9_]{3,64}")
-                || approvedCeiling == null || approvedCeiling.signum() <= 0
-                || approvedCeiling.scale() > 2)
+            JsonNode rows, MerchantPayout payout, String network, BigDecimal expectedFee) {
+        BigDecimal actualFee = quoteRates(rows, payout.amount(), network);
+        if (expectedFee == null || expectedFee.compareTo(actualFee) != 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_QUOTE_CHANGED");
+        return actualFee;
+    }
+
+    static BigDecimal quoteRates(
+            JsonNode rows, BigDecimal grossAmount, String network) {
+        if (rows == null || !rows.isArray() || network == null
+                || !network.matches("[a-z0-9_]{3,64}")
+                || grossAmount == null || grossAmount.signum() <= 0
+                || grossAmount.stripTrailingZeros().scale() > 0)
             throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
         var matchedNetworks = new ArrayList<JsonNode>();
         for (JsonNode row : rows) {
@@ -43,16 +52,16 @@ final class SaspayPayoutPreflight {
         for (var tier : payoutRate.path("tiers")) {
             BigDecimal lower = decimal(tier, "min_amount");
             BigDecimal upper = optional(tier, "max_amount");
-            if (payout.amount().compareTo(lower) >= 0
-                    && (upper == null || payout.amount().compareTo(upper) <= 0))
+            if (grossAmount.compareTo(lower) >= 0
+                    && (upper == null || grossAmount.compareTo(upper) <= 0))
                 tiers.add(tier);
         }
         if (tiers.size() != 1)
             throw new IllegalStateException("SASPAY_PAYOUT_RATE_AMBIGUOUS");
         var tier = tiers.getFirst();
         if (!"XOF".equals(string(tier, "currency"))
-                || !"ADD_ON".equals(string(tier, "fee_charge_mode")))
-            throw new IllegalStateException("SASPAY_PAYOUT_ADD_ON_UNAVAILABLE");
+                || !"DEDUCTED".equals(string(tier, "fee_charge_mode")))
+            throw new IllegalStateException("SASPAY_PAYOUT_DEDUCTED_UNAVAILABLE");
 
         BigDecimal percent = decimal(tier, "percent");
         BigDecimal fixed = decimal(tier, "fixed");
@@ -60,7 +69,7 @@ final class SaspayPayoutPreflight {
         BigDecimal cap = optional(tier, "cap_amount");
         if (floor != null && cap != null && floor.compareTo(cap) > 0)
             throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
-        BigDecimal fee = payout.amount().multiply(percent).movePointLeft(2).add(fixed);
+        BigDecimal fee = grossAmount.multiply(percent).movePointLeft(2).add(fixed);
         if (floor != null) fee = fee.max(floor);
         if (cap != null) fee = fee.min(cap);
         try {
@@ -69,8 +78,8 @@ final class SaspayPayoutPreflight {
         } catch (ArithmeticException ex) {
             throw new IllegalStateException("SASPAY_PAYOUT_FEE_PRECISION_UNCONFIRMED");
         }
-        if (fee.compareTo(approvedCeiling) > 0)
-            throw new IllegalStateException("SASPAY_PAYOUT_FEE_EXCEEDS_RESERVATION");
+        if (fee.compareTo(grossAmount) >= 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_NET_AMOUNT_NOT_POSITIVE");
         return fee;
     }
 
@@ -98,7 +107,7 @@ final class SaspayPayoutPreflight {
         if (!wallet.path("is_frozen").isBoolean() || wallet.path("is_frozen").booleanValue())
             throw new IllegalStateException("SASPAY_PAYOUT_WALLET_FROZEN");
         BigDecimal available = decimal(wallet, "available_amount");
-        if (available.compareTo(payout.amount().add(fee)) < 0)
+        if (available.compareTo(payout.amount()) < 0)
             throw new IllegalStateException("SASPAY_PAYOUT_WALLET_INSUFFICIENT");
     }
 

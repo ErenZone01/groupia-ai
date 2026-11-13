@@ -406,7 +406,7 @@ class UnifiedMerchantPayoutIntegrationTests {
                 UUID.randomUUID(), org, null, orderId, destinationId, "WAVE",
                 "+221771234567", "SASPAY", account, p.amount(),
                 new BigDecimal("150"), new BigDecimal("19850"),
-                Instant.now().plusSeconds(180));
+                Instant.now().plusSeconds(180).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
         feeStore.createFeeQuote(q);
         feeStore.create(p);
         feeStore.bindFeeQuote(q, p);

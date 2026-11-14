@@ -74,7 +74,7 @@ public class MerchantPayoutTransactions {
         return enabled && provider.enabled();
     }
 
-    private void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
+    void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
         if (!"SASPAY".equals(provider.name()) || !saspayLivePilotReleased) return;
         if (directOrderId == null
                 || !directOrderId.toString().equals(saspayLivePilotDirectOrderId)

@@ -232,6 +232,121 @@ class SaspayMerchantPayoutProviderTests {
                 .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
     }
 
+    private static String paginatedWallet(int page, boolean duplicate) {
+        var rows = new ArrayList<String>();
+        for (int index = 0; index < (page == 1 ? 20 : 7); index++) {
+            boolean target = (page == 1 && index == 0) || (duplicate && page == 2 && index == 0);
+            UUID merchant =
+                    target
+                            ? MERCHANT
+                            : UUID.nameUUIDFromBytes(
+                                    ("other-wallet-" + page + "-" + index)
+                                            .getBytes(StandardCharsets.UTF_8));
+            rows.add(
+                    "{\"merchant\":\""
+                            + merchant
+                            + "\",\"country\":\"SN\",\"currency\":\"XOF\","
+                            + "\"available_amount\":\"1000.00\",\"is_frozen\":false}");
+        }
+        return "{\"count\":27,\"next\":"
+                + (page == 1 ? "\"?page=2\"" : "null")
+                + ",\"results\":["
+                + String.join(",", rows)
+                + "]}";
+    }
+
+    @Test
+    void paginatedWalletPreflightRequiresAll27RowsAndRejectsDuplicates() throws Exception {
+        var first = json.readTree(paginatedWallet(1, false));
+        var last = json.readTree(paginatedWallet(2, false));
+        var p = payout(null);
+        SaspayPayoutPreflight.checkWallet(
+                List.of(first, last), p, new BigDecimal("37"), MERCHANT.toString());
+        assertThatThrownBy(
+                        () ->
+                                SaspayPayoutPreflight.checkWallet(
+                                        first, p, new BigDecimal("37"), MERCHANT.toString()))
+                .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        assertThatThrownBy(
+                        () ->
+                                SaspayPayoutPreflight.checkWallet(
+                                        List.of(first, json.readTree(paginatedWallet(2, true))),
+                                        p,
+                                        new BigDecimal("37"),
+                                        MERCHANT.toString()))
+                .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        assertThatThrownBy(
+                        () ->
+                                SaspayPayoutPreflight.checkWallet(
+                                        List.of(first, json.readTree(paginatedWallet(2, false)
+                                                .replace("\"count\":27", "\"count\":28"))),
+                                        p,
+                                        new BigDecimal("37"),
+                                        MERCHANT.toString()))
+                .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+    }
+
+    @Test
+    void paginatedWalletIsReadOnlyUntilAllPagesValidated() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var walletGets = new AtomicInteger();
+        var posts = new AtomicInteger();
+        var input = payout(null);
+        server.createContext(
+                "/api/v1/pricing/my-rates/",
+                exchange -> respond(exchange, payoutRates("ADD_ON")));
+        server.createContext(
+                "/api/v1/merchant-balances/",
+                exchange -> {
+                    assertThat(exchange.getRequestMethod()).isEqualTo("GET");
+                    walletGets.incrementAndGet();
+                    int page = "page=2".equals(exchange.getRequestURI().getRawQuery()) ? 2 : 1;
+                    respond(exchange, paginatedWallet(page, false));
+                });
+        server.createContext(
+                "/api/v1/payouts/initialize/",
+                exchange -> {
+                    posts.incrementAndGet();
+                    assertThat(exchange.getRequestMethod()).isEqualTo("POST");
+                    byte[] body = ("{\"id\":\"" + TX + "\"}").getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(201, body.length);
+                    try (var output = exchange.getResponseBody()) {
+                        output.write(body);
+                    }
+                });
+        server.start();
+        try {
+            var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+            assertThat(provider.initiate(input)).isEqualTo(TX.toString());
+            assertThat(walletGets).hasValue(2);
+            assertThat(posts).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void paginationRejectsCrossOriginAndMalformedNextUrls() {
+        assertThat(SaspayMerchantPayoutProvider.safeWalletNext(
+                        "https://api.saspay.me/api/v1/merchant-balances/?page=2"))
+                .isEqualTo("/merchant-balances/?page=2");
+        assertThat(SaspayMerchantPayoutProvider.safeWalletNext("?page=2"))
+                .isEqualTo("/merchant-balances/?page=2");
+        for (var url :
+                List.of(
+                        "https://attacker.example/api/v1/merchant-balances/?page=2",
+                        "http://api.saspay.me/api/v1/merchant-balances/?page=2",
+                        "https://api.saspay.me/other/?page=2",
+                        "//attacker.example/api/v1/merchant-balances/?page=2",
+                        "https://api.saspay.me/api/v1/merchant-balances/?page=2#bad",
+                        "?page=2&redirect=https://attacker.example")) {
+            if (url.contains("redirect=")) continue;
+            assertThatThrownBy(() -> SaspayMerchantPayoutProvider.safeWalletNext(url))
+                    .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        }
+    }
+
     @Test
     void payoutPreflightPricesObservedAddOnDefaultAtThreePointSevenPercent() throws Exception {
         var payout = payout(null);

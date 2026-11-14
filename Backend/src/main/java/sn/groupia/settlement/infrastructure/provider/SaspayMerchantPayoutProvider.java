@@ -29,10 +29,12 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
 public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
-    // All LIVE payout calls stay locked until the seller-paid DEDUCTED contract is
-    // validated end-to-end. Local synthetic transports exercise the protocol.
-    private static final boolean PRODUCTION_PAYOUT_RELEASED = false;
+    // No general LIVE payouts. Only a separately opted-in one-order, one-shop
+    // pilot can use production transport; synthetic tests remain isolated.
     private final boolean syntheticTransport;
+    private final boolean livePilotReleased;
+    private final UUID livePilotOrganizationId;
+    private final UUID livePilotDirectOrderId;
     private final Connection payin;
     private final RestClient http;
     private final ObjectMapper json;
@@ -55,7 +57,13 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         Boolean.class,
                         false),
                 makeHttp(Connection.from(env)),
-                false);
+                false,
+                env.getProperty(
+                        "groupia.settlement.saspay-payout-live-pilot.enabled", Boolean.class, false),
+                optionalUuid(
+                        env.getProperty("groupia.settlement.saspay-payout-live-pilot.organization-id")),
+                optionalUuid(
+                        env.getProperty("groupia.settlement.saspay-payout-live-pilot.direct-order-id")));
     }
 
     @Autowired
@@ -81,7 +89,10 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 marketplaceAuthorized,
                 beneficiaryProofApproved,
                 http,
-                true);
+                true,
+                false,
+                null,
+                null);
     }
 
     private SaspayMerchantPayoutProvider(
@@ -92,8 +103,14 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean marketplaceAuthorized,
             boolean beneficiaryProofApproved,
             RestClient http,
-            boolean syntheticTransport) {
+            boolean syntheticTransport,
+            boolean livePilotReleased,
+            UUID livePilotOrganizationId,
+            UUID livePilotDirectOrderId) {
         this.syntheticTransport = syntheticTransport;
+        this.livePilotReleased = livePilotReleased;
+        this.livePilotOrganizationId = livePilotOrganizationId;
+        this.livePilotDirectOrderId = livePilotDirectOrderId;
         this.payin = payin;
         this.json = json;
         this.clock = clock;
@@ -101,6 +118,16 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         this.marketplaceAuthorized = marketplaceAuthorized;
         this.beneficiaryProofApproved = beneficiaryProofApproved;
         this.http = http;
+    }
+
+    private static UUID optionalUuid(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException ex) {
+            // Invalid pilot target must fail closed without exposing its value.
+            return null;
+        }
     }
 
     record Connection(
@@ -152,7 +179,10 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     @Override
     public boolean enabled() {
-        return (syntheticTransport || PRODUCTION_PAYOUT_RELEASED)
+        return (syntheticTransport
+                        || (livePilotReleased
+                                && livePilotOrganizationId != null
+                                && livePilotDirectOrderId != null))
                 && enabled
                 && payin.enabled()
                 && payin.isLive()
@@ -191,6 +221,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     public String initiate(MerchantPayout p) {
         requireEnabled();
         assertIdentity(p);
+        assertLivePilotTarget(p);
         String recipientPhone = phone(p.phoneE164());
         var body = new LinkedHashMap<String, Object>();
         body.put("amount", p.amount().setScale(2).toPlainString());
@@ -245,6 +276,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     public Proof verify(MerchantPayout p) {
         requireEnabled();
         assertIdentity(p);
+        assertLivePilotTarget(p);
         String id = uuid(p.providerTransactionId());
         var verification = exchange(http.get().uri("/payouts/{id}/verify/", id), 200);
         Instant checkedAt = clock.instant();
@@ -393,6 +425,24 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 || p.businessReference() == null
                 || !p.businessReference().startsWith("MERCHANT_PAYOUT:"))
             throw new IllegalArgumentException("SASPAY_PAYOUT_INTENT_INVALID");
+    }
+
+    // Last line of defense before any production provider request, including
+    // reconciliation. The pilot never permits grouping or another order/network.
+    void assertLivePilotTarget(MerchantPayout p) {
+        if (syntheticTransport) return;
+        if (!livePilotReleased
+                || livePilotOrganizationId == null
+                || livePilotDirectOrderId == null
+                || !livePilotOrganizationId.equals(p.organizationId())
+                || !p.directSale()
+                || !livePilotDirectOrderId.equals(p.directOrderId())
+                || !"WAVE".equals(p.method())
+                || p.amount() == null
+                || p.amount().signum() <= 0
+                || p.amount().compareTo(new BigDecimal("1000")) > 0
+                || p.amount().stripTrailingZeros().scale() > 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH");
     }
 
     private void requireEnabled() {

@@ -38,6 +38,13 @@ class MerchantSettlementController {
         }
     }
 
+    public record PayoutRecoveryRequest(boolean confirmed) {
+        @JsonAnySetter
+        public void unknown(String key, Object value) {
+            throw new IllegalArgumentException("Unsupported recovery field");
+        }
+    }
+
     private static <T> ResponseEntity<T> response(T value) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(value);
     }
@@ -150,6 +157,17 @@ class MerchantSettlementController {
             summary = "Historique des versements boutique")
     ResponseEntity<List<MerchantPayoutView>> history(@PathVariable UUID organizationId) {
         return response(settlements.payouts(organizationId));
+    }
+
+    @PostMapping("/merchant-payouts/{payoutId}/recover-pilot")
+    @Operation(
+            operationId = "recoverPilotMerchantPayout",
+            summary = "Opération exceptionnelle : un seul rejeu de la clé SasPay du retrait existant")
+    ResponseEntity<MerchantPayoutView> recoverPilot(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID payoutId,
+            @Valid @RequestBody PayoutRecoveryRequest request) {
+        return response(settlements.recoverPilot(organizationId, payoutId, request.confirmed()));
     }
 
     @PostMapping("/merchant-payouts/{payoutId}/reconcile")

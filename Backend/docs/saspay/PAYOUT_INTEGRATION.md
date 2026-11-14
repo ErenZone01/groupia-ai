@@ -231,9 +231,9 @@ répétée pour le même marchand SN/XOF ; solde et gel vérifiés avant le POST
 Un retrait historique `REVIEW_REQUIRED` sans `provider_transaction_id`
 n'est **pas un nouvel ordre de paiement** : ne pas le réinitialiser, ne pas
 modifier les réservations SQL, ne pas soumettre une nouvelle demande, ni
-rejouer la même requête jusqu'à ce que SasPay ait formellement confirmé
-l'absence de transaction associée à la référence métier ET à la clé
-d'idempotence. La pagination corrigée n'autorise aucun retry automatique.
+rejouer automatiquement la même requête. La documentation SasPay
+autorise uniquement un rejeu manuel avec **la clé ET le corps d'origine**
+dans l'action exceptionnelle explicitement verrouillée ci-dessous.
 
 Pendant l'investigation, laisser
 `SASPAY_PAYOUTS_ENABLED=false` et
@@ -280,6 +280,49 @@ Après réponse documentée du fournisseur, décider et tester **séparément**
 un traitement opérateur dédié et idempotent, sans rouvrir les retraits au
 reste des boutiques. Ne pas confondre « vérifié absent » et « annulé
 définitivement » sans preuve du fournisseur.
+
+### Reprise exceptionnelle d'une intention existante (une seule tentative)
+
+La [documentation officielle SasPay](https://docs.saspay.me/api-reference/introduction#idempotence)
+garantit que `POST /payouts/initialize/`, appelé **avec le même
+`Idempotency-Key` et strictement le même corps**, renvoie la même réponse
+sans créer de second retrait. Une même clé avec un corps différent est
+rejetée (409). Cela permet de reprendre l'intention historique sous contrôle,
+sans l'effacer et sans créer de nouveau `merchant_payouts`.
+
+Pour le pilote de la vente directe déjà réservée, une action **opérateur**
+`POST /api/organizations/{organizationId}/merchant-payouts/{payoutId}/recover-pilot`
+a été ajoutée. Elle est **désactivée par défaut**, réservée à la propriétaire
+possédant les permissions `EXECUTE_PAYOUTS` et
+`MANAGE_PAYOUT_DESTINATION`. Corps JSON strict :
+`{"confirmed":true}`.
+
+Configuration supplémentaire, à ne mettre à `true` qu'après les tests et
+la vérification de la destination :
+
+```dotenv
+SASPAY_PAYOUT_RECOVERY_ENABLED=false
+SASPAY_PAYOUT_RECOVERY_PAYOUT_ID=
+SASPAY_PAYOUT_RECOVERY_ORIGINAL_PROVIDER_KEY=
+```
+
+La récupération exige également tous les verrous habituels du pilote LIVE,
+un retrait `REVIEW_REQUIRED` portant le motif
+`PAYOUT_REFERENCE_UNAVAILABLE` **sans référence externe**, le même
+marchand, la même commande, le même numéro Wave et le même devis accepté.
+Le serveur vérifie à nouveau le règlement et la réservation, puis inscrit
+en base `PAYOUT_MANUAL_RECOVERY_IN_PROGRESS` **avant** tout appel SasPay.
+Cette transition est transactionnelle et empêche une seconde récupération
+même après une réponse perdue ou un redémarrage.
+
+En cas de succès, la référence fournisseur est rattachée au retrait
+existant pour vérification par GET ; en cas d'échec ou de timeout,
+le retrait reste réservé en `PAYOUT_MANUAL_RECOVERY_UNCERTAIN`.
+Le bouton de rapprochement GET ne relance jamais de POST.
+
+**Jamais de nouvelle clé d'idempotence, nouveau payout SQL ou second clic.**
+Les variables de recovery doivent revenir à `false` après l'essai.
+Ne pas activer cette action sur le seul constat d'un test vert.
 
 ## Points à valider avant le premier retrait réel
 

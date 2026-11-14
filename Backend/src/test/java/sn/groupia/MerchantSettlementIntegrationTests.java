@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.*;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -32,8 +33,13 @@ import sn.groupia.settlement.application.service.*;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.*;
 
+@ActiveProfiles("test")
 @SpringBootTest(
         properties = {
+            // These historical 300 XOF financial fixtures must never inherit the local
+            // production profile (or its live payment settings) from Backend/.env.
+            "groupia.ordering.platform-fee-xof=0",
+            "groupia.payment.saspay.enabled=false",
             "groupia.settlement.payouts.enabled=true",
             // Test fixtures use an isolated fake provider regardless of Backend/.env.
             // Never initialize a LIVE SasPay payout adapter in these regression tests.

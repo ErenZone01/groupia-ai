@@ -327,6 +327,36 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void duplicateWalletOnPageTwoBlocksAnyProviderPost() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var posts = new AtomicInteger();
+        server.createContext(
+                "/api/v1/pricing/my-rates/",
+                exchange -> respond(exchange, payoutRates("DEDUCTED")));
+        server.createContext(
+                "/api/v1/merchant-balances/",
+                exchange -> {
+                    int page = "page=2".equals(exchange.getRequestURI().getRawQuery()) ? 2 : 1;
+                    respond(exchange, paginatedWallet(page, true));
+                });
+        server.createContext(
+                "/api/v1/payouts/initialize/",
+                exchange -> {
+                    posts.incrementAndGet();
+                    respond(exchange, "{\"id\":\"" + TX + "\"}");
+                });
+        server.start();
+        try {
+            var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+            assertThatThrownBy(() -> provider.initiate(payout(null)))
+                    .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            assertThat(posts).hasValue(0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void paginationRejectsCrossOriginAndMalformedNextUrls() {
         assertThat(SaspayMerchantPayoutProvider.safeWalletNext(
                         "https://api.saspay.me/api/v1/merchant-balances/?page=2"))
@@ -341,7 +371,6 @@ class SaspayMerchantPayoutProviderTests {
                         "//attacker.example/api/v1/merchant-balances/?page=2",
                         "https://api.saspay.me/api/v1/merchant-balances/?page=2#bad",
                         "?page=2&redirect=https://attacker.example")) {
-            if (url.contains("redirect=")) continue;
             assertThatThrownBy(() -> SaspayMerchantPayoutProvider.safeWalletNext(url))
                     .hasMessage("SASPAY_PAYOUT_WALLET_UNVERIFIED");
         }

@@ -80,6 +80,27 @@ class SaspayPayoutPilotPolicyTests {
     }
 
     @Test
+    void livePilotTargetsOnlyTheSpecifiedDirectOrderAndWave() {
+        var order = UUID.randomUUID();
+        ReflectionTestUtils.setField(transactions, "saspayLivePilotReleased", true);
+        ReflectionTestUtils.setField(
+                transactions, "saspayLivePilotDirectOrderId", order.toString());
+
+        transactions.requireLivePilotTarget(order, "WAVE");
+        transactions.requireLivePilotTarget(order, null);
+        assertThatThrownBy(() -> transactions.requireLivePilotTarget(null, "WAVE"))
+                .hasMessageContaining("réservé à une vente directe");
+        assertThatThrownBy(
+                        () -> transactions.requireLivePilotTarget(UUID.randomUUID(), "WAVE"))
+                .hasMessageContaining("réservé à une vente directe");
+        assertThatThrownBy(() -> transactions.requireLivePilotTarget(order, "ORANGE_MONEY"))
+                .hasMessageContaining("destination Wave");
+
+        ReflectionTestUtils.setField(transactions, "saspayLivePilotReleased", false);
+        transactions.requireLivePilotTarget(null, "ORANGE_MONEY");
+    }
+
+    @Test
     void pilotRefusesSecondIntentEvenIfFirstPayoutAlreadyExists() {
         configure(true, pilotOrganization.toString(), "1000");
         when(store.payouts(pilotOrganization)).thenReturn(List.of());

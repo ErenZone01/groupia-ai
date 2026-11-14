@@ -95,6 +95,76 @@ class SaspayMerchantPayoutProviderTests {
                 .hasMessage("SASPAY_PAYOUT_NOT_AUTHORIZED");
     }
 
+    private MerchantPayout directPilotPayout(
+            UUID org, UUID order, String method, BigDecimal amount) {
+        var p = payout(null);
+        return new MerchantPayout(
+                p.id(),
+                org,
+                null,
+                amount,
+                p.currency(),
+                p.status(),
+                p.destinationId(),
+                method,
+                p.phoneE164(),
+                p.holderName(),
+                p.provider(),
+                p.providerAccountReference(),
+                p.businessReference(),
+                p.providerIdempotencyKey(),
+                p.providerTransactionId(),
+                p.requestedBy(),
+                p.requestedAt(),
+                p.providerOccurredAt(),
+                p.succeededAt(),
+                p.reconciliationRequired(),
+                p.reconciliationReason(),
+                p.version(),
+                order);
+    }
+
+    @Test
+    void livePilotCanOnlyTargetOneOrderInOneShopViaWaveWithoutTransferring() {
+        var org = UUID.randomUUID();
+        var order = UUID.randomUUID();
+        var env =
+                new org.springframework.mock.env.MockEnvironment()
+                        .withProperty("groupia.payment.saspay.api-key", "sk_live_synthetic")
+                        .withProperty("groupia.payment.saspay.merchant-id", MERCHANT.toString())
+                        .withProperty("groupia.payment.saspay.enabled", "true")
+                        .withProperty("groupia.settlement.saspay-payouts.enabled", "true")
+                        .withProperty("groupia.settlement.saspay-payouts.marketplace-authorized", "true")
+                        .withProperty("groupia.settlement.saspay-payouts.beneficiary-proof-approved", "true")
+                        .withProperty("groupia.settlement.saspay-payout-pilot.organization-id", org.toString())
+                        .withProperty("groupia.settlement.saspay-payout-live-pilot.direct-order-id", order.toString())
+                        .withProperty("groupia.settlement.saspay-payout-live-pilot.enabled", "true");
+
+        var provider = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
+        assertThat(provider.enabled()).isTrue();
+        provider.assertLivePilotTarget(directPilotPayout(org, order, "WAVE", new BigDecimal("1000")));
+        for (var invalid :
+                List.of(
+                        directPilotPayout(
+                                UUID.randomUUID(), order, "WAVE", new BigDecimal("1000")),
+                        directPilotPayout(org, UUID.randomUUID(), "WAVE", new BigDecimal("1000")),
+                        directPilotPayout(org, order, "ORANGE_MONEY", new BigDecimal("1000")),
+                        directPilotPayout(org, order, "WAVE", new BigDecimal("1001")),
+                        directPilotPayout(org, order, "WAVE", new BigDecimal("1000.01")),
+                        payout(null))) {
+            assertThatThrownBy(() -> provider.assertLivePilotTarget(invalid))
+                    .hasMessage("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH");
+        }
+        // Removing the irreversible release never enables the real transport.
+        env.withProperty("groupia.settlement.saspay-payout-live-pilot.enabled", "false");
+        assertThat(new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env).enabled()).isFalse();
+
+        // A malformed direct-order UUID also fails closed.
+        env.withProperty("groupia.settlement.saspay-payout-live-pilot.enabled", "true");
+        env.withProperty("groupia.settlement.saspay-payout-live-pilot.direct-order-id", "invalid");
+        assertThat(new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env).enabled()).isFalse();
+    }
+
     @Test
     void payoutPreflightRejectsUnapprovedFeesAndUnverifiedWallets() throws Exception {
         var p = payout(null);

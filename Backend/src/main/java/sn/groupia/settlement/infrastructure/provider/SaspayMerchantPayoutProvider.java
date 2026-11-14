@@ -298,8 +298,8 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     /**
-     * Never follow a provider-supplied next URL directly with a bearer token.
-     * Only return the vetted relative path for the same SasPay endpoint.
+     * Never follow a provider-supplied next URL directly with a bearer token. Only return the
+     * vetted relative path for the same SasPay endpoint.
      */
     static String safeWalletNext(String next) {
         try {

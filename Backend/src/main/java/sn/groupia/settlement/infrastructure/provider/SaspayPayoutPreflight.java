@@ -95,14 +95,13 @@ final class SaspayPayoutPreflight {
     }
 
     /**
-     * SasPay's count is the TOTAL over all pages, not the current page length.
-     * Refuse incomplete or inconsistent pagination rather than trusting one
-     * matching wallet seen on page 1 (another matching wallet might follow).
+     * SasPay's count is the TOTAL over all pages, not the current page length. Refuse incomplete or
+     * inconsistent pagination rather than trusting one matching wallet seen on page 1 (another
+     * matching wallet might follow).
      */
     static void checkWallet(
             JsonNode response, MerchantPayout payout, BigDecimal fee, String merchantId) {
-        if (response == null)
-            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        if (response == null) throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
         checkWallet(List.of(response), payout, fee, merchantId);
     }
 

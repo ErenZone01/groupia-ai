@@ -278,8 +278,13 @@ class SaspayMerchantPayoutProviderTests {
         assertThatThrownBy(
                         () ->
                                 SaspayPayoutPreflight.checkWallet(
-                                        List.of(first, json.readTree(paginatedWallet(2, false)
-                                                .replace("\"count\":27", "\"count\":28"))),
+                                        List.of(
+                                                first,
+                                                json.readTree(
+                                                        paginatedWallet(2, false)
+                                                                .replace(
+                                                                        "\"count\":27",
+                                                                        "\"count\":28"))),
                                         p,
                                         new BigDecimal("37"),
                                         MERCHANT.toString()))
@@ -293,8 +298,7 @@ class SaspayMerchantPayoutProviderTests {
         var posts = new AtomicInteger();
         var input = payout(null);
         server.createContext(
-                "/api/v1/pricing/my-rates/",
-                exchange -> respond(exchange, payoutRates("ADD_ON")));
+                "/api/v1/pricing/my-rates/", exchange -> respond(exchange, payoutRates("ADD_ON")));
         server.createContext(
                 "/api/v1/merchant-balances/",
                 exchange -> {
@@ -358,8 +362,9 @@ class SaspayMerchantPayoutProviderTests {
 
     @Test
     void paginationRejectsCrossOriginAndMalformedNextUrls() {
-        assertThat(SaspayMerchantPayoutProvider.safeWalletNext(
-                        "https://api.saspay.me/api/v1/merchant-balances/?page=2"))
+        assertThat(
+                        SaspayMerchantPayoutProvider.safeWalletNext(
+                                "https://api.saspay.me/api/v1/merchant-balances/?page=2"))
                 .isEqualTo("/merchant-balances/?page=2");
         assertThat(SaspayMerchantPayoutProvider.safeWalletNext("?page=2"))
                 .isEqualTo("/merchant-balances/?page=2");

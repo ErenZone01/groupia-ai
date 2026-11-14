@@ -1,6 +1,8 @@
 package sn.groupia.settlement.application.service;
 
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.organization.api.*;
@@ -11,6 +13,19 @@ import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 
 @Service
 public class MerchantSettlementService {
+    private static final Logger LOG = LoggerFactory.getLogger(MerchantSettlementService.class);
+
+    // Keep provider response bodies, numbers, credentials, and exception messages out of logs.
+    // Only provider-owned static error codes can be logged.
+    private static String safePayoutErrorCode(RuntimeException exception) {
+        String candidate = exception.getMessage();
+        return exception instanceof IllegalStateException
+                        && candidate != null
+                        && candidate.matches("SASPAY_PAYOUT_[A-Z0-9_]{3,80}")
+                ? candidate
+                : "UNCLASSIFIED";
+    }
+
     private final MerchantPayoutTransactions transactions;
     private final MerchantFinanceStore store;
     private final MerchantBalances balances;
@@ -125,6 +140,15 @@ public class MerchantSettlementService {
             try {
                 transactions.initiated(p.organizationId(), p.id(), provider.initiate(p));
             } catch (RuntimeException ex) {
+                // This exception is intentionally not propagated: outcome may be uncertain.
+                // The reference and a safe code let operators diagnose the first failure
+                // without leaking HTTP payloads or triggering a second payout request.
+                LOG.warn(
+                        "Merchant payout initiation uncertain payoutId={} provider={} errorCode={} exceptionType={}",
+                        p.id(),
+                        p.provider(),
+                        safePayoutErrorCode(ex),
+                        ex.getClass().getSimpleName());
                 transactions.uncertain(p.organizationId(), p.id());
             }
         }
@@ -157,6 +181,12 @@ public class MerchantSettlementService {
                 if (proof != null || !provider.publishesEvidence())
                     transactions.verified(org, id, proof);
             } catch (RuntimeException ex) {
+                LOG.warn(
+                        "Merchant payout reconciliation uncertain payoutId={} provider={} errorCode={} exceptionType={}",
+                        id,
+                        p.provider(),
+                        safePayoutErrorCode(ex),
+                        ex.getClass().getSimpleName());
                 transactions.uncertain(org, id);
             }
         }

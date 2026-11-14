@@ -54,6 +54,9 @@ public class MerchantPayoutTransactions {
     @Value("${groupia.settlement.saspay-payout-recovery.payout-id:}")
     private String saspayPayoutRecoveryId;
 
+    @Value("${groupia.settlement.saspay-payout-recovery.original-provider-key:}")
+    private String saspayPayoutRecoveryOriginalKey;
+
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
             MerchantBalances b,
@@ -651,6 +654,8 @@ public class MerchantPayoutTransactions {
                 || !"PAYOUT_REFERENCE_UNAVAILABLE".equals(p.reconciliationReason())
                 || p.providerTransactionId() != null
                 || p.providerIdempotencyKey() == null
+                || !p.providerIdempotencyKey().toString().equals(saspayPayoutRecoveryOriginalKey)
+                || p.businessReference() == null
                 || !p.businessReference().startsWith("MERCHANT_PAYOUT:" + org + ":")
                 || !Objects.equals(p.providerAccountReference(), provider.account()))
             throw error(409, "SASPAY_PAYOUT_RECOVERY_INELIGIBLE", "Retrait non récupérable.");

@@ -1,7 +1,9 @@
 # Retraits SasPay Groupia — politique DEDUCTED, PR #86
 
-**État : implémentation en cours de recette locale ; aucun retrait LIVE autorisé.**
-Le verrou compilé `PRODUCTION_PAYOUT_RELEASED=false` reste en place.
+**État : implémentation en cours de recette locale ; retrait LIVE désactivé par défaut.**
+L'ancien verrou global compilé a été remplacé par deux autorisations séparées :
+le pilote métier limité à une boutique et un seul montant, et la libération LIVE
+limitée à une seule vente directe Wave. Les deux sont désactivées par défaut.
 Un encaissement LIVE réussi ne prouve pas qu'un retrait est autorisé.
 
 ## Décision commerciale
@@ -124,8 +126,8 @@ SASPAY_PAYOUT_PILOT_MAX_XOF=1000
 
 - Le premier paramètre est **false par défaut** : même un fournisseur SasPay
   actif ne peut pas obtenir un devis de retrait ni réserver un nouveau retrait
-  hors pilote. Le verrou compilé `PRODUCTION_PAYOUT_RELEASED=false` reste
-  indépendant et **aucune sortie d'argent LIVE n'est activée** par ce changement.
+  hors pilote. Le verrou indépendant `SASPAY_PAYOUT_LIVE_PILOT_ENABLED=false`
+  reste désactivé par défaut : **aucune sortie LIVE n'est activée** par ce changement.
 - Seule la boutique dont l'UUID correspond à la configuration peut obtenir un
   devis de retrait SasPay. Le plafond est vérifié côté serveur : valeur entière
   strictement positive et jamais plus de 1 000 XOF, même en cas de configuration
@@ -227,8 +229,10 @@ where d.organization_id='b95a0515-1bcf-4740-8417-c594d02f211e'
 - Tous les tests backend, frontend, SQL et Playwright en local. GitHub Actions
   est temporairement indisponible, ce qui ne vaut pas validation automatique.
 
-Ne pas activer `SASPAY_PAYOUTS_ENABLED` ni modifier le verrou production
-en se basant seulement sur un statut vert des tests.
+Ne pas activer `SASPAY_PAYOUTS_ENABLED` ou
+`SASPAY_PAYOUT_LIVE_PILOT_ENABLED` sur la seule base de tests verts ou de
+méthodes personnelles vérifiées dans le tableau de bord SasPay : les droits
+API de versement à un tiers doivent être confirmés distinctement.
 
 ## Tests locaux sans argent réel (PowerShell, depuis la racine)
 

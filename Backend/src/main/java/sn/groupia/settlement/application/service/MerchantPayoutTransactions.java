@@ -40,6 +40,12 @@ public class MerchantPayoutTransactions {
     @Value("${groupia.settlement.saspay-payout-pilot.max-xof:1000}")
     private BigDecimal saspayPayoutPilotMaxXof;
 
+    @Value("${groupia.settlement.saspay-payout-live-pilot.enabled:false}")
+    private boolean saspayLivePilotReleased;
+
+    @Value("${groupia.settlement.saspay-payout-live-pilot.direct-order-id:}")
+    private String saspayLivePilotDirectOrderId;
+
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
             MerchantBalances b,
@@ -66,6 +72,17 @@ public class MerchantPayoutTransactions {
 
     public boolean available() {
         return enabled && provider.enabled();
+    }
+
+    private void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
+        if (!"SASPAY".equals(provider.name()) || !saspayLivePilotReleased) return;
+        if (directOrderId == null
+                || !directOrderId.toString().equals(saspayLivePilotDirectOrderId)
+                || (payoutMethod != null && !"WAVE".equals(payoutMethod)))
+            throw error(
+                    403,
+                    "SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH",
+                    "Le pilote LIVE est réservé à une vente directe et à une destination Wave.");
     }
 
     private MerchantPayoutFeeQuote requireQuoteForAmount(UUID org, UUID quoteId) {
@@ -119,6 +136,7 @@ public class MerchantPayoutTransactions {
     public MerchantPayoutFeeQuote quoteCampaign(
             UUID org, UUID campaign, UUID expectedDestination, BigDecimal requestedAmount) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(null, null);
         if (!available() || !"SASPAY".equals(provider.name()))
             throw error(
                     503,
@@ -145,6 +163,7 @@ public class MerchantPayoutTransactions {
     public MerchantPayoutFeeQuote quoteDirect(
             UUID org, UUID directOrderId, UUID expectedDestination, BigDecimal requestedAmount) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(directOrderId, null);
         if (!available() || !directPayoutsEnabled || !"SASPAY".equals(provider.name()))
             throw error(
                     503,
@@ -199,6 +218,7 @@ public class MerchantPayoutTransactions {
                     409,
                     "PAYOUT_DESTINATION_CHANGED",
                     "La destination a changé. Actualisez le devis.");
+        requireLivePilotTarget(directOrderId, destination.method());
         BigDecimal fee = provider.payoutFeeQuote(gross, destination.method());
         if (fee == null || fee.signum() < 0 || fee.scale() > 2 || fee.compareTo(gross) >= 0)
             throw error(409, "PAYOUT_FEE_QUOTE_INVALID", "Frais de retrait non fiables.");
@@ -234,6 +254,7 @@ public class MerchantPayoutTransactions {
             boolean confirmed,
             UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(null, null);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
         store.lockOrganization(org);
@@ -348,6 +369,7 @@ public class MerchantPayoutTransactions {
             boolean confirmed,
             UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(directOrderId, null);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
         store.lockOrganization(org);
@@ -385,6 +407,7 @@ public class MerchantPayoutTransactions {
                     409,
                     "PAYOUT_DESTINATION_CHANGED",
                     "La destination a changé. Vérifiez-la avant de confirmer.");
+        requireLivePilotTarget(directOrderId, d.method());
         // Calculate after the organization and direct-order locks, never trust a browser amount.
         var position =
                 direct.calculate(org).stream()
@@ -512,6 +535,7 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         if (!p.status().equals("CREATED")) return false;
+        requireLivePilotTarget(p.directOrderId(), p.method());
         if (!available() || (p.directSale() && !directPayoutsEnabled))
             throw error(
                     503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");

@@ -1,6 +1,7 @@
 package sn.groupia.settlement.infrastructure.provider;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Instant;
@@ -262,8 +263,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         ? SaspayPayoutPreflight.quoteRates(rates, p.amount(), payoutNetwork)
                         : SaspayPayoutPreflight.checkRates(
                                 rates, p, payoutNetwork, accepted.providerFee());
-        JsonNode balances = exchange(http.get().uri("/merchant-balances/"), 200);
-        SaspayPayoutPreflight.checkWallet(balances, p, quotedFee, account());
+        // The count field describes all merchant wallets, not the 20 on page one.
+        // Fetch each page with a bounded same-origin GET before the irreversible POST.
+        SaspayPayoutPreflight.checkWallet(merchantWalletPages(), p, quotedFee, account());
         JsonNode ack =
                 exchange(
                         http.post()
@@ -273,6 +275,52 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                                 .body(body),
                         201);
         return uuid(text(ack, "id"));
+    }
+
+    private List<JsonNode> merchantWalletPages() {
+        var pages = new ArrayList<JsonNode>();
+        var visited = new HashSet<String>();
+        String path = "/merchant-balances/";
+        for (int i = 0; i < 10; i++) {
+            JsonNode page = exchange(http.get().uri(path), 200);
+            pages.add(page);
+            if (page == null || !page.isObject())
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            JsonNode next = page.path("next");
+            if (next.isNull() || next.isMissingNode()) return pages;
+            if (!next.isTextual() || next.asText().isBlank())
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            path = safeWalletNext(next.asText());
+            if (!visited.add(path))
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        }
+        throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+    }
+
+    /**
+     * Never follow a provider-supplied next URL directly with a bearer token.
+     * Only return the vetted relative path for the same SasPay endpoint.
+     */
+    static String safeWalletNext(String next) {
+        try {
+            if (next == null || next.length() > 1024)
+                throw new IllegalArgumentException("Invalid next");
+            URI base = URI.create("https://api.saspay.me/api/v1/merchant-balances/");
+            URI uri = base.resolve(URI.create(next));
+            String query = uri.getRawQuery();
+            if (!"https".equals(uri.getScheme())
+                    || !"api.saspay.me".equals(uri.getHost())
+                    || uri.getPort() != -1
+                    || uri.getUserInfo() != null
+                    || uri.getRawFragment() != null
+                    || !"/api/v1/merchant-balances/".equals(uri.getRawPath())
+                    || query == null
+                    || !query.matches("[a-zA-Z0-9_%=+&.,~-]{1,500}"))
+                throw new IllegalArgumentException("Untrusted wallet pagination URL");
+            return "/merchant-balances/?" + query;
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        }
     }
 
     @Override

@@ -122,6 +122,8 @@ class SaspayPayoutRecoveryPolicyTests {
                 transactions, "saspayLivePilotDirectOrderId", orderId.toString());
         ReflectionTestUtils.setField(
                 transactions, "saspayPayoutRecoveryId", payoutId.toString());
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutRecoveryOriginalKey", idempotencyKey.toString());
     }
 
     private void enableRecovery() {
@@ -162,6 +164,18 @@ class SaspayPayoutRecoveryPolicyTests {
         enableRecovery();
         assertThatThrownBy(() -> transactions.claimRecovery(org, payoutId, false))
                 .hasMessageContaining("Confirmez la récupération");
+        verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
+    }
+
+    @Test
+    void recoveryRejectsMismatchedOriginalProviderKeyBeforeWritingState() {
+        var original = payout("REVIEW_REQUIRED", "PAYOUT_REFERENCE_UNAVAILABLE");
+        validFacts(original);
+        enableRecovery();
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutRecoveryOriginalKey", UUID.randomUUID().toString());
+        assertThatThrownBy(() -> transactions.claimRecovery(org, payoutId, true))
+                .hasMessageContaining("Retrait non récupérable");
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
     }
 

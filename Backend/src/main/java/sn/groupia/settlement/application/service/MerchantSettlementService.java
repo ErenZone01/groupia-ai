@@ -135,6 +135,27 @@ public class MerchantSettlementService {
                         org, directOrderId, key, destination, confirmed, feeQuoteId));
     }
 
+    /**
+     * A one-time, explicitly confirmed operator action against an EXISTING reserved payout.
+     * The same provider key, body, and metadata are reused; no payout row is created.
+     */
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView recoverPilot(UUID org, UUID id, boolean confirmed) {
+        MerchantPayout original = transactions.claimRecovery(org, id, confirmed);
+        try {
+            transactions.initiated(org, id, provider.initiate(original));
+        } catch (RuntimeException ex) {
+            LOG.warn(
+                    "Merchant payout recovery uncertain payoutId={} provider={} errorCode={} exceptionType={}",
+                    id,
+                    original.provider(),
+                    safePayoutErrorCode(ex),
+                    ex.getClass().getSimpleName());
+            transactions.recoveryUncertain(org, id);
+        }
+        return view(transactions.get(org, id));
+    }
+
     private MerchantPayoutView dispatch(MerchantPayout p) {
         if (transactions.claim(p.organizationId(), p.id())) {
             try {

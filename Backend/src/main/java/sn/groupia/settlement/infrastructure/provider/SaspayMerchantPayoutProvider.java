@@ -61,7 +61,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 env.getProperty(
                         "groupia.settlement.saspay-payout-live-pilot.enabled", Boolean.class, false),
                 optionalUuid(
-                        env.getProperty("groupia.settlement.saspay-payout-live-pilot.organization-id")),
+                        env.getProperty("groupia.settlement.saspay-payout-pilot.organization-id")),
                 optionalUuid(
                         env.getProperty("groupia.settlement.saspay-payout-live-pilot.direct-order-id")));
     }

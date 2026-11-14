@@ -126,7 +126,7 @@ class SaspayMerchantPayoutProviderTests {
 
     @Test
     void livePilotCanOnlyTargetOneOrderInOneShopViaWaveWithoutTransferring() {
-        var org = UUID.randomUUID();
+        var shopId = UUID.randomUUID();
         var order = UUID.randomUUID();
         var env =
                 new org.springframework.mock.env.MockEnvironment()
@@ -136,21 +136,21 @@ class SaspayMerchantPayoutProviderTests {
                         .withProperty("groupia.settlement.saspay-payouts.enabled", "true")
                         .withProperty("groupia.settlement.saspay-payouts.marketplace-authorized", "true")
                         .withProperty("groupia.settlement.saspay-payouts.beneficiary-proof-approved", "true")
-                        .withProperty("groupia.settlement.saspay-payout-pilot.organization-id", org.toString())
+                        .withProperty("groupia.settlement.saspay-payout-pilot.organization-id", shopId.toString())
                         .withProperty("groupia.settlement.saspay-payout-live-pilot.direct-order-id", order.toString())
                         .withProperty("groupia.settlement.saspay-payout-live-pilot.enabled", "true");
 
         var provider = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
         assertThat(provider.enabled()).isTrue();
-        provider.assertLivePilotTarget(directPilotPayout(org, order, "WAVE", new BigDecimal("1000")));
+        provider.assertLivePilotTarget(directPilotPayout(shopId, order, "WAVE", new BigDecimal("1000")));
         for (var invalid :
                 List.of(
                         directPilotPayout(
                                 UUID.randomUUID(), order, "WAVE", new BigDecimal("1000")),
-                        directPilotPayout(org, UUID.randomUUID(), "WAVE", new BigDecimal("1000")),
-                        directPilotPayout(org, order, "ORANGE_MONEY", new BigDecimal("1000")),
-                        directPilotPayout(org, order, "WAVE", new BigDecimal("1001")),
-                        directPilotPayout(org, order, "WAVE", new BigDecimal("1000.01")),
+                        directPilotPayout(shopId, UUID.randomUUID(), "WAVE", new BigDecimal("1000")),
+                        directPilotPayout(shopId, order, "ORANGE_MONEY", new BigDecimal("1000")),
+                        directPilotPayout(shopId, order, "WAVE", new BigDecimal("1001")),
+                        directPilotPayout(shopId, order, "WAVE", new BigDecimal("1000.01")),
                         payout(null))) {
             assertThatThrownBy(() -> provider.assertLivePilotTarget(invalid))
                     .hasMessage("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH");

@@ -241,6 +241,46 @@ Pendant l'investigation, laisser
 manuelle devra maintenir l'identité de la demande et être validée séparément,
 avec preuve de non-exécution et tests locaux complets.
 
+### Rapprochement manuel en lecture seule de l'incident pilote
+
+Le retrait `e1ecc9ae-89ab-449f-bc91-1a7e59f03a0e` (direct order
+`2324053b-dd52-4078-a87d-ac8d4c6c918e`) a été enregistré comme
+`REVIEW_REQUIRED` sans identifiant externe. Après le bouton « Vérifier le
+versement », `PAYOUT_REFERENCE_UNAVAILABLE` ne décrit **pas** l'erreur
+initiale ; il décrit l'impossibilité d'interroger l'API de vérification sans
+identifiant SasPay.
+
+Relever les références dans la base opérationnelle, **uniquement par SELECT** :
+
+```sql
+SELECT id, organization_id, direct_order_id, status, amount, currency,
+       provider, method, provider_transaction_id,
+       provider_idempotency_key, business_reference,
+       reconciliation_required, reconciliation_reason, requested_at
+FROM merchant_payouts
+WHERE id = 'e1ecc9ae-89ab-449f-bc91-1a7e59f03a0e'
+  AND organization_id = 'b95a0515-1bcf-4740-8417-c594d02f211e';
+```
+
+Envoyer **directement au support SasPay** la référence métier exacte, la clé
+d'idempotence de cette ligne (ne pas la publier), l'identifiant du compte
+marchand, l'heure UTC et le montant/mode, pour obtenir une **preuve explicite
+d'exécution ou de non-exécution** de `POST /payouts/initialize/`. Lui
+demander également si la recherche `GET /transactions/` couvre toutes les
+opérations API et tous les états, y compris les requêtes rejetées et en cours.
+
+Une recherche GET sans résultat, l'absence de webhook ou un solde inchangé
+constituent des indices, **pas une attestation de non-exécution**. Ne pas
+rejouer `POST /payouts/initialize/`, même avec la même clé, avant une
+confirmation explicite du fournisseur sur l'idempotence et le résultat de
+la première demande. Conserver le montant réservé ; ne jamais modifier
+`merchant_payouts` ou les soldes manuellement.
+
+Après réponse documentée du fournisseur, décider et tester **séparément**
+un traitement opérateur dédié et idempotent, sans rouvrir les retraits au
+reste des boutiques. Ne pas confondre « vérifié absent » et « annulé
+définitivement » sans preuve du fournisseur.
+
 ## Points à valider avant le premier retrait réel
 
 - L'accord de SasPay sur les retraits via la clé LIVE du compte, les réseaux

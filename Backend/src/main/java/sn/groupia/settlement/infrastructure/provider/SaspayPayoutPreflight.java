@@ -3,6 +3,7 @@ package sn.groupia.settlement.infrastructure.provider;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.List;
 import sn.groupia.settlement.domain.model.MerchantPayout;
 import tools.jackson.databind.JsonNode;
 
@@ -93,26 +94,51 @@ final class SaspayPayoutPreflight {
         return fee;
     }
 
+    /**
+     * SasPay's count is the TOTAL over all pages, not the current page length.
+     * Refuse incomplete or inconsistent pagination rather than trusting one
+     * matching wallet seen on page 1 (another matching wallet might follow).
+     */
     static void checkWallet(
             JsonNode response, MerchantPayout payout, BigDecimal fee, String merchantId) {
-        if (response == null
-                || !response.isObject()
-                || !response.path("results").isArray()
-                || response.hasNonNull("next"))
+        checkWallet(List.of(response), payout, fee, merchantId);
+    }
+
+    static void checkWallet(
+            List<JsonNode> pages, MerchantPayout payout, BigDecimal fee, String merchantId) {
+        if (pages == null || pages.isEmpty() || pages.size() > 10)
             throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
-        var entries = response.path("results");
-        if (response.has("count")) {
-            JsonNode count = response.path("count");
-            if (!count.canConvertToInt() || count.intValue() != entries.size())
-                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
-        }
+        int count = -1;
+        int total = 0;
         var found = new ArrayList<JsonNode>();
-        for (var row : entries) {
-            if ("SN".equals(string(row, "country"))
-                    && "XOF".equals(string(row, "currency"))
-                    && merchantId.equals(string(row, "merchant"))) found.add(row);
+        for (int pageNumber = 0; pageNumber < pages.size(); pageNumber++) {
+            JsonNode page = pages.get(pageNumber);
+            if (page == null
+                    || !page.isObject()
+                    || !page.path("results").isArray()
+                    || !page.path("count").canConvertToInt())
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            int pageCount = page.path("count").intValue();
+            if (pageCount < 0 || pageCount > 200 || count >= 0 && count != pageCount)
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            count = pageCount;
+            var entries = page.path("results");
+            if (entries.isEmpty() && page.hasNonNull("next"))
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            total += entries.size();
+            if (total > count || total > 200)
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            boolean hasNext = page.hasNonNull("next");
+            if (hasNext != (pageNumber < pages.size() - 1))
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            for (JsonNode row : entries) {
+                if ("SN".equals(string(row, "country"))
+                        && "XOF".equals(string(row, "currency"))
+                        && merchantId.equals(string(row, "merchant"))) found.add(row);
+            }
         }
-        if (found.size() != 1) throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        if (total != count || found.size() != 1)
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
         var wallet = found.getFirst();
         if (!wallet.path("is_frozen").isBoolean() || wallet.path("is_frozen").booleanValue())
             throw new IllegalStateException("SASPAY_PAYOUT_WALLET_FROZEN");

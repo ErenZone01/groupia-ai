@@ -32,7 +32,13 @@ import sn.groupia.settlement.application.service.*;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.*;
 
-@SpringBootTest(properties = "groupia.settlement.payouts.enabled=true")
+@SpringBootTest(
+        properties = {
+            "groupia.settlement.payouts.enabled=true",
+            // Test fixtures use an isolated fake provider regardless of Backend/.env.
+            // Never initialize a LIVE SasPay payout adapter in these regression tests.
+            "groupia.settlement.payout-provider=BICTORYS"
+        })
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,

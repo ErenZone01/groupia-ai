@@ -216,6 +216,31 @@ where d.organization_id='b95a0515-1bcf-4740-8417-c594d02f211e'
   and c.provider='SASPAY';
 ```
 
+## Pagination des portefeuilles et premier incident LIVE (14/11/2026)
+
+Le fournisseur peut renvoyer `count=27`, seulement 20 lignes dans `results`
+et un `next` vers une deuxième page. Le contrôle historique comparait
+incorrectement `count` à la taille d'une page et rejetait tout `next`.
+Il pouvait bloquer l'initialisation **avant le POST fournisseur**.
+
+Le correctif parcourt les pages en lecture seule, avec origine, chemin et
+requêtes de pagination contrôlés ; limite de 10 pages / 200 lignes ; contrôle
+d'un total stable et exhaustif ; rejet de toute destination ambiguë ou
+répétée pour le même marchand SN/XOF ; solde et gel vérifiés avant le POST.
+
+Un retrait historique `REVIEW_REQUIRED` sans `provider_transaction_id`
+n'est **pas un nouvel ordre de paiement** : ne pas le réinitialiser, ne pas
+modifier les réservations SQL, ne pas soumettre une nouvelle demande, ni
+rejouer la même requête jusqu'à ce que SasPay ait formellement confirmé
+l'absence de transaction associée à la référence métier ET à la clé
+d'idempotence. La pagination corrigée n'autorise aucun retry automatique.
+
+Pendant l'investigation, laisser
+`SASPAY_PAYOUTS_ENABLED=false` et
+`SASPAY_PAYOUT_LIVE_PILOT_ENABLED=false`. Toute éventuelle récupération
+manuelle devra maintenir l'identité de la demande et être validée séparément,
+avec preuve de non-exécution et tests locaux complets.
+
 ## Points à valider avant le premier retrait réel
 
 - L'accord de SasPay sur les retraits via la clé LIVE du compte, les réseaux

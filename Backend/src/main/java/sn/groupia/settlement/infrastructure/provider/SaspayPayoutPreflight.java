@@ -101,6 +101,8 @@ final class SaspayPayoutPreflight {
      */
     static void checkWallet(
             JsonNode response, MerchantPayout payout, BigDecimal fee, String merchantId) {
+        if (response == null)
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
         checkWallet(List.of(response), payout, fee, merchantId);
     }
 

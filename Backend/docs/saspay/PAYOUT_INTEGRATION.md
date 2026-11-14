@@ -161,6 +161,59 @@ npm test
 npm run build
 ```
 
+## Exception LIVE limitée à une seule vente directe Wave
+
+Le verrou global de production demeure fermé pour toutes les opérations non
+pilotes. Un **nouveau verrou LIVE distinct**, désactivé par défaut, autorise
+uniquement la commande directe choisie (pas les groupages, pas Orange Money) :
+
+```dotenv
+SASPAY_PAYOUT_PILOT_ENABLED=false
+SASPAY_PAYOUT_PILOT_ORGANIZATION_ID=
+SASPAY_PAYOUT_PILOT_MAX_XOF=1000
+SASPAY_PAYOUT_LIVE_PILOT_ENABLED=false
+SASPAY_PAYOUT_LIVE_PILOT_DIRECT_ORDER_ID=
+```
+
+La commande doit exister dans `direct_orders` pour cette boutique, porter un
+encaissement `SASPAY` réconcilié et rester `COMPLETED`. Le montant brut
+ne peut dépasser 1 000 XOF ou le disponible réel de cette vente. Le seul réseau
+sortant autorisé pendant ce pilote est `WAVE`. Une autre boutique, un autre
+identifiant de commande, une destination Orange Money, une commande de groupage
+et un montant fractionnaire ou supérieur au plafond sont refusés dans les
+transitions de devis/réservation et de nouveau **à la frontière provider**.
+
+Le code ne libère aucune sortie d'argent à lui seul : les interrupteurs
+marchands et SasPay sont indépendants, l'URL/secret de webhook, la destination
+vérifiée, les droits de l'acteur, l'absence d'autre retrait pilote et le devis
+DEDUCTED accepté restent nécessaires. Le mode LIVE dépend en plus
+de l'activation explicite des options de sortie et des vérifications
+`marketplace-authorized` et `beneficiary-proof-approved`, qui ne doivent
+pas être affirmées sans validation du cas d'utilisation. Les frais exacts
+et le compte SasPay sont revérifiés immédiatement avant le POST fournisseur.
+
+**Ne jamais activer le verrou LIVE juste pour faire apparaître un solde
+dans l'interface.** La valeur `SASPAY_PAYOUT_LIVE_PILOT_ENABLED=true` ne
+doit être mise qu'après recette locale complète et consentement explicite à
+un unique transfert réel, après contrôle de l'UUID de commande et du numéro
+Wave masqué dans l'interface. Le fournisseur peut encore refuser la requête
+et un statut incertain doit être reconcilié sans réinitialiser l'idempotence.
+
+Pour obtenir l'UUID de la vente pilote, effectuer une requête locale
+**SELECT uniquement**, jamais un UPDATE de statut ou de solde :
+
+```sql
+select d.id, d.order_number, d.status, c.provider, c.seller_principal
+from direct_orders d
+join provider_collections c
+  on c.organization_id=d.organization_id
+ and c.target_type='DIRECT_ORDER'
+ and c.target_id=d.id
+where d.organization_id='b95a0515-1bcf-4740-8417-c594d02f211e'
+  and d.order_number='DIR-000000000021'
+  and c.provider='SASPAY';
+```
+
 ## Points à valider avant le premier retrait réel
 
 - L'accord de SasPay sur les retraits via la clé LIVE du compte, les réseaux

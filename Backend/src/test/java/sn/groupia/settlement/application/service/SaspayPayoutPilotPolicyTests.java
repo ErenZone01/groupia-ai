@@ -90,8 +90,7 @@ class SaspayPayoutPilotPolicyTests {
         transactions.requireLivePilotTarget(order, null);
         assertThatThrownBy(() -> transactions.requireLivePilotTarget(null, "WAVE"))
                 .hasMessageContaining("réservé à une vente directe");
-        assertThatThrownBy(
-                        () -> transactions.requireLivePilotTarget(UUID.randomUUID(), "WAVE"))
+        assertThatThrownBy(() -> transactions.requireLivePilotTarget(UUID.randomUUID(), "WAVE"))
                 .hasMessageContaining("réservé à une vente directe");
         assertThatThrownBy(() -> transactions.requireLivePilotTarget(order, "ORANGE_MONEY"))
                 .hasMessageContaining("destination Wave");

@@ -75,8 +75,9 @@ class MerchantPayoutFailureTests {
                             "providerCode=payout_not_enabled",
                             "submission=NOT_ATTEMPTED");
             assertThat(appender.list.getFirst().getThrowableProxy()).isNull();
-            when(provider.initiate(p))
-                    .thenThrow(new IllegalStateException("SASPAY_PAYOUT_SECRET_221771234567"));
+            doThrow(new IllegalStateException("SASPAY_PAYOUT_SECRET_221771234567"))
+                    .when(provider)
+                    .initiate(p);
             service.request(p.organizationId(), campaign, key, dest, true);
             assertThat(appender.list.getLast().getFormattedMessage())
                     .contains("UNCLASSIFIED")
@@ -104,5 +105,26 @@ class MerchantPayoutFailureTests {
         when(transactions.available()).thenReturn(false);
         service.reconcilePending();
         verify(store, times(1)).dueForVerification(any(), any());
+    }
+
+    @Test
+    void failedGetDoesNotConsumeNotificationForPreviouslyFailedPayout() {
+        var p = payout();
+        when(p.status()).thenReturn("FAILED");
+        when(store.dueForVerification("SASPAY", "fixture"))
+                .thenReturn(
+                        List.of(new MerchantFinanceStore.VerificationWork(p, UUID.randomUUID())));
+        when(provider.verify(p))
+                .thenThrow(
+                        new PayoutProviderFailure(
+                                Stage.VERIFY,
+                                503,
+                                Category.SERVER_ERROR,
+                                Reason.HTTP_SERVER_ERROR,
+                                ProviderCode.NONE));
+        service.reconcilePending();
+        verify(store, never()).finishVerification(any(), any());
+        verify(provider, never()).initiate(any());
+        verify(transactions).uncertain(p.organizationId(), p.id());
     }
 }

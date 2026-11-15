@@ -196,6 +196,9 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<systemPropertyVariables>
+                        <!-- Never load developer LIVE credentials or rollout flags in tests. -->
+                        <spring.profiles.include>isolated-tests</spring.profiles.include>
+                        <spring.docker.compose.enabled>false</spring.docker.compose.enabled>
 						<groupia.payment.bictorys.enabled>false</groupia.payment.bictorys.enabled>
                         <groupia.payment.saspay.enabled>false</groupia.payment.saspay.enabled>
                         <groupia.payment.bictorys.payouts.enabled>false</groupia.payment.bictorys.payouts.enabled>

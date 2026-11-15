@@ -186,7 +186,7 @@ public class MerchantSettlementService {
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView reconcile(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
-        return reconcileExisting(transactions.get(org, id));
+        return reconcileExisting(transactions.get(org, id), null);
     }
 
     /** Bounded GET-only recovery after restart. No claim/initialize path is reachable here. */
@@ -196,15 +196,14 @@ public class MerchantSettlementService {
         for (var work : store.dueForVerification(provider.name(), provider.account())) {
             var payout = work.payout();
             try {
-                reconcileExisting(payout);
-                store.finishVerification(payout.id(), work.claimToken());
+                reconcileExisting(payout, work.claimToken());
             } catch (RuntimeException ex) {
                 logFailure("BACKGROUND_VERIFY", payout, ex);
             }
         }
     }
 
-    private MerchantPayoutView reconcileExisting(MerchantPayout p) {
+    private MerchantPayoutView reconcileExisting(MerchantPayout p, UUID claimToken) {
         UUID org = p.organizationId();
         UUID id = p.id();
         if (!provider.name().equals(p.provider())
@@ -232,7 +231,7 @@ public class MerchantSettlementService {
                 var proof = provider.verify(p);
                 if (proof != null || !provider.publishesEvidence())
                     transactions.verified(org, id, proof);
-                store.finishVerification(id, null);
+                store.finishVerification(id, claimToken);
             } catch (RuntimeException ex) {
                 logFailure("VERIFY", p, ex);
                 transactions.uncertain(org, id);

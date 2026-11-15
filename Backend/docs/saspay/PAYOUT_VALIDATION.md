@@ -60,3 +60,8 @@ Sous Windows, le frontend local pouvait avoir un processus Sass verrouillant
 révision frontend**. Aucun fichier frontend n'est changé par ce correctif.
 Les tests PostgreSQL utilisent uniquement des conteneurs éphémères. Les serveurs
 HTTP sont locaux et les clés synthétiques ; aucun endpoint SasPay LIVE n'est appelé.
+
+Surefire inclut désormais le profil `isolated-tests` avant la découverte des
+configurations : la section dotenv de l'application n'est pas chargée. Cela empêche
+les paramètres de fournisseur et de pilote d'un `.env` local de contaminer les
+tests. Les règles d'authentification et de validation métier restent actives.

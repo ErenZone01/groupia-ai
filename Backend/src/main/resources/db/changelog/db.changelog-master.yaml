@@ -176,3 +176,6 @@ databaseChangeLog:
   - include:
       file: 059-saspay-payout-reconciliation.sql
       relativeToChangelogFile: true
+  - include:
+      file: 060-payout-administrative-resolution.sql
+      relativeToChangelogFile: true

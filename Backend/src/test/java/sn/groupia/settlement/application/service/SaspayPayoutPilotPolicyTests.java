@@ -106,8 +106,24 @@ class SaspayPayoutPilotPolicyTests {
         transactions.checkPilotUsage(pilotOrganization);
         var previous = mock(MerchantPayout.class);
         when(previous.provider()).thenReturn("SASPAY");
+        when(previous.reserved()).thenReturn(true);
         when(store.payouts(pilotOrganization)).thenReturn(List.of(previous));
         assertThatThrownBy(() -> transactions.checkPilotUsage(pilotOrganization))
-                .hasMessageContaining("Un retrait SasPay pilote existe déjà");
+                .hasMessageContaining("Un retrait SasPay pilote non résolu existe");
+    }
+
+    @Test
+    void definitivelyResolvedHistoryDoesNotConsumePilotForever() {
+        configure(true, pilotOrganization.toString(), "1000");
+        for (String status : List.of("FAILED", "CANCELLED", "NON_EXECUTE", "SUCCEEDED")) {
+            var previous = mock(MerchantPayout.class);
+            when(previous.provider()).thenReturn("SASPAY");
+            when(previous.status()).thenReturn(status);
+            when(store.payouts(pilotOrganization)).thenReturn(List.of(previous));
+            transactions.checkPilotUsage(pilotOrganization);
+        }
+        when(store.hasResolutionIncident(pilotOrganization)).thenReturn(true);
+        assertThatThrownBy(() -> transactions.checkPilotUsage(pilotOrganization))
+                .hasMessageContaining("Preuve tardive contradictoire");
     }
 }

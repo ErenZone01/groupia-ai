@@ -92,6 +92,10 @@ public record MerchantPayout(
         return "SUCCEEDED".equals(status);
     }
 
+    public boolean nonExecuted() {
+        return "NON_EXECUTE".equals(status);
+    }
+
     public String maskedPhone() {
         return "+221 ••• •• " + phoneE164.substring(phoneE164.length() - 4);
     }

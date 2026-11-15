@@ -8,6 +8,34 @@ import sn.groupia.settlement.domain.model.*;
 public interface MerchantFinanceStore {
     void lockOrganization(UUID organizationId);
 
+    Optional<UUID> administrativeReplay(
+            UUID payoutId,
+            String action,
+            String reference,
+            String digest,
+            String reason,
+            UUID actor,
+            long expectedVersion);
+
+    UUID recordAdministration(
+            PayoutAdministrativeApproval approval, String digest, String reason, Instant now);
+
+    Optional<PayoutPilotGrant> independentPilot(
+            UUID organizationId,
+            UUID directOrderId,
+            UUID destinationId,
+            BigDecimal amount,
+            String account,
+            Instant now);
+
+    void bindIndependentPilot(UUID grantId, UUID payoutId);
+
+    void validateIndependentPilot(UUID payoutId, Instant now);
+
+    void resolutionIncident(UUID payoutId, String reason);
+
+    boolean hasResolutionIncident(UUID organizationId);
+
     /** Atomically lease a bounded batch; never selects intents without a provider reference. */
     record VerificationWork(MerchantPayout payout, UUID claimToken) {}
 

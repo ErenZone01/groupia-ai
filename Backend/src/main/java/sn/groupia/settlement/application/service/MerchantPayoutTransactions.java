@@ -31,7 +31,7 @@ public class MerchantPayoutTransactions {
     private final boolean directPayoutsEnabled;
 
     // LIVE pilot remains fail-closed: only one approved organization, <= 1000 XOF,
-    // and at most one SasPay payout intent until the pilot is explicitly reviewed.
+    // and no unresolved concurrent intent without a durable, independently reviewed grant.
     @Value("${groupia.settlement.saspay-payout-pilot.enabled:false}")
     private boolean saspayPayoutPilotEnabled;
 
@@ -123,13 +123,43 @@ public class MerchantPayoutTransactions {
     }
 
     void checkPilotUsage(UUID org) {
-        if ("SASPAY".equals(provider.name())
-                && saspayPayoutPilotEnabled
-                && store.payouts(org).stream().anyMatch(p -> "SASPAY".equals(p.provider())))
+        checkPilotUsage(org, null, null, null);
+    }
+
+    private UUID checkPilotUsage(UUID org, UUID order, UUID destination, BigDecimal amount) {
+        requireNoResolutionIncident(org);
+        if (!"SASPAY".equals(provider.name()) || !saspayPayoutPilotEnabled) return null;
+        var unresolved =
+                store.payouts(org).stream()
+                        .filter(
+                                p ->
+                                        "SASPAY".equals(p.provider())
+                                                && (p.reserved() || p.reconciliationRequired()))
+                        .toList();
+        if (unresolved.isEmpty()) return null;
+        var grant =
+                store.independentPilot(org, order, destination, amount, provider.account(), now());
+        if (grant.isPresent() && unresolved.size() == 1) {
+            var original = unresolved.getFirst();
+            if (original.id().equals(grant.get().uncertainPayoutId())
+                    && "REVIEW_REQUIRED".equals(original.status())
+                    && original.providerTransactionId() == null
+                    && !Objects.equals(original.directOrderId(), order)
+                    && original.amount().compareTo(new BigDecimal("1000")) == 0)
+                return grant.get().id();
+        }
+        throw error(
+                409,
+                "SASPAY_PAYOUT_PILOT_ALREADY_USED",
+                "Un retrait SasPay pilote non résolu existe ; une autorisation indépendante est requise.");
+    }
+
+    private void requireNoResolutionIncident(UUID org) {
+        if (store.hasResolutionIncident(org))
             throw error(
                     409,
-                    "SASPAY_PAYOUT_PILOT_ALREADY_USED",
-                    "Un retrait SasPay pilote existe déjà. Vérifiez-le avant un autre essai.");
+                    "PAYOUT_RESOLUTION_CONTRADICTION",
+                    "Preuve tardive contradictoire : les nouveaux retraits sont suspendus.");
     }
 
     private MerchantPayoutFeeQuote requireQuote(MerchantPayout payout, UUID quoteId) {
@@ -217,7 +247,6 @@ public class MerchantPayoutTransactions {
                 || gross.compareTo(availableGross) > 0)
             throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Montant de retrait indisponible.");
         requireSaspayPilot(org, gross);
-        checkPilotUsage(org);
         var destination =
                 store.destination(org)
                         .orElseThrow(
@@ -232,6 +261,7 @@ public class MerchantPayoutTransactions {
                     "PAYOUT_DESTINATION_CHANGED",
                     "La destination a changé. Actualisez le devis.");
         requireLivePilotTarget(directOrderId, destination.method());
+        checkPilotUsage(org, directOrderId, expectedDestination, gross);
         BigDecimal fee = provider.payoutFeeQuote(gross, destination.method());
         if (fee == null || fee.signum() < 0 || fee.scale() > 2 || fee.compareTo(gross) >= 0)
             throw error(409, "PAYOUT_FEE_QUOTE_INVALID", "Frais de retrait non fiables.");
@@ -448,12 +478,13 @@ public class MerchantPayoutTransactions {
                     409,
                     "MERCHANT_FUNDS_NOT_AVAILABLE",
                     "Aucun montant vérifié disponible pour cette vente.");
+        UUID pilotGrant = null;
         BigDecimal requestedGross = spendable;
         if ("SASPAY".equals(provider.name())) {
             var accepted = requireQuoteForAmount(org, quoteId);
             requestedGross = accepted.grossAmount();
             requireSaspayPilot(org, requestedGross);
-            checkPilotUsage(org);
+            pilotGrant = checkPilotUsage(org, directOrderId, expectedDestination, requestedGross);
             if (requestedGross.compareTo(spendable) > 0)
                 throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
         }
@@ -483,6 +514,7 @@ public class MerchantPayoutTransactions {
                         0,
                         directOrderId);
         store.create(p);
+        if (pilotGrant != null) store.bindIndependentPilot(pilotGrant, p.id());
         if ("SASPAY".equals(p.provider())) store.bindFeeQuote(requireQuote(p, quoteId), p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
@@ -559,6 +591,8 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         if (!p.status().equals("CREATED")) return false;
+        requireNoResolutionIncident(org);
+        store.validateIndependentPilot(id, now());
         requireLivePilotTarget(p.directOrderId(), p.method());
         if (!available() || (p.directSale() && !directPayoutsEnabled))
             throw error(
@@ -750,6 +784,11 @@ public class MerchantPayoutTransactions {
             review(p, "PAYOUT_INITIATION_UNCERTAIN");
             return;
         }
+        if (p.nonExecuted()) {
+            store.resolutionIncident(id, "PAYOUT_ACK_AFTER_NON_EXECUTION");
+            outgoing.incident(Kind.MERCHANT_PAYOUT, id, "PAYOUT_ACK_AFTER_NON_EXECUTION");
+            return;
+        }
         String registryError = outgoing.bind(Kind.MERCHANT_PAYOUT, id, transaction);
         if (registryError != null) {
             review(p, registryError);
@@ -831,6 +870,13 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         String error = correlate(p, proof);
+        if (p.nonExecuted()) {
+            if (error == null) {
+                store.resolutionIncident(id, "PAYOUT_PROOF_AFTER_NON_EXECUTION");
+                outgoing.incident(Kind.MERCHANT_PAYOUT, id, "PAYOUT_PROOF_AFTER_NON_EXECUTION");
+            }
+            return;
+        }
         if (error == null && p.succeeded() && !"SUCCEEDED".equals(proof.status()))
             error = "PAYOUT_CONTRADICTORY_EVIDENCE";
         if (error != null) {
@@ -964,6 +1010,7 @@ public class MerchantPayoutTransactions {
     }
 
     private void review(MerchantPayout p, String reason) {
+        if (p.nonExecuted()) return;
         if (p.succeeded()) {
             outgoing.incident(Kind.MERCHANT_PAYOUT, p.id(), reason);
             return;

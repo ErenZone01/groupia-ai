@@ -75,6 +75,43 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void closedNonExecutedIntentIsRejectedBeforeAnyProviderRequest() {
+        var p = payout(null);
+        var closed =
+                new MerchantPayout(
+                        p.id(),
+                        p.organizationId(),
+                        p.campaignId(),
+                        p.amount(),
+                        p.currency(),
+                        "NON_EXECUTE",
+                        p.destinationId(),
+                        p.method(),
+                        p.phoneE164(),
+                        p.holderName(),
+                        p.provider(),
+                        p.providerAccountReference(),
+                        p.businessReference(),
+                        p.providerIdempotencyKey(),
+                        null,
+                        p.requestedBy(),
+                        p.requestedAt(),
+                        null,
+                        null,
+                        false,
+                        null,
+                        p.version() + 1);
+        assertThatThrownBy(() -> adapter(true, "http://127.0.0.1:1").initiate(closed))
+                .isInstanceOfSatisfying(
+                        PayoutProviderFailure.class,
+                        failure -> {
+                            assertThat(failure.getMessage())
+                                    .isEqualTo("SASPAY_PAYOUT_INTENT_INVALID");
+                            assertThat(failure.submission()).isEqualTo(Submission.NOT_ATTEMPTED);
+                        });
+    }
+
+    @Test
     void productionWiringCannotReleaseRealMoneyJustByFlippingEnvironmentFlags() {
         var env =
                 new org.springframework.mock.env.MockEnvironment()

@@ -241,6 +241,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     private String initialize(MerchantPayout p) {
         requireEnabled();
+        if (p.nonExecuted()) throw new IllegalStateException("SASPAY_PAYOUT_INTENT_INVALID");
         assertIdentity(p);
         assertLivePilotTarget(p);
         String recipientPhone = phone(p.phoneE164());

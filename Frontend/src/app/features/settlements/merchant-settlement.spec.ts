@@ -190,7 +190,7 @@ describe('Présentation et confirmation', () => {
     expect(c.confirmed).toBe(false);
     f.destroy();
   });
-  it.each(['PENDING', 'REVIEW_REQUIRED', 'SUCCEEDED', 'FAILED'])(
+  it.each(['PENDING', 'REVIEW_REQUIRED', 'SUCCEEDED', 'FAILED', 'NON_EXECUTE'])(
     'traduit le statut %s',
     (status) => {
       expect(payoutLabel(status)).not.toBe(status);

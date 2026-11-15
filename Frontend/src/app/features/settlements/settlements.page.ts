@@ -20,6 +20,7 @@ export function payoutLabel(status?: string): string {
         SUCCEEDED: 'Versé',
         FAILED: 'Échec confirmé',
         CANCELLED: 'Annulé',
+        NON_EXECUTE: 'Non exécuté — réserve libérée après vérification',
         REVIEW_REQUIRED: 'À vérifier',
       } as Record<string, string>
     )[status ?? ''] ?? 'À vérifier'
@@ -133,11 +134,14 @@ export class SettlementsPage {
     const available = campaign?.availableForPayout ?? direct?.availableForPayout ?? 0;
     const amount = this.requestedAmount();
     if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1000 || amount > available) {
-      this.store.error.set('Choisissez un montant entier entre 1 et 1 000 FCFA, dans le solde disponible.');
+      this.store.error.set(
+        'Choisissez un montant entier entre 1 et 1 000 FCFA, dans le solde disponible.',
+      );
       return;
     }
     if (direct) await this.store.prepareQuote(direct.directOrderId, true, amount);
-    else if (campaign?.campaignId) await this.store.prepareQuote(campaign.campaignId, false, amount);
+    else if (campaign?.campaignId)
+      await this.store.prepareQuote(campaign.campaignId, false, amount);
   }
   close() {
     if (!this.store.busy()) {

@@ -217,7 +217,7 @@ public class MerchantSettlementService {
                         "method",
                         p.method())
                 .increment();
-        if (!p.succeeded()) {
+        if (!p.succeeded() && !p.nonExecuted()) {
             if (!transactions.available())
                 throw new sn.groupia.shared.api.ApiException(
                         503,

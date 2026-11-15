@@ -4,7 +4,7 @@ import { apiTestProviders } from '../../testing/api-test';
 import { MerchantSettlementStore } from './merchant-settlement.store';
 import { MerchantBalanceSummary } from './merchant-balance-summary';
 import { PayoutDestinationEditor } from './payout-destination-editor';
-import type { MerchantBalance } from '../../api/generated/models';
+import type { MerchantBalance, MerchantPayoutView } from '../../api/generated/models';
 import { payoutLabel } from './settlements.page';
 import { AuthService } from '../../core/auth/auth.service';
 const base = '/api/organizations/shop';
@@ -34,10 +34,10 @@ describe('Merchant settlement : requêtes financières', () => {
     http = TestBed.inject(HttpTestingController);
   });
   afterEach(() => http.verify());
-  function flush(value = balance, org = 'shop') {
+  function flush(value = balance, org = 'shop', history: MerchantPayoutView[] = []) {
     http.expectOne('/api/organizations/' + org + '/merchant-balance').flush(value);
     http.expectOne('/api/organizations/' + org + '/payout-destination').flush(destination);
-    http.expectOne('/api/organizations/' + org + '/merchant-payouts').flush([]);
+    http.expectOne('/api/organizations/' + org + '/merchant-payouts').flush(history);
   }
   async function load(value = balance) {
     const p = store.load('shop');
@@ -87,6 +87,34 @@ describe('Merchant settlement : requêtes financières', () => {
     http.expectNone(base + '/grouping-campaigns/campaign/merchant-payouts');
     expect(store.error()).toContain('Ne relancez pas');
     expect(key).toBeTruthy();
+  });
+  it('attend la clôture serveur NON_EXECUTE puis crée une nouvelle clé pour la vente directe', async () => {
+    const direct = {
+      ...balance,
+      availableForPayout: 1000,
+      directOrders: [{ directOrderId: 'direct', availableForPayout: 1000 }],
+    };
+    const path = base + '/direct-orders/direct/merchant-payouts';
+    const historical = { id: 'old', directOrderId: 'direct', status: 'REVIEW_REQUIRED' };
+    await load(direct);
+    const pending = store.requestDirect('direct');
+    const first = http.expectOne(path);
+    const originalKey = first.request.headers.get('Idempotency-Key');
+    first.error(new ProgressEvent('error'));
+    await vi.waitFor(() => flush(direct, 'shop', [historical]));
+    await pending;
+    await store.requestDirect('direct');
+    http.expectNone(path);
+    const refresh = store.load('shop');
+    flush(direct, 'shop', [{ ...historical, status: 'NON_EXECUTE' }]);
+    await refresh;
+    http.expectNone(path);
+    const next = store.requestDirect('direct');
+    const request = http.expectOne(path);
+    expect(request.request.headers.get('Idempotency-Key')).not.toBe(originalKey);
+    request.flush({ id: 'new', status: 'PENDING' });
+    await vi.waitFor(() => flush(direct));
+    await next;
   });
   it('ne permet pas au manager de modifier une destination', async () => {
     await load({ ...balance, canManageDestination: false });

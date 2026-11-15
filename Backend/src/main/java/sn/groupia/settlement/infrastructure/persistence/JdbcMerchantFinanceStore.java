@@ -598,6 +598,67 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
                 id);
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public List<VerificationWork> dueForVerification(String provider, String account) {
+        jdbc.update(
+                """
+            insert into merchant_payout_verifications(payout_id,next_verification_at)
+            select id,now() from merchant_payouts
+            where provider=? and provider_account_reference=?
+              and provider_transaction_id is not null and status in ('PENDING','REVIEW_REQUIRED')
+            on conflict(payout_id) do nothing
+            """,
+                provider,
+                account);
+        return jdbc.query(
+                """
+            with due as (
+                select v.payout_id from merchant_payout_verifications v
+                join merchant_payouts p on p.id=v.payout_id
+                where p.provider=? and p.provider_account_reference=?
+                  and p.provider_transaction_id is not null and p.status in ('PENDING','REVIEW_REQUIRED','FAILED','CANCELLED')
+                  and v.next_verification_at <= now()
+                order by v.next_verification_at,v.payout_id limit 10 for update of v skip locked
+            ), claimed as (
+                update merchant_payout_verifications v set next_verification_at=now()+interval '5 minutes',claim_token=gen_random_uuid()
+                from due where v.payout_id=due.payout_id returning v.payout_id,v.claim_token
+            ) select p.*,c.claim_token from merchant_payouts p join claimed c on c.payout_id=p.id
+            """,
+                (rs, row) ->
+                        new VerificationWork(
+                                payout.mapRow(rs, row), rs.getObject("claim_token", UUID.class)),
+                provider,
+                account);
+    }
+
+    @Override
+    public void requestVerification(String provider, String account, String transactionId) {
+        jdbc.update(
+                """
+            insert into merchant_payout_verifications(payout_id,next_verification_at)
+            select id,now() from merchant_payouts
+            where provider=? and provider_account_reference=? and provider_transaction_id=?
+              and status in ('PENDING','REVIEW_REQUIRED','FAILED','CANCELLED')
+            on conflict(payout_id) do update set next_verification_at=excluded.next_verification_at,claim_token=gen_random_uuid()
+            """,
+                provider,
+                account,
+                transactionId);
+    }
+
+    @Override
+    public void finishVerification(UUID payoutId, UUID claimToken) {
+        jdbc.update(
+                """
+            delete from merchant_payout_verifications v using merchant_payouts p
+            where v.payout_id=p.id and p.id=?
+              and (p.status='SUCCEEDED' or (v.claim_token=? and p.status in ('FAILED','CANCELLED')))
+            """,
+                payoutId,
+                claimToken);
+    }
+
     public boolean transactionTaken(
             String provider, String account, String transaction, UUID except) {
         return Boolean.TRUE.equals(

@@ -8,6 +8,16 @@ import sn.groupia.settlement.domain.model.*;
 public interface MerchantFinanceStore {
     void lockOrganization(UUID organizationId);
 
+    /** Atomically lease a bounded batch; never selects intents without a provider reference. */
+    record VerificationWork(MerchantPayout payout, UUID claimToken) {}
+
+    List<VerificationWork> dueForVerification(String provider, String account);
+
+    void requestVerification(String provider, String account, String transactionId);
+
+    /** Remove scheduling work only after a terminal state has been independently verified. */
+    void finishVerification(UUID payoutId, UUID claimToken);
+
     void append(MerchantLedgerEntry entry);
 
     List<MerchantLedgerEntry> ledger(UUID organizationId);

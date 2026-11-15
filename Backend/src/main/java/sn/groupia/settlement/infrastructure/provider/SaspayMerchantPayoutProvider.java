@@ -6,6 +6,7 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.Environment;
@@ -17,6 +18,8 @@ import sn.groupia.settlement.domain.model.MerchantPayout;
 import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -216,13 +219,27 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     @Override
     public BigDecimal payoutFeeQuote(BigDecimal grossAmount, String method) {
-        requireEnabled();
-        JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
-        return SaspayPayoutPreflight.quoteRates(rates, grossAmount, network(method));
+        return at(
+                Stage.QUOTE,
+                () -> {
+                    requireEnabled();
+                    JsonNode rates =
+                            exchange(http.get().uri("/pricing/my-rates/"), Stage.QUOTE, 200);
+                    return at(
+                            Stage.QUOTE,
+                            200,
+                            () ->
+                                    SaspayPayoutPreflight.quoteRates(
+                                            rates, grossAmount, network(method)));
+                });
     }
 
     @Override
     public String initiate(MerchantPayout p) {
+        return at(Stage.INTENT, () -> initialize(p));
+    }
+
+    private String initialize(MerchantPayout p) {
         requireEnabled();
         assertIdentity(p);
         assertLivePilotTarget(p);
@@ -248,6 +265,8 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             if (financeStore == null)
                 throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISSING");
             accepted = financeStore.payoutFeeQuote(p.id());
+            if (accepted == null)
+                throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISSING");
             if (!p.organizationId().equals(accepted.organizationId())
                     || !p.destinationId().equals(accepted.destinationId())
                     || !p.method().equals(accepted.method())
@@ -257,24 +276,71 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISMATCH");
         }
         String payoutNetwork = network(p.method());
-        JsonNode rates = exchange(http.get().uri("/pricing/my-rates/"), 200);
+        MerchantPayoutFeeQuote quote = accepted;
         BigDecimal quotedFee =
-                accepted == null
-                        ? SaspayPayoutPreflight.quoteRates(rates, p.amount(), payoutNetwork)
-                        : SaspayPayoutPreflight.checkRates(
-                                rates, p, payoutNetwork, accepted.providerFee());
-        // The count field describes all merchant wallets, not the 20 on page one.
-        // Fetch each page with a bounded same-origin GET before the irreversible POST.
-        SaspayPayoutPreflight.checkWallet(merchantWalletPages(), p, quotedFee, account());
-        JsonNode ack =
-                exchange(
-                        http.post()
-                                .uri("/payouts/initialize/")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .header("Idempotency-Key", p.providerIdempotencyKey().toString())
-                                .body(body),
-                        201);
-        return uuid(text(ack, "id"));
+                at(
+                        Stage.RATES,
+                        () -> {
+                            JsonNode rates =
+                                    exchange(
+                                            http.get().uri("/pricing/my-rates/"), Stage.RATES, 200);
+                            return at(
+                                    Stage.RATES,
+                                    200,
+                                    () ->
+                                            quote == null
+                                                    ? SaspayPayoutPreflight.quoteRates(
+                                                            rates, p.amount(), payoutNetwork)
+                                                    : SaspayPayoutPreflight.checkRates(
+                                                            rates,
+                                                            p,
+                                                            payoutNetwork,
+                                                            quote.providerFee()));
+                        });
+        at(
+                Stage.WALLETS,
+                () -> {
+                    var pages = merchantWalletPages();
+                    at(
+                            Stage.WALLETS,
+                            200,
+                            () -> {
+                                SaspayPayoutPreflight.checkWallet(pages, p, quotedFee, account());
+                                return null;
+                            });
+                    return null;
+                });
+        // Complete serialization before a POST can be transmitted.
+        byte[] serialized;
+        try {
+            serialized = json.writeValueAsBytes(body);
+        } catch (RuntimeException ex) {
+            throw failure(Stage.SERIALIZE, 0, Category.SERIALIZATION, Reason.SERIALIZATION_FAILED);
+        }
+        return at(
+                Stage.INITIALIZE,
+                () -> {
+                    JsonNode ack =
+                            exchange(
+                                    http.post()
+                                            .uri("/payouts/initialize/")
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .header(
+                                                    "Idempotency-Key",
+                                                    p.providerIdempotencyKey().toString())
+                                            .body(serialized),
+                                    Stage.INITIALIZE,
+                                    201);
+                    try {
+                        return uuid(text(ack, "id"));
+                    } catch (RuntimeException ex) {
+                        throw failure(
+                                Stage.INITIALIZE,
+                                201,
+                                Category.CONTRACT,
+                                Reason.IDENTIFIER_INVALID);
+                    }
+                });
     }
 
     private List<JsonNode> merchantWalletPages() {
@@ -282,7 +348,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         var visited = new HashSet<String>();
         String path = "/merchant-balances/";
         for (int i = 0; i < 10; i++) {
-            JsonNode page = exchange(http.get().uri(path), 200);
+            JsonNode page = exchange(http.get().uri(path), Stage.WALLETS, 200);
             pages.add(page);
             if (page == null || !page.isObject())
                 throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
@@ -325,19 +391,31 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     @Override
     public Proof verify(MerchantPayout p) {
+        return at(Stage.VERIFY, () -> verifyExisting(p));
+    }
+
+    private Proof verifyExisting(MerchantPayout p) {
         requireEnabled();
         assertIdentity(p);
         assertLivePilotTarget(p);
         String id = uuid(p.providerTransactionId());
-        var verification = exchange(http.get().uri("/payouts/{id}/verify/", id), 200);
+        var verification = exchange(http.get().uri("/payouts/{id}/verify/", id), Stage.VERIFY, 200);
         Instant checkedAt = clock.instant();
         // The verification endpoint refreshes a pending gateway status. Its example
         // response does not contain the credited phone number; a successful payout
         // needs independent, immutable transaction-detail evidence as well.
         if (!"SUCCESS".equals(text(verification, "status")))
-            return validateProof(p, verification, checkedAt);
-        var details = exchange(http.get().uri("/transactions/{id}/", id), 200);
-        return validateProof(p, verification, details, checkedAt);
+            return at(Stage.VERIFY, 200, () -> validateProof(p, verification, checkedAt));
+        return at(
+                Stage.DETAILS,
+                () -> {
+                    var details =
+                            exchange(http.get().uri("/transactions/{id}/", id), Stage.DETAILS, 200);
+                    return at(
+                            Stage.DETAILS,
+                            200,
+                            () -> validateProof(p, verification, details, checkedAt));
+                });
     }
 
     Proof validateProof(
@@ -500,36 +578,138 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         if (!enabled()) throw new IllegalStateException("SASPAY_PAYOUT_NOT_AUTHORIZED");
     }
 
-    private JsonNode exchange(RestClient.RequestHeadersSpec<?> request, int status) {
+    private static <T> T at(Stage stage, Supplier<T> action) {
+        return at(stage, 0, action);
+    }
+
+    private static <T> T at(Stage stage, int httpStatus, Supplier<T> action) {
+        try {
+            return action.get();
+        } catch (PayoutProviderFailure ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            Reason reason = Reason.LOCAL_VALIDATION_FAILED;
+            String message = ex.getMessage();
+            if (message != null && message.startsWith("SASPAY_PAYOUT_")) {
+                try {
+                    reason = Reason.valueOf(message.substring("SASPAY_PAYOUT_".length()));
+                } catch (IllegalArgumentException ignored) {
+                    /* Closed vocabulary only. */
+                }
+            }
+            throw failure(stage, httpStatus, Category.VALIDATION, reason);
+        }
+    }
+
+    private static PayoutProviderFailure failure(
+            Stage stage, int status, Category category, Reason reason) {
+        return new PayoutProviderFailure(stage, status, category, reason, ProviderCode.NONE);
+    }
+
+    private static ProviderCode providerCode(JsonNode root) {
+        JsonNode code = root.path("error").path("code");
+        if (!code.isTextual()) code = root.path("code");
+        if (!code.isTextual()) return ProviderCode.NONE;
+        // Only exact documented codes, not arbitrary strings matching a regex.
+        return switch (code.asText()) {
+            case "ip_not_whitelisted",
+                    "payout_not_enabled",
+                    "currency_country_mismatch",
+                    "invalid_country",
+                    "invalid_customer",
+                    "invalid_method",
+                    "no_route_available",
+                    "wallet_frozen",
+                    "insufficient_balance",
+                    "merchant_suspended",
+                    "not_found" ->
+                    ProviderCode.valueOf(code.asText());
+            default -> ProviderCode.UNRECOGNIZED;
+        };
+    }
+
+    private static Category httpCategory(int status) {
+        return switch (status) {
+            case 401 -> Category.AUTHENTICATION;
+            case 403 -> Category.AUTHORIZATION;
+            case 409 -> Category.CONFLICT;
+            case 429 -> Category.RATE_LIMIT;
+            default ->
+                    status >= 500
+                            ? Category.SERVER_ERROR
+                            : status >= 400 ? Category.PROVIDER_REJECTION : Category.CONTRACT;
+        };
+    }
+
+    private JsonNode exchange(RestClient.RequestHeadersSpec<?> request, Stage stage, int expected) {
         try {
             return request.exchange(
                     (sent, response) -> {
-                        if (response.getStatusCode().value() != status)
-                            throw new IllegalStateException("SASPAY_PAYOUT_PROVIDER_REJECTED");
-                        var ct = response.getHeaders().getContentType();
+                        int status = response.getStatusCode().value();
+                        MediaType ct;
+                        try {
+                            ct = response.getHeaders().getContentType();
+                        } catch (RuntimeException ex) {
+                            throw failure(
+                                    stage, status, Category.CONTRACT, Reason.INVALID_CONTENT_TYPE);
+                        }
                         if (ct == null || !MediaType.APPLICATION_JSON.isCompatibleWith(ct))
-                            throw new IllegalStateException("SASPAY_PAYOUT_INVALID_CONTENT_TYPE");
-                        var bytes = response.getBody().readNBytes(65537);
+                            throw failure(
+                                    stage, status, Category.CONTRACT, Reason.INVALID_CONTENT_TYPE);
+                        byte[] bytes;
+                        try {
+                            bytes = response.getBody().readNBytes(65537);
+                        } catch (java.io.IOException | RuntimeException ex) {
+                            throw failure(
+                                    stage, status, Category.TRANSPORT, Reason.RESPONSE_READ_FAILED);
+                        }
                         if (bytes.length > 65536)
-                            throw new IllegalStateException("SASPAY_PAYOUT_RESPONSE_TOO_LARGE");
-                        JsonNode root = json.readTree(bytes);
+                            throw failure(
+                                    stage, status, Category.CONTRACT, Reason.RESPONSE_TOO_LARGE);
+                        JsonNode root;
+                        try {
+                            root = json.readTree(bytes);
+                        } catch (RuntimeException ex) {
+                            throw failure(stage, status, Category.CONTRACT, Reason.INVALID_JSON);
+                        }
                         if (root == null || (!root.isObject() && !root.isArray()))
-                            throw new IllegalStateException("SASPAY_PAYOUT_INVALID_JSON");
+                            throw failure(stage, status, Category.CONTRACT, Reason.INVALID_JSON);
+                        if (status != expected) {
+                            Reason reason =
+                                    status >= 500
+                                            ? Reason.HTTP_SERVER_ERROR
+                                            : status >= 400
+                                                    ? Reason.HTTP_REJECTED
+                                                    : Reason.UNEXPECTED_HTTP_STATUS;
+                            throw new PayoutProviderFailure(
+                                    stage,
+                                    status,
+                                    httpCategory(status),
+                                    reason,
+                                    providerCode(root));
+                        }
                         if (root.has("success")) {
-                            if (!root.path("success").isBoolean()
-                                    || !root.path("success").booleanValue()
-                                    || (!root.path("data").isObject()
-                                            && !root.path("data").isArray()))
-                                throw new IllegalStateException("SASPAY_PAYOUT_PROVIDER_REJECTED");
+                            if (!root.path("success").isBoolean())
+                                throw failure(
+                                        stage, status, Category.CONTRACT, Reason.INVALID_ENVELOPE);
+                            if (!root.path("success").booleanValue())
+                                throw new PayoutProviderFailure(
+                                        stage,
+                                        status,
+                                        Category.PROVIDER_REJECTION,
+                                        Reason.PROVIDER_REPORTED_FAILURE,
+                                        providerCode(root));
+                            if (!root.path("data").isObject() && !root.path("data").isArray())
+                                throw failure(
+                                        stage, status, Category.CONTRACT, Reason.INVALID_ENVELOPE);
                             root = root.path("data");
                         }
                         return root;
                     });
-        } catch (IllegalStateException ex) {
+        } catch (PayoutProviderFailure ex) {
             throw ex;
         } catch (RuntimeException ex) {
-            // An ambiguous transport failure never frees the reserved payout.
-            throw new IllegalStateException("SASPAY_PAYOUT_TRANSPORT_UNCERTAIN");
+            throw failure(stage, 0, Category.TRANSPORT, Reason.TRANSPORT_UNCERTAIN);
         }
     }
 

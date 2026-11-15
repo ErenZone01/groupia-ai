@@ -185,7 +185,24 @@ public class MerchantBalances {
                 destination,
                 provider,
                 limited,
-                directOrders,
+                directOrders.stream()
+                        .map(
+                                d ->
+                                        new sn.groupia.settlement.api.dto.DirectSettlement(
+                                                d.directOrderId(),
+                                                d.orderNumber(),
+                                                d.status(),
+                                                d.currency(),
+                                                d.provider(),
+                                                d.accountReference(),
+                                                d.grossMerchantCollections(),
+                                                d.platformFees(),
+                                                d.eligibleBalance(),
+                                                d.merchantPayouts(),
+                                                d.reservedForPayout(),
+                                                d.availableForPayout().min(available),
+                                                d.deficit()))
+                        .toList(),
                 "SASPAY".equals(payoutProvider.name()) ? "DEDUCTED" : "EXTERNAL");
     }
 }

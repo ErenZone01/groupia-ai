@@ -1,5 +1,8 @@
 # Retraits SasPay Groupia — politique DEDUCTED, PR #86
 
+Voir l'[audit de fiabilité du 15 novembre](PAYOUT_RELIABILITY_AUDIT.md) pour le
+diagnostic de l'incident, les corrections ultérieures et la procédure opérateur.
+
 **État : implémentation en cours de recette locale ; retrait LIVE désactivé par défaut.**
 L'ancien verrou global compilé a été remplacé par deux autorisations séparées :
 le pilote métier limité à une boutique et un seul montant, et la libération LIVE

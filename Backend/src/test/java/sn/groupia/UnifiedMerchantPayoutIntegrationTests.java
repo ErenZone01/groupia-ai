@@ -478,6 +478,122 @@ class UnifiedMerchantPayoutIntegrationTests {
     }
 
     @Test
+    void directPayoutCannotSpendFundsNeededToCoverGroupingDebt() throws Exception {
+        var campaign =
+                MerchantSettlementFixtures.seed(
+                        jdbc, new MerchantSettlementFixtures.Fixture(org, null, null, actor));
+        feeStore.append(
+                new sn.groupia.settlement.domain.model.MerchantLedgerEntry(
+                        UUID.randomUUID(),
+                        org,
+                        campaign.campaign(),
+                        campaign.order(),
+                        "PLATFORM_FUNDED_CUSTOMER_REFUND",
+                        "DEBIT",
+                        new BigDecimal("5000"),
+                        "XOF",
+                        BigDecimal.ZERO,
+                        "CUSTOMER_REFUND:" + UUID.randomUUID(),
+                        "CUSTOMER_REFUND",
+                        UUID.randomUUID(),
+                        Instant.now()));
+        var balance = read(auth(get(base() + "/merchant-balance")));
+        assertThat(balance.path("availableForPayout").decimalValue()).isEqualByComparingTo("15000");
+        var payout = read(request(destination(), UUID.randomUUID()));
+        assertThat(payout.path("amount").decimalValue()).isEqualByComparingTo("15000");
+        assertThat(provider.sent.amount()).isEqualByComparingTo("15000");
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("availableForPayout")
+                                .decimalValue())
+                .isZero();
+    }
+
+    @Test
+    void verificationLeasesSurviveRestartRespectAccountAndPreserveFinancialSnapshots()
+            throws Exception {
+        UUID dest = destination();
+        UUID id = UUID.fromString(read(request(dest, UUID.randomUUID())).path("id").asText());
+        var before = jdbc.queryForMap("select * from merchant_payouts where id=?", id);
+        assertThat(feeStore.dueForVerification(provider.name(), "another-account")).isEmpty();
+        assertThat(feeStore.dueForVerification("ANOTHER_PROVIDER", provider.account())).isEmpty();
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first =
+                    pool.submit(
+                            () -> feeStore.dueForVerification(provider.name(), provider.account()));
+            var second =
+                    pool.submit(
+                            () -> feeStore.dueForVerification(provider.name(), provider.account()));
+            assertThat(first.get().size() + second.get().size()).isEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+        }
+        // A new store instance/worker sees the durable lease, not an in-memory retry flag.
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account())).isEmpty();
+        feeStore.requestVerification(provider.name(), "another-account", "MP-" + id);
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account())).isEmpty();
+        feeStore.requestVerification(provider.name(), provider.account(), "MP-" + id);
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account()))
+                .extracting(work -> work.payout().id())
+                .containsExactly(id);
+        assertThat(jdbc.queryForMap("select * from merchant_payouts where id=?", id))
+                .isEqualTo(before);
+        assertThat(provider.sends).hasValue(1);
+        read(auth(post(base() + "/merchant-payouts/" + id + "/reconcile")));
+        feeStore.requestVerification(provider.name(), provider.account(), "MP-" + id);
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account())).isEmpty();
+    }
+
+    @Test
+    void notificationAfterFailureSchedulesOneIndependentVerificationAndNeverAnotherPost()
+            throws Exception {
+        UUID id =
+                UUID.fromString(
+                        read(request(destination(), UUID.randomUUID())).path("id").asText());
+        provider.status = "FAILED";
+        read(auth(post(base() + "/merchant-payouts/" + id + "/reconcile")));
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account())).isEmpty();
+        feeStore.requestVerification(provider.name(), provider.account(), "MP-" + id);
+        var work = feeStore.dueForVerification(provider.name(), provider.account()).getFirst();
+        assertThat(work.payout().id()).isEqualTo(id);
+        // A notification arriving during a GET must survive completion of the old lease.
+        feeStore.requestVerification(provider.name(), provider.account(), "MP-" + id);
+        feeStore.finishVerification(id, work.claimToken());
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account()))
+                .extracting(next -> next.payout().id())
+                .containsExactly(id);
+        // A late success hint itself changed no financial state.
+        assertThat(feeStore.payout(org, id).status()).isEqualTo("FAILED");
+        provider.status = "SUCCEEDED";
+        read(auth(post(base() + "/merchant-payouts/" + id + "/reconcile")));
+        assertThat(feeStore.payout(org, id).status()).isEqualTo("SUCCEEDED");
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account())).isEmpty();
+        assertThat(provider.sends).hasValue(1);
+    }
+
+    @Test
+    void unknownReferenceNeverEntersVerificationQueueOrReplaysProvider() throws Exception {
+        provider.timeout = true;
+        UUID dest = destination();
+        UUID key = UUID.randomUUID();
+        var payout = read(request(dest, key));
+        UUID id = UUID.fromString(payout.path("id").asText());
+        var before = jdbc.queryForMap("select * from merchant_payouts where id=?", id);
+        assertThat(payout.path("status").asText()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(feeStore.dueForVerification(provider.name(), provider.account())).isEmpty();
+        read(request(dest, key));
+        assertThat(jdbc.queryForMap("select * from merchant_payouts where id=?", id))
+                .isEqualTo(before);
+        assertThat(provider.sends).hasValue(1);
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("reservedForPayout")
+                                .decimalValue())
+                .isEqualByComparingTo("20000");
+    }
+
+    @Test
     void completedDirectSaleUsesSamePayoutEngineAndDebitsOnlyOnce() throws Exception {
         var before = read(auth(get(base() + "/merchant-balance")));
         assertThat(before.path("directOrders").size()).isEqualTo(1);

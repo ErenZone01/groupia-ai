@@ -66,6 +66,9 @@ class MerchantPayoutFeeBudgetTests {
         when(campaignPosition.reservedForPayout()).thenReturn(new BigDecimal("1000"));
         when(campaignPosition.deficit()).thenReturn(BigDecimal.ZERO);
         when(balance.campaigns()).thenReturn(List.of(campaignPosition));
+        when(balance.eligibleBalance()).thenReturn(new BigDecimal("1000"));
+        when(balance.reservedForPayout()).thenReturn(new BigDecimal("1000"));
+        when(balances.calculate(org, null, true, false, true)).thenReturn(balance);
         when(balances.calculate(org, payout.campaignId(), true, false, true)).thenReturn(balance);
 
         var transactions =

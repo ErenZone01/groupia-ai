@@ -28,7 +28,7 @@ export interface PaymentRequestSummaryView {
    */
   orderId?: string | null;
   organizationId?: string;
-  purpose?: 'INITIAL_ORDER' | 'SHIPPING_BALANCE' | 'SUBSCRIPTION_MONTHLY';
+  purpose?: 'INITIAL_ORDER' | 'SHIPPING_BALANCE' | 'SUBSCRIPTION_MONTHLY' | 'DIRECT_ORDER_INITIAL';
   reconciliationRequired?: boolean;
   settledPaymentId?: string;
   shippingAmount?: number;

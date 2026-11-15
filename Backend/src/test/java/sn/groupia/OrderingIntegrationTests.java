@@ -613,7 +613,7 @@ class OrderingIntegrationTests {
             jdbc.update(
                     "update orders set placed_at = current_timestamp - interval '2 days', tracking_token_expires_at = current_timestamp - interval '1 day'");
         } else {
-            jdbc.update("update orders set tracking_token_revoked_at = current_timestamp");
+            jdbc.update("update orders set tracking_token_revoked_at = placed_at");
         }
         track(placed.get("trackingToken").asText())
                 .andExpect(status().isNotFound())

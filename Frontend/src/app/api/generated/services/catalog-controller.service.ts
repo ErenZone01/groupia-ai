@@ -24,6 +24,8 @@ import { list1 } from '../fn/catalog-controller/list-1';
 import { List1$Params } from '../fn/catalog-controller/list-1';
 import { ProductPage } from '../models/product-page';
 import { ProductView } from '../models/product-view';
+import { restore } from '../fn/catalog-controller/restore';
+import { Restore$Params } from '../fn/catalog-controller/restore';
 import { update } from '../fn/catalog-controller/update';
 import { Update$Params } from '../fn/catalog-controller/update';
 import { updateVariant } from '../fn/catalog-controller/update-variant';
@@ -219,6 +221,33 @@ export class CatalogControllerService extends BaseService {
    */
   deactivateVariant(params: DeactivateVariant$Params, context?: HttpContext): Observable<ProductView> {
     const resp = this.deactivateVariant$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<ProductView>): ProductView => r.body)
+    );
+  }
+
+  /** Path part for operation `restore()` */
+  static readonly RestorePath = '/api/organizations/{organizationId}/products/{productId}/restore';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `restore()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  restore$Response(params: Restore$Params, context?: HttpContext): Observable<StrictHttpResponse<ProductView>> {
+    const obs = restore(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `restore$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  restore(params: Restore$Params, context?: HttpContext): Observable<ProductView> {
+    const resp = this.restore$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<ProductView>): ProductView => r.body)
     );

@@ -25,10 +25,13 @@ import { History$Params } from '../fn/subscription-controller/history';
 import { listSubscriptionInvoices } from '../fn/subscription-controller/list-subscription-invoices';
 import { ListSubscriptionInvoices$Params } from '../fn/subscription-controller/list-subscription-invoices';
 import { PaymentAttemptView } from '../models/payment-attempt-view';
+import { PaymentFeeQuoteView } from '../models/payment-fee-quote-view';
 import { paySubscriptionInvoice } from '../fn/subscription-controller/pay-subscription-invoice';
 import { PaySubscriptionInvoice$Params } from '../fn/subscription-controller/pay-subscription-invoice';
 import { previewSubscriptionInvoice } from '../fn/subscription-controller/preview-subscription-invoice';
 import { PreviewSubscriptionInvoice$Params } from '../fn/subscription-controller/preview-subscription-invoice';
+import { quoteSubscriptionInvoicePayment } from '../fn/subscription-controller/quote-subscription-invoice-payment';
+import { QuoteSubscriptionInvoicePayment$Params } from '../fn/subscription-controller/quote-subscription-invoice-payment';
 import { start } from '../fn/subscription-controller/start';
 import { Start$Params } from '../fn/subscription-controller/start';
 import { SubscriptionBillingContactView } from '../models/subscription-billing-contact-view';
@@ -204,6 +207,33 @@ export class SubscriptionControllerService extends BaseService {
     const resp = this.paySubscriptionInvoice$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<PaymentAttemptView>): PaymentAttemptView => r.body)
+    );
+  }
+
+  /** Path part for operation `quoteSubscriptionInvoicePayment()` */
+  static readonly QuoteSubscriptionInvoicePaymentPath = '/api/organizations/{organizationId}/subscription/invoices/{invoiceId}/payment-quotes';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteSubscriptionInvoicePayment()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteSubscriptionInvoicePayment$Response(params: QuoteSubscriptionInvoicePayment$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PaymentFeeQuoteView>>> {
+    const obs = quoteSubscriptionInvoicePayment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteSubscriptionInvoicePayment$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteSubscriptionInvoicePayment(params: QuoteSubscriptionInvoicePayment$Params, context?: HttpContext): Observable<Array<PaymentFeeQuoteView>> {
+    const resp = this.quoteSubscriptionInvoicePayment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<PaymentFeeQuoteView>>): Array<PaymentFeeQuoteView> => r.body)
     );
   }
 

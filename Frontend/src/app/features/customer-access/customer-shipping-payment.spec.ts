@@ -22,9 +22,12 @@ const due: ShippingSettlementView = {
   paymentInProgress: false,
 };
 describe('Paiement du transport', () => {
-  const api = { payShipping: vi.fn() };
+  const api = { payShipping: vi.fn(), quoteShipping: vi.fn(), shippingPaymentOptions: vi.fn() };
   const navigate = vi.fn();
   beforeEach(() => {
+    sessionStorage.clear();
+    api.quoteShipping.mockReset();
+    api.shippingPaymentOptions.mockResolvedValue({ availableProviders: ['BICTORYS'] });
     api.payShipping.mockReset();
     navigate.mockReset();
     TestBed.configureTestingModule({
@@ -41,6 +44,52 @@ describe('Paiement du transport', () => {
     f.detectChanges();
     return f;
   }
+  it('SasPay hébergé : les frais sont gérés par le PSP sans devis opérateur dans Groupia', async () => {
+    api.shippingPaymentOptions.mockResolvedValue({ availableProviders: ['SASPAY'] });
+    api.payShipping.mockResolvedValue({
+      status: 'PENDING', reconciliationRequired: false, checkoutUrl: null,
+    });
+    const f = setup();
+    await vi.waitFor(() => expect(f.componentInstance.providers()).toEqual(['SASPAY']));
+    f.detectChanges();
+    expect(f.nativeElement.textContent).toContain('Payer avec SasPay');
+    expect(f.nativeElement.textContent).toContain('Des frais supplémentaires peuvent être appliqués');
+    expect(f.nativeElement.textContent).toContain('Vérifiez le montant final affiché dans Wave ou Orange Money avant de confirmer.');
+    expect(api.quoteShipping).not.toHaveBeenCalled();
+    expect(api.payShipping).not.toHaveBeenCalled();
+    f.componentInstance.payerEmail.set('transport@example.com');
+    await f.componentInstance.pay(undefined, true);
+    expect(api.payShipping).toHaveBeenCalledWith(
+      'GRP-1', expect.any(String), 'SASPAY', 'transport@example.com',
+    );
+    expect(f.componentInstance.waiting()).toBe(true);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(f.componentInstance.value()?.status).toBe('BALANCE_DUE');
+    f.destroy();
+  });
+  it('reprend le checkout SasPay autorisé sans nouvelle charge après rechargement', async () => {
+    api.shippingPaymentOptions.mockResolvedValue({
+      availableProviders: [],
+      latestAttempt: {
+        provider: 'SASPAY',
+        attempt: {
+          status: 'PENDING',
+          expectedAmount: 5000,
+          currency: 'XOF',
+          checkoutUrl: 'https://pay.saspay.me/shipping',
+        },
+        quote: null,
+      },
+    });
+    const f = setup({ ...due, paymentInProgress: true });
+    await vi.waitFor(() =>
+      expect(f.componentInstance.checkoutUrl()).toBe('https://pay.saspay.me/shipping'),
+    );
+    expect(f.componentInstance.acceptedQuote()).toBeNull();
+    await f.componentInstance.pay();
+    expect(api.payShipping).not.toHaveBeenCalled();
+    f.destroy();
+  });
   for (const [status, label] of [
     ['BALANCE_DUE', 'Reste à payer'],
     ['SETTLED', 'Transport réglé'],

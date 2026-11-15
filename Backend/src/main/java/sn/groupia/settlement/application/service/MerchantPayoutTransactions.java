@@ -21,45 +21,258 @@ public class MerchantPayoutTransactions {
     private final OutgoingPayoutOperations outgoing;
     private final MerchantFinanceStore store;
     private final MerchantBalances balances;
+    private final DirectMerchantBalances direct;
     private final MerchantCampaignFacts campaigns;
     private final OrganizationAccess access;
     private final MerchantPayoutProvider provider;
     private final Clock clock;
     private final boolean enabled;
+    private final boolean directPayoutsEnabled;
+
+    // LIVE pilot remains fail-closed: only one approved organization, <= 1000 XOF,
+    // and at most one SasPay payout intent until the pilot is explicitly reviewed.
+    @Value("${groupia.settlement.saspay-payout-pilot.enabled:false}")
+    private boolean saspayPayoutPilotEnabled;
+
+    @Value("${groupia.settlement.saspay-payout-pilot.organization-id:}")
+    private String saspayPayoutPilotOrganizationId;
+
+    @Value("${groupia.settlement.saspay-payout-pilot.max-xof:1000}")
+    private BigDecimal saspayPayoutPilotMaxXof;
+
+    @Value("${groupia.settlement.saspay-payout-live-pilot.enabled:false}")
+    private boolean saspayLivePilotReleased;
+
+    @Value("${groupia.settlement.saspay-payout-live-pilot.direct-order-id:}")
+    private String saspayLivePilotDirectOrderId;
+
+    // One-time manual recovery of a specific already-reserved payout.
+    // The original provider idempotency key and the immutable beneficiary are reused.
+    @Value("${groupia.settlement.saspay-payout-recovery.enabled:false}")
+    private boolean saspayPayoutRecoveryEnabled;
+
+    @Value("${groupia.settlement.saspay-payout-recovery.payout-id:}")
+    private String saspayPayoutRecoveryId;
+
+    @Value("${groupia.settlement.saspay-payout-recovery.original-provider-key:}")
+    private String saspayPayoutRecoveryOriginalKey;
 
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
             MerchantBalances b,
+            DirectMerchantBalances direct,
             MerchantCampaignFacts c,
             OrganizationAccess a,
             MerchantPayoutProvider p,
             Clock clock,
             OutgoingPayoutOperations outgoing,
-            @Value("${groupia.settlement.payouts.enabled:false}") boolean enabled) {
+            @Value("${groupia.settlement.payouts.enabled:false}") boolean enabled,
+            @Value("${groupia.settlement.direct-payouts.enabled:false}")
+                    boolean directPayoutsEnabled) {
         this.outgoing = outgoing;
         store = s;
         balances = b;
+        this.direct = direct;
         campaigns = c;
         access = a;
         provider = p;
         this.clock = clock;
         this.enabled = enabled;
+        this.directPayoutsEnabled = directPayoutsEnabled;
     }
 
     public boolean available() {
         return enabled && provider.enabled();
     }
 
+    void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
+        if (!"SASPAY".equals(provider.name()) || !saspayLivePilotReleased) return;
+        if (directOrderId == null
+                || !directOrderId.toString().equals(saspayLivePilotDirectOrderId)
+                || (payoutMethod != null && !"WAVE".equals(payoutMethod)))
+            throw error(
+                    403,
+                    "SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH",
+                    "Le pilote LIVE est réservé à une vente directe et à une destination Wave.");
+    }
+
+    private MerchantPayoutFeeQuote requireQuoteForAmount(UUID org, UUID quoteId) {
+        if (quoteId == null)
+            throw error(409, "PAYOUT_FEE_QUOTE_REQUIRED", "Devis de retrait obligatoire.");
+        return store.feeQuote(org, quoteId);
+    }
+
+    void requireSaspayPilot(UUID org, BigDecimal gross) {
+        if (!"SASPAY".equals(provider.name())) return;
+        if (!saspayPayoutPilotEnabled
+                || saspayPayoutPilotMaxXof == null
+                || saspayPayoutPilotMaxXof.signum() <= 0
+                || saspayPayoutPilotMaxXof.compareTo(new BigDecimal("1000")) > 0)
+            throw error(503, "SASPAY_PAYOUT_PILOT_LOCKED", "Pilote SasPay non autorisé.");
+        if (!org.toString().equals(saspayPayoutPilotOrganizationId))
+            throw error(
+                    403,
+                    "SASPAY_PAYOUT_PILOT_ORGANIZATION",
+                    "Boutique non autorisée pour le pilote.");
+        if (gross == null
+                || gross.signum() <= 0
+                || gross.stripTrailingZeros().scale() > 0
+                || gross.compareTo(saspayPayoutPilotMaxXof) > 0)
+            throw error(409, "SASPAY_PAYOUT_PILOT_LIMIT", "Montant supérieur au plafond pilote.");
+    }
+
+    void checkPilotUsage(UUID org) {
+        if ("SASPAY".equals(provider.name())
+                && saspayPayoutPilotEnabled
+                && store.payouts(org).stream().anyMatch(p -> "SASPAY".equals(p.provider())))
+            throw error(
+                    409,
+                    "SASPAY_PAYOUT_PILOT_ALREADY_USED",
+                    "Un retrait SasPay pilote existe déjà. Vérifiez-le avant un autre essai.");
+    }
+
+    private MerchantPayoutFeeQuote requireQuote(MerchantPayout payout, UUID quoteId) {
+        if (quoteId == null)
+            throw error(
+                    409,
+                    "PAYOUT_FEE_QUOTE_REQUIRED",
+                    "Veuillez accepter le devis de retrait et ses frais avant de confirmer.");
+        return store.feeQuote(payout.organizationId(), quoteId);
+    }
+
+    public MerchantPayoutFeeQuote quoteCampaign(UUID org, UUID campaign, UUID expectedDestination) {
+        return quoteCampaign(org, campaign, expectedDestination, null);
+    }
+
+    public MerchantPayoutFeeQuote quoteCampaign(
+            UUID org, UUID campaign, UUID expectedDestination, BigDecimal requestedAmount) {
+        access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(null, null);
+        if (!available() || !"SASPAY".equals(provider.name()))
+            throw error(
+                    503,
+                    "PAYOUT_FEE_QUOTE_UNAVAILABLE",
+                    "Le devis de retrait SasPay est indisponible.");
+        store.lockOrganization(org);
+        var campaignFacts = campaigns.lock(org, campaign);
+        if (!campaignFacts.available())
+            throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Ce groupage n'est pas clôturé.");
+        BigDecimal gross =
+                balances.calculate(org, campaign, true, false, true).campaigns().stream()
+                        .filter(row -> campaign.equals(row.campaignId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .availableForPayout();
+        return issueQuote(org, campaign, null, expectedDestination, gross, requestedAmount);
+    }
+
+    public MerchantPayoutFeeQuote quoteDirect(
+            UUID org, UUID directOrderId, UUID expectedDestination) {
+        return quoteDirect(org, directOrderId, expectedDestination, null);
+    }
+
+    public MerchantPayoutFeeQuote quoteDirect(
+            UUID org, UUID directOrderId, UUID expectedDestination, BigDecimal requestedAmount) {
+        access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(directOrderId, null);
+        if (!available() || !directPayoutsEnabled || !"SASPAY".equals(provider.name()))
+            throw error(
+                    503,
+                    "PAYOUT_FEE_QUOTE_UNAVAILABLE",
+                    "Le devis de retrait SasPay est indisponible.");
+        store.lockOrganization(org);
+        direct.lock(org, directOrderId);
+        BigDecimal gross =
+                direct.calculate(org).stream()
+                        .filter(row -> directOrderId.equals(row.directOrderId()))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                "Cette vente n'a pas de fonds disponibles."))
+                        .availableForPayout();
+        return issueQuote(org, null, directOrderId, expectedDestination, gross, requestedAmount);
+    }
+
+    private MerchantPayoutFeeQuote issueQuote(
+            UUID org,
+            UUID campaign,
+            UUID directOrderId,
+            UUID expectedDestination,
+            BigDecimal availableGross,
+            BigDecimal requestedAmount) {
+        if (availableGross == null || availableGross.signum() <= 0)
+            throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
+        if ("SASPAY".equals(provider.name()) && saspayPayoutPilotEnabled && requestedAmount == null)
+            throw error(
+                    400, "SASPAY_PAYOUT_PILOT_AMOUNT_REQUIRED", "Indiquez le montant à retirer.");
+        BigDecimal gross = requestedAmount == null ? availableGross : requestedAmount;
+        if (gross == null
+                || gross.signum() <= 0
+                || gross.stripTrailingZeros().scale() > 0
+                || gross.compareTo(availableGross) > 0)
+            throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Montant de retrait indisponible.");
+        requireSaspayPilot(org, gross);
+        checkPilotUsage(org);
+        var destination =
+                store.destination(org)
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "PAYOUT_DESTINATION_REQUIRED",
+                                                "Renseignez une destination de versement."));
+        if (!destination.id().equals(expectedDestination))
+            throw error(
+                    409,
+                    "PAYOUT_DESTINATION_CHANGED",
+                    "La destination a changé. Actualisez le devis.");
+        requireLivePilotTarget(directOrderId, destination.method());
+        BigDecimal fee = provider.payoutFeeQuote(gross, destination.method());
+        if (fee == null || fee.signum() < 0 || fee.scale() > 2 || fee.compareTo(gross) >= 0)
+            throw error(409, "PAYOUT_FEE_QUOTE_INVALID", "Frais de retrait non fiables.");
+        var quote =
+                new MerchantPayoutFeeQuote(
+                        UUID.randomUUID(),
+                        org,
+                        campaign,
+                        directOrderId,
+                        destination.id(),
+                        destination.method(),
+                        destination.phoneE164(),
+                        provider.name(),
+                        provider.account(),
+                        gross,
+                        fee,
+                        gross.subtract(fee),
+                        now().plusSeconds(180));
+        store.createFeeQuote(quote);
+        return quote;
+    }
+
     public MerchantPayout reserve(
             UUID org, UUID campaign, UUID key, UUID expectedDestination, boolean confirmed) {
+        return reserve(org, campaign, key, expectedDestination, confirmed, null);
+    }
+
+    public MerchantPayout reserve(
+            UUID org,
+            UUID campaign,
+            UUID key,
+            UUID expectedDestination,
+            boolean confirmed,
+            UUID quoteId) {
         UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(null, null);
         if (!confirmed)
             throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
         store.lockOrganization(org);
         String reference = "MERCHANT_PAYOUT:" + org + ":" + key;
         var old = store.byReference(org, reference);
         if (old.isPresent()) {
-            if (!old.get().campaignId().equals(campaign)
+            if (!Objects.equals(old.get().campaignId(), campaign)
                     || !old.get().destinationId().equals(expectedDestination))
                 throw error(
                         409,
@@ -77,7 +290,7 @@ public class MerchantPayoutTransactions {
                     "MERCHANT_FUNDS_NOT_AVAILABLE",
                     "Les fonds seront disponibles après la clôture des ventes.");
         if (store.payouts(org).stream()
-                .anyMatch(p -> p.campaignId().equals(campaign) && p.reserved()))
+                .anyMatch(p -> Objects.equals(p.campaignId(), campaign) && p.reserved()))
             throw error(
                     409,
                     "MERCHANT_PAYOUT_IN_PROGRESS",
@@ -103,12 +316,21 @@ public class MerchantPayoutTransactions {
         if (position.availableForPayout().signum() <= 0)
             throw error(
                     409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun montant disponible au versement.");
+        BigDecimal requestedGross = position.availableForPayout();
+        if ("SASPAY".equals(provider.name())) {
+            var accepted = requireQuoteForAmount(org, quoteId);
+            requestedGross = accepted.grossAmount();
+            requireSaspayPilot(org, requestedGross);
+            checkPilotUsage(org);
+            if (requestedGross.compareTo(position.availableForPayout()) > 0)
+                throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
+        }
         var p =
                 new MerchantPayout(
                         UUID.randomUUID(),
                         org,
                         campaign,
-                        position.availableForPayout(),
+                        requestedGross,
                         "XOF",
                         "CREATED",
                         d.id(),
@@ -128,6 +350,127 @@ public class MerchantPayoutTransactions {
                         "AWAITING_DISPATCH",
                         0);
         store.create(p);
+        if ("SASPAY".equals(p.provider())) store.bindFeeQuote(requireQuote(p, quoteId), p);
+        outgoing.register(
+                new OutgoingPayoutOperations.Registration(
+                        Kind.MERCHANT_PAYOUT,
+                        p.id(),
+                        org,
+                        p.provider(),
+                        p.providerAccountReference(),
+                        p.businessReference(),
+                        p.providerIdempotencyKey(),
+                        p.amount(),
+                        p.currency(),
+                        p.method(),
+                        p.requestedAt()));
+        return p;
+    }
+
+    public MerchantPayout reserveDirect(
+            UUID org, UUID directOrderId, UUID key, UUID expectedDestination, boolean confirmed) {
+        return reserveDirect(org, directOrderId, key, expectedDestination, confirmed, null);
+    }
+
+    public MerchantPayout reserveDirect(
+            UUID org,
+            UUID directOrderId,
+            UUID key,
+            UUID expectedDestination,
+            boolean confirmed,
+            UUID quoteId) {
+        UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        requireLivePilotTarget(directOrderId, null);
+        if (!confirmed)
+            throw error(400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la demande de versement.");
+        store.lockOrganization(org);
+        String reference = "MERCHANT_PAYOUT:" + org + ":" + key;
+        var old = store.byReference(org, reference);
+        if (old.isPresent()) {
+            if (!Objects.equals(old.get().directOrderId(), directOrderId)
+                    || !old.get().destinationId().equals(expectedDestination))
+                throw error(
+                        409,
+                        "PAYOUT_IDEMPOTENCY_CONFLICT",
+                        "Cette demande correspond à un autre versement.");
+            return old.get();
+        }
+        if (!available() || !directPayoutsEnabled)
+            throw error(
+                    503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");
+        direct.lock(org, directOrderId);
+        if (store.payouts(org).stream()
+                .anyMatch(p -> Objects.equals(p.directOrderId(), directOrderId) && p.reserved()))
+            throw error(
+                    409,
+                    "MERCHANT_PAYOUT_IN_PROGRESS",
+                    "Un versement est déjà réservé pour cette vente.");
+        var d =
+                store.destination(org)
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "PAYOUT_DESTINATION_REQUIRED",
+                                                "Renseignez une destination de versement."));
+        if (!d.id().equals(expectedDestination))
+            throw error(
+                    409,
+                    "PAYOUT_DESTINATION_CHANGED",
+                    "La destination a changé. Vérifiez-la avant de confirmer.");
+        requireLivePilotTarget(directOrderId, d.method());
+        // Calculate after the organization and direct-order locks, never trust a browser amount.
+        var position =
+                direct.calculate(org).stream()
+                        .filter(row -> row.directOrderId().equals(directOrderId))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                "Le règlement de cette vente n'est pas encore disponible."));
+        if (position.availableForPayout().signum() <= 0)
+            throw error(
+                    409,
+                    "MERCHANT_FUNDS_NOT_AVAILABLE",
+                    "Aucun montant vérifié disponible pour cette vente.");
+        BigDecimal requestedGross = position.availableForPayout();
+        if ("SASPAY".equals(provider.name())) {
+            var accepted = requireQuoteForAmount(org, quoteId);
+            requestedGross = accepted.grossAmount();
+            requireSaspayPilot(org, requestedGross);
+            checkPilotUsage(org);
+            if (requestedGross.compareTo(position.availableForPayout()) > 0)
+                throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
+        }
+        var p =
+                new MerchantPayout(
+                        UUID.randomUUID(),
+                        org,
+                        null,
+                        requestedGross,
+                        "XOF",
+                        "CREATED",
+                        d.id(),
+                        d.method(),
+                        d.phoneE164(),
+                        d.holderName(),
+                        provider.name(),
+                        provider.account(),
+                        reference,
+                        UUID.randomUUID(),
+                        null,
+                        actor,
+                        now(),
+                        null,
+                        null,
+                        true,
+                        "AWAITING_DISPATCH",
+                        0,
+                        directOrderId);
+        store.create(p);
+        if ("SASPAY".equals(p.provider())) store.bindFeeQuote(requireQuote(p, quoteId), p);
         outgoing.register(
                 new OutgoingPayoutOperations.Registration(
                         Kind.MERCHANT_PAYOUT,
@@ -203,14 +546,177 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         if (!p.status().equals("CREATED")) return false;
-        if (!available())
+        requireLivePilotTarget(p.directOrderId(), p.method());
+        if (!available() || (p.directSale() && !directPayoutsEnabled))
             throw error(
                     503, "MERCHANT_PAYOUT_DISABLED", "Le versement automatique est indisponible.");
+        if (p.directSale()) {
+            // Recheck after reservation and before the first irreversible provider call.
+            // This already includes the current payout's own reserved principal.
+            direct.lock(org, p.directOrderId());
+            var position =
+                    direct.calculate(org).stream()
+                            .filter(row -> row.directOrderId().equals(p.directOrderId()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            error(
+                                                    409,
+                                                    "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                    "Le règlement de cette vente n'est pas disponible."));
+            if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
+                    || position.reservedForPayout().compareTo(p.amount()) < 0
+                    || position.deficit().signum() != 0)
+                throw error(
+                        409,
+                        "MERCHANT_FUNDS_NOT_AVAILABLE",
+                        "Le solde de la vente a changé. Le versement reste réservé pour vérification.");
+        }
+        if (!p.directSale() && "SASPAY".equals(p.provider())) {
+            // The original quote is not a substitute for a second solvency check.
+            // Check the campaign again under the organization lock, before provider POST.
+            campaigns.lock(org, p.campaignId());
+            var position =
+                    balances.calculate(org, p.campaignId(), true, false, true).campaigns().stream()
+                            .filter(row -> p.campaignId().equals(row.campaignId()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            error(
+                                                    409,
+                                                    "MERCHANT_FUNDS_NOT_AVAILABLE",
+                                                    "Les fonds du groupage sont indisponibles."));
+            if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
+                    || position.reservedForPayout().compareTo(p.amount()) < 0
+                    || position.deficit().signum() != 0)
+                throw error(
+                        409,
+                        "MERCHANT_FUNDS_NOT_AVAILABLE",
+                        "Le solde du groupage a changé. Le retrait reste réservé pour vérification.");
+        }
+        if ("SASPAY".equals(p.provider())) {
+            if (!"SASPAY".equals(provider.name()))
+                throw error(
+                        503,
+                        "SASPAY_PAYOUT_PROVIDER_CHANGED",
+                        "Le fournisseur de retrait a changé.");
+            requireSaspayPilot(org, p.amount());
+            var quote = store.payoutFeeQuote(p.id());
+            if (quote == null)
+                throw error(
+                        409,
+                        "PAYOUT_FEE_QUOTE_MISSING",
+                        "Aucun devis accepté n'est lié au retrait.");
+            if (!p.organizationId().equals(quote.organizationId())
+                    || !p.destinationId().equals(quote.destinationId())
+                    || !p.method().equals(quote.method())
+                    || !p.phoneE164().equals(quote.phoneE164())
+                    || !p.providerAccountReference().equals(quote.providerAccountReference())
+                    || p.amount().compareTo(quote.grossAmount()) != 0
+                    || quote.netAmount()
+                                    .compareTo(quote.grossAmount().subtract(quote.providerFee()))
+                            != 0
+                    || quote.netAmount().signum() <= 0)
+                throw error(
+                        409,
+                        "PAYOUT_FEE_QUOTE_MISMATCH",
+                        "Le devis accepté ne correspond plus au retrait.");
+        }
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_INITIATION_IN_PROGRESS");
         io.micrometer.core.instrument.Metrics.counter(
                         "merchant_payout_initiated", "provider", p.provider(), "method", p.method())
                 .increment();
         return true;
+    }
+
+    /**
+     * Claims the one existing pilot payout for a SINGLE manual replay of the exact original
+     * provider intention. The claim is committed before any HTTP call; a crash or timeout cannot
+     * make it automatically eligible for another attempt.
+     */
+    public MerchantPayout claimRecovery(UUID org, UUID id, boolean confirmed) {
+        access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        access.requireActorPermission(org, OrganizationPermission.MANAGE_PAYOUT_DESTINATION);
+        if (!confirmed)
+            throw error(
+                    400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la récupération du retrait.");
+        if (!saspayPayoutRecoveryEnabled
+                || id == null
+                || !id.toString().equals(saspayPayoutRecoveryId)
+                || !saspayLivePilotReleased)
+            throw error(403, "SASPAY_PAYOUT_RECOVERY_LOCKED", "Récupération pilote désactivée.");
+        store.lockOrganization(org);
+        var p = store.payout(org, id);
+        if (!"SASPAY".equals(provider.name())
+                || !"SASPAY".equals(p.provider())
+                || !p.directSale()
+                || !p.status().equals("REVIEW_REQUIRED")
+                || !p.reconciliationRequired()
+                || !"PAYOUT_REFERENCE_UNAVAILABLE".equals(p.reconciliationReason())
+                || p.providerTransactionId() != null
+                || p.providerIdempotencyKey() == null
+                || !p.providerIdempotencyKey().toString().equals(saspayPayoutRecoveryOriginalKey)
+                || p.businessReference() == null
+                || !p.businessReference().startsWith("MERCHANT_PAYOUT:" + org + ":")
+                || !Objects.equals(p.providerAccountReference(), provider.account()))
+            throw error(409, "SASPAY_PAYOUT_RECOVERY_INELIGIBLE", "Retrait non récupérable.");
+        requireLivePilotTarget(p.directOrderId(), p.method());
+        requireSaspayPilot(org, p.amount());
+        if (!available() || !directPayoutsEnabled)
+            throw error(503, "MERCHANT_PAYOUT_DISABLED", "Retraits désactivés.");
+        if (store.payouts(org).stream().filter(row -> "SASPAY".equals(row.provider())).count() != 1)
+            throw error(409, "SASPAY_PAYOUT_RECOVERY_INELIGIBLE", "Plusieurs retraits SasPay.");
+        var destination =
+                store.destination(org)
+                        .orElseThrow(
+                                () ->
+                                        error(
+                                                409,
+                                                "PAYOUT_DESTINATION_REQUIRED",
+                                                "Destination absente."));
+        if (!p.destinationId().equals(destination.id())
+                || !p.method().equals(destination.method())
+                || !p.phoneE164().equals(destination.phoneE164())
+                || !p.holderName().equals(destination.holderName()))
+            throw error(409, "PAYOUT_DESTINATION_CHANGED", "La destination a changé.");
+        var quote = store.payoutFeeQuote(id);
+        if (quote == null
+                || !org.equals(quote.organizationId())
+                || !p.directOrderId().equals(quote.directOrderId())
+                || !p.destinationId().equals(quote.destinationId())
+                || !p.method().equals(quote.method())
+                || !p.phoneE164().equals(quote.phoneE164())
+                || !p.providerAccountReference().equals(quote.providerAccountReference())
+                || !"SASPAY".equals(quote.provider())
+                || p.amount().compareTo(quote.grossAmount()) != 0
+                || quote.providerFee().signum() < 0
+                || quote.netAmount().signum() <= 0
+                || quote.netAmount().compareTo(quote.grossAmount().subtract(quote.providerFee()))
+                        != 0)
+            throw error(409, "PAYOUT_FEE_QUOTE_MISMATCH", "Devis initial non fiable.");
+        // The original quote was accepted during initial reservation; its expiration is
+        // intentionally not renewed. initiate() rechecks today's exact fee before POST.
+        direct.lock(org, p.directOrderId());
+        var position =
+                direct.calculate(org).stream()
+                        .filter(row -> p.directOrderId().equals(row.directOrderId()))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Fonds absents."));
+        if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
+                || position.reservedForPayout().compareTo(p.amount()) < 0
+                || position.deficit().signum() != 0)
+            throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Fonds réservés non vérifiés.");
+        store.state(id, "PENDING", null, null, null, true, "PAYOUT_MANUAL_RECOVERY_IN_PROGRESS");
+        return p;
+    }
+
+    /** No fresh key is ever minted on a failed recovery; it remains reserved. */
+    public void recoveryUncertain(UUID org, UUID id) {
+        store.lockOrganization(org);
+        var p = store.payout(org, id);
+        if (p.reserved() && p.providerTransactionId() == null)
+            review(p, "PAYOUT_MANUAL_RECOVERY_UNCERTAIN");
     }
 
     public void initiated(UUID org, UUID id, String transaction) {
@@ -236,7 +742,8 @@ public class MerchantPayoutTransactions {
         }
         if (p.succeeded()) return;
         if (p.status().equals("PENDING")
-                && "PAYOUT_INITIATION_IN_PROGRESS".equals(p.reconciliationReason()))
+                && Set.of("PAYOUT_INITIATION_IN_PROGRESS", "PAYOUT_MANUAL_RECOVERY_IN_PROGRESS")
+                        .contains(p.reconciliationReason()))
             store.state(id, "PENDING", transaction, null, null, false, null);
         else
             store.state(
@@ -293,6 +800,24 @@ public class MerchantPayoutTransactions {
             return;
         }
         if (proof.status().equals("SUCCEEDED")) {
+            // DEDUCTED: gross is debited, net is gross minus the fee borne by the seller.
+            if ("SASPAY".equals(p.provider())) {
+                BigDecimal fee = proof.providerFee();
+                if (fee == null || fee.signum() < 0 || fee.scale() > 2) {
+                    review(p, "PAYOUT_FEE_EVIDENCE_MISSING");
+                    return;
+                }
+                try {
+                    var accepted = store.payoutFeeQuote(p.id());
+                    if (accepted.providerFee().compareTo(fee) != 0
+                            || accepted.grossAmount().compareTo(p.amount()) != 0)
+                        throw new IllegalStateException("PAYOUT_FEE_QUOTE_MISMATCH");
+                    store.recordDeductedProviderFee(p.id(), p.amount(), fee);
+                } catch (IllegalStateException ex) {
+                    review(p, "PAYOUT_FEE_EVIDENCE_CONFLICT");
+                    return;
+                }
+            }
             io.micrometer.core.instrument.Metrics.counter(
                             "merchant_payout_succeeded",
                             "provider",
@@ -302,21 +827,22 @@ public class MerchantPayoutTransactions {
                     .increment();
             store.state(
                     id, "SUCCEEDED", proof.transactionId(), proof.occurredAt(), now(), false, null);
-            store.append(
-                    new MerchantLedgerEntry(
-                            UUID.randomUUID(),
-                            org,
-                            p.campaignId(),
-                            null,
-                            "MERCHANT_PAYOUT",
-                            "DEBIT",
-                            p.amount(),
-                            p.currency(),
-                            BigDecimal.ZERO,
-                            "PAYOUT:" + p.id(),
-                            "MERCHANT_PAYOUT",
-                            p.id(),
-                            now()));
+            if (!p.directSale())
+                store.append(
+                        new MerchantLedgerEntry(
+                                UUID.randomUUID(),
+                                org,
+                                p.campaignId(),
+                                null,
+                                "MERCHANT_PAYOUT",
+                                "DEBIT",
+                                p.amount(),
+                                p.currency(),
+                                BigDecimal.ZERO,
+                                "PAYOUT:" + p.id(),
+                                "MERCHANT_PAYOUT",
+                                p.id(),
+                                now()));
         } else if (proof.status().equals("PENDING")) {
             // A correlated late pending receipt can recover the ID lost with the ACK.
             // Keep the uncertainty and reservation; this only enables a subsequent GET.
@@ -420,7 +946,8 @@ public class MerchantPayoutTransactions {
                         e.method(),
                         e.recipientPhone(),
                         e.status(),
-                        e.occurredAt());
+                        e.occurredAt(),
+                        e.providerFee());
         if (error == null) error = correlate(p, proof);
         if (error == null && p.succeeded() && !"SUCCEEDED".equals(e.status()))
             error = "PAYOUT_CONTRADICTORY_EVIDENCE";

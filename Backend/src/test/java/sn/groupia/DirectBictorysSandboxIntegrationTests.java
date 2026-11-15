@@ -442,4 +442,370 @@ class DirectBictorysSandboxIntegrationTests {
         initiate(fresh, CHECKOUT_KEY).andExpect(status().isOk());
         assertThat(bictorys.requests).hasSize(1);
     }
+
+    private String merchantOrderPath() {
+        return "/api/organizations/" + org + "/direct-orders/" + order;
+    }
+
+    private long directVersion() {
+        return jdbc.queryForObject(
+                "select version from direct_orders where id=?", Long.class, order);
+    }
+
+    private ResultActions paidCancel(long version, UUID key, boolean confirmed) throws Exception {
+        return mvc.perform(
+                post(merchantOrderPath() + "/paid-cancellation")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                json.writeValueAsString(
+                                        Map.of(
+                                                "version",
+                                                version,
+                                                "reason",
+                                                "Demande cliente",
+                                                "confirmed",
+                                                confirmed))));
+    }
+
+    private ResultActions declareRefund(String id, UUID key, long version, String reference)
+            throws Exception {
+        return mvc.perform(
+                post("/api/organizations/"
+                                + org
+                                + "/commercial-refunds/"
+                                + id
+                                + "/external-declaration")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                json.writeValueAsString(
+                                        Map.of(
+                                                "version",
+                                                version,
+                                                "externalMethod",
+                                                "WAVE",
+                                                "reference",
+                                                reference,
+                                                "confirmed",
+                                                true))));
+    }
+
+    @Test
+    void paidCancellationKeepsCollectionAndRecordsOneExternalRefundWithoutProviderCall()
+            throws Exception {
+        readyForPickup();
+        long version = directVersion();
+        var key = UUID.randomUUID();
+        paidCancel(version, key, false).andExpect(status().isBadRequest());
+        var result = body(paidCancel(version, key, true).andExpect(status().isOk()).andReturn());
+        paidCancel(version, key, true)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("caseId").value(result.path("caseId").asText()));
+        paidCancel(version, UUID.randomUUID(), true).andExpect(status().isConflict());
+        assertThat(orderStatus()).isEqualTo("REFUND_PENDING");
+        handoff("PICKUP", directVersion(), "cancelled-order-handoff", true)
+                .andExpect(status().isConflict());
+        var id = result.path("caseId").asText();
+        mvc.perform(
+                        get("/api/organizations/" + org + "/commercial-refunds/" + id)
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("refund.amountDue").value(10300))
+                .andExpect(jsonPath("refund.legacyPlatformFee").value(300))
+                .andExpect(jsonPath("providerRefundAvailable").value(false));
+        var declaration = UUID.randomUUID();
+        declareRefund(id, declaration, 0, "synthetic-external-refund-1234")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("refund.status").value("EXTERNALLY_RECORDED"))
+                .andExpect(jsonPath("historicalFeeCompensationDue").value(300))
+                .andExpect(jsonPath("refund.maskedReference").value("…1234"));
+        declareRefund(id, declaration, 0, "synthetic-external-refund-1234")
+                .andExpect(status().isOk());
+        declareRefund(id, declaration, 0, "changed-ref").andExpect(status().isConflict());
+        await(() -> "REFUNDED".equals(orderStatus()));
+        assertThat(count("commercial_refund_cases")).isEqualTo(1);
+        assertThat(count("commercial_refund_events")).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select status from payments", String.class))
+                .isEqualTo("SUCCEEDED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select accepted_total_xof from direct_orders where id=?",
+                                BigDecimal.class,
+                                order))
+                .isEqualByComparingTo("10300");
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "update commercial_refund_cases set amount_due=1 where id=?",
+                                        UUID.fromString(id)))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "delete from commercial_refund_events where case_id=?",
+                                        UUID.fromString(id)))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    }
+
+    @Test
+    void paidCancellationIsForbiddenAfterHandoverAndDuringFinancialReview() throws Exception {
+        readyForPickup();
+        jdbc.update(
+                "update payments set reconciliation_required=true,reconciliation_reason='PROVIDER_STATE_UNCERTAIN' where payment_request_id in (select id from payment_requests where target_id=?)",
+                order);
+        paidCancel(directVersion(), UUID.randomUUID(), true).andExpect(status().isConflict());
+        assertThat(count("commercial_refund_cases")).isZero();
+        jdbc.update(
+                "update payments set reconciliation_required=false,reconciliation_reason=null where payment_request_id in (select id from payment_requests where target_id=?)",
+                order);
+        handoff("PICKUP", directVersion(), "pickup-before-cancellation", true)
+                .andExpect(status().isOk());
+        paidCancel(directVersion(), UUID.randomUUID(), true).andExpect(status().isConflict());
+        assertThat(count("commercial_refund_cases")).isZero();
+    }
+
+    @Test
+    void refundDeclarationRejectsClientAmountsMissingEvidenceAndForeignOrganization()
+            throws Exception {
+        readyForPickup();
+        var id =
+                body(paidCancel(directVersion(), UUID.randomUUID(), true)
+                                .andExpect(status().isOk())
+                                .andReturn())
+                        .path("caseId")
+                        .asText();
+        var path = "/api/organizations/" + org + "/commercial-refunds/" + id;
+        mvc.perform(
+                        post(path + "/external-declaration")
+                                .header("Authorization", "Bearer " + bearer)
+                                .header("Idempotency-Key", UUID.randomUUID())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"version\":0,\"confirmed\":true,\"externalMethod\":\"CASH\",\"note\":\"fixture\",\"amount\":1}"))
+                .andExpect(status().isBadRequest());
+        declareRefund(id, UUID.randomUUID(), 0, " ").andExpect(status().isBadRequest());
+        mvc.perform(
+                        get(path.replace(org.toString(), UUID.randomUUID().toString()))
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().is4xxClientError());
+        jdbc.update("update organization_members set role='VIEWER' where organization_id=?", org);
+        declareRefund(id, UUID.randomUUID(), 0, "fixture-external")
+                .andExpect(status().isForbidden());
+        assertThat(orderStatus()).isEqualTo("REFUND_PENDING");
+        assertThat(count("commercial_refund_events")).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentPaidCancellationAndHandoverHaveOneWinner() throws Exception {
+        readyForPickup();
+        long version = directVersion();
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var cancel =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                return paidCancel(version, UUID.randomUUID(), true)
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+                            });
+            var pickup =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                return handoff(
+                                                "PICKUP",
+                                                version,
+                                                "concurrent-paid-cancellation",
+                                                true)
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+                            });
+            start.countDown();
+            assertThat(List.of(cancel.get(15, TimeUnit.SECONDS), pickup.get(15, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(200, 409);
+        }
+        assertThat(orderStatus()).isIn("PICKED_UP", "REFUND_PENDING");
+        assertThat(count("commercial_refund_cases") + count("direct_order_fulfillment_events"))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void refundIntentionCannotBeReusedWithAmbiguousReferenceAndNoteDelimiters() throws Exception {
+        readyForPickup();
+        var id =
+                body(paidCancel(directVersion(), UUID.randomUUID(), true)
+                                .andExpect(status().isOk())
+                                .andReturn())
+                        .path("caseId")
+                        .asText();
+        var key = UUID.randomUUID();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            var result =
+                    mvc.perform(
+                            post("/api/organizations/"
+                                            + org
+                                            + "/commercial-refunds/"
+                                            + id
+                                            + "/external-declaration")
+                                    .header("Authorization", "Bearer " + bearer)
+                                    .header("Idempotency-Key", key)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            json.writeValueAsString(
+                                                    Map.of(
+                                                            "version",
+                                                            0,
+                                                            "externalMethod",
+                                                            "WAVE",
+                                                            "confirmed",
+                                                            true,
+                                                            "reference",
+                                                            attempt == 0 ? "a|b" : "a",
+                                                            "note",
+                                                            attempt == 0 ? "c" : "b|c"))));
+            if (attempt == 0) result.andExpect(status().isOk());
+            else result.andExpect(status().isConflict());
+        }
+        assertThat(count("commercial_refund_events")).isEqualTo(2);
+    }
+
+    private void readyForPickup() throws Exception {
+        queueCharge();
+        initiate(recovery, CHECKOUT_KEY).andExpect(status().isOk());
+        webhook(successPayload(UUID.randomUUID().toString(), 10300), "fixture-webhook-secret")
+                .andExpect(status().isOk());
+        await(() -> "PAYMENT_CONFIRMED".equals(orderStatus()));
+        mvc.perform(
+                        post(merchantOrderPath() + "/start-preparation")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk());
+        mvc.perform(
+                        post(merchantOrderPath() + "/mark-ready")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk());
+    }
+
+    private ResultActions handoff(String action, long version, String key, boolean confirmed)
+            throws Exception {
+        return mvc.perform(
+                post(merchantOrderPath() + "/fulfillment")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                json.writeValueAsString(
+                                        Map.of(
+                                                "action",
+                                                action,
+                                                "version",
+                                                version,
+                                                "confirmed",
+                                                confirmed))));
+    }
+
+    @Test
+    void directPickupAndClosureRequireExplicitConfirmationAndKeepImmutableIdempotentHistory()
+            throws Exception {
+        handoff("PICKUP", directVersion(), "handoff-unpaid-0001", true)
+                .andExpect(status().isConflict());
+        readyForPickup();
+        long version = directVersion();
+        handoff("PICKUP", version, "handoff-pickup-0001", false).andExpect(status().isBadRequest());
+        handoff("DELIVER", version, "handoff-deliver-0001", true).andExpect(status().isConflict());
+        var first =
+                body(
+                        handoff("PICKUP", version, "handoff-pickup-0001", true)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        var repeated =
+                body(
+                        handoff("PICKUP", version, "handoff-pickup-0001", true)
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(repeated).isEqualTo(first);
+        assertThat(orderStatus()).isEqualTo("PICKED_UP");
+        handoff("COMPLETE", version, "handoff-old-version", true).andExpect(status().isConflict());
+        handoff("COMPLETE", directVersion(), "handoff-complete-001", true)
+                .andExpect(status().isOk());
+        assertThat(orderStatus()).isEqualTo("COMPLETED");
+        financial(recovery)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.financialStatus").value("SETTLEMENT_VERIFIED"));
+        mvc.perform(
+                        get(merchantOrderPath() + "/fulfillment-history")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+        assertThat(count("direct_order_fulfillment_events")).isEqualTo(2);
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "delete from direct_order_fulfillment_events where direct_order_id=?",
+                                        order))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(bictorys.requests.stream().filter(q -> q.method().equals("POST")).count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void concurrentHandoversProduceOnePhysicalTransitionAndViewerCannotAct() throws Exception {
+        readyForPickup();
+        long version = directVersion();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var start = new CountDownLatch(1);
+            var a =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                return handoff("PICKUP", version, "handoff-concurrent-a", true)
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+                            });
+            var b =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                return handoff("PICKUP", version, "handoff-concurrent-b", true)
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+                            });
+            start.countDown();
+            assertThat(List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(200, 409);
+        }
+        assertThat(count("direct_order_fulfillment_events")).isEqualTo(1);
+        jdbc.update("update organization_members set role='VIEWER' where organization_id=?", org);
+        handoff("COMPLETE", directVersion(), "handoff-viewer-00001", true)
+                .andExpect(status().isForbidden());
+        assertThat(orderStatus()).isEqualTo("PICKED_UP");
+    }
+
+    @Test
+    void reconciliationBlocksHandoverAndAnotherOrganizationCannotReadHistory() throws Exception {
+        readyForPickup();
+        jdbc.update(
+                "update payments set reconciliation_required=true,reconciliation_reason='PROVIDER_STATE_UNCERTAIN' where payment_request_id in (select id from payment_requests where direct_order_id=?)",
+                order);
+        handoff("PICKUP", directVersion(), "handoff-review-00001", true)
+                .andExpect(status().isConflict());
+        assertThat(orderStatus()).isEqualTo("READY_FOR_PICKUP");
+        assertThat(count("direct_order_fulfillment_events")).isZero();
+        mvc.perform(
+                        get("/api/organizations/"
+                                        + UUID.randomUUID()
+                                        + "/direct-orders/"
+                                        + order
+                                        + "/fulfillment-history")
+                                .header("Authorization", "Bearer " + bearer))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ORGANIZATION_ACCESS_DENIED"));
+    }
 }

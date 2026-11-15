@@ -10,13 +10,13 @@ test('auth V3 : carrousel manuel et valeur métier expliquée sans promesse fict
   const carousel = page.getByRole('region', { name: 'Découvrir les possibilités de Groupia' });
   await expect(carousel.getByText('Groupages simplifiés')).toBeVisible();
   await carousel.getByRole('button', { name: 'Slide suivant' }).click();
-  await expect(carousel.getByText('Vente directe · À venir')).toBeVisible();
-  await expect(carousel.getByText('Fonctionnalité prévue prochainement')).toBeVisible();
+  await expect(carousel.locator('.slide-kicker').getByText('Vente directe', { exact: true })).toBeVisible();
+  await expect(carousel.getByText('Catalogue et commandes directes')).toBeVisible();
   await carousel.getByRole('button', { name: 'Slide suivant' }).click();
   await expect(carousel.getByText('Un lien public', { exact: true })).toBeVisible();
   await expect(carousel.getByText(/sans créer de compte/i)).toBeVisible();
   await carousel.getByRole('button', { name: 'Slide précédent' }).click();
-  await expect(carousel.getByText('Vente directe · À venir')).toBeVisible();
+  await expect(carousel.locator('.slide-kicker').getByText('Vente directe', { exact: true })).toBeVisible();
   await noOverflow(page);
 });
 

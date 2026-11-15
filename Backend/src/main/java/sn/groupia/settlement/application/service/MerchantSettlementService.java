@@ -1,6 +1,8 @@
 package sn.groupia.settlement.application.service;
 
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.organization.api.*;
@@ -11,6 +13,19 @@ import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 
 @Service
 public class MerchantSettlementService {
+    private static final Logger LOG = LoggerFactory.getLogger(MerchantSettlementService.class);
+
+    // Keep provider response bodies, numbers, credentials, and exception messages out of logs.
+    // Only provider-owned static error codes can be logged.
+    private static String safePayoutErrorCode(RuntimeException exception) {
+        String candidate = exception.getMessage();
+        return exception instanceof IllegalStateException
+                        && candidate != null
+                        && candidate.matches("SASPAY_PAYOUT_[A-Z0-9_]{3,80}")
+                ? candidate
+                : "UNCLASSIFIED";
+    }
+
     private final MerchantPayoutTransactions transactions;
     private final MerchantFinanceStore store;
     private final MerchantBalances balances;
@@ -60,21 +75,105 @@ public class MerchantSettlementService {
     @Transactional(readOnly = true)
     public List<MerchantPayoutView> payouts(UUID org) {
         access.requirePermission(org, OrganizationPermission.VIEW_PAYMENTS);
-        return store.payouts(org).stream().map(MerchantSettlementService::view).toList();
+        return store.payouts(org).stream().map(this::view).toList();
+    }
+
+    public PayoutFeeQuoteView quoteCampaign(UUID org, UUID campaign, UUID destination) {
+        return quoteCampaign(org, campaign, destination, null);
+    }
+
+    public PayoutFeeQuoteView quoteCampaign(
+            UUID org, UUID campaign, UUID destination, java.math.BigDecimal requestedAmount) {
+        return PayoutFeeQuoteView.from(
+                transactions.quoteCampaign(org, campaign, destination, requestedAmount));
+    }
+
+    public PayoutFeeQuoteView quoteDirect(UUID org, UUID directOrder, UUID destination) {
+        return quoteDirect(org, directOrder, destination, null);
+    }
+
+    public PayoutFeeQuoteView quoteDirect(
+            UUID org, UUID directOrder, UUID destination, java.math.BigDecimal requestedAmount) {
+        return PayoutFeeQuoteView.from(
+                transactions.quoteDirect(org, directOrder, destination, requestedAmount));
     }
 
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView request(
             UUID org, UUID campaign, UUID key, UUID destination, boolean confirmed) {
-        var p = transactions.reserve(org, campaign, key, destination, confirmed);
-        if (transactions.claim(org, p.id())) {
+        return request(org, campaign, key, destination, confirmed, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView request(
+            UUID org,
+            UUID campaign,
+            UUID key,
+            UUID destination,
+            boolean confirmed,
+            UUID feeQuoteId) {
+        return dispatch(
+                transactions.reserve(org, campaign, key, destination, confirmed, feeQuoteId));
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView requestDirect(
+            UUID org, UUID directOrderId, UUID key, UUID destination, boolean confirmed) {
+        return requestDirect(org, directOrderId, key, destination, confirmed, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView requestDirect(
+            UUID org,
+            UUID directOrderId,
+            UUID key,
+            UUID destination,
+            boolean confirmed,
+            UUID feeQuoteId) {
+        return dispatch(
+                transactions.reserveDirect(
+                        org, directOrderId, key, destination, confirmed, feeQuoteId));
+    }
+
+    /**
+     * A one-time, explicitly confirmed operator action against an EXISTING reserved payout. The
+     * same provider key, body, and metadata are reused; no payout row is created.
+     */
+    @Transactional(propagation = Propagation.NEVER)
+    public MerchantPayoutView recoverPilot(UUID org, UUID id, boolean confirmed) {
+        MerchantPayout original = transactions.claimRecovery(org, id, confirmed);
+        try {
+            transactions.initiated(org, id, provider.initiate(original));
+        } catch (RuntimeException ex) {
+            LOG.warn(
+                    "Merchant payout recovery uncertain payoutId={} provider={} errorCode={} exceptionType={}",
+                    id,
+                    original.provider(),
+                    safePayoutErrorCode(ex),
+                    ex.getClass().getSimpleName());
+            transactions.recoveryUncertain(org, id);
+        }
+        return view(transactions.get(org, id));
+    }
+
+    private MerchantPayoutView dispatch(MerchantPayout p) {
+        if (transactions.claim(p.organizationId(), p.id())) {
             try {
-                transactions.initiated(org, p.id(), provider.initiate(p));
+                transactions.initiated(p.organizationId(), p.id(), provider.initiate(p));
             } catch (RuntimeException ex) {
-                transactions.uncertain(org, p.id());
+                // This exception is intentionally not propagated: outcome may be uncertain.
+                // The reference and a safe code let operators diagnose the first failure
+                // without leaking HTTP payloads or triggering a second payout request.
+                LOG.warn(
+                        "Merchant payout initiation uncertain payoutId={} provider={} errorCode={} exceptionType={}",
+                        p.id(),
+                        p.provider(),
+                        safePayoutErrorCode(ex),
+                        ex.getClass().getSimpleName());
+                transactions.uncertain(p.organizationId(), p.id());
             }
         }
-        return view(transactions.get(org, p.id()));
+        return view(transactions.get(p.organizationId(), p.id()));
     }
 
     @Transactional(propagation = Propagation.NEVER)
@@ -103,6 +202,12 @@ public class MerchantSettlementService {
                 if (proof != null || !provider.publishesEvidence())
                     transactions.verified(org, id, proof);
             } catch (RuntimeException ex) {
+                LOG.warn(
+                        "Merchant payout reconciliation uncertain payoutId={} provider={} errorCode={} exceptionType={}",
+                        id,
+                        p.provider(),
+                        safePayoutErrorCode(ex),
+                        ex.getClass().getSimpleName());
                 transactions.uncertain(org, id);
             }
         }
@@ -120,7 +225,8 @@ public class MerchantSettlementService {
                 d.createdAt());
     }
 
-    private static MerchantPayoutView view(MerchantPayout p) {
+    private MerchantPayoutView view(MerchantPayout p) {
+        var sellerQuote = store.findPayoutFeeQuote(p.id());
         return new MerchantPayoutView(
                 p.id(),
                 p.campaignId(),
@@ -133,6 +239,14 @@ public class MerchantSettlementService {
                 p.requestedAt(),
                 p.succeededAt(),
                 p.reconciliationRequired(),
-                p.reconciliationReason());
+                p.reconciliationReason(),
+                p.directOrderId(),
+                sellerQuote
+                        .map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::providerFee)
+                        .orElse(null),
+                sellerQuote
+                        .map(sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote::netAmount)
+                        .orElse(null),
+                sellerQuote.isPresent() ? "DEDUCTED" : null);
     }
 }

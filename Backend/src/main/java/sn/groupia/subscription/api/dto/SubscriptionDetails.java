@@ -8,4 +8,6 @@ public record SubscriptionDetails(
         boolean billingProviderAvailable,
         boolean billingProviderSetupPending,
         boolean planConfigured,
-        SubscriptionBillingContactView billingContact) {}
+        SubscriptionBillingContactView billingContact,
+        java.util.List<String> availableProviders,
+        SubscriptionRenewalView renewal) {}

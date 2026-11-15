@@ -70,6 +70,15 @@ class PaymentReviewMigrationTests {
                                                         assertThat(row.remove("direct_order_id"))
                                                                 .isNull();
                                                     }
+                                                    if (entry.getKey().equals("payments")) {
+                                                        assertThat(row.remove("fee_quote_id"))
+                                                                .isNull();
+                                                        MigrationHistoryAssertions
+                                                                .historicalPayment(row);
+                                                    }
+                                                    if (entry.getKey().equals("orders"))
+                                                        MigrationHistoryAssertions.historicalOrder(
+                                                                row);
                                                     return row;
                                                 })
                                         .toList())

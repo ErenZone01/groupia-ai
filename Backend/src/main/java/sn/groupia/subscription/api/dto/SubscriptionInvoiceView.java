@@ -22,4 +22,5 @@ public record SubscriptionInvoiceView(
         PaymentOperationalStatus paymentStatus,
         boolean attemptInProgress,
         boolean reconciliationRequired,
-        boolean canPay) {}
+        boolean canPay,
+        sn.groupia.payment.api.dto.PaymentAttemptRecoveryView latestAttempt) {}

@@ -9,14 +9,20 @@ import { SubscriptionStore } from './subscription.store';
   imports: [RouterLink],
   template: `
     @if (store.details()?.access; as access) {
-      @if (access.status === 'TRIALING' || access.canStartNewBusiness === false) {
+      @if (
+        access.status === 'TRIALING' ||
+        access.canStartNewBusiness === false ||
+        store.details()?.renewal?.reminder === 'DUE_SOON'
+      ) {
         <aside role="status">
           <p>
             @if (access.status === 'TRIALING') {
               Essai gratuit jusqu'au {{ date(access.trialEndsAt) }}.
+            } @else if (store.details()?.renewal?.reminder === 'DUE_SOON') {
+              Votre abonnement arrive à échéance le {{ date(store.details()?.renewal?.dueAt) }}.
             } @else {
-              Un abonnement actif est requis pour créer ou ouvrir un nouveau groupage. Les
-              opérations déjà engagées restent disponibles.
+              Un abonnement actif est requis pour ouvrir de nouvelles ventes directes ou de nouveaux
+              groupages. Les opérations déjà engagées restent disponibles.
             }
           </p>
           <a routerLink="/app/abonnement">Voir l'abonnement</a>

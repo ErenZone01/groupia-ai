@@ -59,13 +59,18 @@ class OrderPersistence implements Orders {
 
     @Override
     public Optional<Order> lock(UUID id) {
-        var order =
-                entityManager.find(
-                        Order.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if (order != null) {
-            entityManager.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        }
-        return Optional.ofNullable(order);
+        // A parent lookup can already have loaded an older version into this persistence
+        // context. Lock the row first, then refresh it, just as forCompletion does. Upgrading
+        // the stale managed instance directly would reject a valid late settlement event.
+        var locked =
+                jdbc.query(
+                        "select id from orders where id=? for update",
+                        (rs, row) -> rs.getObject(1, UUID.class),
+                        id);
+        if (locked.isEmpty()) return Optional.empty();
+        var order = entityManager.find(Order.class, id);
+        entityManager.refresh(order);
+        return Optional.of(order);
     }
 
     @Override

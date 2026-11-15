@@ -17,7 +17,7 @@ const initial: ShippingSettlementView = {
   currentPaymentRequest: { status: 'OPEN', amount: 5000 },
 };
 async function setup(page: Page, scope = 'ORDER_ACCESS') {
-  const state = { value: { ...initial }, calls: 0, reads: 0, fail: false };
+  const state = { value: { ...initial }, calls: 0, reads: 0, fail: false, saspay: false };
   await page
     .context()
     .route('https://pay.bictorys.com/**', (r) =>
@@ -32,9 +32,32 @@ async function setup(page: Page, scope = 'ORDER_ACCESS') {
       return reply({ scope, orderNumber: scope === 'ORDER_ACCESS' ? number : undefined });
     if (path.endsWith('/capabilities'))
       return reply({ canResendTrackingLink: scope === 'PHONE_VERIFIED' });
+    if (path.endsWith('/shipping-balance/payment-options'))
+      return reply({
+        availableProviders: state.saspay ? ['SASPAY'] : ['BICTORYS'],
+        latestAttempt:
+          state.saspay && state.value.paymentInProgress
+            ? {
+                provider: 'SASPAY',
+                quote: null,
+                attempt: {
+                  status: 'PENDING',
+                  expectedAmount: 5000,
+                  currency: 'XOF',
+                  checkoutUrl: null,
+                },
+              }
+            : null,
+      });
+    if (path.endsWith('/shipping-balance/payment-quotes'))
+      throw new Error('Hosted SasPay must not request obsolete operator fee quotes');
     if (path.endsWith('/shipping-balance/payments')) {
       state.calls++;
-      expect(r.request().postDataJSON()).toEqual({ provider: 'BICTORYS' });
+      expect(r.request().postDataJSON()).toEqual(
+        state.saspay
+          ? { provider: 'SASPAY', payerEmail: 'transport@example.com' }
+          : { provider: 'BICTORYS' },
+      );
       expect(r.request().headers()['x-xsrf-token']).toBe('finance-csrf');
       expect(r.request().headers()['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/);
       if (state.fail) return reply({ code: 'PROVIDER_UNAVAILABLE' }, 503);
@@ -44,7 +67,7 @@ async function setup(page: Page, scope = 'ORDER_ACCESS') {
         status: 'PENDING',
         expectedAmount: 5000,
         currency: 'XOF',
-        checkoutUrl: 'https://pay.bictorys.com/checkout',
+        checkoutUrl: state.saspay ? null : 'https://pay.bictorys.com/checkout',
       });
     }
     if (path.endsWith('/orders/' + number)) {
@@ -130,7 +153,9 @@ test('crédit, non finalisé et erreur provider ne déclenchent pas un faux paie
   };
   await page.goto('/mes-commandes/' + number);
   await expect(page.getByText(/Crédit en votre faveur/)).toBeVisible();
-  await expect(page.getByText('Il sera régularisé après la remise de votre commande.')).toBeVisible();
+  await expect(
+    page.getByText('Il sera régularisé après la remise de votre commande.'),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: /Payer.*transport/ })).toHaveCount(0);
   await expect(page.getByText('Remboursement en cours')).toHaveCount(0);
   s.value = { ...s.value, creditStableForRefund: true };
@@ -194,3 +219,34 @@ for (const width of [360, 1280])
     await expect(page.getByRole('button', { name: /marquer payé/i })).toHaveCount(0);
     await noOverflow(page);
   });
+
+test('transport SasPay hébergé : frais annoncés, reprise sans URL et règlement uniquement sur confirmation serveur', async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.saspay = true;
+  await page.goto('/mes-commandes/' + number);
+  await expect(page.getByText(/Des frais supplémentaires peuvent être appliqués/)).toBeVisible();
+  await page.getByLabel('Adresse e-mail du payeur (si non renseignée)').fill('transport@example.com');
+  expect(state.calls).toBe(0);
+  await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
+  await page.reload();
+  await expect(
+    page.getByText('Confirmez la demande sur votre téléphone', { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText('Montant accepté', { exact: false })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Payer avec SasPay/ })).toHaveCount(0);
+  await expect(page.getByText('Transport réglé', { exact: true })).toHaveCount(0);
+  expect(state.calls).toBe(1);
+  state.value = {
+    ...state.value,
+    status: 'SETTLED',
+    amountDue: 0,
+    paymentInProgress: false,
+    additionalShippingPaidAmount: 5000,
+    totalShippingPaidAmount: 8000,
+  };
+  await page.getByRole('button', { name: 'Actualiser le suivi' }).click();
+  await expect(page.getByText('Transport réglé', { exact: true })).toBeVisible();
+  expect(state.calls).toBe(1);
+});

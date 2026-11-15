@@ -131,3 +131,45 @@ databaseChangeLog:
   - include:
       file: 044-direct-order-ready.sql
       relativeToChangelogFile: true
+  - include:
+      file: 045-payment-fee-quotes.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 046-direct-order-fulfillment.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 047-provider-collection-ledger.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 048-marketplace-simulations.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 049-commercial-refunds.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 050-commercial-cancellation-states.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 051-campaign-cancellation-actor.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 052-saspay-fractional-fee-quotes.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 053-saspay-collection-fee-precision.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 054-saspay-hosted-settlement-evidence.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 055-direct-merchant-payouts.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 056-saspay-payout-fee-evidence.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 057-saspay-company-fee-budget.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 058-saspay-deducted-payout-quotes.sql
+      relativeToChangelogFile: true

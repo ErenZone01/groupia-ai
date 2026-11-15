@@ -21,7 +21,9 @@ import sn.groupia.subscription.api.SubscriptionEntitlements;
 
 @Service
 @Transactional(readOnly = true)
-public class GroupingService implements GroupingQueries {
+public class GroupingService
+        implements GroupingQueries, sn.groupia.grouping.api.CampaignCancellationFacts {
+    private final org.springframework.context.ApplicationEventPublisher events;
     private final Campaigns campaigns;
     private final Offers offers;
     private final GroupingChanges changes;
@@ -41,7 +43,9 @@ public class GroupingService implements GroupingQueries {
             OrganizationAccess access,
             OrganizationAvailability organizations,
             SubscriptionEntitlements subscriptionEntitlements,
-            Clock clock) {
+            Clock clock,
+            org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
         this.campaigns = campaigns;
         this.offers = offers;
         this.changes = changes;
@@ -173,11 +177,35 @@ public class GroupingService implements GroupingQueries {
 
     @Transactional
     public CampaignView cancel(UUID organizationId, UUID campaignId, long version, String reason) {
-        return transition(
-                organizationId,
-                campaignId,
-                version,
-                campaign -> campaign.cancel(reason, clock.instant()));
+        var actor =
+                access.requireActorPermission(
+                        organizationId, OrganizationPermission.MANAGE_GROUPINGS);
+        var campaign = campaigns.lock(organizationId, campaignId).orElseThrow(this::notFound);
+        campaign.requireVersion(version);
+        campaign.cancelBy(actor, reason, clock.instant());
+        campaigns.save(campaign);
+        events.publishEvent(
+                new sn.groupia.grouping.api.event.GroupingCancelled(
+                        UUID.randomUUID(), clock.instant(), organizationId, campaignId, actor));
+        return view(campaign);
+    }
+
+    public sn.groupia.grouping.api.CampaignCancellationFacts.Fact cancellation(UUID org, UUID id) {
+        return cancellationFact(find(org, id));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public sn.groupia.grouping.api.CampaignCancellationFacts.Fact lockForOrderWorkflow(
+            UUID org, UUID id) {
+        return cancellationFact(campaigns.lock(org, id).orElseThrow(this::notFound));
+    }
+
+    private sn.groupia.grouping.api.CampaignCancellationFacts.Fact cancellationFact(
+            GroupingCampaign campaign) {
+        return new sn.groupia.grouping.api.CampaignCancellationFacts.Fact(
+                campaign.getStatus() == GroupingCampaignStatus.CANCELLED,
+                campaign.getCancelledBy(),
+                campaign.getStatus().name());
     }
 
     @Transactional

@@ -91,6 +91,27 @@ class MerchantSettlementFixtures {
     }
 
     private static UUID settled(JdbcTemplate j, Fixture f, String purpose, boolean genericTarget) {
+        return settled(
+                j,
+                f,
+                purpose,
+                genericTarget,
+                "SIMULATED",
+                genericTarget ? "test-merchant" : "fixture");
+    }
+
+    static UUID settled(
+            JdbcTemplate j, Fixture f, String purpose, String provider, String account) {
+        return settled(j, f, purpose, true, provider, account);
+    }
+
+    private static UUID settled(
+            JdbcTemplate j,
+            Fixture f,
+            String purpose,
+            boolean genericTarget,
+            String provider,
+            String account) {
         UUID r = UUID.randomUUID(), p = UUID.randomUUID();
         boolean initial = purpose.equals("INITIAL_ORDER");
         int goods = initial ? 20000 : 0,
@@ -125,11 +146,13 @@ class MerchantSettlementFixtures {
             insert into payments(id,organization_id,payment_request_id,provider,provider_account_reference,merchant_reference,provider_transaction_id,
                 provider_idempotency_key,initiation_key,expected_amount,currency,confirmed_amount,confirmed_currency,status,reconciliation_required,
                 initiated_at,confirmed_at)
-            values (?,?,?,'SIMULATED','fixture',?,?,?,?,?,'XOF',?,'XOF','SUCCEEDED',false,now()-interval '1 minute',now())
+            values (?,?,?,?,?, ?,?,?,?,?,'XOF',?,'XOF','SUCCEEDED',false,now()-interval '1 minute',now())
             """,
                 p,
                 f.org(),
                 r,
+                provider,
+                account,
                 "GP-" + p,
                 "TX-" + p,
                 p.toString(),

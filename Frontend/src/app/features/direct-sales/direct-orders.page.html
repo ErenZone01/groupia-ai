@@ -2,7 +2,10 @@
   <div>
     <p class="eyebrow">Vente directe · Espace gérante</p>
     <h1>Commandes directes</h1>
-    <p>Suivez les commandes, les paiements vérifiés et la préparation de cette boutique, indépendamment des groupages.</p>
+    <p>
+      Suivez les commandes, les paiements vérifiés et la préparation de cette boutique,
+      indépendamment des groupages.
+    </p>
   </div>
   <a class="back" routerLink="/app/vente-directe">← Retour à la boutique</a>
 </header>
@@ -10,7 +13,9 @@
 <section class="orders-card" aria-label="Liste des commandes directes">
   <div class="section-head">
     <h2>Commandes reçues</h2>
-    <button type="button" (click)="refresh()" [disabled]="loading() || !context.selectedId()">Actualiser</button>
+    <button type="button" (click)="refresh()" [disabled]="loading() || !context.selectedId()">
+      Actualiser
+    </button>
   </div>
 
   @if (!context.selectedId()) {
@@ -26,7 +31,10 @@
           <article class="order">
             <div class="order-info">
               <strong>{{ order.orderNumber }}</strong>
-              <span class="meta">{{ order.placedAt | date:'dd/MM/yyyy HH:mm' }} · {{ order.itemCount }} article(s)</span>
+              <span class="meta"
+                >{{ order.placedAt | date: 'dd/MM/yyyy HH:mm' }} ·
+                {{ order.itemCount }} article(s)</span
+              >
               <span class="status">{{ status(order.status) }}</span>
               <span class="meta">{{ fulfillment(order.fulfillmentMethod) }}</span>
             </div>
@@ -38,17 +46,30 @@
                 <strong>{{ money(order.amountBeforeShippingXof, 'XOF') }}</strong>
                 <span class="meta">Montant historique hors livraison</span>
               }
-              <button type="button" [disabled]="detailLoading()" (click)="open(order)">Voir le détail</button>
+              <button type="button" [disabled]="detailLoading()" (click)="open(order)">
+                Voir le détail
+              </button>
             </div>
           </article>
         }
       </div>
       <nav class="pagination" aria-label="Pagination des commandes">
-        <button type="button" (click)="page(currentPage() - 1)" [disabled]="loading() || currentPage() === 0">
+        <button
+          type="button"
+          (click)="page(currentPage() - 1)"
+          [disabled]="loading() || currentPage() === 0"
+        >
           Précédent
         </button>
-        <span>Page {{ currentPage() + 1 }} sur {{ totalPages() }} · {{ result.total }} commande(s)</span>
-        <button type="button" (click)="page(currentPage() + 1)" [disabled]="loading() || currentPage() + 1 >= totalPages()">
+        <span
+          >Page {{ currentPage() + 1 }} sur {{ totalPages() }} ·
+          {{ result.total }} commande(s)</span
+        >
+        <button
+          type="button"
+          (click)="page(currentPage() + 1)"
+          [disabled]="loading() || currentPage() + 1 >= totalPages()"
+        >
           Suivant
         </button>
       </nav>
@@ -89,28 +110,69 @@
         <h3>Remise</h3>
         <p>{{ fulfillment(selected.order.fulfillmentMethod) }}</p>
         @if (selected.deliveryAddress; as address) {
-          <p>{{ address.region }}@if (address.city) { · {{ address.city }} }@if (address.commune) { · {{ address.commune }} }</p>
-          @if (address.neighborhood) { <p>Quartier estimé : {{ address.neighborhood }}</p> }
-          @if (address.details) { <p>Indications : {{ address.details }}</p> }
+          <p>
+            {{ address.region }}
+            @if (address.city) {
+              · {{ address.city }}
+            }
+            @if (address.commune) {
+              · {{ address.commune }}
+            }
+          </p>
+          @if (address.neighborhood) {
+            <p>Quartier estimé : {{ address.neighborhood }}</p>
+          }
+          @if (address.details) {
+            <p>Indications : {{ address.details }}</p>
+          }
           @if (deliveryPoint(address); as destination) {
-            <p class="meta"><strong>Point de livraison confirmé par la cliente</strong> (pas sa position actuelle garantie).</p>
-            <p class="meta">GPS : {{ destination.latitude.toFixed(6) }}, {{ destination.longitude.toFixed(6) }}</p>
-            <g-direct-location-map [point]="destination" [previewOnly]="true"
-              [initialZoom]="17"></g-direct-location-map>
+            <p class="meta">
+              <strong>Point de livraison confirmé par la cliente</strong> (pas sa position actuelle
+              garantie).
+            </p>
+            <p class="meta">
+              GPS : {{ destination.latitude.toFixed(6) }}, {{ destination.longitude.toFixed(6) }}
+            </p>
+            <g-direct-location-map
+              [point]="destination"
+              [previewOnly]="true"
+              [initialZoom]="17"
+            ></g-direct-location-map>
             <div class="delivery-map-links">
-              <a [href]="deliveryMapUrl(address)" target="_blank" rel="noopener noreferrer"
-                referrerpolicy="no-referrer">Ouvrir le point dans OpenStreetMap</a>
-              <a [href]="deliveryDirectionsUrl(address)" target="_blank" rel="noopener noreferrer"
-                referrerpolicy="no-referrer">Obtenir l’itinéraire Google Maps</a>
+              <a
+                [href]="deliveryMapUrl(address)"
+                target="_blank"
+                rel="noopener noreferrer"
+                referrerpolicy="no-referrer"
+                >Ouvrir le point dans OpenStreetMap</a
+              >
+              <a
+                [href]="deliveryDirectionsUrl(address)"
+                target="_blank"
+                rel="noopener noreferrer"
+                referrerpolicy="no-referrer"
+                >Obtenir l’itinéraire Google Maps</a
+              >
             </div>
-            <p class="meta">L’ouverture d’une carte externe transmet le point choisi au service de cartographie.</p>
+            <p class="meta">
+              L’ouverture d’une carte externe transmet le point choisi au service de cartographie.
+            </p>
           } @else if (address.locationMethod === 'MAP') {
-            <p class="meta">Point GPS indisponible ou invalide. Contactez la cliente pour confirmer la destination.</p>
+            <p class="meta">
+              Point GPS indisponible ou invalide. Contactez la cliente pour confirmer la
+              destination.
+            </p>
           }
           @if (address.coverageStatus === 'UNVERIFIED_MANUAL') {
-            <p class="meta">Adresse saisie manuellement : région non vérifiée par GPS. À confirmer avant toute livraison.</p>
+            <p class="meta">
+              Adresse saisie manuellement : région non vérifiée par GPS. À confirmer avant toute
+              livraison.
+            </p>
           } @else if (address.coverageStatus === 'REGION_MATCHED') {
-            <p class="meta">La région du point est vérifiée par Groupia ; l'adresse exacte reste celle choisie par la cliente.</p>
+            <p class="meta">
+              La région du point est vérifiée par Groupia ; l'adresse exacte reste celle choisie par
+              la cliente.
+            </p>
           }
         } @else {
           <p>Lieu de retrait à convenir avec la cliente.</p>
@@ -123,7 +185,9 @@
         <div class="item">
           <div>
             <strong>{{ item.productName }}</strong>
-            <span class="meta">{{ variantLabel(item.attributes) }} · Quantité {{ item.quantity }}</span>
+            <span class="meta"
+              >{{ variantLabel(item.attributes) }} · Quantité {{ item.quantity }}</span
+            >
             <span class="meta">{{ money(item.unitPriceXof, 'XOF') }} / unité</span>
           </div>
           <strong>{{ money(item.lineTotalXof, 'XOF') }}</strong>
@@ -131,14 +195,35 @@
       }
     </div>
     <div class="totals">
-      <div><span>Articles</span><strong>{{ money(selected.order.goodsSubtotalXof, 'XOF') }}</strong></div>
-      <div><span>Frais plateforme</span><strong>{{ money(selected.order.platformFeeXof, 'XOF') }}</strong></div>
+      <div>
+        <span>Articles</span><strong>{{ money(selected.order.goodsSubtotalXof, 'XOF') }}</strong>
+      </div>
+      <div>
+        <span>Frais plateforme</span
+        ><strong>{{ money(selected.order.platformFeeXof, 'XOF') }}</strong>
+      </div>
       @if (selected.order.acceptedTotalXof != null) {
-        <div><span>Livraison</span><strong>{{ selected.order.shippingFeeXof != null ? money(selected.order.shippingFeeXof, 'XOF') : 'Non cotée' }}</strong></div>
-        <div><span>Total accepté</span><strong>{{ money(selected.order.acceptedTotalXof, 'XOF') }}</strong></div>
+        <div>
+          <span>Livraison</span
+          ><strong>{{
+            selected.order.shippingFeeXof != null
+              ? money(selected.order.shippingFeeXof, 'XOF')
+              : 'Non cotée'
+          }}</strong>
+        </div>
+        <div>
+          <span>Total accepté</span
+          ><strong>{{ money(selected.order.acceptedTotalXof, 'XOF') }}</strong>
+        </div>
       } @else {
-        <div><span>Montant historique hors livraison</span><strong>{{ money(selected.order.amountBeforeShippingXof, 'XOF') }}</strong></div>
-        <p class="meta">Ce brouillon ancien ne possède pas de total accepté. Aucun coût de livraison ne doit être supposé.</p>
+        <div>
+          <span>Montant historique hors livraison</span
+          ><strong>{{ money(selected.order.amountBeforeShippingXof, 'XOF') }}</strong>
+        </div>
+        <p class="meta">
+          Ce brouillon ancien ne possède pas de total accepté. Aucun coût de livraison ne doit être
+          supposé.
+        </p>
       }
     </div>
     <section class="financial-panel" aria-label="État financier et traitement">
@@ -151,15 +236,26 @@
       } @else if (financialError()) {
         <p class="error" role="alert">{{ financialError() }}</p>
       } @else if (financial(); as payment) {
-        <p class="financial-state"><strong>{{ financialLabel(payment.financialStatus) }}</strong></p>
+        <p class="financial-state">
+          <strong>{{ financialLabel(payment.financialStatus) }}</strong>
+        </p>
         @if (payment.financialStatus === 'PAYMENT_IN_PROGRESS') {
-          <p class="meta" role="status">La cliente a initié un paiement Bictorys. Ne l’annulez pas et ne préparez aucune remise tant que la confirmation financière n’est pas vérifiée.</p>
+          <p class="meta" role="status">
+            La cliente a initié un paiement chez le prestataire. Ne l’annulez pas et ne préparez aucune remise
+            tant que la confirmation financière n’est pas vérifiée.
+          </p>
         }
         @if (reviewRequired()) {
-          <p class="error" role="alert">Le règlement demande une vérification. Aucune préparation ou remise ne doit être effectuée.</p>
+          <p class="error" role="alert">
+            Le règlement demande une vérification. Aucune préparation ou remise ne doit être
+            effectuée.
+          </p>
         }
         @if (!payment.fulfillmentAllowed) {
-          <p class="meta">Le statut financier consulté ne constitue pas une autorisation de remise ni de livraison.</p>
+          <p class="meta">
+            Le statut financier consulté ne constitue pas une autorisation de remise ni de
+            livraison.
+          </p>
         }
       }
       @if (actionError()) {
@@ -168,38 +264,115 @@
       @if (actionNotice()) {
         <p class="action-notice" role="status">{{ actionNotice() }}</p>
       }
+      <button type="button" (click)="showFulfillmentHistory()">
+        Voir l’historique des remises
+      </button>
+      @if (historyError()) {
+        <p role="alert">{{ historyError() }}</p>
+      }
+      @for (event of fulfillmentHistory(); track event.id) {
+        <p>{{ status(event.toStatus) }} · {{ event.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+      }
       <div class="workflow-actions">
         @if (canCancel()) {
           @if (confirmCancellation()) {
-            <p class="cancel-confirm">Confirmer l'annulation de cette commande non payée ? Un règlement en cours ou litigieux sera refusé par le serveur.</p>
-            <button type="button" class="danger-button" [disabled]="actionBusy()" (click)="act('cancel')">Confirmer l'annulation</button>
-            <button type="button" [disabled]="actionBusy()" (click)="confirmCancellation.set(false)">Conserver la commande</button>
+            <p class="cancel-confirm">
+              Confirmer l'annulation de cette commande non payée ? Un règlement en cours ou
+              litigieux sera refusé par le serveur.
+            </p>
+            <button
+              type="button"
+              class="danger-button"
+              [disabled]="actionBusy()"
+              (click)="act('cancel')"
+            >
+              Confirmer l'annulation
+            </button>
+            <button
+              type="button"
+              [disabled]="actionBusy()"
+              (click)="confirmCancellation.set(false)"
+            >
+              Conserver la commande
+            </button>
           } @else {
-            <button type="button" [disabled]="actionBusy()" (click)="confirmCancellation.set(true)">Annuler la commande non payée</button>
+            <button type="button" [disabled]="actionBusy()" (click)="confirmCancellation.set(true)">
+              Annuler la commande non payée
+            </button>
           }
         }
         @if (canPrepare()) {
-          <button type="button" class="primary-button" [disabled]="actionBusy()" (click)="act('prepare')">Démarrer la préparation</button>
+          <button
+            type="button"
+            class="primary-button"
+            [disabled]="actionBusy()"
+            (click)="act('prepare')"
+          >
+            Démarrer la préparation
+          </button>
         }
         @if (canReady()) {
-          <button type="button" class="primary-button" [disabled]="actionBusy()" (click)="act('ready')">
-            {{ selected.order.fulfillmentMethod === 'PICKUP' ? 'Marquer prête au retrait' : 'Marquer prête à expédier' }}
+          <button
+            type="button"
+            class="primary-button"
+            [disabled]="actionBusy()"
+            (click)="act('ready')"
+          >
+            {{
+              selected.order.fulfillmentMethod === 'PICKUP'
+                ? 'Marquer prête au retrait'
+                : 'Marquer prête à expédier'
+            }}
+          </button>
+        }
+        @if (nextHandoff(); as action) {
+          <label
+            ><input
+              type="checkbox"
+              [checked]="confirmFulfillment()"
+              (change)="confirmFulfillment.set($any($event.target).checked)"
+            />
+            Je confirme que cette étape est réellement effectuée.</label
+          >
+          <button
+            type="button"
+            class="primary-button"
+            [disabled]="actionBusy() || !confirmFulfillment()"
+            (click)="act(action)"
+          >
+            {{ handoffLabel(action) }}
           </button>
         }
         @if (actionBusy()) {
           <span class="meta" role="status">Vérification de la commande par le serveur…</span>
         }
       </div>
-      @if (selected.order.status === 'READY_FOR_PICKUP' || selected.order.status === 'READY_FOR_DISPATCH') {
-        <p class="meta">Commande prête, mais aucune remise ou expédition effective n'est enregistrée à cette étape.</p>
+      @if (
+        selected.order.status === 'READY_FOR_PICKUP' ||
+        selected.order.status === 'READY_FOR_DISPATCH'
+      ) {
+        <p class="meta">
+          Commande prête, mais aucune remise ou expédition effective n'est enregistrée à cette
+          étape.
+        </p>
       }
       @if (selected.order.status === 'CANCELLED') {
-        <p class="meta">Cette commande est annulée. Aucun traitement supplémentaire ne peut être lancé.</p>
+        <p class="meta">
+          Cette commande est annulée. Aucun traitement supplémentaire ne peut être lancé.
+        </p>
       }
     </section>
+    @if (context.selectedId(); as org) {
+      @if (selected.order.status !== 'PENDING_PAYMENT_INTEGRATION' && selected.order.status !== 'CANCELLED') {
+        <g-commercial-cancellation [organizationId]="org" [orderId]="selected.order.id" target="DIRECT_ORDER" (changed)="open(selected.order)" />
+      }
+    }
     <div class="warning">
-      <strong>Encaissement Bictorys sous activation contrôlée</strong>
-      <p>Le paiement direct reste désactivé par défaut et n’est ouvert qu’après autorisation serveur. Seule une preuve de règlement vérifiée permet la préparation, jamais une simple tentative. La remise, la livraison effective et le reversement ne sont pas encore activés.</p>
+      <strong>Préparation après paiement vérifié</strong>
+      <p>
+        Le règlement doit être vérifié avant la préparation. La remise et la livraison nécessitent
+        une confirmation explicite de leur réalisation.
+      </p>
     </div>
   </section>
 }

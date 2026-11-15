@@ -1,0 +1,183 @@
+package sn.groupia.settlement.infrastructure.provider;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import sn.groupia.settlement.domain.model.MerchantPayout;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * Strict, read-only SasPay preflight before the irreversible POST. A wallet balance is only
+ * liquidity evidence, never proof of a seller's available settled funds. In DEDUCTED mode, the
+ * provider debits the gross payout and transfers gross minus its fees.
+ */
+final class SaspayPayoutPreflight {
+    private static final BigDecimal MAX = new BigDecimal("100000000000000");
+
+    private SaspayPayoutPreflight() {}
+
+    static BigDecimal checkRates(
+            JsonNode rows, MerchantPayout payout, String network, BigDecimal expectedFee) {
+        if (payout == null
+                || expectedFee == null
+                || expectedFee.signum() < 0
+                || expectedFee.scale() > 2)
+            throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
+        BigDecimal actual = quoteRates(rows, payout.amount(), network);
+        if (actual.compareTo(expectedFee) != 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_QUOTE_CHANGED");
+        return actual;
+    }
+
+    static BigDecimal quoteRates(JsonNode rows, BigDecimal grossAmount, String network) {
+        if (rows == null
+                || !rows.isArray()
+                || network == null
+                || !network.matches("[a-z0-9_]{3,64}")
+                || grossAmount == null
+                || grossAmount.signum() <= 0
+                || grossAmount.stripTrailingZeros().scale() > 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_PREFLIGHT_UNAVAILABLE");
+        var matchedNetworks = new ArrayList<JsonNode>();
+        for (JsonNode row : rows) {
+            if ("SN".equals(string(row, "country_code"))
+                    && "XOF".equals(string(row, "currency"))
+                    && network.equals(string(row, "network_code"))) matchedNetworks.add(row);
+        }
+        if (matchedNetworks.size() != 1)
+            throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_UNAVAILABLE");
+        JsonNode payoutRate = matchedNetworks.getFirst().path("payout");
+        if (!payoutRate.path("available").isBoolean()
+                || !payoutRate.path("available").booleanValue()
+                || !payoutRate.path("otp_required").isBoolean()
+                || payoutRate.path("otp_required").booleanValue()
+                || !payoutRate.path("tiers").isArray())
+            throw new IllegalStateException("SASPAY_PAYOUT_NETWORK_UNAVAILABLE");
+
+        var tiers = new ArrayList<JsonNode>();
+        for (var tier : payoutRate.path("tiers")) {
+            BigDecimal lower = decimal(tier, "min_amount");
+            BigDecimal upper = optional(tier, "max_amount");
+            if (grossAmount.compareTo(lower) >= 0
+                    && (upper == null || grossAmount.compareTo(upper) <= 0)) tiers.add(tier);
+        }
+        if (tiers.size() != 1) throw new IllegalStateException("SASPAY_PAYOUT_RATE_AMBIGUOUS");
+        var tier = tiers.getFirst();
+        if (!"XOF".equals(string(tier, "currency")))
+            throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+        // The published rate's fee_charge_mode is the merchant's default.
+        // SasPay documents a per-request DEDUCTED override on payout initialize.
+        // Never infer the effective mode from pricing: the POST requests DEDUCTED
+        // explicitly, and verification must independently prove the gross debit.
+        String defaultMode = string(tier, "fee_charge_mode");
+        if (!"ADD_ON".equals(defaultMode) && !"DEDUCTED".equals(defaultMode))
+            throw new IllegalStateException("SASPAY_PAYOUT_FEE_MODE_UNKNOWN");
+
+        BigDecimal percent = decimal(tier, "percent");
+        BigDecimal fixed = decimal(tier, "fixed");
+        BigDecimal floor = optional(tier, "floor_amount");
+        BigDecimal cap = optional(tier, "cap_amount");
+        if (floor != null && cap != null && floor.compareTo(cap) > 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+        BigDecimal fee = grossAmount.multiply(percent).movePointLeft(2).add(fixed);
+        if (floor != null) fee = fee.max(floor);
+        if (cap != null) fee = fee.min(cap);
+        try {
+            // No guessed rounding, including fractional XOF. Providers can return 2 dp.
+            fee = fee.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException ex) {
+            throw new IllegalStateException("SASPAY_PAYOUT_FEE_PRECISION_UNCONFIRMED");
+        }
+        if (fee.compareTo(grossAmount) >= 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_NET_AMOUNT_NOT_POSITIVE");
+        return fee;
+    }
+
+    /**
+     * SasPay's count is the TOTAL over all pages, not the current page length. Refuse incomplete or
+     * inconsistent pagination rather than trusting one matching wallet seen on page 1 (another
+     * matching wallet might follow).
+     */
+    static void checkWallet(
+            JsonNode response, MerchantPayout payout, BigDecimal fee, String merchantId) {
+        if (response == null) throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        checkWallet(List.of(response), payout, fee, merchantId);
+    }
+
+    static void checkWallet(
+            List<JsonNode> pages, MerchantPayout payout, BigDecimal fee, String merchantId) {
+        if (pages == null || pages.isEmpty() || pages.size() > 10)
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        int count = -1;
+        int total = 0;
+        var found = new ArrayList<JsonNode>();
+        for (int pageNumber = 0; pageNumber < pages.size(); pageNumber++) {
+            JsonNode page = pages.get(pageNumber);
+            if (page == null
+                    || !page.isObject()
+                    || !page.path("results").isArray()
+                    || !page.path("count").canConvertToInt())
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            int pageCount = page.path("count").intValue();
+            if (pageCount < 0 || pageCount > 200 || count >= 0 && count != pageCount)
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            count = pageCount;
+            var entries = page.path("results");
+            if (entries.isEmpty() && page.hasNonNull("next"))
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            total += entries.size();
+            if (total > count || total > 200)
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            boolean hasNext = page.hasNonNull("next");
+            if (hasNext != (pageNumber < pages.size() - 1))
+                throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+            for (JsonNode row : entries) {
+                if ("SN".equals(string(row, "country"))
+                        && "XOF".equals(string(row, "currency"))
+                        && merchantId.equals(string(row, "merchant"))) found.add(row);
+            }
+        }
+        if (total != count || found.size() != 1)
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_UNVERIFIED");
+        var wallet = found.getFirst();
+        if (!wallet.path("is_frozen").isBoolean() || wallet.path("is_frozen").booleanValue())
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_FROZEN");
+        BigDecimal available = decimal(wallet, "available_amount");
+        if (available.compareTo(payout.amount()) < 0)
+            throw new IllegalStateException("SASPAY_PAYOUT_WALLET_INSUFFICIENT");
+    }
+
+    private static String string(JsonNode row, String name) {
+        JsonNode value = row.path(name);
+        return value.isTextual() ? value.asText() : null;
+    }
+
+    private static BigDecimal optional(JsonNode row, String field) {
+        if (!row.has(field)) throw new IllegalStateException("SASPAY_PAYOUT_RATE_INCOMPLETE");
+        return row.path(field).isNull() ? null : decimal(row, field);
+    }
+
+    private static BigDecimal decimal(JsonNode row, String field) {
+        JsonNode v = row.path(field);
+        BigDecimal value;
+        try {
+            if (v.isTextual()) {
+                if (!v.asText().matches("[0-9]{1,14}(?:\\.[0-9]{1,6})?"))
+                    throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+                value = new BigDecimal(v.asText());
+            } else if (v.isNumber()) {
+                value = v.decimalValue();
+            } else {
+                throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+            }
+        } catch (NumberFormatException ex) {
+            throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+        }
+        if (value.signum() < 0
+                || value.compareTo(MAX) >= 0
+                || value.stripTrailingZeros().scale() > 6)
+            throw new IllegalStateException("SASPAY_PAYOUT_RATE_INVALID");
+        return value;
+    }
+}

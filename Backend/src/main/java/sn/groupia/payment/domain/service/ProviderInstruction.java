@@ -18,7 +18,40 @@ public record ProviderInstruction(
         BigDecimal amount,
         String currency,
         PaymentCheckoutContext checkout,
-        PaymentTarget target) {
+        PaymentTarget target,
+        String providerSessionId) {
+    /** Backward-compatible constructor for all providers without an external checkout session. */
+    public ProviderInstruction(
+            UUID paymentId,
+            UUID paymentRequestId,
+            UUID orderId,
+            PaymentPurpose purpose,
+            String provider,
+            String providerAccountReference,
+            String merchantReference,
+            String providerTransactionId,
+            String providerIdempotencyKey,
+            BigDecimal amount,
+            String currency,
+            PaymentCheckoutContext checkout,
+            PaymentTarget target) {
+        this(
+                paymentId,
+                paymentRequestId,
+                orderId,
+                purpose,
+                provider,
+                providerAccountReference,
+                merchantReference,
+                providerTransactionId,
+                providerIdempotencyKey,
+                amount,
+                currency,
+                checkout,
+                target,
+                null);
+    }
+
     public ProviderInstruction(
             UUID paymentId,
             UUID request,
@@ -45,7 +78,8 @@ public record ProviderInstruction(
                 amount,
                 currency,
                 checkout,
-                order == null ? null : PaymentTarget.order(order));
+                order == null ? null : PaymentTarget.order(order),
+                null);
     }
 
     public ProviderInstruction(
@@ -89,7 +123,8 @@ public record ProviderInstruction(
                 amount,
                 currency,
                 checkout,
-                target);
+                target,
+                providerSessionId);
     }
 
     public ProviderInstruction withCheckout(PaymentCheckoutContext context) {
@@ -106,7 +141,8 @@ public record ProviderInstruction(
                 amount,
                 currency,
                 context,
-                target);
+                target,
+                providerSessionId);
     }
 
     @Override

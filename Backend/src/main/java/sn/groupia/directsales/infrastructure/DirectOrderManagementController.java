@@ -24,18 +24,37 @@ class DirectOrderManagementController {
     private final DirectOrderCancellation cancellations;
     private final DirectOrderPreparation preparation;
     private final DirectOrderReadiness readiness;
+    private final sn.groupia.directsales.application.DirectOrderFulfillment fulfillment;
 
     DirectOrderManagementController(
             DirectOrderQueries orders,
             DirectMerchantPaymentReadiness paymentReadiness,
             DirectOrderCancellation cancellations,
             DirectOrderPreparation preparation,
-            DirectOrderReadiness readiness) {
+            DirectOrderReadiness readiness,
+            sn.groupia.directsales.application.DirectOrderFulfillment fulfillment) {
+        this.fulfillment = fulfillment;
         this.orders = orders;
         this.paymentReadiness = paymentReadiness;
         this.cancellations = cancellations;
         this.preparation = preparation;
         this.readiness = readiness;
+    }
+
+    @GetMapping("/{orderId}/fulfillment-history")
+    java.util.List<sn.groupia.directsales.application.DirectOrderFulfillment.Event>
+            fulfillmentHistory(@PathVariable UUID organizationId, @PathVariable UUID orderId) {
+        return fulfillment.history(organizationId, orderId);
+    }
+
+    @PostMapping("/{orderId}/fulfillment")
+    sn.groupia.directsales.application.DirectOrderFulfillment.Event fulfill(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID orderId,
+            @org.springframework.web.bind.annotation.RequestHeader("Idempotency-Key") String key,
+            @org.springframework.web.bind.annotation.RequestBody
+                    sn.groupia.directsales.application.DirectOrderFulfillment.Command command) {
+        return fulfillment.transition(organizationId, orderId, key, command);
     }
 
     @GetMapping

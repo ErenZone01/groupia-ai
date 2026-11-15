@@ -1,0 +1,165 @@
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Finances de la boutique</p>
+    <h1>Encaissements par fournisseur</h1>
+  </div>
+  <button gButton variant="secondary" [disabled]="loading() || busy()" (click)="load()">
+    Actualiser les encaissements
+  </button>
+</div>
+<p>Ventes directes et groupages. Les abonnements sont comptabilisés séparément.</p>
+@if (overview(); as totals) {
+  <section class="collection-summary" aria-label="Récapitulatif des encaissements">
+    <h2>Encaissements de la boutique</h2>
+    <p>Historique des montants attribués aux vendeuses, y compris les opérations remboursées ou annulées. Ce n'est pas un solde retirable.</p>
+    <dl>
+      <dt>Groupages</dt>
+      <dd>{{ money(totals.groupingCollected) }}</dd>
+      <dt>Ventes directes</dt>
+      <dd>{{ money(totals.directCollected) }}</dd>
+      <dt>Encaissements historiques</dt>
+      <dd><strong>{{ money(totals.totalCollected) }}</strong></dd>
+    </dl>
+    <h3>Par fournisseur et compte</h3>
+    @for (account of totals.accounts; track account.provider + account.accountReference) {
+      <p>
+        {{ account.provider }} · {{ account.accountReference.slice(0, 12) }} :
+        groupages {{ money(account.groupingCollected) }},
+        ventes directes {{ money(account.directCollected) }}.
+      </p>
+    } @empty {
+      <p>Aucun encaissement attribué pour le moment.</p>
+    }
+    @if (!totals.directPayoutsEnabled) {
+      <p class="notice">Les retraits réels de ventes directes ne sont pas encore activés. Les simulations ne transfèrent aucun argent.</p>
+    }
+  </section>
+}
+<p><a routerLink="/app/versements">Versements et disponibilité des fonds de groupage</a></p>
+<p>
+  Chaque compte fournisseur reste distinct. Ces encaissements ne constituent pas à eux seuls un
+  solde disponible au retrait.
+</p>
+@if (error()) {
+  <p role="alert" class="notice">{{ error() }}</p>
+}
+@if (loading()) {
+  <p role="status">Vérification du registre…</p>
+}
+@for (row of rows(); track row.id) {
+  <article>
+    <h2>
+      {{ row.targetType === 'DIRECT_ORDER' ? 'Vente directe' : 'Groupage' }} · {{ row.provider }}
+    </h2>
+    <p>Compte : {{ row.accountReference.slice(0, 16) }} · {{ date(row.confirmedAt) }}</p>
+    <dl>
+      <dt>Montant attribué à la vendeuse</dt>
+      <dd>{{ money(row.sellerPrincipal) }}</dd>
+      <dt>Commission Groupia historique</dt>
+      <dd>{{ money(row.platformFee) }}</dd>
+      <dt>Frais d’encaissement cliente</dt>
+      <dd>{{ row.collectionFee === null ? 'Non documentés' : money(row.collectionFee) }}</dd>
+      <dt>Total débité cliente</dt>
+      <dd>{{ row.customerCharged === null ? 'Non documenté' : money(row.customerCharged) }}</dd>
+    </dl>
+    @if (row.financialStatus === 'REVIEW_REQUIRED') {
+      <p class="notice">Règlement à vérifier. Aucune nouvelle simulation autorisée.</p>
+    }
+    @if (row.payoutStatus === 'PROVIDER_APPROVAL_REQUIRED') {
+      <p>
+        Reversement SasPay réel désactivé : autorisation marketplace et garantie du net à valider.
+      </p>
+    }
+    <div class="actions">
+      <a [routerLink]="['/app/paiements/requests', row.paymentRequestId]">Détail du règlement</a>
+      <button gButton variant="secondary" [disabled]="busy()" (click)="inspect(row)">
+        Historique des simulations
+      </button>
+      @if (canPayout()) {
+        <button
+          gButton
+          variant="secondary"
+          [disabled]="busy() || row.financialStatus !== 'VERIFIED'"
+          (click)="inspect(row, 'PAYOUT')"
+        >
+          Préparer un versement simulé
+        </button>
+      }
+      @if (canRefund()) {
+        <button
+          gButton
+          variant="secondary"
+          [disabled]="busy() || row.financialStatus !== 'VERIFIED'"
+          (click)="inspect(row, 'REFUND')"
+        >
+          Préparer un remboursement simulé
+        </button>
+      }
+    </div>
+    @if (selected()?.id === row.id) {
+      @if (quote(); as q) {
+        <section>
+          <h3>{{ q.kind === 'PAYOUT' ? 'Versement' : 'Remboursement' }} — simulation uniquement</h3>
+          <p>Aucun argent ne sera envoyé. La commande et le solde réel resteront inchangés.</p>
+          <dl>
+            <dt>Net bénéficiaire simulé</dt>
+            <dd>{{ money(q.recipientNet) }}</dd>
+            <dt>Frais simulés</dt>
+            <dd>{{ money(q.fee) }}</dd>
+            <dt>Budget fictif de Groupia pour les frais</dt>
+            <dd>{{ money(q.simulatedCompanyFunding) }}</dd>
+          </dl>
+          @if (q.kind === 'REFUND') {
+            <p>
+              Cette simulation restitue le principal. Le remboursement des frais d’encaissement par
+              le fournisseur n’est pas documenté.
+            </p>
+          }
+          @if (q.enabled) {
+            <label
+              ><input
+                type="checkbox"
+                [ngModel]="confirmed()"
+                (ngModelChange)="confirmed.set($event)"
+                [disabled]="busy()"
+              />
+              Je confirme cette simulation sans transfert réel.</label
+            >
+            <button gButton [disabled]="busy() || !confirmed()" (click)="simulate()">
+              Exécuter la simulation
+            </button>
+          } @else {
+            <p>Simulations désactivées sur cet environnement.</p>
+          }
+        </section>
+      }
+      @for (item of history(); track item.id) {
+        <p role="status">
+          {{ label(item.status) }} · {{ item.kind === 'PAYOUT' ? 'Versement' : 'Remboursement' }} ·
+          {{ money(item.recipientNet) }} nets. Frais fictifs : {{ money(item.fee) }}.
+        </p>
+        @if (item.status === 'CREATED' || item.status === 'REVIEW_REQUIRED') {
+          <button gButton variant="secondary" [disabled]="busy()" (click)="reconcile(item)">
+            Revérifier la simulation
+          </button>
+        }
+      }
+      @if (!busy() && !history().length) {
+        <p>Aucune simulation enregistrée pour cet encaissement.</p>
+      }
+    }
+  </article>
+}
+@if (!loading() && !rows().length && !error()) {
+  <p>Aucun encaissement vérifié enregistré.</p>
+}
+@if (next(); as cursor) {
+  <button
+    gButton
+    variant="secondary"
+    [disabled]="loading() || busy()"
+    (click)="load(undefined, cursor)"
+  >
+    Encaissements suivants
+  </button>
+}

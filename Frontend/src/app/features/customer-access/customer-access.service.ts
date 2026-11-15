@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { firstValueFrom, Observable, switchMap, throwError, timeout } from 'rxjs';
 import { CustomerAccessControllerService } from '../../api/generated/services/customer-access-controller.service';
+import type { PaymentFeeQuoteView, PaymentAttemptRecoveryView } from '../../api/generated/models';
 import { CUSTOMER_CSRF } from '../../core/http/customer-access.interceptor';
 export interface DirectRecoveredOrder {
   orderNumber: string;
@@ -57,15 +58,24 @@ export class CustomerAccessService {
     return firstValueFrom(this.api.customerOrders({ page, size: 20 }).pipe(timeout(20000)));
   }
   directOrders(page = 0) {
-    return firstValueFrom(this.http.get<DirectRecoveredOrders>(
-      '/api/public/customer-access/direct-orders', { params: { page, size: 20 } },
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .get<DirectRecoveredOrders>('/api/public/customer-access/direct-orders', {
+          params: { page, size: 20 },
+        })
+        .pipe(timeout(15000)),
+    );
   }
   rotateDirectLink(orderNumber: string) {
-    return this.mutate((context) => this.http.post<RotatedDirectOrderLink>(
-      '/api/public/customer-access/direct-orders/'
-      + encodeURIComponent(orderNumber) + '/rotate-link', {}, { context },
-    ));
+    return this.mutate((context) =>
+      this.http.post<RotatedDirectOrderLink>(
+        '/api/public/customer-access/direct-orders/' +
+          encodeURIComponent(orderNumber) +
+          '/rotate-link',
+        {},
+        { context },
+      ),
+    );
   }
 
   order(orderNumber: string) {
@@ -74,10 +84,41 @@ export class CustomerAccessService {
   capabilities(orderNumber: string) {
     return firstValueFrom(this.api.customerOrderCapabilities({ orderNumber }).pipe(timeout(20000)));
   }
-  payShipping(orderNumber: string, key: string) {
+  quoteShipping(orderNumber: string) {
+    return this.mutate((context) =>
+      this.http.post<PaymentFeeQuoteView[]>(
+        '/api/public/customer-access/orders/' +
+          encodeURIComponent(orderNumber) +
+          '/shipping-balance/payment-quotes',
+        {},
+        { context },
+      ),
+    );
+  }
+  shippingPaymentOptions(orderNumber: string) {
+    return firstValueFrom(
+      this.http
+        .get<{ availableProviders?: string[]; latestAttempt?: PaymentAttemptRecoveryView }>(
+          '/api/public/customer-access/orders/' +
+            encodeURIComponent(orderNumber) +
+            '/shipping-balance/payment-options',
+        )
+        .pipe(timeout(15000)),
+    );
+  }
+  payShipping(
+    orderNumber: string,
+    key: string,
+    provider: 'BICTORYS' | 'SASPAY' = 'BICTORYS',
+    payerEmail?: string,
+  ) {
     return this.mutate((c) =>
       this.api.initiateCustomerShippingPayment(
-        { orderNumber, 'Idempotency-Key': key, body: { provider: 'BICTORYS' } },
+        {
+          orderNumber,
+          'Idempotency-Key': key,
+          body: { provider, ...(payerEmail ? { payerEmail } : {}) },
+        },
         c,
       ),
     );

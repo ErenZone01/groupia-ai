@@ -102,7 +102,7 @@ public class PaymentWebhooks {
             throw new ApiException(
                     401, "PAYMENT_AUTHENTICITY_FAILED", "Authenticité du webhook invalide.");
         }
-        if (parsingError != null) {
+        if (parsingError != null || "SASPAY".equals(adapter.name())) {
             return id;
         }
         try {
@@ -124,7 +124,8 @@ public class PaymentWebhooks {
         ProviderObservation proof = null;
         boolean failed = false;
         if (work.observation() != null
-                && work.observation().status() == PaymentStatus.SUCCEEDED
+                && (work.observation().status() == PaymentStatus.SUCCEEDED
+                        || "SASPAY".equals(work.provider()))
                 && work.instruction() != null
                 && !providers.acceptsAuthenticatedWebhook(
                         work.provider(), work.instruction().providerAccountReference())) {

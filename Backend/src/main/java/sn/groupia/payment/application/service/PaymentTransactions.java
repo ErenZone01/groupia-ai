@@ -26,7 +26,13 @@ public class PaymentTransactions {
     private final sn.groupia.payment.domain.repository.RefundStore refunds;
     private final sn.groupia.payment.domain.repository.PaymentReviewStore reviews;
     private final ObjectProvider<DirectPaymentClaimGuard> directGuard;
+    private final ObjectProvider<OrderPaymentClaimGuard> orderGuard;
     private final boolean directPaymentEnabled;
+    private final sn.groupia.payment.domain.repository.PaymentQuoteStore quotes;
+
+    // Strictly restricted to obsolete Softpay test fixtures; never enables live initiation.
+    @Value("${groupia.payment.saspay.legacy-softpay-tests:false}")
+    private boolean legacySoftpayTests;
 
     // Preserve isolated unit tests: their default remains strictly disabled.
     PaymentTransactions(
@@ -39,6 +45,51 @@ public class PaymentTransactions {
         this(store, events, clock, providers, refunds, reviews, null, false);
     }
 
+    PaymentTransactions(
+            FinancialStore store,
+            ApplicationEventPublisher events,
+            Clock clock,
+            ProviderRegistry providers,
+            sn.groupia.payment.domain.repository.RefundStore refunds,
+            sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
+            ObjectProvider<DirectPaymentClaimGuard> directGuard,
+            boolean directPaymentEnabled) {
+        this(
+                store,
+                events,
+                clock,
+                providers,
+                refunds,
+                reviews,
+                directGuard,
+                directPaymentEnabled,
+                null);
+    }
+
+    PaymentTransactions(
+            FinancialStore store,
+            ApplicationEventPublisher events,
+            Clock clock,
+            ProviderRegistry providers,
+            sn.groupia.payment.domain.repository.RefundStore refunds,
+            sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
+            ObjectProvider<DirectPaymentClaimGuard> directGuard,
+            @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
+                    boolean directPaymentEnabled,
+            sn.groupia.payment.domain.repository.PaymentQuoteStore quotes) {
+        this(
+                store,
+                events,
+                clock,
+                providers,
+                refunds,
+                reviews,
+                directGuard,
+                directPaymentEnabled,
+                quotes,
+                null);
+    }
+
     @Autowired
     PaymentTransactions(
             FinancialStore store,
@@ -49,7 +100,11 @@ public class PaymentTransactions {
             sn.groupia.payment.domain.repository.PaymentReviewStore reviews,
             ObjectProvider<DirectPaymentClaimGuard> directGuard,
             @Value("${groupia.direct-sales.payment-initiation.enabled:false}")
-                    boolean directPaymentEnabled) {
+                    boolean directPaymentEnabled,
+            sn.groupia.payment.domain.repository.PaymentQuoteStore quotes,
+            ObjectProvider<OrderPaymentClaimGuard> orderGuard) {
+        this.orderGuard = orderGuard;
+        this.quotes = quotes;
         this.store = store;
         this.events = events;
         this.clock = clock;
@@ -130,7 +185,7 @@ public class PaymentTransactions {
             // Provider calls remain outside this transactional claim.
             if (!directPaymentEnabled
                     || directGuard == null
-                    || !"BICTORYS".equals(provider)
+                    || !("BICTORYS".equals(provider) || "SASPAY".equals(provider))
                     || request.getPurpose() != PaymentPurpose.DIRECT_ORDER_INITIAL
                     || recoveryTokenHash == null
                     || !recoveryTokenHash.matches("[0-9a-f]{64}")) {
@@ -146,14 +201,38 @@ public class PaymentTransactions {
                         "DIRECT_PAYMENT_NOT_ENABLED",
                         "Le paiement des commandes directes n'est pas encore disponible.");
             }
+            String requestedEmail = context == null ? null : context.requestedPayerEmail();
+            // Guard compares server-originated snapshots only. The supplemental email
+            // is applied strictly AFTER authorization of the capability and order.
+            var guardContext = context == null ? null : context.withPayerEmail(null);
             context =
                     guard.authorize(
                             org,
                             request.getTarget().id(),
                             request.getId(),
                             request.getExpectedAmount(),
-                            context,
+                            guardContext,
                             recoveryTokenHash);
+            // Guard authenticated the private token, snapshots and amount first.
+            // Only the payer contact email may be supplemented for SasPay; the
+            // immutable order amount, identity and shipping details are untouched.
+            if ("SASPAY".equals(provider) && requestedEmail != null) {
+                String normalized = requestedEmail.strip();
+                if (normalized.length() > 254
+                        || !normalized.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+                    throw new ApiException(
+                            409,
+                            "SASPAY_HOSTED_CONTACT_REQUIRED",
+                            "Adresse e-mail de paiement invalide.");
+                context = context.withAuthorizedPayerEmail(normalized);
+            }
+        }
+        boolean orderPayable = true;
+        if (request.getTarget().type() == PaymentTargetType.ORDER && orderGuard != null) {
+            var guard = orderGuard.getIfAvailable();
+            if (guard == null) throw new IllegalStateException("Missing commercial payment guard");
+            orderPayable =
+                    guard.lockAndCanInitiate(org, request.getTarget().id(), request.getPurpose());
         }
         List<PaymentObligationView> shippingStates = List.of();
         if (request.getPurpose() == PaymentPurpose.SHIPPING_BALANCE) {
@@ -170,8 +249,17 @@ public class PaymentTransactions {
                         "PAYMENT_INITIATION_CONFLICT",
                         "Cette clé désigne une autre initiation.");
             }
+            if (!Objects.equals(
+                    payment.getFeeQuoteId(), context == null ? null : context.feeQuoteId()))
+                throw new ApiException(
+                        409, "PAYMENT_INITIATION_CONFLICT", "Cette clé désigne un autre devis.");
             return new Claim(false, payment.instruction(request), payment.view());
         }
+        if (!orderPayable)
+            throw new ApiException(
+                    409,
+                    "ORDER_NOT_PAYABLE",
+                    "La commande ou le groupage est annulé et ne permet plus un nouveau paiement.");
         UUID target = request.getId();
         if (shippingStates.stream()
                 .anyMatch(s -> !s.request().id().equals(target) && s.paymentInProgress())) {
@@ -186,6 +274,58 @@ public class PaymentTransactions {
                     409,
                     "PAYMENT_INITIATION_CONFLICT",
                     "Une tentative est déjà en cours ou doit être réconciliée.");
+        }
+        if ("SASPAY".equals(provider) && legacySoftpayTests) {
+            if (context == null || context.feeQuoteId() == null)
+                throw new ApiException(
+                        409,
+                        "PAYMENT_QUOTE_REQUIRED",
+                        "Devis Softpay historique requis pour le test.");
+            var q =
+                    quotes.find(context.feeQuoteId())
+                            .orElseThrow(
+                                    () ->
+                                            new ApiException(
+                                                    409,
+                                                    "PAYMENT_QUOTE_REQUIRED",
+                                                    "Devis test introuvable."));
+            if (!q.organizationId().equals(org)
+                    || !q.requestId().equals(requestId)
+                    || !q.provider().equals(provider)
+                    || !q.account().equals(account)
+                    || q.amount().compareTo(request.getExpectedAmount()) != 0
+                    || !q.currency().equals(request.getCurrency())
+                    || !clock.instant().isBefore(q.expiresAt())
+                    || request.view().feeAmount().signum() != 0)
+                throw new ApiException(409, "PAYMENT_QUOTE_INVALID", "Devis test incompatible.");
+        } else if ("SASPAY".equals(provider)) {
+            // Hosted checkout replaces client-selected network quotes completely.
+            // SasPay calculates ADD_ON fees on its own payment page; Groupia
+            // verifies the exact net and charged amount after settlement.
+            if (context == null
+                    || context.feeQuoteId() != null
+                    || context.customerName() == null
+                    || context.customerName().isBlank()
+                    || context.email() == null
+                    || !context.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
+                    || request.view().feeAmount().signum() != 0
+                    || !(((request.getPurpose() == PaymentPurpose.INITIAL_ORDER
+                                            || request.getPurpose()
+                                                    == PaymentPurpose.SHIPPING_BALANCE)
+                                    && request.getTarget().type() == PaymentTargetType.ORDER)
+                            || (request.getPurpose() == PaymentPurpose.SUBSCRIPTION_MONTHLY
+                                    && request.getTarget().type()
+                                            == PaymentTargetType.SUBSCRIPTION_INVOICE)
+                            || (request.getPurpose() == PaymentPurpose.DIRECT_ORDER_INITIAL
+                                    && request.getTarget().type()
+                                            == PaymentTargetType.DIRECT_ORDER)))
+                throw new ApiException(
+                        409,
+                        "SASPAY_HOSTED_CHECKOUT_NOT_ELIGIBLE",
+                        "Coordonnées ou commande incompatibles avec le checkout sécurisé.");
+        } else if (context != null && context.feeQuoteId() != null) {
+            throw new ApiException(
+                    409, "PAYMENT_QUOTE_INVALID", "Devis non autorisé pour ce fournisseur.");
         }
         var payment = Payment.create(request, provider, account, key, clock.instant());
         payment.checkoutContext(context);
@@ -237,18 +377,24 @@ public class PaymentTransactions {
                 && observation.metadata() != null
                 && observation.metadata().chargeId() != null
                 && observation.providerTransactionId() == null
-                && observation.status() == PaymentStatus.PENDING) {
+                && (observation.status() == PaymentStatus.PENDING
+                        || observation.status() == PaymentStatus.CANCELLED
+                        || observation.status() == PaymentStatus.EXPIRED)) {
             String invalid = validate(request, payment, observation, true);
             if (invalid != null) {
                 payment.review(invalid);
             } else if (payment.getStatus() != PaymentStatus.SUCCEEDED
                     && !"PROVIDER_REVERSAL".equals(payment.getReconciliationReason())) {
                 // A webhook may have committed before this acknowledgement returned.
-                if (payment.getStatus() == PaymentStatus.CREATED
+                if ((payment.getStatus() == PaymentStatus.CREATED
+                                || (payment.getStatus() == PaymentStatus.PENDING
+                                        && observation.status() != PaymentStatus.PENDING))
                         && payment.getProviderTransactionId() == null) {
                     payment.apply(observation, clock.instant());
                 }
                 payment.checkoutDetails(observation.metadata());
+                payment.restoreHostedCheckoutUrlReview(observation.metadata());
+                payment.checked(clock.instant());
                 if (observation.metadata().reviewReason() != null) {
                     payment.review(observation.metadata().reviewReason().name());
                 }
@@ -536,10 +682,15 @@ public class PaymentTransactions {
 
     private Optional<Payment> resolved(PaymentWebhookEvent e) {
         var o = e.getObservation();
-        if (o == null || o.merchantReference() == null) {
-            return Optional.empty();
-        }
-        return store.byMerchant(o.merchantReference());
+        if (o == null) return Optional.empty();
+        if ("SASPAY".equals(e.getProvider())
+                && o.merchantReference() == null
+                && o.providerTransactionId() != null)
+            return store.byProviderTransaction(
+                    e.getProvider(), e.getProviderAccountReference(), o.providerTransactionId());
+        return o.merchantReference() == null
+                ? Optional.empty()
+                : store.byMerchant(o.merchantReference());
     }
 
     private boolean matchesReceipt(PaymentWebhookEvent e, Payment p) {
@@ -560,7 +711,8 @@ public class PaymentTransactions {
         }
         var candidate = resolved(e);
         if (candidate.isEmpty()) {
-            e.finish("REVIEW_REQUIRED", "UNKNOWN_REFERENCE", clock.instant());
+            if ("SASPAY".equals(e.getProvider())) e.retry("UNKNOWN_REFERENCE", clock.instant());
+            else e.finish("REVIEW_REQUIRED", "UNKNOWN_REFERENCE", clock.instant());
             return;
         }
         var r = store.lockRequest(candidate.get().getPaymentRequestId());
@@ -620,6 +772,19 @@ public class PaymentTransactions {
                 e.retry("PROVIDER_STATE_UNCERTAIN", clock.instant());
                 return;
             }
+        }
+        if ("SASPAY".equals(e.getProvider())) {
+            // Even a signed FAILED notification cannot reopen a paid obligation: verify first.
+            if (verificationFailed
+                    || verified == null
+                    || !Objects.equals(
+                            raw.providerTransactionId(), verified.providerTransactionId())
+                    || validate(r, p, verified) != null) {
+                p.review("PROVIDER_STATE_UNCERTAIN");
+                e.retry("PROVIDER_STATE_UNCERTAIN", clock.instant());
+                return;
+            }
+            raw = verified;
         }
         String result = apply(r, p, raw, decisionAt);
         e.finish(result == null ? "PROCESSED" : "REVIEW_REQUIRED", result, clock.instant());
@@ -686,6 +851,19 @@ public class PaymentTransactions {
                 p.getConfirmedAt(),
                 r.getExpiresAt(),
                 "PROVIDER_REVERSAL".equals(p.getReconciliationReason()));
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentAttemptRecoveryView latestAttempt(UUID org, UUID id) {
+        scopedRequest(org, id);
+        var attempts = store.attempts(id);
+        if (attempts.isEmpty()) return null;
+        var p = attempts.getLast();
+        var quote =
+                quotes == null
+                        ? null
+                        : quotes.find(p.getFeeQuoteId()).map(q -> q.view()).orElse(null);
+        return new PaymentAttemptRecoveryView(p.getProvider(), p.getFeeQuoteId(), p.view(), quote);
     }
 
     @Transactional(readOnly = true)

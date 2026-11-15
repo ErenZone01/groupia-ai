@@ -4,4 +4,5 @@
 export interface PayoutRequest {
   confirmed?: boolean;
   destinationId: string;
+  feeQuoteId?: string;
 }

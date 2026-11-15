@@ -1,0 +1,666 @@
+package sn.groupia;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.*;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.web.servlet.*;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import sn.groupia.payment.api.*;
+import sn.groupia.payment.api.dto.*;
+import sn.groupia.payment.application.service.CommercialRefundService;
+import sn.groupia.settlement.domain.model.MerchantPayout;
+import sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote;
+import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
+import tools.jackson.databind.*;
+
+/** All transfers in this test use a synthetic provider and isolated PostgreSQL. */
+@org.springframework.test.context.ActiveProfiles("test")
+@SpringBootTest(
+        properties = {
+            "groupia.settlement.payouts.enabled=true",
+            "groupia.settlement.direct-payouts.enabled=true"
+        })
+@AutoConfigureMockMvc
+@Import({
+    TestcontainersConfiguration.class,
+    PaymentTestConfiguration.class,
+    MerchantPayoutTestConfiguration.class
+})
+class UnifiedMerchantPayoutIntegrationTests {
+    @Autowired JdbcTemplate jdbc;
+    @Autowired MerchantFinanceStore feeStore;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @Autowired MockMvc mvc;
+    @Autowired ObjectMapper json;
+    @Autowired JwtEncoder encoder;
+    @Autowired PasswordEncoder passwords;
+    @Autowired MerchantPayoutTestConfiguration.FakeMerchantProvider provider;
+    @MockitoBean PaymentOperations payments;
+    @MockitoSpyBean CommercialRefundService refunds;
+    UUID org, actor, orderId, requestId, paymentId;
+    String jwt;
+
+    @BeforeEach
+    void setup() {
+        jdbc.execute(
+                "TRUNCATE merchant_payout_fee_quote_bindings,merchant_payout_fee_quotes,saspay_company_fee_events,merchant_payout_provider_fees,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,"
+                        + "outgoing_provider_operations,provider_collections,direct_orders,"
+                        + "direct_storefronts,organizations,user_accounts,event_publication CASCADE");
+        provider.reset();
+        actor = UUID.randomUUID();
+        org = UUID.randomUUID();
+        orderId = UUID.randomUUID();
+        requestId = UUID.randomUUID();
+        paymentId = UUID.randomUUID();
+        var storefront = UUID.randomUUID();
+        jdbc.update(
+                "insert into user_accounts(id,phone_number,password_hash,status,created_at,updated_at)"
+                        + " values (?,? ,?,'ACTIVE',now(),now())",
+                actor,
+                "+221771234567",
+                passwords.encode("Unified payout fixture 2026!"));
+        jdbc.update(
+                "insert into organizations(id,name,status,created_at,updated_at)"
+                        + " values (?,'Boutique de test','ACTIVE',now(),now())",
+                org);
+        jdbc.update(
+                "insert into organization_members(id,organization_id,user_account_id,role,status,joined_at)"
+                        + " values (?,?,?,'OWNER','ACTIVE',now())",
+                UUID.randomUUID(),
+                org,
+                actor);
+        jwt = token(actor);
+        jdbc.update(
+                "insert into direct_storefronts(id,organization_id,public_identifier,display_name,"
+                        + "created_at,updated_at) values (?,?,?,'Vitrine de test',now(),now())",
+                storefront,
+                org,
+                UUID.randomUUID());
+        String number =
+                "DIR-"
+                        + String.format(
+                                "%012d",
+                                Math.floorMod(
+                                        orderId.getMostSignificantBits(), 1_000_000_000_000L));
+        jdbc.update(
+                """
+                insert into direct_orders(
+                    id,organization_id,storefront_id,order_number,status,fulfillment_method,
+                    currency,customer_contact_snapshot,goods_subtotal_xof,platform_fee_xof,
+                    platform_fee_rule_snapshot,amount_before_shipping_xof,shipping_quoted,
+                    checkout_idempotency_key,checkout_request_fingerprint,placed_at,
+                    shipping_fee_xof,accepted_total_xof,payment_confirmed_at,
+                    preparing_at,preparing_by,ready_at,ready_by,handed_over_at,completed_at)
+                values (?,?,?,?,'COMPLETED','PICKUP','XOF',
+                    '{"firstName":"Awa","lastName":"Fixture","phoneE164":"+221771234567"}'::jsonb,
+                    20000,0,'{"type":"FIXED","amount":0}'::jsonb,
+                    20000,true,?,repeat('a',64),now()-interval '15 minutes',
+                    0,20000,now()-interval '10 minutes',
+                    now()-interval '9 minutes',?,
+                    now()-interval '8 minutes',?,
+                    now()-interval '7 minutes',now()-interval '6 minutes')
+                """,
+                orderId,
+                org,
+                storefront,
+                number,
+                UUID.randomUUID().toString(),
+                actor,
+                actor);
+        jdbc.update(
+                """
+                insert into provider_collections(
+                    id,organization_id,payment_request_id,payment_id,target_type,target_id,
+                    purpose,provider,provider_account,provider_transaction_id,currency,
+                    principal,seller_principal,platform_fee,confirmed_at)
+                values (?,?,?,?,'DIRECT_ORDER',?,'DIRECT_ORDER_INITIAL',
+                    'SIMULATED','test-merchant',?,'XOF',20000,20000,0,now()-interval '10 minutes')
+                """,
+                requestId,
+                org,
+                requestId,
+                paymentId,
+                orderId,
+                "TX-" + paymentId);
+        var proof = verified(false);
+        when(payments.settlementEvidence(org, requestId)).thenReturn(proof);
+        var obligation =
+                new PaymentRequestView(
+                        requestId,
+                        org,
+                        null,
+                        PaymentPurpose.DIRECT_ORDER_INITIAL,
+                        "DIRECT_ORDER_INITIAL:" + orderId,
+                        new BigDecimal("20000"),
+                        "XOF",
+                        new BigDecimal("20000"),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        AcceptanceStatus.CLOSED,
+                        Instant.now().plusSeconds(1200),
+                        paymentId,
+                        Instant.now().minusSeconds(1200),
+                        Instant.now().minusSeconds(600),
+                        null,
+                        0L,
+                        PaymentTarget.directOrder(orderId));
+        when(payments.requestState(org, requestId))
+                .thenReturn(
+                        new PaymentRequestState(
+                                obligation, PaymentOperationalStatus.SETTLED, false, false));
+    }
+
+    private PaymentSettlementEvidence verified(boolean reversed) {
+        return new PaymentSettlementEvidence(
+                org,
+                requestId,
+                paymentId,
+                PaymentTarget.directOrder(orderId),
+                PaymentPurpose.DIRECT_ORDER_INITIAL,
+                new BigDecimal("20000"),
+                "XOF",
+                AcceptanceStatus.CLOSED,
+                PaymentStatus.SUCCEEDED,
+                "SIMULATED",
+                "test-merchant",
+                "TX-" + paymentId,
+                "GP-" + paymentId,
+                Instant.now().minusSeconds(600),
+                null,
+                reversed);
+    }
+
+    private String base() {
+        return "/api/organizations/" + org;
+    }
+
+    private ResultActions auth(MockHttpServletRequestBuilder request) throws Exception {
+        return mvc.perform(request.header("Authorization", "Bearer " + jwt));
+    }
+
+    private ResultActions auth(MockHttpServletRequestBuilder request, Object body)
+            throws Exception {
+        return auth(
+                request.contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(body)));
+    }
+
+    private JsonNode read(ResultActions action) throws Exception {
+        var result = action.andReturn();
+        if (result.getResponse().getStatus() != 200) {
+            // ApiExceptionHandler intentionally hides internal exceptions from HTTP
+            // clients. Synthetic integration tests must surface the *actual* cause,
+            // otherwise an unexpected financial failure is reported only as HTTP 500.
+            Exception cause = result.getResolvedException();
+            if (cause != null)
+                throw new AssertionError(
+                        "Unexpected payout HTTP status " + result.getResponse().getStatus(), cause);
+        }
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        return json.readTree(result.getResponse().getContentAsString());
+    }
+
+    private UUID destination() throws Exception {
+        return UUID.fromString(
+                read(auth(
+                                put(base() + "/payout-destination"),
+                                Map.of(
+                                        "method",
+                                        "WAVE",
+                                        "phoneE164",
+                                        "+221771234567",
+                                        "holderName",
+                                        "Vendeuse",
+                                        "confirmed",
+                                        true)))
+                        .path("id")
+                        .asText());
+    }
+
+    private ResultActions request(UUID destination, UUID key) throws Exception {
+        return auth(
+                post(base() + "/direct-orders/" + orderId + "/merchant-payouts")
+                        .header("Idempotency-Key", key),
+                Map.of("destinationId", destination, "confirmed", true));
+    }
+
+    @Test
+    void saspayCompanyFeeBudgetIsFundedSeparatelyAndCannotBeOverspent() throws Exception {
+        UUID dest = destination();
+        UUID payoutId = UUID.randomUUID();
+        String account = UUID.randomUUID().toString();
+        jdbc.update(
+                """
+                insert into merchant_payouts
+                (id,organization_id,direct_order_id,amount,currency,status,destination_id,
+                 method,phone_e164,holder_name,provider,provider_account_reference,
+                 business_reference,provider_idempotency_key,requested_by,requested_at,
+                 reconciliation_required,reconciliation_reason)
+                values (?,?,?,1000,'XOF','CREATED',?,'WAVE','+221771234567',
+                        'Vendeuse pilote','SASPAY',?,?,?, ?,now(),true,'AWAITING_DISPATCH')
+                """,
+                payoutId,
+                org,
+                orderId,
+                dest,
+                account,
+                "MERCHANT_PAYOUT:" + org + ":" + UUID.randomUUID(),
+                UUID.randomUUID(),
+                actor);
+        var tx =
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        BigDecimal ceiling = new BigDecimal("80.00");
+        // No funding means no payout reservation, even when sellers have funds.
+        assertThatThrownBy(
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.reserveCompanyFee(
+                                                        account, payoutId, ceiling)))
+                .hasMessage("SASPAY_COMPANY_FEE_BUDGET_UNFUNDED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from saspay_company_fee_events where payout_id=?",
+                                Integer.class,
+                                payoutId))
+                .isZero();
+
+        // Only a separately verified, company-owned funding source may credit this
+        // ledger. This synthetic credit exists in isolated Testcontainers only.
+        jdbc.update(
+                """
+                insert into saspay_company_fee_events
+                (id,provider_account_reference,event_type,funding_reference,amount_xof)
+                values (?,?,'FUNDING',?,100)
+                """,
+                UUID.randomUUID(),
+                account,
+                "test-company-funding-" + UUID.randomUUID());
+        tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling));
+        tx.executeWithoutResult(s -> feeStore.reserveCompanyFee(account, payoutId, ceiling));
+        assertThatThrownBy(
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.reserveCompanyFee(
+                                                        account, payoutId, new BigDecimal("81"))))
+                .hasMessage("SASPAY_COMPANY_FEE_RESERVATION_CONFLICT");
+        assertThatThrownBy(
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.settleCompanyFee(
+                                                        account, payoutId, new BigDecimal("81"))))
+                .hasMessage("SASPAY_COMPANY_FEE_OVER_BUDGET");
+        tx.executeWithoutResult(
+                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("50")));
+        tx.executeWithoutResult(
+                s -> feeStore.settleCompanyFee(account, payoutId, new BigDecimal("50")));
+        assertThatThrownBy(
+                        () ->
+                                tx.executeWithoutResult(
+                                        s ->
+                                                feeStore.settleCompanyFee(
+                                                        account, payoutId, new BigDecimal("51"))))
+                .hasMessage("SASPAY_COMPANY_FEE_SETTLEMENT_CONFLICT");
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from saspay_company_fee_events where provider_account_reference=?",
+                                Integer.class,
+                                account))
+                .isEqualTo(3);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select sum(amount_xof) from saspay_company_fee_events where provider_account_reference=? and event_type='SETTLE'",
+                                BigDecimal.class,
+                                account))
+                .isEqualByComparingTo("50");
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "update saspay_company_fee_events set amount_xof=999 where provider_account_reference=?",
+                                        account))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select seller_principal from provider_collections where organization_id=?",
+                                BigDecimal.class,
+                                org))
+                .isEqualByComparingTo("20000");
+    }
+
+    @Test
+    void providerFeeEvidenceIsImmutableAndNeverDebitsSellerPrincipal() throws Exception {
+        UUID destination = destination();
+        UUID payoutId =
+                UUID.fromString(read(request(destination, UUID.randomUUID())).path("id").asText());
+
+        var principal = new BigDecimal("20000");
+        var fee = new BigDecimal("52.00");
+        feeStore.recordProviderFee(payoutId, principal, fee);
+        // Identical proofs are idempotent, but altered proofs may not rewrite history.
+        feeStore.recordProviderFee(payoutId, principal, fee);
+        assertThatThrownBy(
+                        () ->
+                                feeStore.recordProviderFee(
+                                        payoutId, principal, new BigDecimal("53.00")))
+                .hasMessage("PAYOUT_FEE_EVIDENCE_CONFLICT");
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select provider_fee_xof from merchant_payout_provider_fees where payout_id=?",
+                                BigDecimal.class,
+                                payoutId))
+                .isEqualByComparingTo("52");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select wallet_debited_xof from merchant_payout_provider_fees where payout_id=?",
+                                BigDecimal.class,
+                                payoutId))
+                .isEqualByComparingTo("20052");
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "update merchant_payout_provider_fees set provider_fee_xof=53 where payout_id=?",
+                                        payoutId))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select seller_principal from provider_collections where organization_id=?",
+                                BigDecimal.class,
+                                org))
+                .isEqualByComparingTo("20000");
+    }
+
+    @Test
+    void sellerPaidQuoteIsBoundToOneDestinationAndProofRecordsNetNotCompanyFees() throws Exception {
+        UUID destinationId = destination();
+        UUID payoutId = UUID.randomUUID();
+        String account = UUID.randomUUID().toString();
+        var p =
+                new MerchantPayout(
+                        payoutId,
+                        org,
+                        null,
+                        new BigDecimal("20000"),
+                        "XOF",
+                        "CREATED",
+                        destinationId,
+                        "WAVE",
+                        "+221771234567",
+                        "Vendeuse pilote",
+                        "SASPAY",
+                        account,
+                        "MERCHANT_PAYOUT:" + org + ":" + UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        null,
+                        actor,
+                        Instant.now(),
+                        null,
+                        null,
+                        true,
+                        "AWAITING_DISPATCH",
+                        0,
+                        orderId);
+        var q =
+                new MerchantPayoutFeeQuote(
+                        UUID.randomUUID(),
+                        org,
+                        null,
+                        orderId,
+                        destinationId,
+                        "WAVE",
+                        "+221771234567",
+                        "SASPAY",
+                        account,
+                        p.amount(),
+                        new BigDecimal("150"),
+                        new BigDecimal("19850"),
+                        Instant.now()
+                                .plusSeconds(180)
+                                .truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        feeStore.createFeeQuote(q);
+        feeStore.create(p);
+        feeStore.bindFeeQuote(q, p);
+        assertThat(feeStore.payoutFeeQuote(p.id()).netAmount()).isEqualByComparingTo("19850");
+        assertThatThrownBy(() -> feeStore.bindFeeQuote(q, p))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        feeStore.recordDeductedProviderFee(p.id(), p.amount(), q.providerFee());
+        feeStore.recordDeductedProviderFee(p.id(), p.amount(), q.providerFee());
+        assertThatThrownBy(
+                        () ->
+                                feeStore.recordDeductedProviderFee(
+                                        p.id(), p.amount(), new BigDecimal("151")))
+                .hasMessage("PAYOUT_FEE_EVIDENCE_CONFLICT");
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select fee_charge_mode from merchant_payout_provider_fees where payout_id=?",
+                                String.class,
+                                payoutId))
+                .isEqualTo("DEDUCTED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select wallet_debited_xof from merchant_payout_provider_fees where payout_id=?",
+                                BigDecimal.class,
+                                payoutId))
+                .isEqualByComparingTo("20000");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select net_amount_xof from merchant_payout_provider_fees where payout_id=?",
+                                BigDecimal.class,
+                                payoutId))
+                .isEqualByComparingTo("19850");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from saspay_company_fee_events where payout_id=?",
+                                Integer.class,
+                                payoutId))
+                .isZero();
+    }
+
+    @Test
+    void completedDirectSaleUsesSamePayoutEngineAndDebitsOnlyOnce() throws Exception {
+        var before = read(auth(get(base() + "/merchant-balance")));
+        assertThat(before.path("directOrders").size()).isEqualTo(1);
+        assertThat(before.path("directOrders").get(0).path("availableForPayout").decimalValue())
+                .isEqualByComparingTo("20000");
+        assertThat(before.path("availableForPayout").decimalValue()).isEqualByComparingTo("20000");
+        UUID dest = destination(), key = UUID.randomUUID();
+        var first = read(request(dest, key));
+        var replay = read(request(dest, key));
+        assertThat(replay.path("id").asText()).isEqualTo(first.path("id").asText());
+        assertThat(first.path("campaignId").isNull() || first.path("campaignId").isMissingNode())
+                .isTrue();
+        assertThat(first.path("directOrderId").asText()).isEqualTo(orderId.toString());
+        assertThat(provider.sends).hasValue(1);
+        // The payout operator is intentionally different from the funding PSP.
+        assertThat(provider.sent.provider()).isEqualTo("SIMULATED_MERCHANT");
+        assertThat(provider.sent.providerAccountReference()).isEqualTo("fixture");
+        assertThat(provider.fundingProvider()).isEqualTo("SIMULATED");
+        assertThat(provider.fundingAccount()).isEqualTo("test-merchant");
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("directOrders")
+                                .get(0)
+                                .path("availableForPayout")
+                                .decimalValue())
+                .isZero();
+        UUID payout = UUID.fromString(first.path("id").asText());
+        read(auth(post(base() + "/merchant-payouts/" + payout + "/reconcile")));
+        read(auth(post(base() + "/merchant-payouts/" + payout + "/reconcile")));
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("directOrders")
+                                .get(0)
+                                .path("merchantPayouts")
+                                .decimalValue())
+                .isEqualByComparingTo("20000");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payouts where organization_id=? and direct_order_id=?",
+                                Long.class,
+                                org,
+                                orderId))
+                .isEqualTo(1L);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_ledger_entries where organization_id=?",
+                                Long.class,
+                                org))
+                .isZero();
+        assertThat(provider.sends).hasValue(1);
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+    }
+
+    @Test
+    void previouslySucceededDirectPayoutFromAnotherAdapterCannotBeSpentAgain() throws Exception {
+        UUID dest = destination();
+        UUID previous = UUID.randomUUID();
+        jdbc.update(
+                """
+                insert into merchant_payouts(
+                    id,organization_id,campaign_id,direct_order_id,amount,currency,
+                    status,destination_id,method,phone_e164,holder_name,
+                    provider,provider_account_reference,business_reference,
+                    provider_idempotency_key,provider_transaction_id,requested_by,
+                    requested_at,provider_occurred_at,succeeded_at,
+                    reconciliation_required,reconciliation_reason)
+                values (?, ?, null, ?, 20000, 'XOF', 'SUCCEEDED', ?,
+                    'WAVE', '+221771234567', 'Vendeuse',
+                    'LEGACY_TRANSFER', 'previous-adapter', ?, ?, ?, ?,
+                    now() - interval '15 minutes',
+                    now() - interval '10 minutes',
+                    now() - interval '10 minutes', false, null)
+                """,
+                previous,
+                org,
+                orderId,
+                dest,
+                "MERCHANT_PAYOUT:" + org + ":" + previous,
+                UUID.randomUUID(),
+                "LEGACY-" + previous,
+                actor);
+        var position = read(auth(get(base() + "/merchant-balance"))).path("directOrders").get(0);
+        assertThat(position.path("merchantPayouts").decimalValue()).isEqualByComparingTo("20000");
+        assertThat(position.path("availableForPayout").decimalValue()).isZero();
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
+    }
+
+    @Test
+    void pendingUncertainPayoutReservesDirectFundsAndCannotBeResent() throws Exception {
+        UUID dest = destination(), key = UUID.randomUUID();
+        provider.timeout = true;
+        var first = read(request(dest, key));
+        assertThat(first.path("reconciliationRequired").asBoolean()).isTrue();
+        read(request(dest, key));
+        assertThat(provider.sends).hasValue(1);
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        assertThat(
+                        read(auth(get(base() + "/merchant-balance")))
+                                .path("directOrders")
+                                .get(0)
+                                .path("reservedForPayout")
+                                .decimalValue())
+                .isEqualByComparingTo("20000");
+        assertThat(provider.sends).hasValue(1);
+    }
+
+    @Test
+    void directFundsMustBeCompletedVerifiedAndOnSameSourceAccount() throws Exception {
+        UUID dest = destination();
+        jdbc.update(
+                "update direct_orders set status='PICKED_UP',completed_at=null where id=?",
+                orderId);
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        jdbc.update(
+                "update direct_orders set status='COMPLETED',completed_at=now() where id=?",
+                orderId);
+        when(payments.settlementEvidence(org, requestId)).thenReturn(verified(true));
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        when(payments.settlementEvidence(org, requestId)).thenReturn(verified(false));
+        provider.sourceAccount = "wrong-wallet";
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
+        auth(get("/api/organizations/" + UUID.randomUUID() + "/merchant-balance"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pendingCommercialRefundBlocksDirectPayoutEvenWhenOrderStillLooksCompleted()
+            throws Exception {
+        UUID dest = destination();
+        doReturn(
+                        new CommercialRefunds.CaseView(
+                                UUID.randomUUID(),
+                                PaymentTarget.directOrder(orderId),
+                                "REFUND_DUE",
+                                "XOF",
+                                new BigDecimal("20000"),
+                                BigDecimal.ZERO,
+                                new BigDecimal("20000"),
+                                BigDecimal.ZERO,
+                                "Annulation concurrente",
+                                Instant.now(),
+                                null,
+                                null,
+                                null,
+                                0L))
+                .when(refunds)
+                .find(org, PaymentTarget.directOrder(orderId));
+        request(dest, UUID.randomUUID()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
+    }
+
+    @Test
+    void cannotReuseDirectPayoutIdempotencyKeyForCampaignPath() throws Exception {
+        UUID dest = destination(), key = UUID.randomUUID();
+        read(request(dest, key));
+        // The key represents one immutable source, not a reusable payout authorization.
+        auth(
+                        post(base()
+                                        + "/grouping-campaigns/"
+                                        + UUID.randomUUID()
+                                        + "/merchant-payouts")
+                                .header("Idempotency-Key", key),
+                        Map.of("destinationId", dest, "confirmed", true))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("PAYOUT_IDEMPOTENCY_CONFLICT"));
+        assertThat(provider.sends).hasValue(1);
+    }
+
+    private String token(UUID id) {
+        var claims =
+                JwtClaimsSet.builder()
+                        .claim("sid", UUID.randomUUID().toString())
+                        .issuer("https://groupia.test")
+                        .audience(List.of("groupia-api-test"))
+                        .subject(id.toString())
+                        .issuedAt(Instant.now())
+                        .expiresAt(Instant.now().plusSeconds(1800))
+                        .build();
+        return encoder.encode(
+                        JwtEncoderParameters.from(
+                                JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                .getTokenValue();
+    }
+}

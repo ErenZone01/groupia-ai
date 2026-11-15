@@ -10,7 +10,7 @@ export const orderTrackingInterceptor: HttpInterceptorFn = (req, next) => {
   const allowed =
     url.origin === origin &&
     (url.pathname === '/api/public/orders/track' ||
-      /^\/api\/public\/orders\/[^/]+\/payments$/.test(url.pathname));
+      /^\/api\/public\/orders\/[^/]+\/(?:payments|payment-quotes)$/.test(url.pathname));
   return next(
     token && allowed ? req.clone({ setHeaders: { 'X-Order-Tracking-Token': token } }) : req,
   );

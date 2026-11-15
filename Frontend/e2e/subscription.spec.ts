@@ -47,6 +47,8 @@ async function billing(page: Page, status = 'TRIALING', manage = true) {
     manage,
     posts: [] as { path: string; body: unknown; key: string }[],
     lose: false,
+    providers: ['BICTORYS'],
+    push: false,
   };
   const preview = {
     amount: 10000,
@@ -83,8 +85,27 @@ async function billing(page: Page, status = 'TRIALING', manage = true) {
         json: r.method() === 'POST' ? state.invoice : state.invoice ? [state.invoice] : [],
       });
     }
+    if (path.endsWith('/payment-quotes'))
+      throw new Error('Hosted SasPay must not request obsolete operator fee quotes');
     if (path.endsWith('/payment')) {
       state.invoice = { ...state.invoice, canPay: false, attemptInProgress: true };
+      if (r.postDataJSON()?.provider === 'SASPAY') {
+        const attempt = {
+          id: 'attempt',
+          status: 'PENDING',
+          checkoutUrl: state.push ? null : 'https://pay.saspay.me/fixture',
+        };
+        state.invoice = {
+          ...state.invoice,
+          latestAttempt: {
+            provider: 'SASPAY',
+            quote: null,
+            attempt,
+          },
+        };
+        if (state.lose) return route.abort('failed');
+        return route.fulfill({ json: attempt });
+      }
       if (state.lose) return route.abort('failed');
       return route.fulfill({
         json: {
@@ -104,6 +125,7 @@ async function billing(page: Page, status = 'TRIALING', manage = true) {
         },
         canManageSubscription: state.manage,
         billingProviderAvailable: true,
+        availableProviders: state.providers,
         planConfigured: true,
         billingContact: { name: 'Titulaire', phoneE164: '+221771234567' },
       },
@@ -216,4 +238,55 @@ test('changement de boutique efface les coordonnées précédentes', async ({ pa
   await page.goto('/app/abonnement');
   await expect(page.getByRole('textbox', { name: 'Nom du titulaire' })).toHaveCount(0);
   expect(shopId).not.toBe(other);
+});
+
+test('SasPay abonnement hébergé : frais annoncés, reprise après perte de réponse et preuve serveur', async ({
+  page,
+}) => {
+  const state = await billing(page, 'PAST_DUE');
+  state.providers = ['SASPAY'];
+  state.lose = true;
+  await page.goto('/app/abonnement');
+  await expect(page.getByText(/Des frais supplémentaires peuvent être appliqués/)).toBeVisible();
+  const pay = page.getByRole('button', { name: "Payer l'abonnement avec SasPay" });
+  await expect(pay).toBeEnabled();
+  expect(state.posts.filter((p) => p.path.endsWith('/payment'))).toHaveLength(0);
+  await pay.click();
+  await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toHaveAttribute(
+    'href',
+    'https://pay.saspay.me/fixture',
+  );
+  await page.reload();
+  await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toBeVisible();
+  await expect(page.getByText('Montant accepté', { exact: false })).toHaveCount(0);
+  const payments = state.posts.filter((p) => p.path.endsWith('/payment'));
+  expect(payments).toHaveLength(1);
+  expect(payments[0].body).toEqual({ provider: 'SASPAY' });
+  await expect(page.getByText('À renouveler', { exact: true })).toBeVisible();
+  state.invoice = {
+    ...state.invoice,
+    status: 'PAID',
+    paymentStatus: 'SETTLED',
+    attemptInProgress: false,
+  };
+  state.status = 'ACTIVE';
+  await page.getByRole('button', { name: 'Vérifier le paiement' }).click();
+  await expect(page.getByText('Actif', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toHaveCount(0);
+  expect(state.posts.filter((p) => p.path.endsWith('/payment'))).toHaveLength(1);
+  await noOverflow(page);
+});
+
+test('SasPay abonnement sans URL reste en attente et ne suppose pas une confirmation', async ({ page }) => {
+  const state = await billing(page);
+  state.providers = ['SASPAY'];
+  state.push = true;
+  await page.goto('/app/abonnement');
+  await page.getByRole('button', { name: "Payer l'abonnement avec SasPay" }).click();
+  await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+  await expect(page.getByText('Confirmez la demande sur votre téléphone', { exact: false }))
+    .toHaveCount(0);
+  expect(state.posts.filter((p) => p.path.endsWith('/payment'))).toHaveLength(1);
+  await expect(page.getByRole('link', { name: 'Ouvrir le paiement sécurisé' })).toHaveCount(0);
+  await expect(page.getByText('Essai gratuit', { exact: true })).toBeVisible();
 });

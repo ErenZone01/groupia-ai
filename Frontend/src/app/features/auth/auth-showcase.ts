@@ -11,9 +11,9 @@ const slides = [
     label: 'Organisez vos groupages',
   },
   {
-    kicker: 'Vente directe · À venir',
-    title: 'Vos produits, bientôt en vente directe.',
-    description: 'Un parcours dédié aux achats immédiats est prévu, en complément des campagnes de groupage.',
+    kicker: 'Vente directe',
+    title: 'Vos produits, en vente directe.',
+    description: 'Publiez vos articles et suivez les achats de vos clientes, du règlement à la remise.',
     icon: 'store',
     label: 'Vente directe',
   },

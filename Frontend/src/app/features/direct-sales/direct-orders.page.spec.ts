@@ -35,18 +35,25 @@ describe('Vente directe : actions de la gérante', () => {
     cancel: ReturnType<typeof vi.fn>;
     startPreparation: ReturnType<typeof vi.fn>;
     markReady: ReturnType<typeof vi.fn>;
+    fulfill: ReturnType<typeof vi.fn>;
+    fulfillmentHistory: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
+    sessionStorage.clear();
     organization.set('org-a');
     generation.set(1);
     status = 'PENDING_PAYMENT_INTEGRATION';
     financial = 'NOT_PREPARED';
     api = {
       list: vi.fn(async () => ({
-        items: [order(status)], total: 1, page: 0, size: 20,
+        items: [order(status)],
+        total: 1,
+        page: 0,
+        size: 20,
       })),
       get: vi.fn(async () => ({
+        version: 3,
         order: order(status),
         contact: { firstName: 'Awa', lastName: 'Diop', phoneE164: '+221771234567', email: null },
         deliveryAddress: null,
@@ -59,14 +66,28 @@ describe('Vente directe : actions de la gérante', () => {
         financialStatus: financial,
         fulfillmentAllowed: false,
       })),
-      cancel: vi.fn(async () => { status = 'CANCELLED'; return { status }; }),
-      startPreparation: vi.fn(async () => { status = 'PREPARING'; return { status }; }),
-      markReady: vi.fn(async () => { status = 'READY_FOR_PICKUP'; return { status }; }),
+      cancel: vi.fn(async () => {
+        status = 'CANCELLED';
+        return { status };
+      }),
+      startPreparation: vi.fn(async () => {
+        status = 'PREPARING';
+        return { status };
+      }),
+      markReady: vi.fn(async () => {
+        status = 'READY_FOR_PICKUP';
+        return { status };
+      }),
+      fulfill: vi.fn(async (_org, _id, action) => {
+        status = action === 'PICKUP' ? 'PICKED_UP' : 'COMPLETED';
+        return { toStatus: status };
+      }),
+      fulfillmentHistory: vi.fn(async () => []),
     };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: AuthService, useValue: { generation } },
+        { provide: AuthService, useValue: { generation, commandScope: () => 'fixture-session' } },
         { provide: BoutiqueContextService, useValue: { selectedId: organization } },
         { provide: DirectOrdersApi, useValue: api },
       ],
@@ -80,6 +101,52 @@ describe('Vente directe : actions de la gérante', () => {
     return page;
   }
 
+  it('la remise exige une confirmation et la version serveur, puis relit le règlement', async () => {
+    status = 'READY_FOR_PICKUP';
+    financial = 'SETTLEMENT_VERIFIED';
+    const page = await pageForCurrentOrder();
+    expect(page.nextHandoff()).toBe('pickup');
+    await page.act('pickup');
+    expect(api.fulfill).not.toHaveBeenCalled();
+    page.confirmFulfillment.set(true);
+    await page.act('pickup');
+    expect(api.fulfill).toHaveBeenCalledWith(
+      'org-a',
+      'order-1',
+      'PICKUP',
+      3,
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
+    );
+    expect(page.detail()?.order.status).toBe('PICKED_UP');
+    expect(page.nextHandoff()).toBe('complete');
+    expect(page.confirmFulfillment()).toBe(false);
+    expect(api.paymentStatus).toHaveBeenCalledTimes(2);
+  });
+  it('un règlement litigieux interdit toute remise même après consentement', async () => {
+    status = 'READY_FOR_PICKUP';
+    financial = 'REVIEW_REQUIRED';
+    const page = await pageForCurrentOrder();
+    page.confirmFulfillment.set(true);
+    await page.act('pickup');
+    expect(page.nextHandoff()).toBeNull();
+    expect(api.fulfill).not.toHaveBeenCalled();
+  });
+  it('une réponse perdue ne clôture pas localement et conserve la clé de reprise', async () => {
+    status = 'PICKED_UP';
+    financial = 'SETTLEMENT_VERIFIED';
+    const page = await pageForCurrentOrder();
+    api.fulfill.mockRejectedValueOnce(new Error('lost response'));
+    page.confirmFulfillment.set(true);
+    await page.act('complete');
+    const key = api.fulfill.mock.calls[0][4];
+    expect(page.detail()?.order.status).toBe('PICKED_UP');
+    expect(page.nextHandoff()).toBeNull();
+    await page.open(order(status));
+    page.confirmFulfillment.set(true);
+    await page.act('complete');
+    expect(api.fulfill.mock.calls[1][4]).toBe(key);
+    expect(page.detail()?.order.status).toBe('COMPLETED');
+  });
   it('bloque toute préparation si le règlement est en revue', async () => {
     status = 'PAYMENT_CONFIRMED';
     financial = 'REVIEW_REQUIRED';
@@ -131,19 +198,28 @@ describe('Vente directe : actions de la gérante', () => {
 
   it('montre le point GPS sauvegardé à la gérante et génère un lien d’itinéraire sûr', async () => {
     const address = {
-      country: 'SN', region: 'Dakar', city: null, commune: null,
-      neighborhood: null, details: 'Devant la pharmacie',
-      locationMethod: 'MAP' as const, coverageStatus: 'REGION_MATCHED' as const,
-      latitude: 14.6937, longitude: -17.4474,
+      country: 'SN',
+      region: 'Dakar',
+      city: null,
+      commune: null,
+      neighborhood: null,
+      details: 'Devant la pharmacie',
+      locationMethod: 'MAP' as const,
+      coverageStatus: 'REGION_MATCHED' as const,
+      latitude: 14.6937,
+      longitude: -17.4474,
     };
     api.get.mockResolvedValue({
       order: order('PENDING_PAYMENT_INTEGRATION'),
       contact: { firstName: 'Awa', lastName: 'Diop', phoneE164: '+221771234567', email: null },
-      deliveryAddress: address, platformFeeRule: { amount: '300' }, items: [],
+      deliveryAddress: address,
+      platformFeeRule: { amount: '300' },
+      items: [],
     });
     const page = await pageForCurrentOrder();
     expect(page.deliveryPoint(page.detail()?.deliveryAddress ?? null)).toEqual({
-      latitude: 14.6937, longitude: -17.4474,
+      latitude: 14.6937,
+      longitude: -17.4474,
     });
     expect(page.deliveryMapUrl(address)).toContain('mlat=14.693700&mlon=-17.447400');
     expect(page.deliveryDirectionsUrl(address)).toContain('destination=14.693700%2C-17.447400');
@@ -152,16 +228,29 @@ describe('Vente directe : actions de la gérante', () => {
   it('n’invente aucun point exact pour une adresse manuelle ou des coordonnées invalides', async () => {
     const page = await pageForCurrentOrder();
     const manual = {
-      country: 'SN', region: 'Dakar', city: 'Dakar', commune: 'Yoff',
-      neighborhood: null, details: 'Derrière le marché',
-      locationMethod: 'MANUAL' as const, coverageStatus: 'UNVERIFIED_MANUAL' as const,
-      latitude: null, longitude: null,
+      country: 'SN',
+      region: 'Dakar',
+      city: 'Dakar',
+      commune: 'Yoff',
+      neighborhood: null,
+      details: 'Derrière le marché',
+      locationMethod: 'MANUAL' as const,
+      coverageStatus: 'UNVERIFIED_MANUAL' as const,
+      latitude: null,
+      longitude: null,
     };
     expect(page.deliveryPoint(manual)).toBeNull();
     expect(page.deliveryMapUrl(manual)).toBeNull();
     expect(page.deliveryDirectionsUrl(manual)).toBeNull();
-    expect(page.deliveryPoint({ ...manual, locationMethod: 'MAP' as const,
-      coverageStatus: 'REGION_MATCHED' as const, latitude: 200, longitude: -17.5 })).toBeNull();
+    expect(
+      page.deliveryPoint({
+        ...manual,
+        locationMethod: 'MAP' as const,
+        coverageStatus: 'REGION_MATCHED' as const,
+        latitude: 200,
+        longitude: -17.5,
+      }),
+    ).toBeNull();
   });
 
   it('efface les informations confidentielles au changement de boutique', async () => {

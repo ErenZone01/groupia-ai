@@ -39,7 +39,7 @@ const statusLabels: Record<string, string> = {
       @if (details.access; as access) {
         <div class="sections">
           <g-card>
-            <h2>Accès aux nouveaux groupages</h2>
+            <h2>Accès aux nouvelles ventes et aux nouveaux groupages</h2>
             <p class="status">{{ statusLabel(access.status) }}</p>
             @if (access.status === 'TRIALING') {
               <p>Votre essai gratuit se termine le {{ date(access.trialEndsAt) }}.</p>
@@ -48,8 +48,8 @@ const statusLabels: Record<string, string> = {
             } @else {
               <p>
                 Votre abonnement a expiré ou nécessite une vérification. Renouvelez pour un nouveau
-                mois d’accès. Les groupages déjà ouverts et les opérations en cours restent
-                accessibles.
+                mois d’accès. Les commandes, les groupages déjà ouverts et les opérations en cours
+                restent accessibles.
               </p>
             }
             @if (!details.billingProviderAvailable) {
@@ -79,7 +79,11 @@ const statusLabels: Record<string, string> = {
               } @else if (invoice.attemptInProgress) {
                 <p class="notice" role="status">Paiement en attente de confirmation.</p>
               }
-              @if (details.canManageSubscription && invoice.canPay) {
+              @if (
+                details.canManageSubscription &&
+                invoice.canPay &&
+                (details.availableProviders ?? ['BICTORYS']).includes('BICTORYS')
+              ) {
                 <button
                   gButton
                   [disabled]="store.busy() || !details.billingProviderAvailable"
@@ -96,7 +100,10 @@ const statusLabels: Record<string, string> = {
                 </p>
                 <p>{{ money(preview.amount, preview.currency) }}</p>
               }
-              @if (details.canManageSubscription) {
+              @if (
+                details.canManageSubscription &&
+                (details.availableProviders ?? ['BICTORYS']).includes('BICTORYS')
+              ) {
                 <button
                   gButton
                   [disabled]="
@@ -110,6 +117,32 @@ const statusLabels: Record<string, string> = {
                   {{ access.status === 'TRIALING' ? 'Payer maintenant' : 'Payer avec Bictorys' }}
                 </button>
               }
+            }
+            @if (
+              details.renewal?.reminder === 'DUE_SOON' || details.renewal?.reminder === 'OVERDUE'
+            ) {
+              <p class="notice" role="status">
+                Renouvellement à prévoir : {{ date(details.renewal?.dueAt) }}.
+              </p>
+            }
+            @if (
+              details.canManageSubscription &&
+              store.hasProvider('SASPAY') &&
+              !store.futurePaid() &&
+              (!store.currentInvoice() || store.currentInvoice()?.canPay)
+            ) {
+              <button
+                gButton
+                variant="secondary"
+                [disabled]="store.busy() || !!store.currentInvoice()?.reconciliationRequired"
+                (click)="store.pay(undefined, true)"
+              >
+                Payer l'abonnement avec SasPay
+              </button>
+              <p class="help">
+                Choisissez Wave, Orange Money ou un autre moyen disponible sur SasPay.
+                Des frais supplémentaires peuvent être appliqués par le partenaire ou l'opérateur mobile. Vérifiez le montant final dans Wave ou Orange Money avant de confirmer.
+              </p>
             }
             @if (details.canManageSubscription && store.checkoutUrl(); as url) {
               <a gButton [href]="url" target="_blank" rel="noopener noreferrer"
@@ -125,9 +158,8 @@ const statusLabels: Record<string, string> = {
               Vérifier le paiement
             </button>
             <p class="help">
-              Chaque période est payée à votre initiative. Wave et Orange Money sont proposés selon
-              les moyens disponibles sur Bictorys. Seule la confirmation serveur valide le
-              règlement.
+              Renouvellement manuel : chaque période est payée à votre initiative, sans prélèvement
+              automatique. Seule la confirmation serveur valide le règlement.
             </p>
           </g-card>
 
@@ -160,7 +192,7 @@ const statusLabels: Record<string, string> = {
                   />
                 </label>
                 <label>
-                  Courriel <span>(facultatif)</span>
+                  Courriel <span>(nécessaire avec SasPay, ainsi que le prénom et le nom)</span>
                   <input
                     gInput
                     name="email"
@@ -183,6 +215,26 @@ const statusLabels: Record<string, string> = {
           </g-card>
 
           <g-card>
+            <h2>Factures</h2>
+            @for (invoice of store.invoices(); track invoice.id) {
+              <article>
+                <p>
+                  {{ date(invoice.periodStart) }} → {{ date(invoice.periodEnd) }} ·
+                  {{ money(invoice.amount, invoice.currency) }}
+                </p>
+                <p>
+                  {{
+                    invoice.status === 'PAID'
+                      ? 'Payée'
+                      : invoice.status === 'EXPIRED'
+                        ? 'Expirée'
+                        : 'À régler'
+                  }}
+                </p>
+              </article>
+            } @empty {
+              <p>Aucune facture émise.</p>
+            }
             <h2>Historique des paiements</h2>
             @for (period of store.history(); track period.periodStart) {
               <article>

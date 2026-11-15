@@ -1,6 +1,7 @@
 package sn.groupia.payment.application.service;
 
 import java.util.*;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import sn.groupia.payment.api.*;
@@ -15,6 +16,11 @@ public class PaymentService implements PaymentOperations {
     PaymentService(PaymentTransactions transactions, ProviderRegistry providers) {
         this.transactions = transactions;
         this.providers = providers;
+    }
+
+    @Override
+    public PaymentAttemptRecoveryView latestAttempt(UUID org, UUID request) {
+        return transactions.latestAttempt(org, request);
     }
 
     @Override
@@ -110,7 +116,29 @@ public class PaymentService implements PaymentOperations {
             String key,
             String recoveryTokenHash,
             PaymentCheckoutContext context) {
-        return initiateRequestInternal(org, requestId, "BICTORYS", key, context, recoveryTokenHash);
+        return initiateRequestInternal(
+                org,
+                requestId,
+                context != null && context.feeQuoteId() != null ? "SASPAY" : "BICTORYS",
+                key,
+                context,
+                recoveryTokenHash);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiateDirect(
+            UUID org,
+            UUID requestId,
+            String provider,
+            String key,
+            String recoveryTokenHash,
+            PaymentCheckoutContext context) {
+        if (!"SASPAY".equals(provider) && !"BICTORYS".equals(provider)) {
+            throw new sn.groupia.shared.api.ApiException(
+                    409, "PAYMENT_PROVIDER_NOT_ALLOWED", "Prestataire non autorisé.");
+        }
+        return initiateRequestInternal(org, requestId, provider, key, context, recoveryTokenHash);
     }
 
     private PaymentAttemptView initiateRequestInternal(
@@ -121,6 +149,27 @@ public class PaymentService implements PaymentOperations {
             PaymentCheckoutContext context,
             String recoveryTokenHash) {
         var adapter = providers.require(provider);
+        if (!adapter.canQuoteForOrganization(org)) {
+            throw new sn.groupia.shared.api.ApiException(
+                    409,
+                    "SASPAY_PILOT_ORGANIZATION_NOT_ALLOWED",
+                    "Le paiement n'est pas disponible pour cette boutique.");
+        }
+        // Validate static, local PSP settings BEFORE a durable financial claim is
+        // created. A bad return URL / host allowlist cannot create an external
+        // session, so it must not become a fake manual-reconciliation incident.
+        String configurationIssue = adapter.initiationConfigurationIssue();
+        if (configurationIssue != null) {
+            LoggerFactory.getLogger(PaymentService.class)
+                    .warn(
+                            "Payment initiation configuration rejected provider={} reason={}",
+                            adapter.name(),
+                            configurationIssue);
+            throw new sn.groupia.shared.api.ApiException(
+                    503,
+                    "SASPAY_HOSTED_CHECKOUT_CONFIG_INVALID",
+                    "Le paiement sécurisé est temporairement indisponible. Aucune session n'a été créée.");
+        }
         var claim =
                 transactions.claim(
                         org,
@@ -137,6 +186,19 @@ public class PaymentService implements PaymentOperations {
         try {
             result = adapter.initiate(claim.instruction());
         } catch (RuntimeException ex) {
+            // No automatic POST retry: SasPay may have created a real payment.
+            // Only log a code owned by our adapter, not an exception body/PII.
+            String code =
+                    "SASPAY".equals(adapter.name())
+                                    && ex.getMessage() != null
+                                    && ex.getMessage().matches("SASPAY_[A-Z0-9_]{1,100}")
+                            ? ex.getMessage()
+                            : "PROVIDER_INITIATION_UNCERTAIN";
+            LoggerFactory.getLogger(PaymentService.class)
+                    .warn(
+                            "Payment initiation requires reconciliation provider={} reason={}",
+                            adapter.name(),
+                            code);
             return transactions.uncertain(claim.instruction().paymentId());
         }
         if (result != null && result.status() == PaymentStatus.SUCCEEDED) {
@@ -165,6 +227,17 @@ public class PaymentService implements PaymentOperations {
         } catch (RuntimeException ex) {
             return transactions.uncertain(paymentId);
         }
+        // A hosted session can be PENDING without any financial transaction ID.
+        // Do not mark it uncertain or invent an ID while the client is paying.
+        if ("SASPAY".equals(instruction.provider())
+                && result != null
+                && (result.status() == PaymentStatus.PENDING
+                        || result.status() == PaymentStatus.CANCELLED
+                        || result.status() == PaymentStatus.EXPIRED)
+                && result.providerTransactionId() == null
+                && result.metadata() != null
+                && result.metadata().chargeId() != null)
+            return transactions.initiationResult(paymentId, result);
         return transactions.result(paymentId, result);
     }
 

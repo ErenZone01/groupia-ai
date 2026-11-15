@@ -2,6 +2,12 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 export const routes: Routes = [
   {
+    path: 'paiement/retour',
+    title: 'Retour du paiement sécurisé · Groupia',
+    loadComponent: () =>
+      import('./features/payments/saspay-return.page').then((m) => m.SaspayReturnPage),
+  },
+  {
     path: 'session-indisponible',
     loadComponent: () =>
       import('./features/auth/session-unavailable.page').then((m) => m.SessionUnavailablePage),
@@ -168,6 +174,11 @@ export const routes: Routes = [
           import('./features/orders/order-detail.page').then((m) => m.OrderDetailPage),
       },
       { path: 'commandes', redirectTo: 'orders', pathMatch: 'full' },
+      {
+        path: 'encaissements-fournisseurs',
+        title: 'Encaissements par fournisseur · Groupia',
+        loadComponent: () => import('./features/settlements/provider-collections.page').then(m => m.ProviderCollectionsPage),
+      },
       {
         path: 'versements',
         title: 'Mes versements · Groupia',

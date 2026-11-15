@@ -86,7 +86,9 @@ public class SubscriptionManagementService {
                         contact.locale(),
                         contact.updatedAt(),
                         contact.updatedBy(),
-                        contact.version()));
+                        contact.version()),
+                availableProviders(),
+                renewal(organizationId, view));
     }
 
     public List<SubscriptionPeriodView> history(UUID organizationId) {
@@ -151,7 +153,39 @@ public class SubscriptionManagementService {
     }
 
     private boolean billingProviderAvailable() {
-        return settings.isEnabled() && payments.providerAvailable("BICTORYS");
+        return !availableProviders().isEmpty();
+    }
+
+    private List<String> availableProviders() {
+        if (!settings.isEnabled()) return List.of();
+        return List.of("BICTORYS", "SASPAY").stream().filter(payments::providerAvailable).toList();
+    }
+
+    private sn.groupia.subscription.api.dto.SubscriptionRenewalView renewal(
+            UUID org, sn.groupia.subscription.api.SubscriptionAccessView view) {
+        var due = view.trialEndsAt();
+        for (var period :
+                subscriptions.history(org).stream()
+                        .sorted(
+                                java.util.Comparator.comparing(
+                                        sn.groupia.subscription.domain.model.SubscriptionPeriod
+                                                ::periodStart))
+                        .toList()) {
+            if (!period.periodStart().isAfter(due) && period.periodEnd().isAfter(due))
+                due = period.periodEnd();
+            else if (!period.periodStart().isAfter(clock.instant())
+                    && period.periodEnd().isAfter(due)) due = period.periodEnd();
+        }
+        var now = clock.instant();
+        var reminder =
+                view.status() == sn.groupia.subscription.api.SubscriptionStatus.SUSPENDED
+                        ? "SUSPENDED"
+                        : !now.isBefore(due)
+                                ? "OVERDUE"
+                                : !now.plus(java.time.Duration.ofDays(7)).isBefore(due)
+                                        ? "DUE_SOON"
+                                        : "UP_TO_DATE";
+        return new sn.groupia.subscription.api.dto.SubscriptionRenewalView(due, reminder, true);
     }
 
     private BigDecimal configuredPlanAmount() {

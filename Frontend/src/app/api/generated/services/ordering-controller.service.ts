@@ -23,6 +23,9 @@ import { OrderReplay } from '../models/order-replay';
 import { OrderTrackingView } from '../models/order-tracking-view';
 import { OrganizerOrderView } from '../models/organizer-order-view';
 import { PaymentAttemptView } from '../models/payment-attempt-view';
+import { PaymentFeeQuoteView } from '../models/payment-fee-quote-view';
+import { quoteOrderPayment } from '../fn/ordering-controller/quote-order-payment';
+import { QuoteOrderPayment$Params } from '../fn/ordering-controller/quote-order-payment';
 import { track } from '../fn/ordering-controller/track';
 import { Track$Params } from '../fn/ordering-controller/track';
 
@@ -56,6 +59,33 @@ export class OrderingControllerService extends BaseService {
     const resp = this.initiate$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<PaymentAttemptView>): PaymentAttemptView => r.body)
+    );
+  }
+
+  /** Path part for operation `quoteOrderPayment()` */
+  static readonly QuoteOrderPaymentPath = '/api/public/orders/{orderNumber}/payment-quotes';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteOrderPayment()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteOrderPayment$Response(params: QuoteOrderPayment$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PaymentFeeQuoteView>>> {
+    const obs = quoteOrderPayment(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteOrderPayment$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteOrderPayment(params: QuoteOrderPayment$Params, context?: HttpContext): Observable<Array<PaymentFeeQuoteView>> {
+    const resp = this.quoteOrderPayment$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Array<PaymentFeeQuoteView>>): Array<PaymentFeeQuoteView> => r.body)
     );
   }
 

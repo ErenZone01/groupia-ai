@@ -105,7 +105,7 @@ class SubscriptionEntitlementService implements SubscriptionEntitlements {
             throw new ApiException(
                     403,
                     "SUBSCRIPTION_REQUIRED",
-                    "Un abonnement actif est requis pour créer ou publier un nouveau groupage.",
+                    "Un abonnement actif est requis pour démarrer de nouvelles ventes directes ou de nouveaux groupages.",
                     java.util.Map.of(
                             "reason",
                             access.reason().name(),

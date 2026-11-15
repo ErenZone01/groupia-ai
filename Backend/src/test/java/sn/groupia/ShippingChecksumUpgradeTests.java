@@ -142,6 +142,7 @@ class ShippingChecksumUpgradeTests {
                                 && (version.equals("legacy") || version.equals("current"))) {
                             after.forEach(
                                     row -> {
+                                        MigrationHistoryAssertions.historicalOrder(row);
                                         assertThat(row).containsKey("ready_for_pickup_at");
                                         assertThat(row.remove("ready_for_pickup_at")).isNull();
                                     });

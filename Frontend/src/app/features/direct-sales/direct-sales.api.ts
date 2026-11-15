@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, timeout } from 'rxjs';
+import type { PaymentFeeQuoteView, PaymentAttemptRecoveryView } from '../../api/generated/models';
 
 export type DirectDeliveryMode = 'ALL' | 'SELECTED' | 'DISABLED';
 
@@ -85,14 +86,22 @@ export interface DirectTrackingView {
 }
 
 export interface DirectCustomerFinancialStatus {
+  availableProviders?: string[];
+  latestAttempt?: PaymentAttemptRecoveryView;
   orderNumber: string;
   currency: 'XOF';
   acceptedTotalXof: number | null;
   preparationStatus: string;
   paymentAvailable: boolean;
   financialStatus:
-    | 'NOT_PREPARED' | 'PREPARED' | 'EXPIRED' | 'UNAVAILABLE'
-    | 'PAYMENT_IN_PROGRESS' | 'SETTLEMENT_PROCESSING' | 'SETTLEMENT_VERIFIED' | 'REVIEW_REQUIRED';
+    | 'NOT_PREPARED'
+    | 'PREPARED'
+    | 'EXPIRED'
+    | 'UNAVAILABLE'
+    | 'PAYMENT_IN_PROGRESS'
+    | 'SETTLEMENT_PROCESSING'
+    | 'SETTLEMENT_VERIFIED'
+    | 'REVIEW_REQUIRED';
 }
 
 export interface DirectPaymentAttempt {
@@ -187,7 +196,13 @@ export class DirectSalesApi {
       }),
     );
   }
-  update(organizationId: string, id: string, version: number, priceXof: number, published: boolean) {
+  update(
+    organizationId: string,
+    id: string,
+    version: number,
+    priceXof: number,
+    published: boolean,
+  ) {
     return firstValueFrom(
       this.http.put<DirectStorefront>(
         this.privatePath(organizationId) + '/offers/' + encodeURIComponent(id),
@@ -197,50 +212,74 @@ export class DirectSalesApi {
   }
   quote(publicIdentifier: string, lines: { offerId: string; quantity: number }[]) {
     return firstValueFrom(
-      this.http.post<DirectCartQuote>(
-        '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/quote',
-        { lines },
-      ).pipe(timeout(15000)),
+      this.http
+        .post<DirectCartQuote>(
+          '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/quote',
+          { lines },
+        )
+        .pipe(timeout(15000)),
     );
   }
   deliveryPolicy(organizationId: string) {
-    return firstValueFrom(this.http.get<DirectDeliveryPolicy>(
-      this.privatePath(organizationId) + '/delivery-policy',
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .get<DirectDeliveryPolicy>(this.privatePath(organizationId) + '/delivery-policy')
+        .pipe(timeout(15000)),
+    );
   }
   updateDeliveryPolicy(organizationId: string, policy: DirectDeliveryPolicy) {
-    return firstValueFrom(this.http.put<DirectDeliveryPolicy>(
-      this.privatePath(organizationId) + '/delivery-policy', policy,
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .put<DirectDeliveryPolicy>(this.privatePath(organizationId) + '/delivery-policy', policy)
+        .pipe(timeout(15000)),
+    );
   }
   publicDeliveryPolicy(publicIdentifier: string) {
-    return firstValueFrom(this.http.get<DirectDeliveryPolicy>(
-      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-policy',
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .get<DirectDeliveryPolicy>(
+          '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-policy',
+        )
+        .pipe(timeout(15000)),
+    );
   }
   suggestDeliveryAddress(publicIdentifier: string, latitude: number, longitude: number) {
-    return firstValueFrom(this.http.post<DirectAddressSuggestion>(
-      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/reverse-geocode',
-      { latitude, longitude },
-    ).pipe(timeout(9000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectAddressSuggestion>(
+          '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/reverse-geocode',
+          { latitude, longitude },
+        )
+        .pipe(timeout(9000)),
+    );
   }
 
   previewDeliveryCoverage(publicIdentifier: string, latitude: number, longitude: number) {
-    return firstValueFrom(this.http.post<DirectDeliveryCoverage>(
-      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/delivery-coverage',
-      { latitude, longitude },
-    ).pipe(timeout(10000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectDeliveryCoverage>(
+          '/api/public/direct-stores/' +
+            encodeURIComponent(publicIdentifier) +
+            '/delivery-coverage',
+          { latitude, longitude },
+        )
+        .pipe(timeout(10000)),
+    );
   }
 
   shippingFees(organizationId: string) {
-    return firstValueFrom(this.http.get<DirectShippingSettings>(
-      this.privatePath(organizationId) + '/shipping-fees',
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .get<DirectShippingSettings>(this.privatePath(organizationId) + '/shipping-fees')
+        .pipe(timeout(15000)),
+    );
   }
   updateShippingFees(organizationId: string, settings: DirectShippingSettings) {
-    return firstValueFrom(this.http.put<DirectShippingSettings>(
-      this.privatePath(organizationId) + '/shipping-fees', settings,
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .put<DirectShippingSettings>(this.privatePath(organizationId) + '/shipping-fees', settings)
+        .pipe(timeout(15000)),
+    );
   }
   shippingQuote(
     publicIdentifier: string,
@@ -251,47 +290,74 @@ export class DirectSalesApi {
       deliveryPoint: { latitude: number; longitude: number } | null;
     },
   ) {
-    return firstValueFrom(this.http.post<DirectShippingPreview>(
-      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/shipping-quote',
-      request,
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectShippingPreview>(
+          '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/shipping-quote',
+          request,
+        )
+        .pipe(timeout(15000)),
+    );
   }
 
   createDraft(publicIdentifier: string, command: DirectDraftCommand, idempotencyKey: string) {
-    return firstValueFrom(this.http.post<DirectDraftReceipt>(
-      '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/checkout',
-      command,
-      { headers: { 'Idempotency-Key': idempotencyKey } },
-    ).pipe(timeout(20000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectDraftReceipt>(
+          '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier) + '/checkout',
+          command,
+          { headers: { 'Idempotency-Key': idempotencyKey } },
+        )
+        .pipe(timeout(20000)),
+    );
   }
 
   trackDirectOrder(token: string) {
-    return firstValueFrom(this.http.post<DirectTrackingView>(
-      '/api/public/direct-orders/lookup',
-      { token },
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectTrackingView>('/api/public/direct-orders/lookup', { token })
+        .pipe(timeout(15000)),
+    );
   }
 
   directPaymentStatus(token: string) {
-    return firstValueFrom(this.http.post<DirectCustomerFinancialStatus>(
-      '/api/public/direct-orders/payment-status',
-      { token },
-    ).pipe(timeout(15000)));
+    return firstValueFrom(
+      this.http
+        .post<DirectCustomerFinancialStatus>('/api/public/direct-orders/payment-status', { token })
+        .pipe(timeout(15000)),
+    );
   }
 
-  initiateDirectPayment(token: string, idempotencyKey: string) {
-    return firstValueFrom(this.http.post<DirectPaymentAttempt>(
-      '/api/public/direct-orders/payments',
-      { token },
-      { headers: { 'Idempotency-Key': idempotencyKey } },
-    ).pipe(timeout(25000)));
+  quoteDirectPayment(token: string) {
+    return firstValueFrom(
+      this.http
+        .post<PaymentFeeQuoteView[]>('/api/public/direct-orders/payment-quotes', { token })
+        .pipe(timeout(20000)),
+    );
+  }
+
+  initiateDirectPayment(
+    token: string,
+    idempotencyKey: string,
+    provider: string = 'BICTORYS',
+    payerEmail?: string,
+  ) {
+    return firstValueFrom(
+      this.http
+        .post<DirectPaymentAttempt>(
+          '/api/public/direct-orders/payments',
+          { token, provider, ...(payerEmail ? { payerEmail } : {}) },
+          { headers: { 'Idempotency-Key': idempotencyKey } },
+        )
+        .pipe(timeout(25000)),
+    );
   }
 
   publicStore(publicIdentifier: string) {
     return firstValueFrom(
-      this.http.get<DirectStorefront>(
-        '/api/public/direct-stores/' + encodeURIComponent(publicIdentifier),
-      ).pipe(timeout(15000)),
+      this.http
+        .get<DirectStorefront>('/api/public/direct-stores/' + encodeURIComponent(publicIdentifier))
+        .pipe(timeout(15000)),
     );
   }
 }

@@ -591,6 +591,50 @@ class CustomerAccessIntegrationTests {
         assertThat(count("otp_challenges")).isEqualTo(1);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"REFUND_PENDING", "REFUNDED"})
+    void cancelledPaidOrdersKeepPrivateTrackingWithoutSendingConfirmation(String state)
+            throws Exception {
+        UUID caseId = UUID.randomUUID();
+        jdbc.update(
+                "insert into commercial_refund_cases(id,organization_id,target_type,target_id,cancellation_key,expected_order_version,actor_id,reason,currency,collected_principal,previously_refunded,amount_due,legacy_platform_fee,status,opened_at) values (?,?,'ORDER',?,?,0,?,'Access fixture','XOF',5000,0,5000,0,'REFUND_DUE',current_timestamp)",
+                caseId,
+                org,
+                orderId(),
+                UUID.randomUUID(),
+                actor);
+        if (state.equals("REFUNDED")) {
+            jdbc.update(
+                    "update commercial_refund_cases set status='EXTERNALLY_RECORDED',externally_recorded_at=opened_at,recorded_by=?,declaration_key=?,declaration_fingerprint=?,external_method='CASH',note='Access fixture' where id=?",
+                    actor,
+                    UUID.randomUUID(),
+                    "0".repeat(64),
+                    caseId);
+        }
+        jdbc.update(
+                "update orders set status=?,cancelled_at=placed_at,cancellation_case_id=?,fulfillment_status='CANCELLED' where id=?",
+                state,
+                caseId,
+                orderId());
+        access.confirmed(org, orderId());
+        assertThat(count("order_access_links")).isZero();
+        Cookie foreign = phone("+221781234567");
+        mvc.perform(get(BASE + "/orders/" + number + "/capabilities").cookie(foreign))
+                .andExpect(status().isNotFound());
+        Cookie owner = phone("+221771234567");
+        mvc.perform(get(BASE + "/orders/" + number + "/capabilities").cookie(owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canResendTrackingLink").value(true));
+        postJson("/orders/" + number + "/resend-link", Map.of(), owner)
+                .andExpect(status().isNoContent());
+        await().atMost(Duration.ofSeconds(15))
+                .untilAsserted(
+                        () ->
+                                assertThat(delivery.types.values())
+                                        .containsExactly(NotificationType.ORDER_TRACKING_LINK));
+        mvc.perform(get(BASE + "/orders/" + number).cookie(owner)).andExpect(status().isOk());
+    }
+
     @Test
     void completedOrdersCanResendWithinArchiveAndNeverBeyondIt() throws Exception {
         Cookie owner = phone("+221771234567");

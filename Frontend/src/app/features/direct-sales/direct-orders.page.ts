@@ -1,3 +1,4 @@
+import { CommercialCancellationPanel } from '../orders/commercial-cancellation-panel';
 import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -6,6 +7,7 @@ import { BoutiqueContextService } from '../../core/boutique/boutique-context.ser
 import { apiMessage } from '../../core/http/api-error';
 import { money, variantLabel } from '../../shared/utils/display';
 import {
+  DirectFulfillmentEvent,
   DirectOrderDetail,
   DirectOrderPaymentStatus,
   DirectOrderSummary,
@@ -14,11 +16,12 @@ import {
 } from './direct-orders.api';
 import { DirectGeoPoint, DirectLocationMap, validDirectGeoPoint } from './direct-location-map';
 
-type MerchantAction = 'cancel' | 'prepare' | 'ready';
+type HandoffAction = 'dispatch' | 'pickup' | 'deliver' | 'complete';
+type MerchantAction = 'cancel' | 'prepare' | 'ready' | HandoffAction;
 
 @Component({
   selector: 'g-direct-orders-page',
-  imports: [RouterLink, DatePipe, DirectLocationMap],
+  imports: [CommercialCancellationPanel, RouterLink, DatePipe, DirectLocationMap],
   templateUrl: './direct-orders.page.html',
   styleUrl: './direct-orders.page.scss',
 })
@@ -39,6 +42,61 @@ export class DirectOrdersPage {
   readonly actionError = signal('');
   readonly actionNotice = signal('');
   readonly confirmCancellation = signal(false);
+  readonly confirmFulfillment = signal(false);
+  readonly fulfillmentHistory = signal<DirectFulfillmentEvent[]>([]);
+  readonly historyError = signal('');
+  readonly nextHandoff = computed((): HandoffAction | null => {
+    if (
+      this.financial()?.financialStatus !== 'SETTLEMENT_VERIFIED' ||
+      !Number.isSafeInteger(this.detail()?.version)
+    )
+      return null;
+    switch (this.detail()?.order.status) {
+      case 'READY_FOR_PICKUP':
+        return 'pickup';
+      case 'READY_FOR_DISPATCH':
+        return 'dispatch';
+      case 'DISPATCHED':
+        return 'deliver';
+      case 'PICKED_UP':
+      case 'DELIVERED':
+        return 'complete';
+      default:
+        return null;
+    }
+  });
+  handoffLabel(action: HandoffAction) {
+    return {
+      dispatch: 'Confirmer l’expédition',
+      pickup: 'Confirmer le retrait par la cliente',
+      deliver: 'Confirmer la livraison à la cliente',
+      complete: 'Clôturer la commande',
+    }[action];
+  }
+  async showFulfillmentHistory() {
+    const org = this.context.selectedId(),
+      order = this.detail()?.order.id;
+    const sequence = this.detailRequest,
+      generation = this.auth.generation();
+    if (!org || !order) return;
+    this.historyError.set('');
+    try {
+      const history = await this.api.fulfillmentHistory(org, order);
+      if (
+        org === this.context.selectedId() &&
+        sequence === this.detailRequest &&
+        generation === this.auth.generation()
+      )
+        this.fulfillmentHistory.set(history);
+    } catch {
+      if (
+        org === this.context.selectedId() &&
+        sequence === this.detailRequest &&
+        generation === this.auth.generation()
+      )
+        this.historyError.set('Historique indisponible. Actualisez pour réessayer.');
+    }
+  }
   readonly money = money;
   readonly variantLabel = variantLabel;
   readonly currentPage = signal(0);
@@ -46,15 +104,26 @@ export class DirectOrdersPage {
     const page = this.data();
     return page ? Math.ceil(page.total / page.size) : 0;
   });
-  readonly canCancel = computed(() => this.detail()?.order.status === 'PENDING_PAYMENT_INTEGRATION'
-    && ['NOT_PREPARED', 'PREPARED', 'EXPIRED', 'UNAVAILABLE']
-      .includes(this.financial()?.financialStatus ?? ''));
-  readonly canPrepare = computed(() => this.detail()?.order.status === 'PAYMENT_CONFIRMED'
-    && this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED');
-  readonly canReady = computed(() => this.detail()?.order.status === 'PREPARING'
-    && this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED');
-  readonly reviewRequired = computed(() => ['REVIEW_REQUIRED', 'SETTLEMENT_PROCESSING']
-    .includes(this.financial()?.financialStatus ?? ''));
+  readonly canCancel = computed(
+    () =>
+      this.detail()?.order.status === 'PENDING_PAYMENT_INTEGRATION' &&
+      ['NOT_PREPARED', 'PREPARED', 'EXPIRED', 'UNAVAILABLE'].includes(
+        this.financial()?.financialStatus ?? '',
+      ),
+  );
+  readonly canPrepare = computed(
+    () =>
+      this.detail()?.order.status === 'PAYMENT_CONFIRMED' &&
+      this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED',
+  );
+  readonly canReady = computed(
+    () =>
+      this.detail()?.order.status === 'PREPARING' &&
+      this.financial()?.financialStatus === 'SETTLEMENT_VERIFIED',
+  );
+  readonly reviewRequired = computed(() =>
+    ['REVIEW_REQUIRED', 'SETTLEMENT_PROCESSING'].includes(this.financial()?.financialStatus ?? ''),
+  );
   private request = 0;
   private detailRequest = 0;
 
@@ -78,8 +147,11 @@ export class DirectOrdersPage {
   }
 
   private current(id: string, seq: number, generation: number) {
-    return id === this.context.selectedId() && seq === this.request
-      && generation === this.auth.generation();
+    return (
+      id === this.context.selectedId() &&
+      seq === this.request &&
+      generation === this.auth.generation()
+    );
   }
 
   private currentDetail(id: string, listSeq: number, generation: number, detailSeq: number) {
@@ -95,6 +167,9 @@ export class DirectOrdersPage {
     this.actionError.set('');
     this.actionNotice.set('');
     this.confirmCancellation.set(false);
+    this.confirmFulfillment.set(false);
+    this.fulfillmentHistory.set([]);
+    this.historyError.set('');
     this.detailLoading.set(false);
     this.financialLoading.set(false);
     this.actionBusy.set(false);
@@ -165,6 +240,13 @@ export class DirectOrdersPage {
     if (action === 'prepare' && !this.canPrepare()) return;
     if (action === 'ready' && !this.canReady()) return;
     if (action === 'cancel' && !this.confirmCancellation()) return;
+    const physical = ['dispatch', 'pickup', 'deliver', 'complete'].includes(action);
+    const version = this.detail()?.version;
+    if (
+      physical &&
+      (this.nextHandoff() !== action || !this.confirmFulfillment() || version == null)
+    )
+      return;
 
     const detailSeq = ++this.detailRequest;
     const listSeq = this.request;
@@ -176,10 +258,31 @@ export class DirectOrdersPage {
     try {
       if (action === 'cancel') await this.api.cancel(id, order.id);
       else if (action === 'prepare') await this.api.startPreparation(id, order.id);
-      else await this.api.markReady(id, order.id);
+      else if (action === 'ready') await this.api.markReady(id, order.id);
+      else {
+        const storage = `groupia.direct-fulfillment:${this.auth.commandScope() ?? generation}:${id}:${order.id}:${version}:${action}`;
+        let key = crypto.randomUUID();
+        try {
+          const old = sessionStorage.getItem(storage);
+          if (old && /^[0-9a-f-]{36}$/i.test(old)) key = old as typeof key;
+          sessionStorage.setItem(storage, key);
+        } catch {
+          /* Order version and unique transitions also prevent duplicate handover. */
+        }
+        await this.api.fulfill(id, order.id, action.toUpperCase(), version!, key);
+      }
       if (!this.currentDetail(id, listSeq, generation, detailSeq)) return;
-      this.actionNotice.set(action === 'cancel' ? 'Commande annulée.'
-        : action === 'prepare' ? 'Préparation démarrée.' : 'Commande marquée comme prête.');
+      this.confirmFulfillment.set(false);
+      this.fulfillmentHistory.set([]);
+      this.actionNotice.set(
+        physical
+          ? 'Étape enregistrée. Le statut est vérifié à nouveau.'
+          : action === 'cancel'
+            ? 'Commande annulée.'
+            : action === 'prepare'
+              ? 'Préparation démarrée.'
+              : 'Commande marquée comme prête.',
+      );
 
       // Re-read authoritative state, including the payment risk. Never trust the response
       // to a mutation as an authorization for another step.
@@ -217,34 +320,65 @@ export class DirectOrdersPage {
 
   status(value: string) {
     switch (value) {
-      case 'PENDING_PAYMENT_INTEGRATION': return 'En attente de paiement';
-      case 'CANCELLED': return 'Annulée';
-      case 'PAYMENT_CONFIRMED': return 'Paiement confirmé';
-      case 'PREPARING': return 'En préparation';
-      case 'READY_FOR_PICKUP': return 'Prête pour le retrait';
-      case 'READY_FOR_DISPATCH': return 'Prête pour l’expédition';
-      default: return 'Statut indisponible';
+      case 'PENDING_PAYMENT_INTEGRATION':
+        return 'En attente de paiement';
+      case 'REFUND_PENDING': return 'Annulée · remboursement à traiter';
+      case 'REFUNDED': return 'Remboursement externe déclaré';
+      case 'CANCELLED':
+        return 'Annulée';
+      case 'PAYMENT_CONFIRMED':
+        return 'Paiement confirmé';
+      case 'PREPARING':
+        return 'En préparation';
+      case 'READY_FOR_PICKUP':
+        return 'Prête pour le retrait';
+      case 'READY_FOR_DISPATCH':
+        return 'Prête pour l’expédition';
+      case 'DISPATCHED':
+        return 'Expédiée';
+      case 'PICKED_UP':
+        return 'Retirée par la cliente';
+      case 'DELIVERED':
+        return 'Livrée';
+      case 'COMPLETED':
+        return 'Clôturée';
+      default:
+        return 'Statut indisponible';
     }
   }
 
   financialLabel(value: string) {
     switch (value) {
-      case 'NOT_PREPARED': return 'Paiement non préparé';
-      case 'PREPARED': return 'Paiement préparé, non confirmé';
-      case 'EXPIRED': return 'Demande de paiement expirée';
-      case 'UNAVAILABLE': return 'Paiement indisponible';
-      case 'PAYMENT_IN_PROGRESS': return 'Paiement en cours chez Bictorys — non confirmé';
-      case 'SETTLEMENT_PROCESSING': return 'Vérification du règlement en cours';
-      case 'SETTLEMENT_VERIFIED': return 'Règlement vérifié';
-      case 'REVIEW_REQUIRED': return 'Vérification manuelle nécessaire';
-      default: return 'Statut financier indisponible';
+      case 'NOT_PREPARED':
+        return 'Paiement non préparé';
+      case 'PREPARED':
+        return 'Paiement préparé, non confirmé';
+      case 'EXPIRED':
+        return 'Demande de paiement expirée';
+      case 'UNAVAILABLE':
+        return 'Paiement indisponible';
+      case 'PAYMENT_IN_PROGRESS':
+        return 'Paiement en cours chez le prestataire — non confirmé';
+      case 'SETTLEMENT_PROCESSING':
+        return 'Vérification du règlement en cours';
+      case 'SETTLEMENT_VERIFIED':
+        return 'Règlement vérifié';
+      case 'REVIEW_REQUIRED':
+        return 'Vérification manuelle nécessaire';
+      default:
+        return 'Statut financier indisponible';
     }
   }
 
   /** Reuse the customer's saved point. No reverse-geocoding or browser GPS is inferred here. */
   deliveryPoint(address: DirectOrderDetail['deliveryAddress']): DirectGeoPoint | null {
-    if (address?.locationMethod !== 'MAP' || address.coverageStatus !== 'REGION_MATCHED'
-      || typeof address.latitude !== 'number' || typeof address.longitude !== 'number') return null;
+    if (
+      address?.locationMethod !== 'MAP' ||
+      address.coverageStatus !== 'REGION_MATCHED' ||
+      typeof address.latitude !== 'number' ||
+      typeof address.longitude !== 'number'
+    )
+      return null;
     const point = { latitude: address.latitude, longitude: address.longitude };
     return validDirectGeoPoint(point) ? point : null;
   }

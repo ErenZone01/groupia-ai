@@ -1,0 +1,119 @@
+<section aria-label="Annulation et remboursement">
+  <h2>Annulation et remboursement</h2>
+  @if (!opened()) {
+    <button type="button" (click)="load()">Ouvrir le suivi d’annulation</button>
+  } @else {
+    <button type="button" [disabled]="busy()" (click)="load()">Actualiser le suivi</button>
+    @if (busy()) {
+      <p role="status">Vérification en cours…</p>
+    }
+    @if (error()) {
+      <p role="alert">{{ error() }}</p>
+    }
+    @if (view(); as state) {
+      @if (state.canCancel && !state.caseId) {
+        <p>
+          Le serveur vérifiera les paiements avant d’annuler la commande. Une annulation ne
+          déclenche aucun remboursement automatique.
+        </p>
+        <label
+          >Motif d’annulation<textarea
+            maxlength="500"
+            [(ngModel)]="reason"
+            [disabled]="busy()"
+          ></textarea>
+        </label>
+        <label
+          ><input type="checkbox" [(ngModel)]="confirmed" [disabled]="busy()" /> Je confirme
+          l’annulation de cette commande.</label
+        >
+        <button
+          type="button"
+          [disabled]="busy() || !confirmed || !reason.trim()"
+          (click)="cancel()"
+        >
+          Confirmer l’annulation
+        </button>
+      } @else if (!state.caseId) {
+        <p>{{ state.blocker || 'Vous ne pouvez pas annuler cette commande.' }}</p>
+      }
+    }
+    @if (detail(); as data) {
+      <p>{{ data.refund.reason }}</p>
+      <dl>
+        <dt>Principal encaissé</dt>
+        <dd>{{ money(data.refund.collectedPrincipal, data.refund.currency) }}</dd>
+        <dt>Déjà remboursé avant annulation</dt>
+        <dd>{{ money(data.refund.previouslyRefunded, data.refund.currency) }}</dd>
+        <dt>Montant du remboursement lié à l’annulation</dt>
+        <dd>{{ money(data.refund.amountDue, data.refund.currency) }}</dd>
+      </dl>
+      <p>
+        Les frais d’encaissement du prestataire ne sont pas inclus : leur restitution doit être
+        confirmée avec lui.
+      </p>
+      @if (data.refund.status === 'EXTERNALLY_RECORDED') {
+        <p role="status">
+          Remboursement externe déclaré. Cette déclaration ne constitue pas une vérification du
+          prestataire.
+        </p>
+        @if (data.refund.maskedReference) {
+          <p>Référence : {{ data.refund.maskedReference }}</p>
+        }
+      } @else if (data.refund.status === 'NO_REFUND_DUE') {
+        <p>Aucun remboursement supplémentaire à effectuer.</p>
+      } @else {
+        <p role="status">
+          Remboursement à traiter hors Groupia. Aucun transfert automatique n’est déclenché.
+        </p>
+      }
+      @if (data.historicalFeeCompensationDue > 0) {
+        <p role="status">
+          Compensation des anciens frais Groupia à régler séparément :
+          {{ money(data.historicalFeeCompensationDue, data.refund.currency) }}. Le reversement
+          correspondant reste bloqué pour éviter une perte vendeuse.
+        </p>
+      }
+      @if (data.canDeclare) {
+        <label
+          >Moyen du remboursement déjà effectué<select
+            [(ngModel)]="externalMethod"
+            [disabled]="busy()"
+          >
+            <option value="WAVE">Wave</option>
+            <option value="ORANGE_MONEY">Orange Money</option>
+            <option value="BANK_TRANSFER">Virement</option>
+            <option value="CASH">Espèces</option>
+            <option value="OTHER">Autre</option>
+          </select></label
+        >
+        <label
+          >Référence externe<input maxlength="160" [(ngModel)]="reference" [disabled]="busy()"
+        /></label>
+        <label
+          >Note (obligatoire pour les espèces)<textarea
+            maxlength="1000"
+            [(ngModel)]="note"
+            [disabled]="busy()"
+          ></textarea>
+        </label>
+        <label
+          ><input type="checkbox" [(ngModel)]="declarationConfirmed" [disabled]="busy()" /> Je
+          confirme avoir déjà restitué {{ money(data.refund.amountDue, data.refund.currency) }} à la
+          cliente hors Groupia.</label
+        >
+        <button
+          type="button"
+          [disabled]="
+            busy() ||
+            !declarationConfirmed ||
+            (externalMethod === 'CASH' ? !note.trim() : !reference.trim())
+          "
+          (click)="declare()"
+        >
+          Enregistrer le remboursement externe
+        </button>
+      }
+    }
+  }
+</section>

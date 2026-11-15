@@ -35,11 +35,22 @@ public class DirectCustomerPaymentInitiation {
     private final JdbcTemplate jdbc;
     private final PaymentOperations payments;
     private final boolean enabled;
+    private final sn.groupia.payment.api.PaymentQuoteOperations quotes;
 
     DirectCustomerPaymentInitiation(
             JdbcTemplate jdbc,
             PaymentOperations payments,
             @Value("${groupia.direct-sales.payment-initiation.enabled:false}") boolean enabled) {
+        this(jdbc, payments, enabled, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    DirectCustomerPaymentInitiation(
+            JdbcTemplate jdbc,
+            PaymentOperations payments,
+            @Value("${groupia.direct-sales.payment-initiation.enabled:false}") boolean enabled,
+            sn.groupia.payment.api.PaymentQuoteOperations quotes) {
+        this.quotes = quotes;
         this.jdbc = jdbc;
         this.payments = payments;
         this.enabled = enabled;
@@ -47,20 +58,108 @@ public class DirectCustomerPaymentInitiation {
 
     @Transactional(propagation = Propagation.NEVER)
     public PaymentAttemptView initiate(String token, String idempotencyKey) {
+        return initiate(token, idempotencyKey, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(String token, String idempotencyKey, UUID feeQuoteId) {
         String tokenHash = DirectAccessTokens.hashForLookup(token);
-        if (!enabled) {
-            throw new ApiException(
-                    409,
-                    "DIRECT_PAYMENT_NOT_ENABLED",
-                    "Le paiement des commandes directes n'est pas encore disponible.");
-        }
+        requireEnabled();
         if (idempotencyKey == null || !idempotencyKey.strip().matches("[A-Za-z0-9._:-]{16,128}")) {
             throw new ApiException(
                     400,
                     "PAYMENT_IDEMPOTENCY_KEY_REQUIRED",
                     "Clé d'initiation invalide ou absente.");
         }
+        Order order = lookup(tokenHash);
+        var context = context(order).withFeeQuote(feeQuoteId);
+        if (feeQuoteId != null && !context.saspayEligible())
+            throw new ApiException(
+                    409,
+                    "SASPAY_PAYER_REQUIRED",
+                    "Coordonnées du payeur incompatibles avec SasPay.");
+        return payments.initiateDirect(
+                order.organizationId(),
+                order.requestId(),
+                idempotencyKey.strip(),
+                tokenHash,
+                context);
+    }
 
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(
+            String token, String idempotencyKey, UUID unusedFeeQuoteId, String provider) {
+        return initiate(token, idempotencyKey, unusedFeeQuoteId, provider, null);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public PaymentAttemptView initiate(
+            String token,
+            String idempotencyKey,
+            UUID unusedFeeQuoteId,
+            String provider,
+            String payerEmail) {
+        String tokenHash = DirectAccessTokens.hashForLookup(token);
+        requireEnabled();
+        if (idempotencyKey == null || !idempotencyKey.strip().matches("[A-Za-z0-9._:-]{16,128}"))
+            throw new ApiException(
+                    400, "PAYMENT_IDEMPOTENCY_KEY_REQUIRED", "Clé d'initiation invalide.");
+        if (!"SASPAY".equals(provider) && !"BICTORYS".equals(provider))
+            throw new ApiException(
+                    409, "PAYMENT_PROVIDER_NOT_ALLOWED", "Prestataire non autorisé.");
+        if (unusedFeeQuoteId != null)
+            throw new ApiException(
+                    409, "PAYMENT_QUOTE_OBSOLETE", "Le devis par réseau n'est plus utilisé.");
+        Order order = lookup(tokenHash);
+        var context = context(order);
+        if ("SASPAY".equals(provider)) {
+            String effectiveEmail =
+                    payerEmail == null || payerEmail.isBlank()
+                            ? context.email()
+                            : payerEmail.strip();
+            if (effectiveEmail == null
+                    || effectiveEmail.length() > 254
+                    || !effectiveEmail.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
+                throw new ApiException(
+                        409,
+                        "SASPAY_HOSTED_CONTACT_REQUIRED",
+                        "Une adresse e-mail valide est requise pour le paiement SasPay.");
+            if (payerEmail != null && !payerEmail.isBlank())
+                context = context.withPayerEmail(effectiveEmail);
+        }
+        return payments.initiateDirect(
+                order.organizationId(),
+                order.requestId(),
+                provider,
+                idempotencyKey.strip(),
+                tokenHash,
+                context);
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public List<sn.groupia.payment.api.dto.PaymentFeeQuoteView> quotes(String token) {
+        String tokenHash = DirectAccessTokens.hashForLookup(token);
+        requireEnabled();
+        Order order = lookup(tokenHash);
+        if (!context(order).saspayEligible())
+            throw new ApiException(
+                    409,
+                    "SASPAY_PAYER_REQUIRED",
+                    "Pour SasPay, prénom, nom, téléphone sénégalais et email valides sont requis.");
+
+        return quotes.quotes(order.organizationId(), order.requestId());
+    }
+
+    private void requireEnabled() {
+        if (!enabled) {
+            throw new ApiException(
+                    409,
+                    "DIRECT_PAYMENT_NOT_ENABLED",
+                    "Le paiement des commandes directes n'est pas encore disponible.");
+        }
+    }
+
+    private Order lookup(String tokenHash) {
         List<Order> orders =
                 jdbc.query(
                         "select d.organization_id,d.id,d.order_number,d.status,d.currency,"
@@ -106,20 +205,15 @@ public class DirectCustomerPaymentInitiation {
                     "DIRECT_PAYMENT_ORDER_INELIGIBLE",
                     "Cette commande n'est pas éligible au paiement.");
         }
-        PaymentCheckoutContext context =
-                new PaymentCheckoutContext(
-                        order.orderNumber(),
-                        order.firstName() + " " + order.lastName(),
-                        order.phone(),
-                        order.email());
-        // Service opens a transaction for the durable claim, then calls Bictorys only
-        // after its commit. A changed order/token/amount must never cause a charge.
-        return payments.initiateDirect(
-                order.organizationId(),
-                order.requestId(),
-                idempotencyKey.strip(),
-                tokenHash,
-                context);
+        return order;
+    }
+
+    private PaymentCheckoutContext context(Order order) {
+        return new PaymentCheckoutContext(
+                order.orderNumber(),
+                order.firstName() + " " + order.lastName(),
+                order.phone(),
+                order.email());
     }
 
     private static ApiException notFound() {

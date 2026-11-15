@@ -72,7 +72,8 @@ public class DirectOrderQueries {
             Contact contact,
             Address deliveryAddress,
             Map<String, String> platformFeeRule,
-            List<Item> items) {}
+            List<Item> items,
+            long version) {}
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
@@ -135,7 +136,7 @@ public class DirectOrderQueries {
                                 + "d.shipping_fee_xof,d.accepted_total_xof,d.shipping_rate_version,"
                                 + "d.shipping_quoted,d.placed_at,d.customer_contact_snapshot::text as contact_json,"
                                 + "d.delivery_address_snapshot::text as address_json,"
-                                + "d.platform_fee_rule_snapshot::text as fee_json,"
+                                + "d.platform_fee_rule_snapshot::text as fee_json,d.version,"
                                 + "(select count(*) from direct_order_items i where i.organization_id=d.organization_id"
                                 + " and i.order_id=d.id) as item_count"
                                 + " from direct_orders d where d.organization_id=? and d.id=?",
@@ -179,7 +180,8 @@ public class DirectOrderQueries {
                                                     coordinate(address, "latitude", true),
                                                     coordinate(address, "longitude", false)),
                                     map(json.readTree(rs.getString("fee_json"))),
-                                    List.of());
+                                    List.of(),
+                                    rs.getLong("version"));
                         },
                         organizationId,
                         orderId);
@@ -217,7 +219,8 @@ public class DirectOrderQueries {
                 detail.contact(),
                 detail.deliveryAddress(),
                 detail.platformFeeRule(),
-                List.copyOf(lines));
+                List.copyOf(lines),
+                detail.version());
     }
 
     private static Summary summary(

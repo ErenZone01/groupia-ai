@@ -21,6 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.*;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -32,7 +33,18 @@ import sn.groupia.settlement.application.service.*;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import tools.jackson.databind.*;
 
-@SpringBootTest(properties = "groupia.settlement.payouts.enabled=true")
+@ActiveProfiles("test")
+@SpringBootTest(
+        properties = {
+            // These historical 300 XOF financial fixtures must never inherit the local
+            // production profile (or its live payment settings) from Backend/.env.
+            "groupia.ordering.platform-fee-xof=0",
+            "groupia.payment.saspay.enabled=false",
+            "groupia.settlement.payouts.enabled=true",
+            // Test fixtures use an isolated fake provider regardless of Backend/.env.
+            // Never initialize a LIVE SasPay payout adapter in these regression tests.
+            "groupia.settlement.payout-provider=BICTORYS"
+        })
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,
@@ -68,7 +80,7 @@ class MerchantSettlementIntegrationTests {
                                                         Integer.class))
                                         .isZero());
         j.execute(
-                "TRUNCATE direct_order_verified_settlements,direct_shipping_fee_settings,direct_delivery_policies,direct_order_items,direct_orders,direct_offers,direct_storefronts,product_media,product_media_galleries,auth_refresh_tokens,auth_sessions,outgoing_provider_operations,payment_reviews,subscription_invoices,subscription_periods,subscription_billing_contacts,organization_subscriptions,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,refund_webhook_receipts,payment_refunds,order_fulfillment_events,shipping_calculations,shipping_measurements,shipping_assessments,customer_access_sessions,otp_challenges,order_access_links,customer_access_limits,shipment_facts,shipments,supplier_order_anomalies,supplier_orders,payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
+                "TRUNCATE merchant_payout_fee_quote_bindings,merchant_payout_fee_quotes,saspay_company_fee_events,merchant_payout_provider_fees,commercial_refund_events,commercial_refund_sources,commercial_refund_cases,marketplace_simulation_events,marketplace_simulated_provider_receipts,marketplace_simulations,provider_collections,direct_order_fulfillment_events,payment_fee_quotes,direct_order_verified_settlements,direct_shipping_fee_settings,direct_delivery_policies,direct_order_items,direct_orders,direct_offers,direct_storefronts,product_media,product_media_galleries,auth_refresh_tokens,auth_sessions,outgoing_provider_operations,payment_reviews,subscription_invoices,subscription_periods,subscription_billing_contacts,organization_subscriptions,merchant_ledger_entries,merchant_payouts,merchant_payout_destinations,refund_webhook_receipts,payment_refunds,order_fulfillment_events,shipping_calculations,shipping_measurements,shipping_assessments,customer_access_sessions,otp_challenges,order_access_links,customer_access_limits,shipment_facts,shipments,supplier_order_anomalies,supplier_orders,payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication");
         provider.reset();
         paymentProvider.reset();
         clock.reset();
@@ -101,6 +113,141 @@ class MerchantSettlementIntegrationTests {
         return base() + "/grouping-campaigns/" + f.campaign() + "/merchant-payouts";
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,false", "300,false", "0,true", "300,true"})
+    void externalCommercialRefundPreservesSellerNetAndHoldsHistoricalFeeCompensation(
+            int fee, boolean delayedLedger) throws Exception {
+        // Adjust the synthetic, not-yet-paid fixture before any historical settlement exists.
+        if (fee == 0) {
+            j.update(
+                    "update orders set platform_fee_amount=0,initial_amount_due=25000,platform_fee_rule_snapshot='{\"type\":\"FIXED\",\"currency\":\"XOF\",\"amount\":0,\"version\":1}'::jsonb where id=?",
+                    f.order());
+            j.update(
+                    "update payment_requests set fee_amount=0,expected_amount=25000 where id=?",
+                    requestId);
+        }
+        if (delayedLedger) {
+            j.execute(
+                    "alter table merchant_ledger_entries add constraint fixture_ledger_failure check(false)");
+            try {
+                var payment =
+                        payments.initiateInitial(
+                                f.org(), f.order(), "SIMULATED", UUID.randomUUID().toString());
+                var reference =
+                        j.queryForObject(
+                                "select merchant_reference from payments where id=?",
+                                String.class,
+                                payment.id());
+                paymentProvider.status(reference, PaymentStatus.SUCCEEDED);
+                incoming.reconcile(payment.id());
+                await().atMost(Duration.ofSeconds(15))
+                        .untilAsserted(
+                                () ->
+                                        assertThat(
+                                                        j.queryForObject(
+                                                                "select status from orders where id=?",
+                                                                String.class,
+                                                                f.order()))
+                                                .isEqualTo("CONFIRMED"));
+                TestEventDrain.awaitIdle(j);
+                assertThat(
+                                j.queryForObject(
+                                        "select count(*) from merchant_ledger_entries",
+                                        Integer.class))
+                        .isZero();
+                assertThat(
+                                j.queryForObject(
+                                        "select count(*) from event_publication where status='FAILED' and listener_id like '%MerchantLedgerListeners%'",
+                                        Integer.class))
+                        .isPositive();
+            } finally {
+                j.execute(
+                        "alter table merchant_ledger_entries drop constraint fixture_ledger_failure");
+            }
+        } else {
+            paid();
+        }
+        TestEventDrain.awaitIdle(j);
+        long version =
+                j.queryForObject("select version from orders where id=?", Long.class, f.order());
+        var result =
+                read(
+                        mvc.perform(
+                                        post(base() + "/orders/" + f.order() + "/cancellation")
+                                                .header("Authorization", "Bearer " + jwt)
+                                                .header("Idempotency-Key", UUID.randomUUID())
+                                                .contentType(
+                                                        org.springframework.http.MediaType
+                                                                .APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "version",
+                                                                        version,
+                                                                        "reason",
+                                                                        "Restitution fictive",
+                                                                        "confirmed",
+                                                                        true))))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        var id = result.path("caseId").asText();
+        mvc.perform(
+                        post(base() + "/commercial-refunds/" + id + "/external-declaration")
+                                .header("Authorization", "Bearer " + jwt)
+                                .header("Idempotency-Key", UUID.randomUUID())
+                                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        0,
+                                                        "externalMethod",
+                                                        "CASH",
+                                                        "note",
+                                                        "Fixture seulement",
+                                                        "confirmed",
+                                                        true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("refund.amountDue").value(25000 + fee))
+                .andExpect(jsonPath("historicalFeeCompensationDue").value(fee));
+        TestEventDrain.awaitIdle(j);
+        var replay =
+                new CommercialRefundRecorded(
+                        UUID.randomUUID(),
+                        clock.instant(),
+                        f.org(),
+                        new PaymentTarget(PaymentTargetType.ORDER, f.order()),
+                        UUID.fromString(id),
+                        new BigDecimal(25000 + fee),
+                        "XOF");
+        new TransactionTemplate(tx).executeWithoutResult(s -> events.publishEvent(replay));
+        failed.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO));
+        TestEventDrain.awaitIdle(j);
+        assertThat(j.queryForObject("select count(*) from merchant_ledger_entries", Integer.class))
+                .isEqualTo(1);
+        assertThat(
+                        j.queryForObject(
+                                "select count(*) from event_publication where completion_date is null",
+                                Integer.class))
+                .isZero();
+        var balance =
+                read(
+                        auth(get(base() + "/merchant-balance"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(balance.path("grossMerchantCollections").decimalValue())
+                .isEqualByComparingTo("25000");
+        assertThat(balance.path("availableForPayout").decimalValue())
+                .isEqualByComparingTo(fee == 0 ? "25000" : "0");
+        assertThat(provider.sends).hasValue(0);
+        assertThat(
+                        j.queryForObject(
+                                "select status from payments where payment_request_id=?",
+                                String.class,
+                                requestId))
+                .isEqualTo("SUCCEEDED");
+    }
+
     private void paid() {
         var p =
                 payments.initiateInitial(
@@ -118,6 +265,45 @@ class MerchantSettlementIntegrationTests {
                                                         "select count(*) from merchant_ledger_entries",
                                                         Integer.class))
                                         .isEqualTo(1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"provider", "account"})
+    void anotherFundingSourceCannotSpendHistoricalCollections(String changed) throws Exception {
+        paid();
+        closed();
+        var d = destination();
+        if (changed.equals("provider")) provider.sourceProvider = "DIFFERENT";
+        else provider.sourceAccount = "different-account";
+        var b =
+                read(
+                        auth(get(base() + "/merchant-balance"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(b.path("grossMerchantCollections").decimalValue()).isEqualByComparingTo("25000");
+        assertThat(b.path("availableForPayout").decimalValue()).isZero();
+        request(d, UUID.randomUUID(), Map.of()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
+    }
+
+    @Test
+    void collectionUnderReconciliationCannotFundPayout() throws Exception {
+        paid();
+        closed();
+        var d = destination();
+        j.update(
+                "update payments set reconciliation_required=true,reconciliation_reason='PROVIDER_STATE_UNCERTAIN' where payment_request_id=?",
+                requestId);
+        var balance =
+                read(
+                        auth(get(base() + "/merchant-balance"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(balance.path("grossMerchantCollections").decimalValue())
+                .isEqualByComparingTo("25000");
+        assertThat(balance.path("availableForPayout").decimalValue()).isZero();
+        request(d, UUID.randomUUID(), Map.of()).andExpect(status().isConflict());
+        assertThat(provider.sends).hasValue(0);
     }
 
     private void closed() {

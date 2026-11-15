@@ -15,7 +15,28 @@ import sn.groupia.payment.api.dto.PaymentAttemptView;
  */
 @RestController
 class DirectCustomerPaymentInitiationController {
-    public record InitiationRequest(String token) {}
+    public record InitiationRequest(
+            String token, java.util.UUID feeQuoteId, String provider, String payerEmail) {
+        public InitiationRequest(String token, java.util.UUID feeQuoteId) {
+            this(token, feeQuoteId, null, null);
+        }
+
+        public InitiationRequest(String token, java.util.UUID feeQuoteId, String provider) {
+            this(token, feeQuoteId, provider, null);
+        }
+
+        @Override
+        public String toString() {
+            return "InitiationRequest[redacted]";
+        }
+    }
+
+    public record QuoteRequest(String token) {
+        @Override
+        public String toString() {
+            return "QuoteRequest[redacted]";
+        }
+    }
 
     private final DirectCustomerPaymentInitiation initiation;
 
@@ -23,13 +44,35 @@ class DirectCustomerPaymentInitiationController {
         this.initiation = initiation;
     }
 
+    @PostMapping("/api/public/direct-orders/payment-quotes")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "quoteDirectOrderPaymentByToken")
+    ResponseEntity<java.util.List<sn.groupia.payment.api.dto.PaymentFeeQuoteView>> quotes(
+            @RequestBody QuoteRequest request) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
+                .header("X-Robots-Tag", "noindex, nofollow")
+                .body(initiation.quotes(request == null ? null : request.token()));
+    }
+
     @PostMapping("/api/public/direct-orders/payments")
     @io.swagger.v3.oas.annotations.Operation(operationId = "initiateDirectOrderPaymentByToken")
     ResponseEntity<PaymentAttemptView> initiate(
             @RequestBody InitiationRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        // Old two-field requests can be resolved only by synthetic legacy tests.
+        // In production, the payment claim always rejects per-network SasPay quotes.
         PaymentAttemptView attempt =
-                initiation.initiate(request == null ? null : request.token(), idempotencyKey);
+                request != null && request.provider() == null && request.feeQuoteId() != null
+                        ? initiation.initiate(request.token(), idempotencyKey, request.feeQuoteId())
+                        : initiation.initiate(
+                                request == null ? null : request.token(),
+                                idempotencyKey,
+                                request == null ? null : request.feeQuoteId(),
+                                request == null || request.provider() == null
+                                        ? "BICTORYS"
+                                        : request.provider(),
+                                request == null ? null : request.payerEmail());
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header("Referrer-Policy", "no-referrer")

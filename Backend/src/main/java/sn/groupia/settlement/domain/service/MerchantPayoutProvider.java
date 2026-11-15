@@ -16,6 +16,20 @@ public interface MerchantPayoutProvider {
 
     String account();
 
+    /** One persisted collection account funds this adapter; no cross-provider conversion. */
+    default String fundingProvider() {
+        return name();
+    }
+
+    default String fundingAccount() {
+        return account();
+    }
+
+    /** GET-only provider fee quotation. Must not initiate a payout. */
+    default BigDecimal payoutFeeQuote(BigDecimal grossAmount, String method) {
+        throw new IllegalStateException("PAYOUT_FEE_QUOTE_UNAVAILABLE");
+    }
+
     String initiate(MerchantPayout payout);
 
     Proof verify(MerchantPayout payout);
@@ -35,7 +49,36 @@ public interface MerchantPayoutProvider {
             String method,
             String phoneE164,
             String status,
-            Instant occurredAt) {
+            Instant occurredAt,
+            BigDecimal providerFee) {
+        /** Compatibility constructor for providers/tests without separate fee evidence. */
+        public Proof(
+                boolean authenticated,
+                String provider,
+                String account,
+                String businessReference,
+                String transactionId,
+                BigDecimal amount,
+                String currency,
+                String method,
+                String phoneE164,
+                String status,
+                Instant occurredAt) {
+            this(
+                    authenticated,
+                    provider,
+                    account,
+                    businessReference,
+                    transactionId,
+                    amount,
+                    currency,
+                    method,
+                    phoneE164,
+                    status,
+                    occurredAt,
+                    null);
+        }
+
         @Override
         public String toString() {
             return "MerchantPayoutProof[redacted]";

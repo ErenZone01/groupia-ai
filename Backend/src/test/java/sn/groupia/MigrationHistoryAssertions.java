@@ -20,6 +20,39 @@ final class MigrationHistoryAssertions {
 
     private MigrationHistoryAssertions() {}
 
+    /** Explicitly validate the additive nullable field, then compare every old column unchanged. */
+    static java.util.Map<String, Object> historicalOrder(java.util.Map<String, Object> row) {
+        assertThat(row).containsKey("cancellation_case_id");
+        assertThat(row.remove("cancellation_case_id"))
+                .as("Historical orders must not acquire an invented cancellation case")
+                .isNull();
+        return row;
+    }
+
+    /** Ensure new hosted-checkout fields have no invented values for historical payments. */
+    static java.util.Map<String, Object> historicalPayment(java.util.Map<String, Object> row) {
+        for (String column : List.of("provider_collection_fee", "provider_customer_charged")) {
+            assertThat(row).containsKey(column);
+            assertThat(row.remove(column))
+                    .as("Historical payments must not acquire invented %s", column)
+                    .isNull();
+        }
+        return row;
+    }
+
+    /**
+     * The additive direct-payout migration adds a nullable target column. Historical campaign
+     * payouts must keep that target null and every pre-existing field intact.
+     */
+    static java.util.Map<String, Object> historicalMerchantPayout(
+            java.util.Map<String, Object> row) {
+        assertThat(row).containsKey("direct_order_id");
+        assertThat(row.remove("direct_order_id"))
+                .as("Historical groupage payouts must not acquire a direct-order target")
+                .isNull();
+        return row;
+    }
+
     static List<Entry> snapshot(JdbcTemplate jdbc) {
         return jdbc.query(
                 "select id, author, filename, md5sum, orderexecuted, exectype from databasechangelog order by orderexecuted",

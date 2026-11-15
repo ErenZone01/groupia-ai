@@ -161,6 +161,9 @@ export class CompletionPanel {
       PAYMENT_RECEIPT_PENDING: 'Confirmation de paiement en traitement',
       PAYMENT_OBLIGATION_OPEN: 'Paiement encore ouvert',
       REFUND_UNRESOLVED: 'Remboursement à terminer',
+      COMMERCIAL_REFUND_DUE: 'Commande annulée : remboursement à traiter',
+      COMMERCIAL_REFUND_UNVERIFIED: 'Remboursement de commande à vérifier',
+      PLATFORM_FEE_COMPENSATION_DUE: 'Anciens frais Groupia à compenser',
       INITIAL_PAYMENT_NOT_SETTLED: 'Paiement initial non réglé',
       INVALID_GROUPING_TRANSITION: 'Ce groupage ne peut pas être terminé depuis son état actuel',
     };

@@ -1,5 +1,6 @@
 package sn.groupia.settlement.infrastructure.provider;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import sn.groupia.payment.api.OutgoingPayoutOperations;
 import sn.groupia.payment.api.OutgoingPayoutOperations.Kind;
@@ -7,6 +8,10 @@ import sn.groupia.settlement.domain.model.MerchantPayout;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 
 @Component
+@ConditionalOnProperty(
+        name = "groupia.settlement.payout-provider",
+        havingValue = "BICTORYS",
+        matchIfMissing = true)
 public class PaymentOutgoingMerchantPayoutProvider implements MerchantPayoutProvider {
     private final OutgoingPayoutOperations outgoing;
 

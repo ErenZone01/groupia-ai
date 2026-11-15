@@ -4,6 +4,9 @@ import java.util.UUID;
 import sn.groupia.payment.api.dto.*;
 
 public interface PaymentOperations {
+    /** Caller must authorize this organization and obligation before exposing the checkout URL. */
+    PaymentAttemptRecoveryView latestAttempt(UUID organizationId, UUID paymentRequestId);
+
     PaymentSettlementEvidence settlementEvidence(UUID organizationId, UUID paymentRequestId);
 
     boolean providerAvailable(String provider);
@@ -30,6 +33,20 @@ public interface PaymentOperations {
             String idempotencyKey,
             String recoveryTokenHash,
             PaymentCheckoutContext context);
+
+    /** Explicit provider selection for hosted checkout (no fee quote). */
+    default PaymentAttemptView initiateDirect(
+            UUID organizationId,
+            UUID paymentRequestId,
+            String provider,
+            String idempotencyKey,
+            String recoveryTokenHash,
+            PaymentCheckoutContext context) {
+        if (!"BICTORYS".equals(provider))
+            throw new UnsupportedOperationException("Explicit provider not supported");
+        return initiateDirect(
+                organizationId, paymentRequestId, idempotencyKey, recoveryTokenHash, context);
+    }
 
     PaymentRequestView request(UUID organizationId, UUID paymentRequestId);
 

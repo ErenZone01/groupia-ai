@@ -32,6 +32,8 @@ export class AuthService {
   readonly hasSession = computed(() => this.session() !== null);
   readonly signedIn = computed(() => this.state() === 'AUTHENTICATED');
   readonly generation = signal(0);
+  // Non-secret identifier for scoping recoverable commands to the authenticated session.
+  readonly commandScope = computed(() => this.session()?.sessionId ?? null);
   constructor() {
     try {
       this.window?.sessionStorage.removeItem('groupia.session');

@@ -114,14 +114,14 @@ class SaspayPayoutRecoveryPolicyTests {
                         true,
                         true);
         ReflectionTestUtils.setField(transactions, "saspayPayoutPilotEnabled", true);
-        ReflectionTestUtils.setField(transactions, "saspayPayoutPilotOrganizationId", org.toString());
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutPilotOrganizationId", org.toString());
         ReflectionTestUtils.setField(
                 transactions, "saspayPayoutPilotMaxXof", new BigDecimal("1000"));
         ReflectionTestUtils.setField(transactions, "saspayLivePilotReleased", true);
         ReflectionTestUtils.setField(
                 transactions, "saspayLivePilotDirectOrderId", orderId.toString());
-        ReflectionTestUtils.setField(
-                transactions, "saspayPayoutRecoveryId", payoutId.toString());
+        ReflectionTestUtils.setField(transactions, "saspayPayoutRecoveryId", payoutId.toString());
         ReflectionTestUtils.setField(
                 transactions, "saspayPayoutRecoveryOriginalKey", idempotencyKey.toString());
     }
@@ -225,18 +225,40 @@ class SaspayPayoutRecoveryPolicyTests {
         validFacts(original);
         enableRecovery();
         when(store.destination(org))
-                .thenReturn(Optional.of(new MerchantPayoutDestination(
-                        destinationId, org, "WAVE", "+221779999999", "Awa Test",
-                        "ACTIVE", Instant.now(), Instant.now(), actor, actor, 0)));
+                .thenReturn(
+                        Optional.of(
+                                new MerchantPayoutDestination(
+                                        destinationId,
+                                        org,
+                                        "WAVE",
+                                        "+221779999999",
+                                        "Awa Test",
+                                        "ACTIVE",
+                                        Instant.now(),
+                                        Instant.now(),
+                                        actor,
+                                        actor,
+                                        0)));
         assertThatThrownBy(() -> transactions.claimRecovery(org, payoutId, true))
                 .hasMessageContaining("destination a changé");
         when(store.destination(org)).thenReturn(Optional.of(destination()));
         when(direct.calculate(org))
-                .thenReturn(List.of(new DirectSettlement(
-                        orderId, "DIR-TEST", "COMPLETED", "XOF", "SASPAY", account,
-                        new BigDecimal("1000"), BigDecimal.ZERO, new BigDecimal("1000"),
-                        BigDecimal.ZERO, new BigDecimal("900"),
-                        new BigDecimal("100"), BigDecimal.ZERO)));
+                .thenReturn(
+                        List.of(
+                                new DirectSettlement(
+                                        orderId,
+                                        "DIR-TEST",
+                                        "COMPLETED",
+                                        "XOF",
+                                        "SASPAY",
+                                        account,
+                                        new BigDecimal("1000"),
+                                        BigDecimal.ZERO,
+                                        new BigDecimal("1000"),
+                                        BigDecimal.ZERO,
+                                        new BigDecimal("900"),
+                                        new BigDecimal("100"),
+                                        BigDecimal.ZERO)));
         assertThatThrownBy(() -> transactions.claimRecovery(org, payoutId, true))
                 .hasMessageContaining("Fonds réservés non vérifiés");
         verify(store, never()).state(any(), any(), any(), any(), any(), anyBoolean(), any());
@@ -249,8 +271,13 @@ class SaspayPayoutRecoveryPolicyTests {
         transactions.recoveryUncertain(org, payoutId);
         verify(store)
                 .state(
-                        eq(payoutId), eq("REVIEW_REQUIRED"), isNull(), isNull(), isNull(),
-                        eq(true), eq("PAYOUT_MANUAL_RECOVERY_UNCERTAIN"));
+                        eq(payoutId),
+                        eq("REVIEW_REQUIRED"),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(true),
+                        eq("PAYOUT_MANUAL_RECOVERY_UNCERTAIN"));
         when(store.payout(org, payoutId))
                 .thenReturn(payout("REVIEW_REQUIRED", "PAYOUT_MANUAL_RECOVERY_UNCERTAIN"));
         transactions.requiresOperator(org, payoutId);

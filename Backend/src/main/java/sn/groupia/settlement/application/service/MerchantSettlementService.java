@@ -136,8 +136,8 @@ public class MerchantSettlementService {
     }
 
     /**
-     * A one-time, explicitly confirmed operator action against an EXISTING reserved payout.
-     * The same provider key, body, and metadata are reused; no payout row is created.
+     * A one-time, explicitly confirmed operator action against an EXISTING reserved payout. The
+     * same provider key, body, and metadata are reused; no payout row is created.
      */
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView recoverPilot(UUID org, UUID id, boolean confirmed) {

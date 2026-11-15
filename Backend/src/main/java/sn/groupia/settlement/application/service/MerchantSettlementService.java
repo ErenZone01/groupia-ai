@@ -10,20 +10,35 @@ import sn.groupia.settlement.api.dto.*;
 import sn.groupia.settlement.domain.model.*;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure;
 
 @Service
 public class MerchantSettlementService {
     private static final Logger LOG = LoggerFactory.getLogger(MerchantSettlementService.class);
 
-    // Keep provider response bodies, numbers, credentials, and exception messages out of logs.
-    // Only provider-owned static error codes can be logged.
-    private static String safePayoutErrorCode(RuntimeException exception) {
-        String candidate = exception.getMessage();
-        return exception instanceof IllegalStateException
-                        && candidate != null
-                        && candidate.matches("SASPAY_PAYOUT_[A-Z0-9_]{3,80}")
-                ? candidate
-                : "UNCLASSIFIED";
+    private static void logFailure(String operation, MerchantPayout payout, RuntimeException ex) {
+        if (ex instanceof PayoutProviderFailure failure) {
+            LOG.warn(
+                    "Merchant payout failure operation={} payoutId={} provider={} stage={} method={} endpoint={} httpStatus={} providerCode={} category={} submission={} errorCode={}",
+                    operation,
+                    payout.id(),
+                    payout.provider(),
+                    failure.stage(),
+                    failure.stage().method,
+                    failure.stage().endpoint,
+                    failure.httpStatus(),
+                    failure.providerCode(),
+                    failure.category(),
+                    failure.submission(),
+                    failure.getMessage());
+        } else {
+            // No arbitrary exception message, class name, cause or payload reaches logs.
+            LOG.warn(
+                    "Merchant payout failure operation={} payoutId={} provider={} errorCode=UNCLASSIFIED submission=UNKNOWN",
+                    operation,
+                    payout.id(),
+                    payout.provider());
+        }
     }
 
     private final MerchantPayoutTransactions transactions;
@@ -145,12 +160,7 @@ public class MerchantSettlementService {
         try {
             transactions.initiated(org, id, provider.initiate(original));
         } catch (RuntimeException ex) {
-            LOG.warn(
-                    "Merchant payout recovery uncertain payoutId={} provider={} errorCode={} exceptionType={}",
-                    id,
-                    original.provider(),
-                    safePayoutErrorCode(ex),
-                    ex.getClass().getSimpleName());
+            logFailure("RECOVERY", original, ex);
             transactions.recoveryUncertain(org, id);
         }
         return view(transactions.get(org, id));
@@ -164,13 +174,10 @@ public class MerchantSettlementService {
                 // This exception is intentionally not propagated: outcome may be uncertain.
                 // The reference and a safe code let operators diagnose the first failure
                 // without leaking HTTP payloads or triggering a second payout request.
-                LOG.warn(
-                        "Merchant payout initiation uncertain payoutId={} provider={} errorCode={} exceptionType={}",
-                        p.id(),
-                        p.provider(),
-                        safePayoutErrorCode(ex),
-                        ex.getClass().getSimpleName());
-                transactions.uncertain(p.organizationId(), p.id());
+                logFailure("INITIATE", p, ex);
+                if (ex instanceof PayoutProviderFailure failure)
+                    transactions.initiationFailure(p.organizationId(), p.id(), failure);
+                else transactions.uncertain(p.organizationId(), p.id());
             }
         }
         return view(transactions.get(p.organizationId(), p.id()));
@@ -179,7 +186,30 @@ public class MerchantSettlementService {
     @Transactional(propagation = Propagation.NEVER)
     public MerchantPayoutView reconcile(UUID org, UUID id) {
         access.requirePermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
-        var p = transactions.get(org, id);
+        return reconcileExisting(transactions.get(org, id), null);
+    }
+
+    /** Bounded GET-only recovery after restart. No claim/initialize path is reachable here. */
+    @Transactional(propagation = Propagation.NEVER)
+    public void reconcilePending() {
+        if (!transactions.available() || !"SASPAY".equals(provider.name())) return;
+        for (var work : store.dueForVerification(provider.name(), provider.account())) {
+            var payout = work.payout();
+            try {
+                reconcileExisting(payout, work.claimToken());
+            } catch (RuntimeException ex) {
+                logFailure("BACKGROUND_VERIFY", payout, ex);
+            }
+        }
+    }
+
+    private MerchantPayoutView reconcileExisting(MerchantPayout p, UUID claimToken) {
+        UUID org = p.organizationId();
+        UUID id = p.id();
+        if (!provider.name().equals(p.provider())
+                || !provider.account().equals(p.providerAccountReference()))
+            throw new sn.groupia.shared.api.ApiException(
+                    409, "PAYOUT_PROVIDER_MISMATCH", "Compte fournisseur incompatible.");
         io.micrometer.core.instrument.Metrics.counter(
                         "merchant_payout_reconciliation",
                         "provider",
@@ -201,13 +231,9 @@ public class MerchantSettlementService {
                 var proof = provider.verify(p);
                 if (proof != null || !provider.publishesEvidence())
                     transactions.verified(org, id, proof);
+                store.finishVerification(id, claimToken);
             } catch (RuntimeException ex) {
-                LOG.warn(
-                        "Merchant payout reconciliation uncertain payoutId={} provider={} errorCode={} exceptionType={}",
-                        id,
-                        p.provider(),
-                        safePayoutErrorCode(ex),
-                        ex.getClass().getSimpleName());
+                logFailure("VERIFY", p, ex);
                 transactions.uncertain(org, id);
             }
         }

@@ -13,6 +13,7 @@ import sn.groupia.payment.api.OutgoingPayoutOperations.Kind;
 import sn.groupia.settlement.domain.model.*;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure;
 import sn.groupia.shared.api.ApiException;
 
 @Service
@@ -193,6 +194,7 @@ public class MerchantPayoutTransactions {
                                                 "MERCHANT_FUNDS_NOT_AVAILABLE",
                                                 "Cette vente n'a pas de fonds disponibles."))
                         .availableForPayout();
+        gross = gross.min(balances.calculate(org, null, true, false, true).availableForPayout());
         return issueQuote(org, null, directOrderId, expectedDestination, gross, requestedAmount);
     }
 
@@ -273,7 +275,11 @@ public class MerchantPayoutTransactions {
         var old = store.byReference(org, reference);
         if (old.isPresent()) {
             if (!Objects.equals(old.get().campaignId(), campaign)
-                    || !old.get().destinationId().equals(expectedDestination))
+                    || !old.get().destinationId().equals(expectedDestination)
+                    || ("SASPAY".equals(old.get().provider())
+                            && !store.findPayoutFeeQuote(old.get().id())
+                                    .map(q -> q.id().equals(quoteId))
+                                    .orElse(false)))
                 throw error(
                         409,
                         "PAYOUT_IDEMPOTENCY_CONFLICT",
@@ -388,7 +394,11 @@ public class MerchantPayoutTransactions {
         var old = store.byReference(org, reference);
         if (old.isPresent()) {
             if (!Objects.equals(old.get().directOrderId(), directOrderId)
-                    || !old.get().destinationId().equals(expectedDestination))
+                    || !old.get().destinationId().equals(expectedDestination)
+                    || ("SASPAY".equals(old.get().provider())
+                            && !store.findPayoutFeeQuote(old.get().id())
+                                    .map(q -> q.id().equals(quoteId))
+                                    .orElse(false)))
                 throw error(
                         409,
                         "PAYOUT_IDEMPOTENCY_CONFLICT",
@@ -430,18 +440,21 @@ public class MerchantPayoutTransactions {
                                                 409,
                                                 "MERCHANT_FUNDS_NOT_AVAILABLE",
                                                 "Le règlement de cette vente n'est pas encore disponible."));
-        if (position.availableForPayout().signum() <= 0)
+        BigDecimal spendable =
+                position.availableForPayout()
+                        .min(balances.calculate(org, null, true, false, true).availableForPayout());
+        if (spendable.signum() <= 0)
             throw error(
                     409,
                     "MERCHANT_FUNDS_NOT_AVAILABLE",
                     "Aucun montant vérifié disponible pour cette vente.");
-        BigDecimal requestedGross = position.availableForPayout();
+        BigDecimal requestedGross = spendable;
         if ("SASPAY".equals(provider.name())) {
             var accepted = requireQuoteForAmount(org, quoteId);
             requestedGross = accepted.grossAmount();
             requireSaspayPilot(org, requestedGross);
             checkPilotUsage(org);
-            if (requestedGross.compareTo(position.availableForPayout()) > 0)
+            if (requestedGross.compareTo(spendable) > 0)
                 throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
         }
         var p =
@@ -594,6 +607,7 @@ public class MerchantPayoutTransactions {
                         "MERCHANT_FUNDS_NOT_AVAILABLE",
                         "Le solde du groupage a changé. Le retrait reste réservé pour vérification.");
         }
+        if (p.directSale() || "SASPAY".equals(p.provider())) requireOrganizationReservation(org);
         if ("SASPAY".equals(p.provider())) {
             if (!"SASPAY".equals(provider.name()))
                 throw error(
@@ -627,6 +641,15 @@ public class MerchantPayoutTransactions {
                         "merchant_payout_initiated", "provider", p.provider(), "method", p.method())
                 .increment();
         return true;
+    }
+
+    private void requireOrganizationReservation(UUID org) {
+        var funds = balances.calculate(org, null, true, false, true);
+        if (funds.eligibleBalance().compareTo(funds.reservedForPayout()) < 0)
+            throw error(
+                    409,
+                    "MERCHANT_FUNDS_NOT_AVAILABLE",
+                    "Le solde global a changé. Le retrait reste réservé pour vérification.");
     }
 
     /**
@@ -707,6 +730,7 @@ public class MerchantPayoutTransactions {
                 || position.reservedForPayout().compareTo(p.amount()) < 0
                 || position.deficit().signum() != 0)
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Fonds réservés non vérifiés.");
+        requireOrganizationReservation(org);
         store.state(id, "PENDING", null, null, null, true, "PAYOUT_MANUAL_RECOVERY_IN_PROGRESS");
         return p;
     }
@@ -756,15 +780,41 @@ public class MerchantPayoutTransactions {
                     p.reconciliationReason());
     }
 
+    /** Only a fresh claimed intent can carry a new pre-POST diagnostic; never release it. */
+    public void initiationFailure(UUID org, UUID id, PayoutProviderFailure failure) {
+        store.lockOrganization(org);
+        var p = store.payout(org, id);
+        if ("PENDING".equals(p.status())
+                && "PAYOUT_INITIATION_IN_PROGRESS".equals(p.reconciliationReason())) {
+            review(p, failure.getMessage());
+        }
+    }
+
+    private static boolean manualRecovery(MerchantPayout p) {
+        return "PAYOUT_MANUAL_RECOVERY_IN_PROGRESS".equals(p.reconciliationReason())
+                || "PAYOUT_MANUAL_RECOVERY_UNCERTAIN".equals(p.reconciliationReason());
+    }
+
     public void uncertain(UUID org, UUID id) {
         store.lockOrganization(org);
         var p = store.payout(org, id);
+        if (manualRecovery(p)) {
+            if ("PAYOUT_MANUAL_RECOVERY_IN_PROGRESS".equals(p.reconciliationReason()))
+                review(p, "PAYOUT_MANUAL_RECOVERY_UNCERTAIN");
+            return;
+        }
         if (p.reserved() || p.succeeded()) review(p, "PAYOUT_PROVIDER_UNCERTAIN");
     }
 
     public void requiresOperator(UUID org, UUID id) {
         store.lockOrganization(org);
         var p = store.payout(org, id);
+        // A crash during manual recovery must never make it eligible for a second replay.
+        if (manualRecovery(p)) {
+            if ("PAYOUT_MANUAL_RECOVERY_IN_PROGRESS".equals(p.reconciliationReason()))
+                review(p, "PAYOUT_MANUAL_RECOVERY_UNCERTAIN");
+            return;
+        }
         // Do not replace a known collision or correlation failure with a less precise diagnosis.
         if (p.status().equals("REVIEW_REQUIRED")
                 && p.reconciliationReason() != null

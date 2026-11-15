@@ -71,7 +71,7 @@ class SaspayIntegrationTests {
                                         Long.class)
                                 == 0);
         jdbc.execute(
-                "TRUNCATE TABLE merchant_ledger_entries,outgoing_provider_operations,order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication CASCADE");
+                "TRUNCATE TABLE payout_status_notifications,merchant_ledger_entries,outgoing_provider_operations,order_fulfillment_events, shipping_calculations, shipping_measurements, shipping_assessments, customer_access_sessions, otp_challenges, order_access_links, customer_access_limits, shipment_facts, shipments, supplier_order_anomalies, supplier_orders, payment_webhook_events,payments,payment_requests,order_items,orders,customers,grouping_changes,grouping_offers,grouping_campaigns,product_variants,products,organization_members,organizations,user_accounts,event_publication CASCADE");
         clock.reset();
         http.reset();
         remote = "192.0.2." + addressSequence.incrementAndGet();
@@ -214,6 +214,64 @@ class SaspayIntegrationTests {
                                                 .SaspayTestConfiguration.signature(
                                                 bytes, timestamp)))
                 .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void payoutWebhooksAreDurableDeduplicatedHintsAndNeverAllocatePayins() throws Exception {
+        String outgoing = event("SUCCESS").replace("PAIEMENT", "RETRAIT");
+        deliver(outgoing);
+        deliver(outgoing);
+        deliver(event("PENDING").replace("PAIEMENT", "RETRAIT"));
+        deliver(event("FAILED").replace("PAIEMENT", "RETRAIT"));
+        await(
+                () ->
+                        jdbc.queryForObject(
+                                        "select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",
+                                        Long.class)
+                                == 0);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from payout_status_notifications where authentic",
+                                Long.class))
+                .isEqualTo(3);
+        assertThat(jdbc.queryForObject("select count(*) from payment_webhook_events", Long.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from merchant_payouts", Long.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_verifications", Long.class))
+                .isZero();
+    }
+
+    @Test
+    void payoutNotificationAuthenticationAndPersistenceCannotBeBypassed() throws Exception {
+        String outgoing = event("SUCCESS").replace("PAIEMENT", "RETRAIT");
+        mvc.perform(
+                        post("/api/payment/webhooks/saspay")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(outgoing)
+                                .header("X-Webhook-Timestamp", clock.instant().getEpochSecond())
+                                .header("X-Webhook-Signature", "invalid"))
+                .andExpect(status().isUnauthorized());
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from payout_status_notifications where not authentic",
+                                Long.class))
+                .isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from event_publication where event_type like '%PayoutStatusNotificationReceived'",
+                                Long.class))
+                .isZero();
+        deliver(outgoing.replace(providerId, "invalid-id"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select error_code from payout_status_notifications where authentic",
+                                String.class))
+                .isEqualTo("PAYOUT_NOTIFICATION_INVALID");
+        assertThat(jdbc.queryForObject("select count(*) from payment_webhook_events", Long.class))
+                .isZero();
     }
 
     @Test

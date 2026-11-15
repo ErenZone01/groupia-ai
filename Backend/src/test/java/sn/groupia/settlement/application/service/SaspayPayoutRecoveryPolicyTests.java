@@ -31,6 +31,7 @@ class SaspayPayoutRecoveryPolicyTests {
     private MerchantPayoutProvider provider;
     private OrganizationAccess access;
     private DirectMerchantBalances direct;
+    private MerchantBalances balances;
 
     private MerchantPayout payout(String status, String reason) {
         return new MerchantPayout(
@@ -97,6 +98,11 @@ class SaspayPayoutRecoveryPolicyTests {
         provider = mock(MerchantPayoutProvider.class);
         access = mock(OrganizationAccess.class);
         direct = mock(DirectMerchantBalances.class);
+        balances = mock(MerchantBalances.class);
+        var funds = mock(sn.groupia.settlement.api.dto.MerchantBalance.class);
+        when(funds.eligibleBalance()).thenReturn(new BigDecimal("1000"));
+        when(funds.reservedForPayout()).thenReturn(new BigDecimal("1000"));
+        when(balances.calculate(org, null, true, false, true)).thenReturn(funds);
         when(provider.name()).thenReturn("SASPAY");
         when(provider.account()).thenReturn(account);
         when(provider.enabled()).thenReturn(true);
@@ -104,7 +110,7 @@ class SaspayPayoutRecoveryPolicyTests {
         transactions =
                 new MerchantPayoutTransactions(
                         store,
-                        null,
+                        balances,
                         direct,
                         null,
                         access,
@@ -282,5 +288,49 @@ class SaspayPayoutRecoveryPolicyTests {
                 .thenReturn(payout("REVIEW_REQUIRED", "PAYOUT_MANUAL_RECOVERY_UNCERTAIN"));
         transactions.requiresOperator(org, payoutId);
         verify(store, times(1)).state(any(), any(), any(), any(), any(), anyBoolean(), any());
+    }
+
+    @Test
+    void reconciliationAfterRecoveryCrashCannotReenableRecovery() {
+        enableRecovery();
+        when(store.payout(org, payoutId))
+                .thenReturn(payout("PENDING", "PAYOUT_MANUAL_RECOVERY_IN_PROGRESS"));
+        transactions.requiresOperator(org, payoutId);
+        verify(store)
+                .state(
+                        eq(payoutId),
+                        eq("REVIEW_REQUIRED"),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(true),
+                        eq("PAYOUT_MANUAL_RECOVERY_UNCERTAIN"));
+        when(store.payout(org, payoutId))
+                .thenReturn(payout("REVIEW_REQUIRED", "PAYOUT_MANUAL_RECOVERY_UNCERTAIN"));
+        transactions.uncertain(org, payoutId);
+        transactions.requiresOperator(org, payoutId);
+        assertThatThrownBy(() -> transactions.claimRecovery(org, payoutId, true))
+                .hasMessageContaining("non récupérable");
+        verify(store, times(1)).state(any(), any(), any(), any(), any(), anyBoolean(), any());
+    }
+
+    @Test
+    void sameRequestKeyRequiresTheSameAcceptedFeeQuote() {
+        var p = payout("REVIEW_REQUIRED", "PAYOUT_MANUAL_RECOVERY_UNCERTAIN");
+        var q = quote();
+        UUID key = UUID.randomUUID();
+        when(store.byReference(org, "MERCHANT_PAYOUT:" + org + ":" + key))
+                .thenReturn(Optional.of(p));
+        when(store.findPayoutFeeQuote(p.id())).thenReturn(Optional.of(q));
+        assertThat(transactions.reserveDirect(org, orderId, key, destinationId, true, q.id()))
+                .isSameAs(p);
+        assertThatThrownBy(
+                        () ->
+                                transactions.reserveDirect(
+                                        org, orderId, key, destinationId, true, UUID.randomUUID()))
+                .isInstanceOfSatisfying(
+                        sn.groupia.shared.api.ApiException.class,
+                        e -> assertThat(e.code()).isEqualTo("PAYOUT_IDEMPOTENCY_CONFLICT"));
+        verify(store, never()).create(any());
     }
 }

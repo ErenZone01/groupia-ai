@@ -10,7 +10,11 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import sn.groupia.settlement.domain.model.MerchantPayout;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure.*;
 import tools.jackson.databind.ObjectMapper;
 
 class SaspayMerchantPayoutProviderTests {
@@ -425,6 +429,10 @@ class SaspayMerchantPayoutProviderTests {
                     assertThat(body.path("country").asText()).isEqualTo("SN");
                     assertThat(body.path("method").asText()).isEqualTo("wave_sn");
                     assertThat(body.path("fee_charge_mode").asText()).isEqualTo("DEDUCTED");
+                    assertThat(body.path("customer").path("phone").asText())
+                            .isEqualTo(original.phoneE164());
+                    assertThat(body.path("metadata").path("groupia_reference").asText())
+                            .isEqualTo(original.businessReference());
                     assertThat(body.path("recipient").path("msisdn").asText())
                             .isEqualTo("771234567");
                     assertThat(body.path("metadata").path("groupia_payout_id").asText())
@@ -553,6 +561,206 @@ class SaspayMerchantPayoutProviderTests {
             assertThatThrownBy(() -> provider.verify(payout(TX.toString()))).hasMessage(error);
         } finally {
             server.stop(0);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {200, 202, 400, 401, 403, 409, 422, 429, 500, 502, 503})
+    void unexpectedInitializeStatusesRemainUncertainAndAreNeverRetried(int status)
+            throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var posts = new AtomicInteger();
+        server.createContext("/api/v1/pricing/my-rates/", e -> respond(e, payoutRates("ADD_ON")));
+        server.createContext(
+                "/api/v1/merchant-balances/", e -> respond(e, walletBalance("1000.00", false)));
+        server.createContext(
+                "/api/v1/payouts/initialize/",
+                e -> {
+                    posts.incrementAndGet();
+                    raw(
+                            e,
+                            status,
+                            "application/json",
+                            "{\"success\":false,\"error\":{\"code\":\"invalid_customer\",\"message\":\"SECRET +221771234567\"}}");
+                });
+        server.start();
+        try {
+            var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+            assertThatThrownBy(() -> provider.initiate(payout(null)))
+                    .isInstanceOfSatisfying(
+                            PayoutProviderFailure.class,
+                            f -> {
+                                assertThat(f.stage()).isEqualTo(Stage.INITIALIZE);
+                                assertThat(f.stage().method).isEqualTo("POST");
+                                assertThat(f.httpStatus()).isEqualTo(status);
+                                assertThat(f.providerCode())
+                                        .isEqualTo(ProviderCode.invalid_customer);
+                                assertThat(f.submission()).isEqualTo(Submission.UNKNOWN);
+                                assertThat(f.getCause()).isNull();
+                                assertThat(f.toString()).doesNotContain("SECRET", "221771234567");
+                            });
+            assertThat(posts).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {400, 401, 403, 409, 422, 429, 500, 503})
+    void preflightHttpFailuresIdentifyTheGetAndProveNoPostAttempted(int status) throws Exception {
+        for (boolean failRates : List.of(true, false)) {
+            var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            var posts = new AtomicInteger();
+            String error = "{\"code\":\"wallet_frozen\",\"message\":\"confidential\"}";
+            server.createContext(
+                    "/api/v1/pricing/my-rates/",
+                    e -> {
+                        if (failRates) raw(e, status, "application/json", error);
+                        else respond(e, payoutRates("DEDUCTED"));
+                    });
+            server.createContext(
+                    "/api/v1/merchant-balances/", e -> raw(e, status, "application/json", error));
+            server.createContext(
+                    "/api/v1/payouts/initialize/",
+                    e -> {
+                        posts.incrementAndGet();
+                        e.close();
+                    });
+            server.start();
+            try {
+                var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+                assertThatThrownBy(() -> provider.initiate(payout(null)))
+                        .isInstanceOfSatisfying(
+                                PayoutProviderFailure.class,
+                                f -> {
+                                    assertThat(f.stage())
+                                            .isEqualTo(failRates ? Stage.RATES : Stage.WALLETS);
+                                    assertThat(f.stage().method).isEqualTo("GET");
+                                    assertThat(f.httpStatus()).isEqualTo(status);
+                                    assertThat(f.providerCode())
+                                            .isEqualTo(ProviderCode.wallet_frozen);
+                                    assertThat(f.submission()).isEqualTo(Submission.NOT_ATTEMPTED);
+                                });
+                assertThat(posts).hasValue(0);
+            } finally {
+                server.stop(0);
+            }
+        }
+    }
+
+    @Test
+    void malformedAcksHavePreciseSafeDiagnosticsAndCannotCountAsSuccess() throws Exception {
+        Map<String, String> cases = new LinkedHashMap<>();
+        cases.put("{bad secret +221771234567", "INVALID_JSON");
+        cases.put("null", "INVALID_JSON");
+        cases.put("{\"success\":\"true\",\"data\":{}}", "INVALID_ENVELOPE");
+        cases.put("{\"success\":true,\"data\":null}", "INVALID_ENVELOPE");
+        cases.put(
+                "{\"success\":false,\"error\":{\"code\":\"SASPAY_PAYOUT_PHONE_221771234567\"}}",
+                "PROVIDER_REPORTED_FAILURE");
+        cases.put("{}", "IDENTIFIER_INVALID");
+        cases.put("{\"id\":\"bad\"}", "IDENTIFIER_INVALID");
+        cases.put(" ".repeat(65537), "RESPONSE_TOO_LARGE");
+        for (var entry : cases.entrySet()) {
+            var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext(
+                    "/api/v1/pricing/my-rates/", e -> respond(e, payoutRates("DEDUCTED")));
+            server.createContext(
+                    "/api/v1/merchant-balances/", e -> respond(e, walletBalance("1000.00", false)));
+            server.createContext(
+                    "/api/v1/payouts/initialize/",
+                    e -> raw(e, 201, "application/json", entry.getKey()));
+            server.start();
+            try {
+                var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+                assertThatThrownBy(() -> provider.initiate(payout(null)))
+                        .hasMessage("SASPAY_PAYOUT_" + entry.getValue())
+                        .isInstanceOfSatisfying(
+                                PayoutProviderFailure.class,
+                                f -> {
+                                    assertThat(f.submission()).isEqualTo(Submission.UNKNOWN);
+                                    assertThat(f.httpStatus()).isEqualTo(201);
+                                    assertThat(f.providerCode().name())
+                                            .doesNotContain("221771234567");
+                                    assertThat(f.getCause()).isNull();
+                                });
+            } finally {
+                server.stop(0);
+            }
+        }
+    }
+
+    @Test
+    void transportTimeoutBeforeAndAfterPossiblePostHaveDifferentCertainty() {
+        for (boolean beforePost : List.of(true, false)) {
+            var builder =
+                    org.springframework.web.client.RestClient.builder()
+                            .baseUrl("http://localhost/api/v1");
+            var server =
+                    org.springframework.test.web.client.MockRestServiceServer.bindTo(builder)
+                            .build();
+            var rates =
+                    server.expect(
+                            org.springframework.test.web.client.match.MockRestRequestMatchers
+                                    .requestTo("http://localhost/api/v1/pricing/my-rates/"));
+            if (beforePost)
+                rates.andRespond(
+                        org.springframework.test.web.client.response.MockRestResponseCreators
+                                .withException(new java.net.SocketTimeoutException("secret")));
+            else {
+                rates.andRespond(
+                        org.springframework.test.web.client.response.MockRestResponseCreators
+                                .withSuccess(
+                                        payoutRates("DEDUCTED"),
+                                        org.springframework.http.MediaType.APPLICATION_JSON));
+                server.expect(
+                                org.springframework.test.web.client.match.MockRestRequestMatchers
+                                        .requestTo("http://localhost/api/v1/merchant-balances/"))
+                        .andRespond(
+                                org.springframework.test.web.client.response
+                                        .MockRestResponseCreators.withSuccess(
+                                        walletBalance("1000.00", false),
+                                        org.springframework.http.MediaType.APPLICATION_JSON));
+                server.expect(
+                                org.springframework.test.web.client.match.MockRestRequestMatchers
+                                        .requestTo("http://localhost/api/v1/payouts/initialize/"))
+                        .andExpect(
+                                org.springframework.test.web.client.match.MockRestRequestMatchers
+                                        .method(org.springframework.http.HttpMethod.POST))
+                        .andRespond(
+                                org.springframework.test.web.client.response
+                                        .MockRestResponseCreators.withException(
+                                        new java.net.SocketTimeoutException("secret")));
+            }
+            var provider =
+                    new SaspayMerchantPayoutProvider(
+                            settings(), json, Clock.systemUTC(), true, true, true, builder.build());
+            assertThatThrownBy(() -> provider.initiate(payout(null)))
+                    .hasMessage("SASPAY_PAYOUT_TRANSPORT_UNCERTAIN")
+                    .isInstanceOfSatisfying(
+                            PayoutProviderFailure.class,
+                            f -> {
+                                assertThat(f.submission())
+                                        .isEqualTo(
+                                                beforePost
+                                                        ? Submission.NOT_ATTEMPTED
+                                                        : Submission.UNKNOWN);
+                                assertThat(f.httpStatus()).isZero();
+                                assertThat(f.category()).isEqualTo(Category.TRANSPORT);
+                                assertThat(f.getCause()).isNull();
+                            });
+            server.verify();
+        }
+    }
+
+    private static void raw(
+            com.sun.net.httpserver.HttpExchange e, int status, String contentType, String body)
+            throws java.io.IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        e.getResponseHeaders().add("Content-Type", contentType);
+        e.sendResponseHeaders(status, bytes.length);
+        try (var out = e.getResponseBody()) {
+            out.write(bytes);
         }
     }
 

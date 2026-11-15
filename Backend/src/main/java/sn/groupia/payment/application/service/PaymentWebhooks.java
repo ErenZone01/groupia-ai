@@ -17,13 +17,16 @@ public class PaymentWebhooks {
     private final PaymentTransactions transactions;
     private final RefundService refunds;
     private final OutgoingPayoutService outgoing;
+    private final SaspayPayoutWebhooks saspayPayouts;
 
     PaymentWebhooks(
             ProviderRegistry providers,
             PaymentTransactions transactions,
             tools.jackson.databind.ObjectMapper json,
             RefundService refunds,
-            OutgoingPayoutService outgoing) {
+            OutgoingPayoutService outgoing,
+            SaspayPayoutWebhooks saspayPayouts) {
+        this.saspayPayouts = saspayPayouts;
         this.outgoing = outgoing;
         this.refunds = refunds;
         this.providers = providers;
@@ -35,6 +38,8 @@ public class PaymentWebhooks {
         if (payload.length > 65536) {
             throw new ApiException(413, "PAYMENT_WEBHOOK_TOO_LARGE", "Réception trop volumineuse.");
         }
+        if (saspayPayouts.recognizes(provider, payload))
+            return saspayPayouts.receive(payload, headers);
         if (outgoing.recognizes(provider, payload)) return outgoing.receive(payload, headers);
         if (refunds.recognizes(provider, payload)) return refunds.receive(payload, headers);
         var adapter = providers.require(provider);

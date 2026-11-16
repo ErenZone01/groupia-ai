@@ -12,6 +12,11 @@ import sn.groupia.settlement.domain.model.MerchantPayout;
 public interface MerchantPayoutProvider {
     boolean enabled();
 
+    /** Review eligibility only; never authorizes quotation, reservation or dispatch. */
+    default boolean administrativeApprovalEligible() {
+        return false;
+    }
+
     /** Existing intentions may still need read-only verification after dispatch is disabled. */
     default boolean verificationEnabled() {
         return enabled();

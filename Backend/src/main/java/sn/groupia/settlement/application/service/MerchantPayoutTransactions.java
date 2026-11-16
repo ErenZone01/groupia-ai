@@ -92,6 +92,11 @@ public class MerchantPayoutTransactions {
 
     void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
         if (!"SASPAY".equals(provider.name()) || !saspayLivePilotReleased) return;
+        requireAdministrativePilotTarget(directOrderId, payoutMethod);
+    }
+
+    /** The configured scope remains mandatory while dispatch is closed. */
+    void requireAdministrativePilotTarget(UUID directOrderId, String payoutMethod) {
         if (directOrderId == null
                 || !directOrderId.toString().equals(saspayLivePilotDirectOrderId)
                 || (payoutMethod != null && !"WAVE".equals(payoutMethod)))

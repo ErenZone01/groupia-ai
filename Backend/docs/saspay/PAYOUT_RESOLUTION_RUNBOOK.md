@@ -141,6 +141,18 @@ les fonds propres de DIR-24 et les fonds globaux après toutes les réservations
 Il exige une autre commande, la même destination Wave approuvée, le même compte,
 une seule ancienne demande incertaine et aucun incident de clôture contradictoire.
 
+L'éligibilité administrative est distincte de la capacité d'envoi. Le grant peut
+être accordé avec `SASPAY_PAYOUT_LIVE_PILOT_ENABLED=false` : seuls l'accès
+administratif explicite et les permissions de l'opérateur sont ouverts pour cette
+décision. Le compte SasPay LIVE, les autorisations marketplace/bénéficiaire, la
+boutique, le plafond et la commande configurée restent obligatoires. La cible est
+vérifiée même lorsque les envois sont fermés. Le calcul de revue conserve les
+contrôles de collecte, compte, remboursement, réservations et déficit ; il n'est
+jamais utilisé pour réserver ou envoyer des fonds. Un grant ne rouvre aucune porte
+d'envoi et ne crée aucune demande de retrait. Sa validité doit être explicitement
+datée, au maximum 24 heures après la revue ; une fenêtre opérateur de 30 minutes
+est recommandée, sans activation avant accord.
+
 Le grant est borné dans le temps, enregistré immuablement et consommé par **une
 seule nouvelle intention** dans la transaction de réservation. Son utilisation
 concurrente est protégée par le verrou boutique et une contrainte UNIQUE. La nouvelle
@@ -255,9 +267,10 @@ Ordre de déploiement préparé :
    disponibles ; ne modifier aucun statut historique à la main.
 5. Après accord sur l'administration, revoir le dossier INDEPENDENT_PILOT avec
    les lectures actualisées, dates et empreintes. Enregistrer une seule autorisation
-   via l'API métier. Cette étape exige temporairement les portes du pilote ouvertes,
-   mais ne doit appeler aucun endpoint de demande de retrait. Fermer ensuite l'API
-   administrative et obtenir un devis frais, dans une fenêtre opérateur contrôlée.
+   via l'API métier, avec la porte LIVE toujours fermée. Seule l'administration
+   financière est ouverte pour l'opérateur autorisé et le manifeste vérifié.
+   Fermer ensuite l'API administrative. L'ouverture des envois et l'obtention
+   d'un devis frais relèvent de l'étape suivante, dans une fenêtre contrôlée.
 6. Obtenir l'accord explicite sur **1 000 brut, frais du devis courant, net et
    destination Wave enregistrée**, puis exécuter une seule demande avec une nouvelle
    clé. Si le devis expire pendant l'accord, refaire un devis et revalider ses

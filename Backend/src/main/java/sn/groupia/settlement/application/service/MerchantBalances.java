@@ -43,6 +43,21 @@ public class MerchantBalances {
      */
     public MerchantBalance calculate(
             UUID org, UUID includeCampaign, boolean manage, boolean destination, boolean provider) {
+        return calculate(org, includeCampaign, manage, destination, provider, false);
+    }
+
+    /** Reserved for administrative risk review, never for spending funds. */
+    MerchantBalance calculateForApproval(UUID org) {
+        return calculate(org, null, true, false, false, true);
+    }
+
+    private MerchantBalance calculate(
+            UUID org,
+            UUID includeCampaign,
+            boolean manage,
+            boolean destination,
+            boolean provider,
+            boolean administrativeReview) {
         var entries = store.ledger(org);
         var payouts = store.payouts(org);
         var ids = new TreeSet<UUID>();
@@ -94,7 +109,10 @@ public class MerchantBalances {
                                 // SasPay collections may fund only an explicitly
                                 // authorized SasPay payout adapter. Never route them through
                                 // the existing Bictorys wallet or another organization.
-                                && (!"SASPAY".equals(source.provider()) || payoutProvider.enabled())
+                                && (!"SASPAY".equals(source.provider())
+                                        || (administrativeReview
+                                                ? payoutProvider.administrativeApprovalEligible()
+                                                : payoutProvider.enabled()))
                                 && Objects.equals(
                                         source.provider(), payoutProvider.fundingProvider())
                                 && Objects.equals(
@@ -141,7 +159,8 @@ public class MerchantBalances {
             eligible = eligible.add(r.eligibleBalance());
             reserved = reserved.add(r.reservedForPayout());
         }
-        var directOrders = direct.calculate(org);
+        var directOrders =
+                administrativeReview ? direct.calculateForApproval(org) : direct.calculate(org);
         for (var d : directOrders) {
             gross = gross.add(d.grossMerchantCollections());
             fees = fees.add(d.platformFees());

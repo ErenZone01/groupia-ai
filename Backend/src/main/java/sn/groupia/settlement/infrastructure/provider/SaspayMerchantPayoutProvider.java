@@ -198,6 +198,16 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     @Override
+    public boolean administrativeApprovalEligible() {
+        return livePilotOrganizationId != null
+                && livePilotDirectOrderId != null
+                && payin.enabled()
+                && payin.isLive()
+                && marketplaceAuthorized
+                && beneficiaryProofApproved;
+    }
+
+    @Override
     public boolean verificationEnabled() {
         return (syntheticTransport || livePilotOrganizationId != null)
                 && payin.enabled()

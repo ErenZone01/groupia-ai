@@ -56,6 +56,15 @@ public class DirectMerchantBalances {
             String account) {}
 
     public List<DirectSettlement> calculate(UUID org) {
+        return calculate(org, false);
+    }
+
+    /** Financial review only; this result must never authorize a reservation or dispatch. */
+    List<DirectSettlement> calculateForApproval(UUID org) {
+        return calculate(org, true);
+    }
+
+    private List<DirectSettlement> calculate(UUID org, boolean administrativeReview) {
         var receipts =
                 jdbc.query(
                         """
@@ -136,7 +145,9 @@ public class DirectMerchantBalances {
                             && refund.amountDue().compareTo(receipt.principal()) == 0;
             boolean completed = "COMPLETED".equals(receipt.orderStatus()) && refund == null;
             boolean usable =
-                    directPayoutsEnabled
+                    (administrativeReview
+                                    ? provider.administrativeApprovalEligible()
+                                    : directPayoutsEnabled)
                             && (completed || externallyReimbursed)
                             && !proof.reversal()
                             && state.operationalStatus() == PaymentOperationalStatus.SETTLED
@@ -144,7 +155,10 @@ public class DirectMerchantBalances {
                             && !state.attemptInProgress()
                             && Objects.equals(receipt.providerName(), provider.fundingProvider())
                             && Objects.equals(receipt.account(), provider.fundingAccount())
-                            && (!"SASPAY".equals(receipt.providerName()) || provider.enabled());
+                            && (!"SASPAY".equals(receipt.providerName())
+                                    || (administrativeReview
+                                            ? provider.administrativeApprovalEligible()
+                                            : provider.enabled()));
 
             BigDecimal paid = BigDecimal.ZERO;
             BigDecimal reserved = BigDecimal.ZERO;

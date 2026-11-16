@@ -207,12 +207,35 @@ class SaspayMerchantPayoutProviderTests {
         }
         // Removing the irreversible release never enables the real transport.
         env.withProperty("groupia.settlement.saspay-payout-live-pilot.enabled", "false");
-        assertThat(new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env).enabled())
-                .isFalse();
+        var closed = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
+        assertThat(closed.enabled()).isFalse();
+        assertThat(closed.administrativeApprovalEligible()).isTrue();
+        assertThatThrownBy(
+                        () ->
+                                closed.initiate(
+                                        directPilotPayout(
+                                                shopId, order, "WAVE", new BigDecimal("1000"))))
+                .hasMessage("SASPAY_PAYOUT_NOT_AUTHORIZED");
+        for (String permission :
+                List.of(
+                        "groupia.payment.saspay.enabled",
+                        "groupia.settlement.saspay-payouts.marketplace-authorized",
+                        "groupia.settlement.saspay-payouts.beneficiary-proof-approved")) {
+            env.withProperty(permission, "false");
+            assertThat(
+                            new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env)
+                                    .administrativeApprovalEligible())
+                    .isFalse();
+            env.withProperty(permission, "true");
+        }
 
         // A malformed direct-order UUID also fails closed.
         env.withProperty("groupia.settlement.saspay-payout-live-pilot.enabled", "true");
         env.withProperty("groupia.settlement.saspay-payout-live-pilot.direct-order-id", "invalid");
+        assertThat(
+                        new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env)
+                                .administrativeApprovalEligible())
+                .isFalse();
         assertThat(new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env).enabled())
                 .isFalse();
     }

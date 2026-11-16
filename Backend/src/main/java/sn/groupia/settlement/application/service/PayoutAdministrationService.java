@@ -155,13 +155,13 @@ public class PayoutAdministrationService {
                 || !"SASPAY".equals(provider.name())
                 || !provider.account().equals(a.providerAccount())
                 || store.hasResolutionIncident(org)
-                || !policy.available())
+                || !provider.administrativeApprovalEligible())
             throw error(
                     409,
                     "PAYOUT_INDEPENDENT_PILOT_INELIGIBLE",
                     "Ce pilote indépendant n'est pas éligible.");
         policy.requireSaspayPilot(org, a.amount());
-        policy.requireLivePilotTarget(a.directOrderId(), "WAVE");
+        policy.requireAdministrativePilotTarget(a.directOrderId(), "WAVE");
         var destination =
                 store.destination(org)
                         .orElseThrow(
@@ -179,7 +179,7 @@ public class PayoutAdministrationService {
                     409, "PAYOUT_OTHER_INTENT_UNRESOLVED", "Une autre demande non résolue existe.");
         direct.lock(org, a.directOrderId());
         var target =
-                direct.calculate(org).stream()
+                direct.calculateForApproval(org).stream()
                         .filter(r -> r.directOrderId().equals(a.directOrderId()))
                         .findFirst()
                         .orElseThrow(
@@ -188,7 +188,7 @@ public class PayoutAdministrationService {
                                                 409,
                                                 "MERCHANT_FUNDS_NOT_AVAILABLE",
                                                 "Fonds indépendants absents."));
-        var global = balances.calculate(org, null, true, false, true);
+        var global = balances.calculateForApproval(org);
         if (target.availableForPayout().compareTo(a.amount()) < 0
                 || target.deficit().signum() != 0
                 || global.availableForPayout().compareTo(a.amount()) < 0

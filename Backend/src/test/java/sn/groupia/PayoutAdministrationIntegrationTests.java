@@ -72,6 +72,10 @@ class PayoutAdministrationIntegrationTests {
         provider.reset();
         clock.reset();
         doReturn("SASPAY").when(provider).name();
+        provider.sourceProvider = "SASPAY";
+        provider.sourceAccount = "fixture";
+        doReturn(true).when(provider).administrativeApprovalEligible();
+        ReflectionTestUtils.setField(policy, "saspayLivePilotReleased", false);
         doReturn(new BigDecimal("37")).when(provider).payoutFeeQuote(any(), any());
         ReflectionTestUtils.setField(administration, "enabled", true);
 
@@ -151,7 +155,7 @@ class PayoutAdministrationIntegrationTests {
                     purpose,provider,provider_account,provider_transaction_id,currency,
                     principal,seller_principal,platform_fee,confirmed_at)
                 values (?,?,?,?,'DIRECT_ORDER',?,'DIRECT_ORDER_INITIAL',
-                    'SIMULATED','test-merchant',?,'XOF',1000,1000,0,now()-interval '10 minutes')
+                    'SASPAY','fixture',?,'XOF',1000,1000,0,now()-interval '10 minutes')
                 """,
                 requestId,
                 org,
@@ -198,8 +202,8 @@ class PayoutAdministrationIntegrationTests {
                 "XOF",
                 AcceptanceStatus.CLOSED,
                 PaymentStatus.SUCCEEDED,
-                "SIMULATED",
-                "test-merchant",
+                "SASPAY",
+                "fixture",
                 "TX-" + paymentId,
                 "GP-" + paymentId,
                 Instant.now().minusSeconds(600),
@@ -303,6 +307,7 @@ class PayoutAdministrationIntegrationTests {
         requestId = UUID.randomUUID();
         paymentId = UUID.randomUUID();
         seedOrder(storefront);
+        ReflectionTestUtils.setField(policy, "saspayLivePilotDirectOrderId", orderId.toString());
         return orderId;
     }
 
@@ -452,6 +457,111 @@ class PayoutAdministrationIntegrationTests {
         read(auth(post(base() + "/merchant-payouts/" + freshId + "/reconcile")));
         assertThat(balance().path("merchantPayouts").decimalValue()).isEqualByComparingTo("1000");
         assertThat(balance().path("availableForPayout").decimalValue()).isZero();
+    }
+
+    @Test
+    void independentGrantWithDispatchClosedCannotReserveOrSendAndPreservesHistory()
+            throws Exception {
+        UUID dest = destination();
+        var old = uncertain(dest);
+        UUID second = anotherOrder();
+        provider.available = false;
+        assertThat(policy.available()).isFalse();
+        var a = approval(old, "INDEPENDENT_PILOT", second, dest);
+        pin(a);
+        clearInvocations(provider);
+        var grant = read(decision(old, a));
+        assertThat(grant.path("authorizationId").asText()).isNotBlank();
+        assertThat(read(decision(old, a)).path("authorizationId"))
+                .isEqualTo(grant.path("authorizationId"));
+        request(second, dest, UUID.randomUUID(), UUID.randomUUID())
+                .andExpect(status().isServiceUnavailable());
+        auth(get(base() + "/direct-orders/" + second + "/merchant-payout-quote")
+                        .param("destinationId", dest.toString())
+                        .param("amount", "1000"))
+                .andExpect(status().isServiceUnavailable());
+        assertThat(feeStore.payout(org, old.id())).isEqualTo(old);
+        assertThat(jdbc.queryForObject("select count(*) from merchant_payouts", Integer.class))
+                .isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_pilot_grants", Integer.class))
+                .isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_pilot_bindings",
+                                Integer.class))
+                .isZero();
+        var funds = balance();
+        assertThat(funds.path("grossMerchantCollections").decimalValue())
+                .isEqualByComparingTo("2000");
+        assertThat(funds.path("reservedForPayout").decimalValue()).isEqualByComparingTo("1000");
+        assertThat(funds.path("availableForPayout").decimalValue()).isZero();
+        verify(provider, never()).initiate(any());
+        verify(provider, never()).verify(any());
+        verify(provider, never()).payoutFeeQuote(any(), any());
+        assertThat(provider.sends).hasValue(1); // only the earlier simulated uncertain attempt
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "invalid", "other"})
+    void closedDispatchStillRequiresExactConfiguredOrder(String target) throws Exception {
+        UUID dest = destination();
+        var old = uncertain(dest);
+        UUID second = anotherOrder();
+        provider.available = false;
+        ReflectionTestUtils.setField(
+                policy,
+                "saspayLivePilotDirectOrderId",
+                target.equals("other") ? old.directOrderId().toString() : target);
+        var a = approval(old, "INDEPENDENT_PILOT", second, dest);
+        pin(a);
+        decision(old, a)
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("code").value("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_administrations",
+                                Integer.class))
+                .isZero();
+        assertThat(feeStore.payout(org, old.id())).isEqualTo(old);
+        assertThat(provider.sends).hasValue(1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"provider", "operator", "permission", "amount", "destination", "funding"})
+    void closedDispatchDoesNotBypassIndependentApprovalChecks(String defect) throws Exception {
+        UUID dest = destination();
+        var old = uncertain(dest);
+        UUID second = anotherOrder();
+        provider.available = false;
+        var a = approval(old, "INDEPENDENT_PILOT", second, dest);
+        switch (defect) {
+            case "provider" -> doReturn(false).when(provider).administrativeApprovalEligible();
+            case "operator" -> ReflectionTestUtils.setField(administration, "operators", "");
+            case "permission" ->
+                    jdbc.update(
+                            "update organization_members set role='VIEWER' where user_account_id=?",
+                            actor);
+            case "amount" -> a.put("amount", new BigDecimal("1001"));
+            case "destination" -> a.put("destinationId", UUID.randomUUID());
+            case "funding" -> provider.sourceAccount = "another-merchant";
+        }
+        pin(a);
+        int status = decision(old, a).andReturn().getResponse().getStatus();
+        assertThat(status).isIn(403, 409);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_pilot_grants", Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_administrations",
+                                Integer.class))
+                .isZero();
+        assertThat(feeStore.payout(org, old.id())).isEqualTo(old);
+        assertThat(provider.sends).hasValue(1);
     }
 
     @Test
@@ -693,6 +803,7 @@ class PayoutAdministrationIntegrationTests {
         UUID oldRequest = requestId;
         UUID second = anotherOrder();
         when(payments.settlementEvidence(org, oldRequest)).thenReturn(reversed);
+        provider.available = false;
         var a = approval(old, "INDEPENDENT_PILOT", second, dest);
         pin(a);
         decision(old, a).andExpect(status().isConflict());

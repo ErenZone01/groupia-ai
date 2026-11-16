@@ -198,6 +198,77 @@ quant à elle sa réserve jusqu'à vérification normale.
 
 Le présent document est une procédure préparée, **pas une autorisation d'exécution**.
 
+## Dernière revue du 16 novembre 2026
+
+Le contrôle GET à 03:18 UTC confirme un portefeuille marchand SN/XOF unique,
+non gelé, disponible **2 000 XOF**, trouvé après lecture de 27 portefeuilles sur
+deux pages. Les deux encaissements restent SUCCESS, net marchand 1 000 chacun.
+Wave `wave_sn` annonce payout.available=true ; à 1 000 brut, les frais calculés
+sont **37 XOF** et le net attendu **963 XOF** avec DEDUCTED explicite. Le mode
+tarifaire publié par défaut est ADD_ON : le POST devra demander DEDUCTED, et le
+rapprochement devra prouver le débit brut et le net. Aucun devis Groupia n'a été
+créé : le devis serveur sera valable **180 secondes**, après le grant autorisé.
+La liste des retraits est toujours vide, sans attestation de non-exécution.
+
+Le contrôle PostgreSQL READ ONLY confirme l'ancien payout à la version 5, son
+état incertain inchangé, aucune intention DIR-24 et aucune migration 060 appliquée.
+La destination Wave existante est ACTIVE, version 0, numéro masqué **\*\*\*8577** ;
+son identité et son numéro correspondent au snapshot de l'ancien payout.
+
+Le fichier `.env` contient maintenant `SASPAY_PAYOUT_RECOVERY_ENABLED=false`, mais
+il a été modifié après le démarrage de la JVM observée. **Ce constat ne prouve pas
+la valeur effectivement injectée dans le bean actif.** L'instance ne publie pas
+de diagnostic de cette propriété. Au déploiement, fixer explicitement
+`--groupia.settlement.saspay-payout-recovery.enabled=false` en argument de
+démarrage, contrôler le processus neuf et conserver le journal de démarrage.
+Ne jamais tester la désactivation en appelant `recover-pilot` sur l'ancien payout.
+
+La revue a identifié une restriction incorrecte : les GET de rapprochement
+étaient soumis à la commande pilote courante et à l'ouverture des envois. Le
+correctif permet de vérifier une intention persistée de la boutique et du compte
+autorisés après ciblage de DIR-24 ou fermeture des envois. Il conserve les contrôles
+de marchand, devise, montant, référence, frais et bénéficiaire. La clé et les
+autorisations fournisseur restent nécessaires. Les POST gardent toutes leurs
+restrictions. Sans ID fournisseur, DIR-21 demeure en revue : cette correction
+n'invente ni référence ni preuve, et ne déclenche aucune relance.
+
+Ordre de déploiement préparé :
+
+1. Attendre la CI du **nouveau SHA contenant ce correctif**, puis revoir/fusionner
+   ce SHA exact. Les jobs verts de `318889fd` ne valident pas le correctif ajouté.
+2. Sauvegarder la base et la configuration, archiver le binaire précédent et
+   arrêter proprement l'ancien processus avant le déploiement autorisé. Ne pas
+   compiler dans les classes chargées par le serveur actif. Utiliser le JAR
+   vérifié, sans DevTools, et laisser Liquibase appliquer 060 une seule fois.
+3. Démarrer en préparation avec les arguments explicites ci-dessous. Ils
+   désactivent les envois et l'administration malgré toute ancienne valeur `.env` :
+
+   ```text
+   --groupia.settlement.saspay-payout-recovery.enabled=false
+   --groupia.settlement.saspay-payout-live-pilot.enabled=false
+   --groupia.settlement.payout-administration.enabled=false
+   --groupia.settlement.saspay-payout-live-pilot.direct-order-id=f1d691db-b561-4412-8149-3314b5f6955b
+   ```
+
+4. Contrôler la santé, la version déployée, les arguments du nouveau PID, les
+   changements Liquibase et les réservations. Garder les GET de rapprochement
+   disponibles ; ne modifier aucun statut historique à la main.
+5. Après accord sur l'administration, revoir le dossier INDEPENDENT_PILOT avec
+   les lectures actualisées, dates et empreintes. Enregistrer une seule autorisation
+   via l'API métier. Cette étape exige temporairement les portes du pilote ouvertes,
+   mais ne doit appeler aucun endpoint de demande de retrait. Fermer ensuite l'API
+   administrative et obtenir un devis frais, dans une fenêtre opérateur contrôlée.
+6. Obtenir l'accord explicite sur **1 000 brut, frais du devis courant, net et
+   destination Wave enregistrée**, puis exécuter une seule demande avec une nouvelle
+   clé. Si le devis expire pendant l'accord, refaire un devis et revalider ses
+   conditions avant l'envoi. Réconcilier Groupia/SasPay/Wave comme décrit plus haut.
+
+La capacité PAYOUT/BOTH et l'IP autorisée ont été rapportées par l'opérateur ;
+les ressources GET documentées ne fournissent pas de relecture de ces permissions.
+Leur validité pour la clé et l'IP effectives du déploiement reste un contrôle du
+dashboard ou du support, à conserver dans le dossier. Aucun POST exploratoire
+n'est permis pour tester ces droits. Aucun dossier de non-exécution n'a été créé.
+
 ## Recette
 
 Tests PostgreSQL Testcontainers et fournisseur synthétique dans

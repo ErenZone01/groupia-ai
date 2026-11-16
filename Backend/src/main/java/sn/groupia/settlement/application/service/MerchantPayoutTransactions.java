@@ -86,6 +86,10 @@ public class MerchantPayoutTransactions {
         return enabled && provider.enabled();
     }
 
+    public boolean verificationAvailable() {
+        return "SASPAY".equals(provider.name()) ? provider.verificationEnabled() : available();
+    }
+
     void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
         if (!"SASPAY".equals(provider.name()) || !saspayLivePilotReleased) return;
         if (directOrderId == null

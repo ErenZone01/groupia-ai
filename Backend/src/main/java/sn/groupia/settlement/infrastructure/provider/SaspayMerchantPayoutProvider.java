@@ -198,6 +198,15 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     @Override
+    public boolean verificationEnabled() {
+        return (syntheticTransport || livePilotOrganizationId != null)
+                && payin.enabled()
+                && payin.isLive()
+                && marketplaceAuthorized
+                && beneficiaryProofApproved;
+    }
+
+    @Override
     public String name() {
         return "SASPAY";
     }
@@ -396,9 +405,12 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     }
 
     private Proof verifyExisting(MerchantPayout p) {
-        requireEnabled();
+        if (!verificationEnabled()) throw new IllegalStateException("SASPAY_PAYOUT_NOT_AUTHORIZED");
         assertIdentity(p);
-        assertLivePilotTarget(p);
+        // Retargeting or closing the initiation gate must not strand an older intention.
+        // The organization, account and immutable reference still constrain every GET.
+        if (!syntheticTransport && !livePilotOrganizationId.equals(p.organizationId()))
+            throw new IllegalStateException("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH");
         String id = uuid(p.providerTransactionId());
         var verification = exchange(http.get().uri("/payouts/{id}/verify/", id), Stage.VERIFY, 200);
         Instant checkedAt = clock.instant();
@@ -557,8 +569,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             throw new IllegalArgumentException("SASPAY_PAYOUT_INTENT_INVALID");
     }
 
-    // Last line of defense before any production provider request, including
-    // reconciliation. The pilot never permits grouping or another order/network.
+    // Last line of defense before initiation. No grouping or other order/network can be sent.
     void assertLivePilotTarget(MerchantPayout p) {
         if (syntheticTransport) return;
         if (!livePilotReleased

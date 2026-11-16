@@ -12,6 +12,11 @@ import sn.groupia.settlement.domain.model.MerchantPayout;
 public interface MerchantPayoutProvider {
     boolean enabled();
 
+    /** Existing intentions may still need read-only verification after dispatch is disabled. */
+    default boolean verificationEnabled() {
+        return enabled();
+    }
+
     String name();
 
     String account();

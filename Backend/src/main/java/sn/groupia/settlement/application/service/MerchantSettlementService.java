@@ -192,7 +192,7 @@ public class MerchantSettlementService {
     /** Bounded GET-only recovery after restart. No claim/initialize path is reachable here. */
     @Transactional(propagation = Propagation.NEVER)
     public void reconcilePending() {
-        if (!transactions.available() || !"SASPAY".equals(provider.name())) return;
+        if (!transactions.verificationAvailable() || !"SASPAY".equals(provider.name())) return;
         for (var work : store.dueForVerification(provider.name(), provider.account())) {
             var payout = work.payout();
             try {
@@ -218,7 +218,7 @@ public class MerchantSettlementService {
                         p.method())
                 .increment();
         if (!p.succeeded() && !p.nonExecuted()) {
-            if (!transactions.available())
+            if (!transactions.verificationAvailable())
                 throw new sn.groupia.shared.api.ApiException(
                         503,
                         "MERCHANT_PAYOUT_DISABLED",

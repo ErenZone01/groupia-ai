@@ -40,6 +40,7 @@ class MerchantPayoutFailureTests {
         when(provider.name()).thenReturn("SASPAY");
         when(provider.account()).thenReturn("fixture");
         when(transactions.available()).thenReturn(true);
+        when(transactions.verificationAvailable()).thenReturn(true);
         return p;
     }
 
@@ -104,7 +105,11 @@ class MerchantPayoutFailureTests {
         verify(transactions, never()).claim(any(), any());
         when(transactions.available()).thenReturn(false);
         service.reconcilePending();
-        verify(store, times(1)).dueForVerification(any(), any());
+        verify(provider, times(2)).verify(p);
+        verify(provider, never()).initiate(any());
+        when(transactions.verificationAvailable()).thenReturn(false);
+        service.reconcilePending();
+        verify(store, times(2)).dueForVerification(any(), any());
     }
 
     @Test

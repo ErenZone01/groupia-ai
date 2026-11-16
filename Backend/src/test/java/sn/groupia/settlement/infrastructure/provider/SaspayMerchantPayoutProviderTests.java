@@ -552,6 +552,77 @@ class SaspayMerchantPayoutProviderTests {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void oldIntentRemainsVerifiableAfterRetargetOrDispatchShutdown(boolean dispatchEnabled) {
+        var old = payout(TX.toString());
+        var env =
+                new org.springframework.mock.env.MockEnvironment()
+                        .withProperty("groupia.payment.saspay.api-key", "sk_live_synthetic")
+                        .withProperty("groupia.payment.saspay.merchant-id", MERCHANT.toString())
+                        .withProperty("groupia.payment.saspay.enabled", "true")
+                        .withProperty(
+                                "groupia.settlement.saspay-payouts.enabled",
+                                Boolean.toString(dispatchEnabled))
+                        .withProperty(
+                                "groupia.settlement.saspay-payouts.marketplace-authorized", "true")
+                        .withProperty(
+                                "groupia.settlement.saspay-payouts.beneficiary-proof-approved",
+                                "true")
+                        .withProperty("groupia.settlement.saspay-payouts.wave-network", "wave_sn")
+                        .withProperty(
+                                "groupia.settlement.saspay-payout-pilot.organization-id",
+                                old.organizationId().toString())
+                        .withProperty(
+                                "groupia.settlement.saspay-payout-live-pilot.direct-order-id",
+                                UUID.randomUUID().toString())
+                        .withProperty(
+                                "groupia.settlement.saspay-payout-live-pilot.enabled",
+                                Boolean.toString(dispatchEnabled));
+        var provider = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
+        var builder =
+                org.springframework.web.client.RestClient.builder()
+                        .baseUrl("http://localhost/api/v1");
+        var server =
+                org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                provider, "http", builder.build());
+        server.expect(
+                        org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                                "http://localhost/api/v1/payouts/" + TX + "/verify/"))
+                .andExpect(
+                        org.springframework.test.web.client.match.MockRestRequestMatchers.method(
+                                org.springframework.http.HttpMethod.GET))
+                .andRespond(
+                        org.springframework.test.web.client.response.MockRestResponseCreators
+                                .withSuccess(
+                                        verified(null, null),
+                                        org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(
+                        org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                                "http://localhost/api/v1/transactions/" + TX + "/"))
+                .andExpect(
+                        org.springframework.test.web.client.match.MockRestRequestMatchers.method(
+                                org.springframework.http.HttpMethod.GET))
+                .andRespond(
+                        org.springframework.test.web.client.response.MockRestResponseCreators
+                                .withSuccess(
+                                        transactionDetail("771234567", "wave_sn"),
+                                        org.springframework.http.MediaType.APPLICATION_JSON));
+        assertThat(provider.enabled()).isEqualTo(dispatchEnabled);
+        assertThat(provider.verificationEnabled()).isTrue();
+        assertThat(provider.verify(old).status()).isEqualTo("SUCCEEDED");
+        assertThatThrownBy(() -> provider.initiate(old))
+                .isInstanceOfSatisfying(
+                        PayoutProviderFailure.class,
+                        failure ->
+                                assertThat(failure.submission())
+                                        .isEqualTo(Submission.NOT_ATTEMPTED));
+        assertThatThrownBy(() -> provider.verify(payout(TX.toString())))
+                .hasMessage("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH");
+        server.verify();
+    }
+
     @Test
     void successfulGatewayStatusCannotOverrideMissingOrContradictoryTransactionEvidence()
             throws Exception {

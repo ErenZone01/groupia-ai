@@ -129,14 +129,18 @@ export class MerchantSettlementStore {
       this.destination.set(destination ?? null);
       this.history.set(history);
       for (const [scope, previous] of this.uncertain) {
-        const resolved = history.find(
-          (p) => {
-            const directId = (p as UnifiedPayout).directOrderId;
-            return (scope === org + ':' + p.campaignId || scope === org + ':direct:' + directId)
-              && p.id && !previous.has(p.id);
-          },
-        );
-        if (resolved && ['FAILED', 'CANCELLED', 'SUCCEEDED'].includes(resolved.status ?? '')) {
+        const resolved = history.find((p) => {
+          const directId = (p as UnifiedPayout).directOrderId;
+          return (
+            (scope === org + ':' + p.campaignId || scope === org + ':direct:' + directId) &&
+            p.id &&
+            !previous.has(p.id)
+          );
+        });
+        if (
+          resolved &&
+          ['FAILED', 'CANCELLED', 'SUCCEEDED', 'NON_EXECUTE'].includes(resolved.status ?? '')
+        ) {
           this.uncertain.delete(scope);
           this.keys.delete(scope);
         }
@@ -147,8 +151,8 @@ export class MerchantSettlementStore {
         this.balance.set(null);
         this.directOrders.set([]);
         this.destination.set(null);
-      this.quote.set(null);
-      this.quotedTarget = null;
+        this.quote.set(null);
+        this.quotedTarget = null;
         this.history.set([]);
       }
     } finally {
@@ -213,7 +217,8 @@ export class MerchantSettlementStore {
     const org = this.org;
     const destinationId = this.destination()?.id;
     if (!destinationId || !org || this.busy()) return false;
-    const context = this.contextGeneration, session = this.session;
+    const context = this.contextGeneration,
+      session = this.session;
     this.busy.set(true);
     this.error.set('');
     try {
@@ -221,18 +226,23 @@ export class MerchantSettlementStore {
         ? `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payout-quote`
         : `/api/organizations/${encodeURIComponent(org)}/grouping-campaigns/${encodeURIComponent(targetId)}/merchant-payout-quote`;
       const quote = await firstValueFrom(
-        this.http.get<PayoutFeeQuote>(path, {
-          params: amount === undefined ? { destinationId } : { destinationId, amount: String(amount) },
-        }).pipe(timeout(20000)),
+        this.http
+          .get<PayoutFeeQuote>(path, {
+            params:
+              amount === undefined ? { destinationId } : { destinationId, amount: String(amount) },
+          })
+          .pipe(timeout(20000)),
       );
       if (!this.current(org, context, session)) return false;
-      if (quote.feeChargeMode !== 'DEDUCTED'
-        || quote.destinationId !== destinationId
-        || (amount !== undefined && quote.grossAmount !== amount)
-        || !(quote.netAmount > 0)
-        || Math.round(quote.grossAmount * 100) !==
-           Math.round(quote.netAmount * 100) + Math.round(quote.providerFee * 100)
-        || Date.parse(quote.expiresAt) <= Date.now()) {
+      if (
+        quote.feeChargeMode !== 'DEDUCTED' ||
+        quote.destinationId !== destinationId ||
+        (amount !== undefined && quote.grossAmount !== amount) ||
+        !(quote.netAmount > 0) ||
+        Math.round(quote.grossAmount * 100) !==
+          Math.round(quote.netAmount * 100) + Math.round(quote.providerFee * 100) ||
+        Date.parse(quote.expiresAt) <= Date.now()
+      ) {
         this.error.set('Devis de retrait invalide. Veuillez réessayer.');
         return false;
       }
@@ -273,14 +283,15 @@ export class MerchantSettlementStore {
     )
       return;
     const acceptedQuote = this.deductedFees ? this.quote() : null;
-    if (this.deductedFees && (
-      !acceptedQuote ||
-      this.quotedTarget !== (direct ? 'direct:' : 'campaign:') + targetId ||
-      acceptedQuote.destinationId !== d.id ||
-      !(acceptedQuote.grossAmount > 0) ||
-      acceptedQuote.grossAmount > (row?.availableForPayout ?? 0) ||
-      Date.parse(acceptedQuote.expiresAt) <= Date.now()
-    )) {
+    if (
+      this.deductedFees &&
+      (!acceptedQuote ||
+        this.quotedTarget !== (direct ? 'direct:' : 'campaign:') + targetId ||
+        acceptedQuote.destinationId !== d.id ||
+        !(acceptedQuote.grossAmount > 0) ||
+        acceptedQuote.grossAmount > (row?.availableForPayout ?? 0) ||
+        Date.parse(acceptedQuote.expiresAt) <= Date.now())
+    ) {
       this.error.set('Devis de retrait expiré ou modifié. Rechargez les frais avant de confirmer.');
       return;
     }
@@ -305,11 +316,13 @@ export class MerchantSettlementStore {
     try {
       if (direct) {
         await firstValueFrom(
-          this.http.post<MerchantPayoutView>(
-            `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payouts`,
-            body,
-            { headers: { 'Idempotency-Key': key } },
-          ).pipe(timeout(40000)),
+          this.http
+            .post<MerchantPayoutView>(
+              `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payouts`,
+              body,
+              { headers: { 'Idempotency-Key': key } },
+            )
+            .pipe(timeout(40000)),
         );
       } else {
         await firstValueFrom(

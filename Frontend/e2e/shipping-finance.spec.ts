@@ -227,9 +227,19 @@ test('transport SasPay hébergé : frais annoncés, reprise sans URL et règleme
   state.saspay = true;
   await page.goto('/mes-commandes/' + number);
   await expect(page.getByText(/Des frais supplémentaires peuvent être appliqués/)).toBeVisible();
-  await page.getByLabel('Adresse e-mail du payeur (si non renseignée)').fill('transport@example.com');
+  await page
+    .getByLabel('Adresse e-mail du payeur (si non renseignée)')
+    .fill('transport@example.com');
   expect(state.calls).toBe(0);
+  // Reload an initialized attempt. Reloading immediately after the click can
+  // cancel the CSRF request before the payment POST has even been dispatched.
+  const initialized = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname.endsWith('/shipping-balance/payments'),
+  );
   await page.getByRole('button', { name: /Payer avec SasPay/ }).click();
+  expect((await initialized).status()).toBe(200);
   await page.reload();
   await expect(
     page.getByText('Confirmez la demande sur votre téléphone', { exact: false }),

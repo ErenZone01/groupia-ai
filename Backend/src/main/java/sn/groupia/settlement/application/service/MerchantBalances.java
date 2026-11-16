@@ -149,7 +149,10 @@ public class MerchantBalances {
             eligible = eligible.add(d.eligibleBalance());
             reserved = reserved.add(d.reservedForPayout());
         }
-        var available = eligible.subtract(reserved).max(BigDecimal.ZERO);
+        var available =
+                store.hasResolutionIncident(org)
+                        ? BigDecimal.ZERO
+                        : eligible.subtract(reserved).max(BigDecimal.ZERO);
         var limited =
                 rows.stream()
                         .map(

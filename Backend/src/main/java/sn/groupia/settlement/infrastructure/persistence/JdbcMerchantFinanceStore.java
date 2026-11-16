@@ -18,6 +18,161 @@ class JdbcMerchantFinanceStore implements MerchantFinanceStore {
         this.jdbc = jdbc;
     }
 
+    @Override
+    public Optional<UUID> administrativeReplay(
+            UUID payoutId,
+            String action,
+            String reference,
+            String digest,
+            String reason,
+            UUID actor,
+            long expectedVersion) {
+        return jdbc
+                .query(
+                        "select * from merchant_payout_administrations where payout_id=? and action=?",
+                        (rs, row) -> {
+                            if (!reference.equals(rs.getString("approval_reference"))
+                                    || !digest.equals(rs.getString("approval_sha256"))
+                                    || !reason.equals(rs.getString("reason"))
+                                    || !actor.equals(rs.getObject("actor_id", UUID.class))
+                                    || expectedVersion != rs.getLong("expected_version"))
+                                throw new ApiException(
+                                        409,
+                                        "PAYOUT_ADMINISTRATION_CONFLICT",
+                                        "Cette décision a déjà été enregistrée différemment.");
+                            return rs.getObject("id", UUID.class);
+                        },
+                        payoutId,
+                        action)
+                .stream()
+                .findFirst();
+    }
+
+    @Override
+    public UUID recordAdministration(
+            PayoutAdministrativeApproval a, String digest, String reason, Instant now) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+            insert into merchant_payout_administrations
+            (id,payout_id,organization_id,action,approval_reference,approval_sha256,evidence_type,
+             evidence_reference,evidence_sha256,expected_version,actor_id,reason,recorded_at)
+            values (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+                id,
+                a.payoutId(),
+                a.organizationId(),
+                a.action(),
+                a.reference(),
+                digest,
+                a.evidenceType(),
+                a.evidenceReference(),
+                a.evidenceSha256(),
+                a.payoutVersion(),
+                a.operatorId(),
+                reason,
+                ts(now));
+        if ("INDEPENDENT_PILOT".equals(a.action()))
+            jdbc.update(
+                    """
+                insert into merchant_payout_pilot_grants
+                (id,organization_id,uncertain_payout_id,direct_order_id,destination_id,provider_account,amount,expires_at)
+                values (?,?,?,?,?,?,?,?)
+                """,
+                    id,
+                    a.organizationId(),
+                    a.payoutId(),
+                    a.directOrderId(),
+                    a.destinationId(),
+                    a.providerAccount(),
+                    a.amount(),
+                    ts(a.expiresAt()));
+        return id;
+    }
+
+    @Override
+    public Optional<PayoutPilotGrant> independentPilot(
+            UUID org,
+            UUID order,
+            UUID destination,
+            BigDecimal amount,
+            String account,
+            Instant now) {
+        return jdbc
+                .query(
+                        """
+            select g.* from merchant_payout_pilot_grants g
+            where g.organization_id=? and g.direct_order_id=? and g.destination_id=?
+              and g.amount=? and g.provider_account=? and g.expires_at>?
+              and not exists(select 1 from merchant_payout_pilot_bindings b where b.grant_id=g.id)
+            """,
+                        (r, n) ->
+                                new PayoutPilotGrant(
+                                        id(r, "id"),
+                                        id(r, "organization_id"),
+                                        id(r, "uncertain_payout_id"),
+                                        id(r, "direct_order_id"),
+                                        id(r, "destination_id"),
+                                        r.getString("provider_account"),
+                                        r.getBigDecimal("amount"),
+                                        at(r, "expires_at")),
+                        org,
+                        order,
+                        destination,
+                        amount,
+                        account,
+                        ts(now))
+                .stream()
+                .findFirst();
+    }
+
+    @Override
+    public void bindIndependentPilot(UUID grantId, UUID payoutId) {
+        jdbc.update(
+                "insert into merchant_payout_pilot_bindings(grant_id,payout_id) values (?,?)",
+                grantId,
+                payoutId);
+    }
+
+    @Override
+    public void validateIndependentPilot(UUID payoutId, Instant now) {
+        var expired =
+                jdbc.queryForObject(
+                        """
+            select exists(select 1 from merchant_payout_pilot_bindings b
+            join merchant_payout_pilot_grants g on g.id=b.grant_id
+            where b.payout_id=? and g.expires_at<=?)
+            """,
+                        Boolean.class,
+                        payoutId,
+                        ts(now));
+        if (Boolean.TRUE.equals(expired))
+            throw new ApiException(
+                    409,
+                    "PAYOUT_PILOT_AUTHORIZATION_EXPIRED",
+                    "Autorisation pilote expirée ; aucun envoi.");
+    }
+
+    @Override
+    public void resolutionIncident(UUID payoutId, String reason) {
+        jdbc.update(
+                "insert into merchant_payout_resolution_incidents(payout_id,reason,recorded_at) values (?,?,now()) on conflict do nothing",
+                payoutId,
+                reason);
+    }
+
+    @Override
+    public boolean hasResolutionIncident(UUID org) {
+        return Boolean.TRUE.equals(
+                jdbc.queryForObject(
+                        """
+            select exists(select 1 from merchant_payout_resolution_incidents i
+            join merchant_payouts p on p.id=i.payout_id where p.organization_id=?)
+            """,
+                        Boolean.class,
+                        org));
+    }
+
     private static Instant at(ResultSet r, String field) throws SQLException {
         var t = r.getTimestamp(field);
         return t == null ? null : t.toInstant();

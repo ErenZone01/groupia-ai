@@ -100,6 +100,25 @@ class SaspayPayoutPilotPolicyTests {
     }
 
     @Test
+    void standardModeDoesNotApplyTemporaryPilotLimitsButStillBlocksResolutionIncidents() {
+        configure(false, UUID.randomUUID().toString(), "1000");
+        ReflectionTestUtils.setField(transactions, "saspayGeneralPayoutsEnabled", true);
+        ReflectionTestUtils.setField(transactions, "saspayLivePilotReleased", true);
+        ReflectionTestUtils.setField(
+                transactions, "saspayLivePilotDirectOrderId", UUID.randomUUID().toString());
+        transactions.requireSaspayPilot(pilotOrganization, new BigDecimal("2500"));
+        transactions.requireLivePilotTarget(UUID.randomUUID(), "ORANGE_MONEY");
+        var previous = mock(MerchantPayout.class);
+        when(previous.provider()).thenReturn("SASPAY");
+        when(previous.reserved()).thenReturn(true);
+        when(store.payouts(pilotOrganization)).thenReturn(List.of(previous));
+        transactions.checkPilotUsage(pilotOrganization);
+        when(store.hasResolutionIncident(pilotOrganization)).thenReturn(true);
+        assertThatThrownBy(() -> transactions.checkPilotUsage(pilotOrganization))
+                .hasMessageContaining("Preuve tardive contradictoire");
+    }
+
+    @Test
     void pilotRefusesSecondIntentEvenIfFirstPayoutAlreadyExists() {
         configure(true, pilotOrganization.toString(), "1000");
         when(store.payouts(pilotOrganization)).thenReturn(List.of());

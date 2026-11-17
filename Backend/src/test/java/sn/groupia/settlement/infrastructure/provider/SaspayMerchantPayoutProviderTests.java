@@ -696,6 +696,67 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"payout_not_enabled", "ip_not_whitelisted", "merchant_suspended"})
+    void explicit403AuthorizationRefusalIsTerminalNotAnUnknownTimeout(String code)
+            throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var posts = new AtomicInteger();
+        server.createContext("/api/v1/pricing/my-rates/", e -> respond(e, payoutRates("ADD_ON")));
+        server.createContext(
+                "/api/v1/merchant-balances/", e -> respond(e, walletBalance("1000.00", false)));
+        server.createContext(
+                "/api/v1/payouts/initialize/",
+                e -> {
+                    posts.incrementAndGet();
+                    raw(e, 403, "application/json", "{\"error\":{\"code\":\"" + code + "\"}}");
+                });
+        server.start();
+        try {
+            var provider = adapter(true, "http://127.0.0.1:" + server.getAddress().getPort());
+            assertThatThrownBy(() -> provider.initiate(payout(null)))
+                    .isInstanceOfSatisfying(
+                            PayoutProviderFailure.class,
+                            f -> {
+                                assertThat(f.stage()).isEqualTo(Stage.INITIALIZE);
+                                assertThat(f.httpStatus()).isEqualTo(403);
+                                assertThat(f.providerCode().name()).isEqualTo(code);
+                                assertThat(f.submission()).isEqualTo(Submission.REJECTED);
+                            });
+            assertThat(posts).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void standardModeCanHandleMultipleOrdersWithoutPilotCapWhileGatesRemainMandatory() {
+        var env =
+                new org.springframework.mock.env.MockEnvironment()
+                        .withProperty("groupia.payment.saspay.api-key", "sk_live_synthetic")
+                        .withProperty("groupia.payment.saspay.merchant-id", MERCHANT.toString())
+                        .withProperty("groupia.payment.saspay.enabled", "true")
+                        .withProperty("groupia.settlement.saspay-payouts.enabled", "true")
+                        .withProperty("groupia.settlement.saspay-payout-general.enabled", "true")
+                        .withProperty(
+                                "groupia.settlement.saspay-payouts.marketplace-authorized", "true")
+                        .withProperty(
+                                "groupia.settlement.saspay-payouts.beneficiary-proof-approved",
+                                "true");
+        var provider = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
+        assertThat(provider.enabled()).isTrue();
+        provider.assertLivePilotTarget(
+                directPilotPayout(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "ORANGE_MONEY",
+                        new BigDecimal("2500")));
+        provider.assertLivePilotTarget(payout(null));
+        env.withProperty("groupia.settlement.saspay-payouts.enabled", "false");
+        assertThat(new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env).enabled())
+                .isFalse();
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {200, 202, 400, 401, 403, 409, 422, 429, 500, 502, 503})
     void unexpectedInitializeStatusesRemainUncertainAndAreNeverRetried(int status)
             throws Exception {

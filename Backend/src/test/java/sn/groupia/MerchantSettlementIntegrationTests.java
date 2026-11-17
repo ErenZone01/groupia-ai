@@ -31,6 +31,7 @@ import sn.groupia.payment.api.dto.*;
 import sn.groupia.payment.api.event.*;
 import sn.groupia.settlement.application.service.*;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
+import sn.groupia.settlement.domain.service.PayoutProviderFailure;
 import tools.jackson.databind.*;
 
 @ActiveProfiles("test")
@@ -527,6 +528,66 @@ class MerchantSettlementIntegrationTests {
                                         "update merchant_payouts set status='PENDING',succeeded_at=null where id=?",
                                         id))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void explicitProviderRejectionReleasesFundsAndAllowsNewIntent() throws Exception {
+        paid();
+        closed();
+        UUID target = destination();
+        var first = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        assertThat(payouts.claim(f.org(), first.id())).isTrue();
+        payouts.initiationFailure(
+                f.org(),
+                first.id(),
+                new PayoutProviderFailure(
+                        PayoutProviderFailure.Stage.INITIALIZE,
+                        403,
+                        PayoutProviderFailure.Category.AUTHORIZATION,
+                        PayoutProviderFailure.Reason.HTTP_REJECTED,
+                        PayoutProviderFailure.ProviderCode.payout_not_enabled,
+                        PayoutProviderFailure.Submission.REJECTED));
+        assertThat(payouts.get(f.org(), first.id()).status()).isEqualTo("FAILED");
+        assertThat(balance().path("reservedForPayout").decimalValue()).isZero();
+        assertThat(balance().path("availableForPayout").decimalValue())
+                .isEqualByComparingTo("25000");
+        var next = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        assertThat(next.id()).isNotEqualTo(first.id());
+        assertThat(balance().path("reservedForPayout").decimalValue())
+                .isEqualByComparingTo("25000");
+    }
+
+    @Test
+    void preDispatchFailureReleasesButAmbiguousPostKeepsReservation() throws Exception {
+        paid();
+        closed();
+        UUID target = destination();
+        var first = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        assertThat(payouts.claim(f.org(), first.id())).isTrue();
+        payouts.initiationFailure(
+                f.org(),
+                first.id(),
+                new PayoutProviderFailure(
+                        PayoutProviderFailure.Stage.WALLETS,
+                        503,
+                        PayoutProviderFailure.Category.TRANSPORT,
+                        PayoutProviderFailure.Reason.HTTP_SERVER_ERROR,
+                        PayoutProviderFailure.ProviderCode.NONE));
+        assertThat(payouts.get(f.org(), first.id()).status()).isEqualTo("FAILED");
+        var second = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        assertThat(payouts.claim(f.org(), second.id())).isTrue();
+        payouts.initiationFailure(
+                f.org(),
+                second.id(),
+                new PayoutProviderFailure(
+                        PayoutProviderFailure.Stage.INITIALIZE,
+                        503,
+                        PayoutProviderFailure.Category.SERVER_ERROR,
+                        PayoutProviderFailure.Reason.HTTP_SERVER_ERROR,
+                        PayoutProviderFailure.ProviderCode.NONE));
+        assertThat(payouts.get(f.org(), second.id()).status()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(balance().path("reservedForPayout").decimalValue())
+                .isEqualByComparingTo("25000");
     }
 
     @Test

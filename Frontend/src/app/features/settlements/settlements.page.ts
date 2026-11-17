@@ -18,7 +18,7 @@ export function payoutLabel(status?: string): string {
         CREATED: 'Demande enregistrée',
         PENDING: 'Versement en cours',
         SUCCEEDED: 'Versé',
-        FAILED: 'Échec confirmé',
+        FAILED: 'Échec confirmé — nouvelle demande possible si fonds disponibles',
         CANCELLED: 'Annulé',
         NON_EXECUTE: 'Non exécuté — réserve libérée après vérification',
         REVIEW_REQUIRED: 'À vérifier',

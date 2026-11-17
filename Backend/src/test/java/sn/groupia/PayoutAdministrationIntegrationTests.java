@@ -507,10 +507,7 @@ class PayoutAdministrationIntegrationTests {
 
     private ResultActions closeRecorded403(MerchantPayout p, Object body) throws Exception {
         return auth(
-                post(base()
-                        + "/merchant-payouts/"
-                        + p.id()
-                        + "/administration/recorded-rejection"),
+                post(base() + "/merchant-payouts/" + p.id() + "/administration/recorded-rejection"),
                 body);
     }
 

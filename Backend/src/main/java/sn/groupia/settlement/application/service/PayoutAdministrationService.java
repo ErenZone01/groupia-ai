@@ -202,10 +202,10 @@ public class PayoutAdministrationService {
     }
 
     /**
-     * Narrow administrative path for historical explicit SasPay authorization refusals.
-     * Unlike an uncertain POST, the gateway supplied a negative acknowledgment.
-     * The operator attests to complete source-log review; the immutable journal
-     * records that decision. No provider POST or replay is invoked here.
+     * Narrow administrative path for historical explicit SasPay authorization refusals. Unlike an
+     * uncertain POST, the gateway supplied a negative acknowledgment. The operator attests to
+     * complete source-log review; the immutable journal records that decision. No provider POST or
+     * replay is invoked here.
      */
     public Result closeRecordedRejection(
             UUID org,

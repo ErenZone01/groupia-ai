@@ -30,8 +30,8 @@ class PayoutAdministrationController {
     }
 
     /**
-     * Simplified, audited review of a previously recorded SasPay HTTP 403 authorization
-     * rejection. Available only to the configured administrative operator.
+     * Simplified, audited review of a previously recorded SasPay HTTP 403 authorization rejection.
+     * Available only to the configured administrative operator.
      */
     record RecordedRejection(
             @PositiveOrZero long expectedVersion,

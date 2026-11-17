@@ -485,6 +485,102 @@ class PayoutAdministrationIntegrationTests {
                 .isEqualTo(historical.providerIdempotencyKey());
     }
 
+    private Map<String, Object> recorded403Request(long version) {
+        return Map.of(
+                "expectedVersion",
+                version,
+                "providerCode",
+                "payout_not_enabled",
+                "evidenceReference",
+                "GROUPIA-LOG-2026-11-17T0525Z",
+                "reason",
+                "Journal fournisseur HTTP 403 payout_not_enabled confirmé et revu.",
+                "allAttemptsReviewed",
+                true,
+                "definitiveNonExecution",
+                true,
+                "futureExecutionImpossible",
+                true,
+                "confirmed",
+                true);
+    }
+
+    private ResultActions closeRecorded403(MerchantPayout p, Object body) throws Exception {
+        return auth(
+                post(base() + "/merchant-payouts/" + p.id() + "/administration/recorded-rejection"),
+                body);
+    }
+
+    @Test
+    void simplifiedRecorded403ClosureIsAuditedIdempotentAndReleasesOnlyOneReserve()
+            throws Exception {
+        UUID dest = destination();
+        var original = uncertain(dest);
+        feeStore.state(
+                original.id(),
+                "REVIEW_REQUIRED",
+                null,
+                null,
+                null,
+                true,
+                "SASPAY_PAYOUT_HTTP_REJECTED");
+        original = feeStore.payout(org, original.id());
+        var body = recorded403Request(original.version());
+        int sends = provider.sends.get();
+        var result = read(closeRecorded403(original, body));
+        assertThat(result.path("status").asText()).isEqualTo("NON_EXECUTE");
+        assertThat(read(closeRecorded403(original, body)).path("authorizationId"))
+                .isEqualTo(result.path("authorizationId"));
+        assertThat(balance().path("reservedForPayout").decimalValue()).isZero();
+        assertThat(balance().path("availableForPayout").decimalValue())
+                .isEqualByComparingTo("1000");
+        assertThat(feeStore.payout(org, original.id()).providerIdempotencyKey())
+                .isEqualTo(original.providerIdempotencyKey());
+        assertThat(provider.sends).hasValue(sends);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select evidence_type from merchant_payout_administrations where payout_id=?",
+                                String.class,
+                                original.id()))
+                .isEqualTo("PROVIDER_HTTP_REJECTION");
+        allowSuccess();
+        UUID quote = quote(orderId, dest);
+        var fresh = read(request(orderId, dest, UUID.randomUUID(), quote));
+        assertThat(fresh.path("id").asText()).isNotEqualTo(original.id().toString());
+        assertThat(provider.sends).hasValue(sends + 1);
+    }
+
+    @Test
+    void simplifiedClosureRejectsUncertainIntentAndUnapprovedOperator() throws Exception {
+        UUID dest = destination();
+        var original = uncertain(dest);
+        closeRecorded403(original, recorded403Request(original.version()))
+                .andExpect(status().isConflict());
+        assertThat(feeStore.payout(org, original.id()).reserved()).isTrue();
+        feeStore.state(
+                original.id(),
+                "REVIEW_REQUIRED",
+                null,
+                null,
+                null,
+                true,
+                "SASPAY_PAYOUT_HTTP_REJECTED");
+        original = feeStore.payout(org, original.id());
+        ReflectionTestUtils.setField(administration, "operators", UUID.randomUUID().toString());
+        closeRecorded403(original, recorded403Request(original.version()))
+                .andExpect(status().isForbidden());
+        ReflectionTestUtils.setField(administration, "operators", actor.toString());
+        var incomplete = new LinkedHashMap<>(recorded403Request(original.version()));
+        incomplete.put("futureExecutionImpossible", false);
+        closeRecorded403(original, incomplete).andExpect(status().isBadRequest());
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from merchant_payout_administrations",
+                                Integer.class))
+                .isZero();
+        assertThat(feeStore.payout(org, original.id()).reserved()).isTrue();
+    }
+
     @Test
     void historicalTimeoutCannotBeClosedUsingProvider403EvidenceType() throws Exception {
         UUID dest = destination();

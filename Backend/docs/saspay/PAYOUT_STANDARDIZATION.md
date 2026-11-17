@@ -14,7 +14,12 @@ dans Git. La politique du fournisseur (montant minimal, pays, réseau) reste app
 ce code ne permet pas de contourner une restriction côté SasPay.
 
 Un échec avant le POST (prévol GET ou validation locale) passe à FAILED et libère sa
-réserve, puisqu'aucune initialisation n'a été tentée. Un HTTP 403 avec réponse JSON
+réserve, puisqu'aucune initialisation n'a été tentée. Dans PostgreSQL, une
+intention terminale FAILED conserve `reconciliation_required=false` et
+`reconciliation_reason=NULL` conformément à la contrainte historique
+`reconciliation_required=(reconciliation_reason IS NOT NULL)`. Les codes de
+refus reçus sont enregistrés dans les diagnostics serveur expurgés des secrets ;
+ils ne doivent pas être placés dans le champ réservé au rapprochement. Un HTTP 403 avec réponse JSON
 reconnue `payout_not_enabled`, `ip_not_whitelisted` ou `merchant_suspended`
 est traité comme un rejet de l'initialisation : la tentative passe à FAILED.
 Le commerçant peut alors demander un **nouveau devis** et une **nouvelle intention**

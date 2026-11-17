@@ -568,6 +568,8 @@ class MerchantSettlementIntegrationTests {
                         PayoutProviderFailure.ProviderCode.payout_not_enabled,
                         PayoutProviderFailure.Submission.REJECTED));
         assertThat(payouts.get(f.org(), first.id()).status()).isEqualTo("FAILED");
+        assertThat(payouts.get(f.org(), first.id()).reconciliationRequired()).isFalse();
+        assertThat(payouts.get(f.org(), first.id()).reconciliationReason()).isNull();
         assertThat(balance().path("reservedForPayout").decimalValue()).isZero();
         assertThat(balance().path("availableForPayout").decimalValue())
                 .isEqualByComparingTo("25000");
@@ -594,6 +596,8 @@ class MerchantSettlementIntegrationTests {
                         PayoutProviderFailure.Reason.HTTP_SERVER_ERROR,
                         PayoutProviderFailure.ProviderCode.NONE));
         assertThat(payouts.get(f.org(), first.id()).status()).isEqualTo("FAILED");
+        assertThat(payouts.get(f.org(), first.id()).reconciliationRequired()).isFalse();
+        assertThat(payouts.get(f.org(), first.id()).reconciliationReason()).isNull();
         var second = reserveAsActor(target);
         assertThat(payouts.claim(f.org(), second.id())).isTrue();
         payouts.initiationFailure(

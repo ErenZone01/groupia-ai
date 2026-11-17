@@ -848,10 +848,12 @@ public class MerchantPayoutTransactions {
         var p = store.payout(org, id);
         if ("PENDING".equals(p.status())
                 && "PAYOUT_INITIATION_IN_PROGRESS".equals(p.reconciliationReason())) {
-            if (failure.submission() == PayoutProviderFailure.Submission.NOT_ATTEMPTED) {
-                store.state(id, "FAILED", null, null, null, false, "PAYOUT_NOT_DISPATCHED");
-            } else if (failure.submission() == PayoutProviderFailure.Submission.REJECTED) {
-                store.state(id, "FAILED", null, null, null, false, "PAYOUT_INITIALIZE_REJECTED");
+            if (failure.submission() == PayoutProviderFailure.Submission.NOT_ATTEMPTED
+                    || failure.submission() == PayoutProviderFailure.Submission.REJECTED) {
+                // A terminal FAILED payout needs no further reconciliation. The database
+                // invariant requires reconciliation_required=false iff reason is NULL.
+                // Keep the provider rejection code in the sanitized operation logs.
+                store.state(id, "FAILED", null, null, null, false, null);
             } else {
                 review(p, failure.getMessage());
             }
@@ -899,13 +901,15 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         String error = correlate(p, proof);
-        // Late contradictory provider evidence is a financial incident, not a silent
-        // debit of funds already made available again after an explicit rejection.
+        // An apparently impossible provider receipt for a terminal failed initiation
+        // with no transaction identifier is a financial incident, not a second debit.
+        // This check must NOT rely on reconciliationReason: that field is NULL
+        // whenever reconciliationRequired is false by a database CHECK constraint.
         if ("FAILED".equals(p.status())
-                && "PAYOUT_INITIALIZE_REJECTED".equals(p.reconciliationReason())
+                && p.providerTransactionId() == null
                 && error == null) {
-            store.resolutionIncident(id, "PAYOUT_PROOF_AFTER_REJECTION");
-            outgoing.incident(Kind.MERCHANT_PAYOUT, id, "PAYOUT_PROOF_AFTER_REJECTION");
+            store.resolutionIncident(id, "PAYOUT_PROOF_AFTER_FAILED_INITIATION");
+            outgoing.incident(Kind.MERCHANT_PAYOUT, id, "PAYOUT_PROOF_AFTER_FAILED_INITIATION");
             return;
         }
         if (p.nonExecuted()) {

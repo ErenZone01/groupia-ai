@@ -37,6 +37,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     // pilot can use production transport; synthetic tests remain isolated.
     private final boolean syntheticTransport;
     private final boolean livePilotReleased;
+    private final boolean generalPayoutsEnabled;
     private final UUID livePilotOrganizationId;
     private final UUID livePilotDirectOrderId;
     private final Connection payin;
@@ -70,7 +71,11 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                         env.getProperty("groupia.settlement.saspay-payout-pilot.organization-id")),
                 optionalUuid(
                         env.getProperty(
-                                "groupia.settlement.saspay-payout-live-pilot.direct-order-id")));
+                                "groupia.settlement.saspay-payout-live-pilot.direct-order-id")),
+                env.getProperty(
+                        "groupia.settlement.saspay-payout-general.enabled",
+                        Boolean.class,
+                        false));
     }
 
     @Autowired
@@ -99,7 +104,8 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                 true,
                 false,
                 null,
-                null);
+                null,
+                false);
     }
 
     private SaspayMerchantPayoutProvider(
@@ -113,7 +119,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
             boolean syntheticTransport,
             boolean livePilotReleased,
             UUID livePilotOrganizationId,
-            UUID livePilotDirectOrderId) {
+            UUID livePilotDirectOrderId,
+            boolean generalPayoutsEnabled) {
+        this.generalPayoutsEnabled = generalPayoutsEnabled;
         this.syntheticTransport = syntheticTransport;
         this.livePilotReleased = livePilotReleased;
         this.livePilotOrganizationId = livePilotOrganizationId;
@@ -187,6 +195,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     @Override
     public boolean enabled() {
         return (syntheticTransport
+                        || generalPayoutsEnabled
                         || (livePilotReleased
                                 && livePilotOrganizationId != null
                                 && livePilotDirectOrderId != null))
@@ -209,7 +218,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     @Override
     public boolean verificationEnabled() {
-        return (syntheticTransport || livePilotOrganizationId != null)
+        return (syntheticTransport || generalPayoutsEnabled || livePilotOrganizationId != null)
                 && payin.enabled()
                 && payin.isLive()
                 && marketplaceAuthorized
@@ -581,7 +590,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     // Last line of defense before initiation. No grouping or other order/network can be sent.
     void assertLivePilotTarget(MerchantPayout p) {
-        if (syntheticTransport) return;
+        if (syntheticTransport || generalPayoutsEnabled) return;
         if (!livePilotReleased
                 || livePilotOrganizationId == null
                 || livePilotDirectOrderId == null
@@ -703,12 +712,24 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                                             : status >= 400
                                                     ? Reason.HTTP_REJECTED
                                                     : Reason.UNEXPECTED_HTTP_STATUS;
+                            ProviderCode code = providerCode(root);
+                            // Recognized explicit authorization refusals are negative ACKs.
+                            // Never extend this to 409, 429, 5xx or unknown/malformed bodies.
+                            boolean rejected =
+                                    stage == Stage.INITIALIZE
+                                            && status == 403
+                                            && Set.of(
+                                                            ProviderCode.payout_not_enabled,
+                                                            ProviderCode.ip_not_whitelisted,
+                                                            ProviderCode.merchant_suspended)
+                                                    .contains(code);
                             throw new PayoutProviderFailure(
                                     stage,
                                     status,
                                     httpCategory(status),
                                     reason,
-                                    providerCode(root));
+                                    code,
+                                    rejected ? Submission.REJECTED : stage.submission);
                         }
                         if (root.has("success")) {
                             if (!root.path("success").isBoolean())

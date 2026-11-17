@@ -35,6 +35,10 @@ public class MerchantPayoutTransactions {
     @Value("${groupia.settlement.saspay-payout-pilot.enabled:false}")
     private boolean saspayPayoutPilotEnabled;
 
+    /** Normal seller withdrawals without the historical one-order/1000 XOF pilot. Off by default. */
+    @Value("${groupia.settlement.saspay-payout-general.enabled:false}")
+    private boolean saspayGeneralPayoutsEnabled;
+
     @Value("${groupia.settlement.saspay-payout-pilot.organization-id:}")
     private String saspayPayoutPilotOrganizationId;
 
@@ -91,7 +95,9 @@ public class MerchantPayoutTransactions {
     }
 
     void requireLivePilotTarget(UUID directOrderId, String payoutMethod) {
-        if (!"SASPAY".equals(provider.name()) || !saspayLivePilotReleased) return;
+        if (!"SASPAY".equals(provider.name())
+                || saspayGeneralPayoutsEnabled
+                || !saspayLivePilotReleased) return;
         requireAdministrativePilotTarget(directOrderId, payoutMethod);
     }
 
@@ -113,7 +119,7 @@ public class MerchantPayoutTransactions {
     }
 
     void requireSaspayPilot(UUID org, BigDecimal gross) {
-        if (!"SASPAY".equals(provider.name())) return;
+        if (!"SASPAY".equals(provider.name()) || saspayGeneralPayoutsEnabled) return;
         if (!saspayPayoutPilotEnabled
                 || saspayPayoutPilotMaxXof == null
                 || saspayPayoutPilotMaxXof.signum() <= 0
@@ -137,7 +143,9 @@ public class MerchantPayoutTransactions {
 
     private UUID checkPilotUsage(UUID org, UUID order, UUID destination, BigDecimal amount) {
         requireNoResolutionIncident(org);
-        if (!"SASPAY".equals(provider.name()) || !saspayPayoutPilotEnabled) return null;
+        if (!"SASPAY".equals(provider.name())
+                || saspayGeneralPayoutsEnabled
+                || !saspayPayoutPilotEnabled) return null;
         var unresolved =
                 store.payouts(org).stream()
                         .filter(
@@ -246,7 +254,10 @@ public class MerchantPayoutTransactions {
             BigDecimal requestedAmount) {
         if (availableGross == null || availableGross.signum() <= 0)
             throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Aucun solde à retirer.");
-        if ("SASPAY".equals(provider.name()) && saspayPayoutPilotEnabled && requestedAmount == null)
+        if ("SASPAY".equals(provider.name())
+                && saspayPayoutPilotEnabled
+                && !saspayGeneralPayoutsEnabled
+                && requestedAmount == null)
             throw error(
                     400, "SASPAY_PAYOUT_PILOT_AMOUNT_REQUIRED", "Indiquez le montant à retirer.");
         BigDecimal gross = requestedAmount == null ? availableGross : requestedAmount;
@@ -828,13 +839,22 @@ public class MerchantPayoutTransactions {
                     p.reconciliationReason());
     }
 
-    /** Only a fresh claimed intent can carry a new pre-POST diagnostic; never release it. */
+    /**
+     * Only a proven pre-POST failure or an explicit provider authorization rejection
+     * releases an intent. Timeouts and ambiguous POST responses keep their reservation.
+     */
     public void initiationFailure(UUID org, UUID id, PayoutProviderFailure failure) {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         if ("PENDING".equals(p.status())
                 && "PAYOUT_INITIATION_IN_PROGRESS".equals(p.reconciliationReason())) {
-            review(p, failure.getMessage());
+            if (failure.submission() == PayoutProviderFailure.Submission.NOT_ATTEMPTED) {
+                store.state(id, "FAILED", null, null, null, false, "PAYOUT_NOT_DISPATCHED");
+            } else if (failure.submission() == PayoutProviderFailure.Submission.REJECTED) {
+                store.state(id, "FAILED", null, null, null, false, "PAYOUT_INITIALIZE_REJECTED");
+            } else {
+                review(p, failure.getMessage());
+            }
         }
     }
 
@@ -879,6 +899,15 @@ public class MerchantPayoutTransactions {
         store.lockOrganization(org);
         var p = store.payout(org, id);
         String error = correlate(p, proof);
+        // Late contradictory provider evidence is a financial incident, not a silent
+        // debit of funds already made available again after an explicit rejection.
+        if ("FAILED".equals(p.status())
+                && "PAYOUT_INITIALIZE_REJECTED".equals(p.reconciliationReason())
+                && error == null) {
+            store.resolutionIncident(id, "PAYOUT_PROOF_AFTER_REJECTION");
+            outgoing.incident(Kind.MERCHANT_PAYOUT, id, "PAYOUT_PROOF_AFTER_REJECTION");
+            return;
+        }
         if (p.nonExecuted()) {
             if (error == null) {
                 store.resolutionIncident(id, "PAYOUT_PROOF_AFTER_NON_EXECUTION");

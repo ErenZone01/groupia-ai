@@ -903,9 +903,7 @@ public class MerchantPayoutTransactions {
         // with no transaction identifier is a financial incident, not a second debit.
         // This check must NOT rely on reconciliationReason: that field is NULL
         // whenever reconciliationRequired is false by a database CHECK constraint.
-        if ("FAILED".equals(p.status())
-                && p.providerTransactionId() == null
-                && error == null) {
+        if ("FAILED".equals(p.status()) && p.providerTransactionId() == null && error == null) {
             store.resolutionIncident(id, "PAYOUT_PROOF_AFTER_FAILED_INITIATION");
             outgoing.incident(Kind.MERCHANT_PAYOUT, id, "PAYOUT_PROOF_AFTER_FAILED_INITIATION");
             return;

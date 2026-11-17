@@ -751,6 +751,9 @@ class SaspayMerchantPayoutProviderTests {
                         "ORANGE_MONEY",
                         new BigDecimal("2500")));
         provider.assertLivePilotTarget(payout(null));
+        // Verification must not require the old pilot shop when standard payouts are enabled.
+        assertThatThrownBy(() -> provider.verify(payout("invalid-transaction-id")))
+                .hasMessage("SASPAY_PAYOUT_IDENTIFIER_INVALID");
         env.withProperty("groupia.settlement.saspay-payouts.enabled", "false");
         assertThat(new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env).enabled())
                 .isFalse();

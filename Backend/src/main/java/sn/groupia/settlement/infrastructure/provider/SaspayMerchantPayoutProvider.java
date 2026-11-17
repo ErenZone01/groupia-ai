@@ -428,7 +428,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         assertIdentity(p);
         // Retargeting or closing the initiation gate must not strand an older intention.
         // The organization, account and immutable reference still constrain every GET.
-        if (!syntheticTransport && !livePilotOrganizationId.equals(p.organizationId()))
+        if (!syntheticTransport
+                && !generalPayoutsEnabled
+                && !livePilotOrganizationId.equals(p.organizationId()))
             throw new IllegalStateException("SASPAY_PAYOUT_LIVE_PILOT_TARGET_MISMATCH");
         String id = uuid(p.providerTransactionId());
         var verification = exchange(http.get().uri("/payouts/{id}/verify/", id), Stage.VERIFY, 200);

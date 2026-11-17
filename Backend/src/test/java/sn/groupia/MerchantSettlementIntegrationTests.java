@@ -530,12 +530,32 @@ class MerchantSettlementIntegrationTests {
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
+    /** Exercise the same owner authentication boundary as normal payout HTTP requests. */
+    private sn.groupia.settlement.domain.model.MerchantPayout reserveAsActor(UUID destinationId) {
+        var context = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        var prior = context.getAuthentication();
+        var principal =
+                org.springframework.security.oauth2.jwt.Jwt.withTokenValue("fixture")
+                        .header("alg", "HS256")
+                        .subject(f.actor().toString())
+                        .build();
+        context.setAuthentication(
+                new org.springframework.security.oauth2.server.resource.authentication
+                        .JwtAuthenticationToken(principal, List.of()));
+        try {
+            return payouts.reserve(
+                    f.org(), f.campaign(), UUID.randomUUID(), destinationId, true);
+        } finally {
+            context.setAuthentication(prior);
+        }
+    }
+
     @Test
     void explicitProviderRejectionReleasesFundsAndAllowsNewIntent() throws Exception {
         paid();
         closed();
         UUID target = destination();
-        var first = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        var first = reserveAsActor(target);
         assertThat(payouts.claim(f.org(), first.id())).isTrue();
         payouts.initiationFailure(
                 f.org(),
@@ -551,7 +571,7 @@ class MerchantSettlementIntegrationTests {
         assertThat(balance().path("reservedForPayout").decimalValue()).isZero();
         assertThat(balance().path("availableForPayout").decimalValue())
                 .isEqualByComparingTo("25000");
-        var next = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        var next = reserveAsActor(target);
         assertThat(next.id()).isNotEqualTo(first.id());
         assertThat(balance().path("reservedForPayout").decimalValue())
                 .isEqualByComparingTo("25000");
@@ -562,7 +582,7 @@ class MerchantSettlementIntegrationTests {
         paid();
         closed();
         UUID target = destination();
-        var first = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        var first = reserveAsActor(target);
         assertThat(payouts.claim(f.org(), first.id())).isTrue();
         payouts.initiationFailure(
                 f.org(),
@@ -574,7 +594,7 @@ class MerchantSettlementIntegrationTests {
                         PayoutProviderFailure.Reason.HTTP_SERVER_ERROR,
                         PayoutProviderFailure.ProviderCode.NONE));
         assertThat(payouts.get(f.org(), first.id()).status()).isEqualTo("FAILED");
-        var second = payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), target, true);
+        var second = reserveAsActor(target);
         assertThat(payouts.claim(f.org(), second.id())).isTrue();
         payouts.initiationFailure(
                 f.org(),

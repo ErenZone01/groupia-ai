@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.groupia.organization.api.*;
+import sn.groupia.settlement.domain.model.PayoutAdministrativeApproval;
 import sn.groupia.settlement.domain.repository.MerchantFinanceStore;
 import sn.groupia.settlement.domain.service.MerchantPayoutProvider;
 import sn.groupia.settlement.infrastructure.ReviewedPayoutEvidence;
@@ -60,17 +61,7 @@ public class PayoutAdministrationService {
             long version,
             String reason,
             boolean confirmed) {
-        UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
-        access.requirePermission(org, OrganizationPermission.MANAGE_SETTLEMENTS);
-        if (!enabled
-                || operators == null
-                || Arrays.stream(operators.split(","))
-                        .map(String::strip)
-                        .noneMatch(actor.toString()::equals))
-            throw error(
-                    403,
-                    "PAYOUT_ADMINISTRATION_FORBIDDEN",
-                    "Opération réservée à un opérateur explicitement autorisé.");
+        UUID actor = requireOperator(org);
         if (!confirmed
                 || action == null
                 || !Set.of("CLOSE_NON_EXECUTED", "INDEPENDENT_PILOT").contains(action)
@@ -208,6 +199,127 @@ public class PayoutAdministrationService {
                     "Fonds indépendants et réserve historique insuffisamment couverts.");
         UUID audit = store.recordAdministration(a, verified.digest(), reason, now);
         return new Result(id, p.status(), audit);
+    }
+
+    /**
+     * Narrow administrative path for historical explicit SasPay authorization refusals.
+     * Unlike an uncertain POST, the gateway supplied a negative acknowledgment.
+     * The operator attests to complete source-log review; the immutable journal
+     * records that decision. No provider POST or replay is invoked here.
+     */
+    public Result closeRecordedRejection(
+            UUID org,
+            UUID id,
+            long expectedVersion,
+            String providerCode,
+            String evidenceReference,
+            String reason,
+            boolean allAttemptsReviewed,
+            boolean definitiveNonExecution,
+            boolean futureExecutionImpossible,
+            boolean confirmed) {
+        UUID actor = requireOperator(org);
+        if (!confirmed
+                || !allAttemptsReviewed
+                || !definitiveNonExecution
+                || !futureExecutionImpossible
+                || expectedVersion < 0
+                || !"payout_not_enabled".equals(providerCode)
+                || evidenceReference == null
+                || !evidenceReference.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,119}")
+                || reason == null
+                || reason.strip().length() < 20
+                || reason.length() > 500
+                || reason.codePoints().anyMatch(Character::isISOControl))
+            throw error(
+                    400,
+                    "PAYOUT_REJECTION_REVIEW_INCOMPLETE",
+                    "Revue exhaustive et référence vérifiable du refus HTTP 403 requises.");
+
+        reason = reason.strip();
+        var now = clock.instant();
+        store.lockOrganization(org);
+        var payout = store.payout(org, id);
+        String reference = "RECORDED-HTTP403-" + id;
+        String evidenceDigest =
+                ReviewedPayoutEvidence.sha256(
+                        String.join(
+                                "|",
+                                "SASPAY_HTTP403",
+                                providerCode,
+                                evidenceReference,
+                                reason,
+                                org.toString(),
+                                id.toString(),
+                                Long.toString(expectedVersion),
+                                actor.toString()));
+        var replay =
+                store.administrativeReplay(
+                        id,
+                        "CLOSE_NON_EXECUTED",
+                        reference,
+                        evidenceDigest,
+                        reason,
+                        actor,
+                        expectedVersion);
+        if (replay.isPresent()) return new Result(id, payout.status(), replay.get());
+        if (!"SASPAY".equals(payout.provider())
+                || !provider.name().equals(payout.provider())
+                || !provider.account().equals(payout.providerAccountReference())
+                || !payout.directSale()
+                || !"REVIEW_REQUIRED".equals(payout.status())
+                || !payout.reconciliationRequired()
+                || !"SASPAY_PAYOUT_HTTP_REJECTED".equals(payout.reconciliationReason())
+                || payout.providerTransactionId() != null
+                || !payout.reserved()
+                || store.hasResolutionIncident(org)
+                || payout.version() != expectedVersion)
+            throw error(
+                    409,
+                    "PAYOUT_RECORDED_REJECTION_INELIGIBLE",
+                    "Cette intention ne possède pas le refus fournisseur confirmé requis.");
+
+        var approval =
+                new PayoutAdministrativeApproval(
+                        reference,
+                        "CLOSE_NON_EXECUTED",
+                        org,
+                        id,
+                        expectedVersion,
+                        actor,
+                        payout.providerAccountReference(),
+                        ReviewedPayoutEvidence.sha256(payout.providerIdempotencyKey().toString()),
+                        ReviewedPayoutEvidence.sha256(payout.businessReference()),
+                        payout.amount(),
+                        payout.currency(),
+                        "PROVIDER_HTTP_REJECTION",
+                        evidenceReference,
+                        evidenceDigest,
+                        true,
+                        true,
+                        true,
+                        now,
+                        now.plus(Duration.ofHours(1)),
+                        null,
+                        null);
+        UUID audit = store.recordAdministration(approval, evidenceDigest, reason, now);
+        store.state(id, "NON_EXECUTE", null, null, null, false, null);
+        return new Result(id, "NON_EXECUTE", audit);
+    }
+
+    private UUID requireOperator(UUID org) {
+        UUID actor = access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
+        access.requirePermission(org, OrganizationPermission.MANAGE_SETTLEMENTS);
+        if (!enabled
+                || operators == null
+                || Arrays.stream(operators.split(","))
+                        .map(String::strip)
+                        .noneMatch(actor.toString()::equals))
+            throw error(
+                    403,
+                    "PAYOUT_ADMINISTRATION_FORBIDDEN",
+                    "Opération réservée à un opérateur explicitement autorisé.");
+        return actor;
     }
 
     private static ApiException error(int status, String code, String message) {

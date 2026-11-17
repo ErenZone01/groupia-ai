@@ -546,6 +546,75 @@ class SaspayMerchantPayoutProviderTests {
         }
     }
 
+
+    @Test
+    void liveTransferPayoutIsReconciledByTwoGetsWithoutDispatch() throws Exception {
+        var source =
+                verified(null, null)
+                        .replace("\"transaction_type\":\"RETRAIT\"", "\"transaction_type\":\"TRANSFERT\"");
+        var detail =
+                transactionDetail("771234567", "wave_sn")
+                        .replace("\"transaction_type\":\"RETRAIT\"", "\"transaction_type\":\"TRANSFERT\"");
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var gets = new AtomicInteger();
+        server.createContext(
+                "/api/v1/payouts/" + TX + "/verify/",
+                e -> {
+                    assertThat(e.getRequestMethod()).isEqualTo("GET");
+                    gets.incrementAndGet();
+                    respond(e, source);
+                });
+        server.createContext(
+                "/api/v1/transactions/" + TX + "/",
+                e -> {
+                    assertThat(e.getRequestMethod()).isEqualTo("GET");
+                    gets.incrementAndGet();
+                    respond(e, detail);
+                });
+        server.start();
+        try {
+            var proof =
+                    adapter(true, "http://127.0.0.1:" + server.getAddress().getPort())
+                            .verify(payout(TX.toString()));
+            assertThat(proof.status()).isEqualTo("SUCCEEDED");
+            assertThat(proof.phoneE164()).isEqualTo("+221771234567");
+            assertThat(proof.providerFee()).isEqualByComparingTo("52");
+            assertThat(gets.get()).isEqualTo(2);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void classificationMismatchBetweenTwoGetsCannotConfirmPayout() throws Exception {
+        assertInvalidDualGet(
+                verified(null, null)
+                        .replace("\"transaction_type\":\"RETRAIT\"", "\"transaction_type\":\"TRANSFERT\""),
+                transactionDetail("771234567", "wave_sn"),
+                "SASPAY_PAYOUT_EVIDENCE_MISMATCH");
+    }
+
+    @Test
+    void incomingAndUnrelatedTransactionTypesRemainIneligibleForPayout() throws Exception {
+        var p = payout(TX.toString());
+        var provider = adapter(true, "http://127.0.0.1:1");
+        for (String type : List.of("PAIEMENT", "RECHARGE", "WALLET_TRANSFER")) {
+            String source =
+                    verified("771234567", "wave_sn")
+                            .replace("\"transaction_type\":\"RETRAIT\"",
+                                    "\"transaction_type\":\"" + type + "\"");
+            assertThatThrownBy(
+                            () -> provider.validateProof(p, json.readTree(source), Instant.now()))
+                    .hasMessage("SASPAY_PAYOUT_EVIDENCE_MISMATCH");
+        }
+        String incoming =
+                verified("771234567", "wave_sn")
+                        .replace("\"flow_direction\":\"OUTBOUND\"", "\"flow_direction\":\"INBOUND\"");
+        assertThatThrownBy(
+                        () -> provider.validateProof(p, json.readTree(incoming), Instant.now()))
+                .hasMessage("SASPAY_PAYOUT_EVIDENCE_MISMATCH");
+    }
+
     @Test
     void pendingAndFailureRequireOnlyGatewayVerificationGet() throws Exception {
         for (String status : List.of("PENDING", "FAILED", "CANCELLED")) {

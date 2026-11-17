@@ -39,6 +39,9 @@ class SasPayPayoutEvidenceTests(unittest.TestCase):
         self.assertTrue(all(result["checks"].values()))
         self.assertEqual(result["status"], "SUCCESS")
         self.assertEqual(result["type"], "RETRAIT")
+        live = fixture()
+        live["transaction_type"] = "TRANSFERT"
+        self.assertTrue(all(report(live, PAYOUT, MERCHANT, Decimal("1000"), Decimal("37"))["checks"].values()))
         for secret in ("PRIVATE", "8577", MERCHANT, PAYOUT, "wave_sn"):
             self.assertNotIn(secret, str(result))
 

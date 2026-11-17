@@ -91,7 +91,7 @@ def report(data, payout_id, merchant_id, expected_amount, expected_fee):
     results = {
         "id_transaction": same_uuid(data.get("id"), payout_id),
         "compte_marchand": same_uuid(data.get("merchant"), merchant_id),
-        "type_RETRAIT": data.get("transaction_type") == "RETRAIT",
+        "type_SORTIE_SASPAY": data.get("transaction_type") in ("RETRAIT", "TRANSFERT"),
         "sens_OUTBOUND": data.get("flow_direction") == "OUTBOUND",
         "devise_XOF": data.get("currency") == "XOF",
         "mode_DEDUCTED": data.get("fee_charge_mode") == "DEDUCTED",

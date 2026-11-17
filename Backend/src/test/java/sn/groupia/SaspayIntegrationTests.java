@@ -244,6 +244,29 @@ class SaspayIntegrationTests {
                 .isZero();
     }
 
+
+    @Test
+    void liveTransferNotificationIsDeduplicatedAndNeverAllocatedAsPayin() throws Exception {
+        String outgoing = event("SUCCESS").replace("\"type\":\"PAIEMENT\"", "\"type\":\"TRANSFERT\"");
+        deliver(outgoing);
+        deliver(outgoing);
+        await(
+                () ->
+                        jdbc.queryForObject(
+                                        "select count(*) from event_publication where status in ('PUBLISHED','PROCESSING','RESUBMITTED')",
+                                        Long.class)
+                                == 0);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from payout_status_notifications where authentic",
+                                Long.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from payment_webhook_events", Long.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from merchant_payouts", Long.class))
+                .isZero();
+    }
+
     @Test
     void payoutNotificationAuthenticationAndPersistenceCannotBeBypassed() throws Exception {
         String outgoing = event("SUCCESS").replace("PAIEMENT", "RETRAIT");

@@ -43,3 +43,22 @@ déclencher \`SUCCEEDED\` sans rapprochement GET complet.
 
 **Ne pas rejouer le POST : le paiement Wave a déjà été reçu.**
 Le payout DIR-21 reste distinct et réservé.
+
+## Résultat LIVE du diagnostic et correctif de validation
+
+Le 17 novembre 2026, les deux GET ont confirmé `SUCCESS`, avec
+`transaction_type=TRANSFERT`, `flow_direction=OUTBOUND`,
+`fee_charge_mode=DEDUCTED`, et les contrôles d'identité et de montant
+tous OK (1000 XOF brut, 37 de frais, 963 net). Le validateur historique
+exigeait `RETRAIT`, d'où `SASPAY_PAYOUT_EVIDENCE_MISMATCH`.
+
+La correction accepte uniquement `RETRAIT` ou `TRANSFERT` côté
+**sorties SasPay**, avec cohérence du type entre les deux GET, montant,
+frais, devise, mode, compte, identifiant, réseau et bénéficiaire
+toujours stricts. `PAIEMENT`, `RECHARGE` et `INBOUND` restent refusés.
+
+Les notifications de type `TRANSFERT` sont maintenant classées parmi
+les sorties, mais elles n'autorisent JAMAIS une confirmation directe :
+elles déclenchent seulement un GET de rapprochement lié à un identifiant
+déjà enregistré dans Groupia. Le type précis des anciens webhooks
+n'étant pas loggé, vérifier la disparition des warnings après déploiement.

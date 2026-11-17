@@ -460,6 +460,44 @@ class PayoutAdministrationIntegrationTests {
     }
 
     @Test
+    void reviewedHistoricalProvider403CanReleaseAReservationWithoutErasingItsAudit()
+            throws Exception {
+        UUID dest = destination();
+        var historical = uncertain(dest);
+        feeStore.state(
+                historical.id(),
+                "REVIEW_REQUIRED",
+                null,
+                null,
+                null,
+                true,
+                "SASPAY_PAYOUT_HTTP_REJECTED");
+        historical = feeStore.payout(org, historical.id());
+        var approval = approval(historical, "CLOSE_NON_EXECUTED", null, null);
+        approval.put("evidenceType", "PROVIDER_HTTP_REJECTION");
+        pin(approval);
+        var resolved = read(decision(historical, approval));
+        assertThat(resolved.path("status").asText()).isEqualTo("NON_EXECUTE");
+        assertThat(balance().path("reservedForPayout").decimalValue()).isZero();
+        assertThat(balance().path("availableForPayout").decimalValue())
+                .isEqualByComparingTo("1000");
+        assertThat(feeStore.payout(org, historical.id()).providerIdempotencyKey())
+                .isEqualTo(historical.providerIdempotencyKey());
+    }
+
+    @Test
+    void historicalTimeoutCannotBeClosedUsingProvider403EvidenceType() throws Exception {
+        UUID dest = destination();
+        var old = uncertain(dest);
+        var approval = approval(old, "CLOSE_NON_EXECUTED", null, null);
+        approval.put("evidenceType", "PROVIDER_HTTP_REJECTION");
+        pin(approval);
+        decision(old, approval).andExpect(status().isConflict());
+        assertThat(feeStore.payout(org, old.id()).status()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(balance().path("reservedForPayout").decimalValue()).isEqualByComparingTo("1000");
+    }
+
+    @Test
     void independentGrantWithDispatchClosedCannotReserveOrSendAndPreservesHistory()
             throws Exception {
         UUID dest = destination();

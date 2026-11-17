@@ -74,6 +74,25 @@ describe('Merchant settlement : requêtes financières', () => {
     await p;
     expect(store.balance()?.reservedForPayout).toBe(25000);
   });
+  it('affiche un refus explicite et autorise une nouvelle demande avec une autre clé', async () => {
+    await load();
+    const first = store.request('campaign');
+    const r1 = http.expectOne(base + '/grouping-campaigns/campaign/merchant-payouts');
+    const firstKey = r1.request.headers.get('Idempotency-Key');
+    r1.flush({ id: 'rejected-1', status: 'FAILED' });
+    await vi.waitFor(() => flush());
+    await first;
+    expect(store.error()).toContain('Retrait refusé');
+
+    const second = store.request('campaign');
+    const r2 = http.expectOne(base + '/grouping-campaigns/campaign/merchant-payouts');
+    expect(r2.request.headers.get('Idempotency-Key')).not.toEqual(firstKey);
+    r2.flush({ id: 'pending-2', status: 'PENDING' });
+    await vi.waitFor(() => flush({ ...balance, availableForPayout: 0, reservedForPayout: 25000 }));
+    await second;
+    expect(store.error()).toContain('aucun versement confirmé');
+  });
+
   it('conserve la clé de reprise après une erreur réseau sans réessai automatique', async () => {
     await load();
     const p = store.request('campaign');

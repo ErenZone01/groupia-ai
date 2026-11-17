@@ -4,6 +4,7 @@ package sn.groupia.settlement.domain.service;
 public final class PayoutProviderFailure extends IllegalStateException {
     public enum Submission {
         NOT_ATTEMPTED,
+        REJECTED,
         UNKNOWN,
         ALREADY_SUBMITTED
     }
@@ -108,6 +109,7 @@ public final class PayoutProviderFailure extends IllegalStateException {
     private final int httpStatus;
     private final Category category;
     private final ProviderCode providerCode;
+    private final Submission submission;
 
     public PayoutProviderFailure(
             Stage stage,
@@ -115,11 +117,22 @@ public final class PayoutProviderFailure extends IllegalStateException {
             Category category,
             Reason reason,
             ProviderCode providerCode) {
+        this(stage, httpStatus, category, reason, providerCode, stage.submission);
+    }
+
+    public PayoutProviderFailure(
+            Stage stage,
+            int httpStatus,
+            Category category,
+            Reason reason,
+            ProviderCode providerCode,
+            Submission submission) {
         super("SASPAY_PAYOUT_" + reason.name());
         this.stage = stage;
         this.httpStatus = httpStatus;
         this.category = category;
         this.providerCode = providerCode;
+        this.submission = submission;
     }
 
     public Stage stage() {
@@ -140,6 +153,6 @@ public final class PayoutProviderFailure extends IllegalStateException {
     }
 
     public Submission submission() {
-        return stage.submission;
+        return submission;
     }
 }

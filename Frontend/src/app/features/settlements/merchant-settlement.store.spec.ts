@@ -91,7 +91,7 @@ describe('Versements unifiés - vente directe', () => {
     pending.flush({ id: 'payout-1', status: 'PENDING' });
     await action;
     expect(api.merchantBalance).toHaveBeenCalledTimes(2);
-    expect(store.error()).toBe('');
+    expect(store.error()).toContain('aucun versement confirmé');
   });
 
   it('requires a DEDUCTED seller quote and submits its exact ID and amount', async () => {

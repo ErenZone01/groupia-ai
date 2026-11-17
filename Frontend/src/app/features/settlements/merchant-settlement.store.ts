@@ -314,8 +314,9 @@ export class MerchantSettlementStore {
       ? { destinationId: d.id, feeQuoteId: acceptedQuote.quoteId, confirmed: true }
       : { destinationId: d.id, confirmed: true };
     try {
+      let response: MerchantPayoutView;
       if (direct) {
-        await firstValueFrom(
+        response = await firstValueFrom(
           this.http
             .post<MerchantPayoutView>(
               `/api/organizations/${encodeURIComponent(org)}/direct-orders/${encodeURIComponent(targetId)}/merchant-payouts`,
@@ -325,7 +326,7 @@ export class MerchantSettlementStore {
             .pipe(timeout(40000)),
         );
       } else {
-        await firstValueFrom(
+        response = await firstValueFrom(
           this.api
             .requestMerchantPayout({
               organizationId: org,
@@ -336,7 +337,18 @@ export class MerchantSettlementStore {
             .pipe(timeout(40000)),
         );
       }
-      if (this.keys.get(scope) === key) this.keys.delete(scope);
+      if (response.status === 'FAILED' || response.status === 'CANCELLED') {
+        if (this.keys.get(scope) === key) this.keys.delete(scope);
+        failure = 'Retrait refusé ou annulé. Aucun transfert confirmé. Actualisez le devis avant une nouvelle tentative.';
+      } else if (response.status === 'REVIEW_REQUIRED') {
+        this.uncertain.set(scope, previous);
+        failure = 'Résultat incertain : les fonds restent réservés pour vérification. Ne relancez pas le retrait.';
+      } else if (response.status === 'PENDING' || response.status === 'CREATED') {
+        this.uncertain.set(scope, previous);
+        failure = 'Demande enregistrée ; aucun versement confirmé pour le moment. Suivez son statut.';
+      } else if (this.keys.get(scope) === key) {
+        this.keys.delete(scope);
+      }
       this.quote.set(null);
       this.quotedTarget = null;
     } catch (e) {

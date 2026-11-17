@@ -543,8 +543,7 @@ class MerchantSettlementIntegrationTests {
                 new org.springframework.security.oauth2.server.resource.authentication
                         .JwtAuthenticationToken(principal, List.of()));
         try {
-            return payouts.reserve(
-                    f.org(), f.campaign(), UUID.randomUUID(), destinationId, true);
+            return payouts.reserve(f.org(), f.campaign(), UUID.randomUUID(), destinationId, true);
         } finally {
             context.setAuthentication(prior);
         }

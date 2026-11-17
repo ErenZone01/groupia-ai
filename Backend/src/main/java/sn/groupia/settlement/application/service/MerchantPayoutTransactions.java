@@ -35,7 +35,7 @@ public class MerchantPayoutTransactions {
     @Value("${groupia.settlement.saspay-payout-pilot.enabled:false}")
     private boolean saspayPayoutPilotEnabled;
 
-    /** Normal seller withdrawals without the historical one-order/1000 XOF pilot. Off by default. */
+    // Normal seller withdrawals; temporary one-order/1000 XOF pilot does not apply.
     @Value("${groupia.settlement.saspay-payout-general.enabled:false}")
     private boolean saspayGeneralPayoutsEnabled;
 
@@ -839,10 +839,8 @@ public class MerchantPayoutTransactions {
                     p.reconciliationReason());
     }
 
-    /**
-     * Only a proven pre-POST failure or an explicit provider authorization rejection
-     * releases an intent. Timeouts and ambiguous POST responses keep their reservation.
-     */
+    // Proven pre-POST failures and explicit provider authorization rejections release the intent.
+    // Timeouts and ambiguous POST responses keep their reservation.
     public void initiationFailure(UUID org, UUID id, PayoutProviderFailure failure) {
         store.lockOrganization(org);
         var p = store.payout(org, id);

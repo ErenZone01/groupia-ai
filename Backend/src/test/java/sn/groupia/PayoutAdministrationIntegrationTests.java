@@ -494,8 +494,7 @@ class PayoutAdministrationIntegrationTests {
         pin(approval);
         decision(old, approval).andExpect(status().isConflict());
         assertThat(feeStore.payout(org, old.id()).status()).isEqualTo("REVIEW_REQUIRED");
-        assertThat(balance().path("reservedForPayout").decimalValue())
-                .isEqualByComparingTo("1000");
+        assertThat(balance().path("reservedForPayout").decimalValue()).isEqualByComparingTo("1000");
     }
 
     @Test

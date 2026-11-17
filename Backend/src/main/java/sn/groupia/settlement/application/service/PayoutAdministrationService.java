@@ -132,9 +132,17 @@ public class PayoutAdministrationService {
                 || a.expiresAt().isAfter(a.reviewedAt().plus(Duration.ofHours(24))))
             throw error(409, "PAYOUT_APPROVAL_EXPIRED", "Autorisation absente, future ou expirée.");
         if ("CLOSE_NON_EXECUTED".equals(action)) {
+            // Historical HTTP 403 responses were previously held as uncertain even
+            // though the provider gave a negative acknowledgement. Accept a reviewed,
+            // pinned source-response dossier for these cases only; unrelated timeouts
+            // and historical manual recoveries still require independent proof.
+            boolean reviewedRejection =
+                    "PROVIDER_HTTP_REJECTION".equals(a.evidenceType())
+                            && "SASPAY_PAYOUT_HTTP_REJECTED".equals(p.reconciliationReason());
             if (a.evidenceType() == null
-                    || !Set.of("PROVIDER_ATTESTATION", "COMPLETE_PRE_DISPATCH_AUDIT")
-                            .contains(a.evidenceType())
+                    || (!Set.of("PROVIDER_ATTESTATION", "COMPLETE_PRE_DISPATCH_AUDIT")
+                                    .contains(a.evidenceType())
+                            && !reviewedRejection)
                     || !a.allAttemptsCovered()
                     || !a.definitiveNonExecution()
                     || !a.futureExecutionImpossible())

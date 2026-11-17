@@ -28,6 +28,18 @@ SUCCEEDED et vérifier le règlement par des preuves authentifiées.
 
 **Historique** : DIR-21 et DIR-24 ont été créées avant ces corrections. Leur
 statut REVIEW_REQUIRED et leurs réserves ne sont pas effacés automatiquement.
+Pour l'ancien POST de DIR-24 explicitement refusé en HTTP 403, l'opérateur peut
+utiliser le dispositif existant `CLOSE_NON_EXECUTED` avec le dossier
+`PROVIDER_HTTP_REJECTION` **uniquement si** le motif enregistré de l'intention
+est exactement `SASPAY_PAYOUT_HTTP_REJECTED` et si un dossier revu, fixé par
+SHA-256 côté serveur, reproduit la réponse négative reçue par le backend et
+couvre toutes les tentatives pour cette clé, excluant une exécution différée.
+La capture du tableau de bord vide seule n'est pas une preuve. Le dossier,
+l'identité de la demande et la version sont revérifiés et l'opération auditée
+dans une transaction. Si le motif a été remplacé par un état moins précis,
+ou si la provenance manque, ne pas contourner ces exigences : demander une
+confirmation corrélée de SasPay. L'ancien DIR-21, resté incertain après
+récupération, n'est pas éligible sur la seule base du HTTP 403 de DIR-24.
 Une procédure de clôture auditée est nécessaire sur preuve suffisamment corrélée.
 Ne pas modifier les soldes par SQL, supprimer la ligne, réemployer l'ancienne
 clé fournisseur ni rejouer son POST. La clé et la référence historiques doivent

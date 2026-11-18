@@ -376,6 +376,33 @@ class SaspayContractTests {
     }
 
     @Test
+    void verifiedWebhookRejectsConflictingAndDuplicateEventHeaders() throws Exception {
+        byte[] body =
+                "{\"event\":\"transaction.success\",\"data\":{}}"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String stamp = Long.toString(clock.instant().getEpochSecond());
+        var headers = new HashMap<String, String>();
+        headers.put("X-Webhook-Signature", SaspayTestConfiguration.signature(body, stamp));
+        headers.put("X-Webhook-Timestamp", stamp);
+        headers.put("X-Webhook-Event", "transaction.success");
+        assertThat(
+                        SaspayWebhookAuthentication.verify(
+                                body, headers, SaspayTestConfiguration.SECRET, clock))
+                .isTrue();
+        headers.put("X-Webhook-Event", "transaction.failed");
+        assertThat(
+                        SaspayWebhookAuthentication.verify(
+                                body, headers, SaspayTestConfiguration.SECRET, clock))
+                .isFalse();
+        headers.put("X-Webhook-Event", "transaction.success");
+        headers.put("x-webhook-event", "transaction.success");
+        assertThat(
+                        SaspayWebhookAuthentication.verify(
+                                body, headers, SaspayTestConfiguration.SECRET, clock))
+                .isFalse();
+    }
+
+    @Test
     void liveKeysAndArbitraryHostsAreRejectedAndSecretsRedacted() {
         var p = SaspayTestConfiguration.properties();
         assertThat(p.toString()).doesNotContain(p.apiKey(), p.webhookSecret());

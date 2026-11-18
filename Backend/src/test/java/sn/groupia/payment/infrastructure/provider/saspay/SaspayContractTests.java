@@ -612,17 +612,11 @@ class SaspayContractTests {
                             json,
                             clock);
             stub.reply(200, "not-json");
-            assertThatThrownBy(client::rates)
-                    .hasMessage("SASPAY_INVALID_JSON")
-                    .hasNoCause();
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_JSON").hasNoCause();
             stub.reply(200, "null");
-            assertThatThrownBy(client::rates)
-                    .hasMessage("SASPAY_INVALID_RESPONSE")
-                    .hasNoCause();
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_RESPONSE").hasNoCause();
             stub.reply(200, "{\"success\":true,\"data\":null}");
-            assertThatThrownBy(client::rates)
-                    .hasMessage("SASPAY_INVALID_RESPONSE")
-                    .hasNoCause();
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_RESPONSE").hasNoCause();
             assertThat(stub.requests).hasSize(3);
         }
     }

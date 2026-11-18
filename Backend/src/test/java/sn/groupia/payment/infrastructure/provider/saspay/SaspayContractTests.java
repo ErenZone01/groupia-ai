@@ -508,7 +508,7 @@ class SaspayContractTests {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {401, 403, 404, 409, 422, 429, 500})
+    @ValueSource(ints = {400, 401, 403, 404, 409, 410, 422, 429, 500, 503})
     void httpErrorsAreSanitizedAndNeverAutomaticallyRetried(int status) throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var p = SaspayTestConfiguration.properties();
@@ -525,6 +525,99 @@ class SaspayContractTests {
                 assertThatThrownBy(client::rates).hasMessage("SASPAY_RATE_LIMITED");
                 assertThat(stub.requests).hasSize(1);
             }
+        }
+    }
+
+    @Test
+    void cancelledPayinWebhookIsRecognizedAndNeverMistakenForSuccess() throws Exception {
+        var properties = SaspayTestConfiguration.properties();
+        var adapter =
+                new SaspayPaymentProvider(
+                        new SaspayClient(SaspayClient.builder(properties).build(), json, clock),
+                        properties,
+                        null,
+                        json,
+                        clock);
+        String event =
+                "{\"event\":\"transaction.cancelled\",\"data\":{\"id\":"
+                        + "\"a4b5c6d7-e8f9-4a0b-8c1d-2e3f4a5b6c7d\","
+                        + "\"type\":\"PAIEMENT\",\"status\":\"CANCELLED\","
+                        + "\"fee_charge_mode\":\"ADD_ON\","
+                        + "\"amount\":\"1000.00\",\"fee\":\"0.00\","
+                        + "\"charged\":\"1000.00\",\"net_amount\":\"1000.00\","
+                        + "\"currency\":\"XOF\"}}";
+        var parsed = adapter.parse(event.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(parsed.observation().status())
+                .isEqualTo(sn.groupia.payment.api.PaymentStatus.CANCELLED);
+        assertThatThrownBy(
+                        () ->
+                                adapter.parse(
+                                        event.replace(
+                                                        "transaction.cancelled",
+                                                        "transaction.success")
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .hasMessage("SASPAY_INCONSISTENT_EVENT");
+        assertThatThrownBy(
+                        () ->
+                                adapter.parse(
+                                        event.replace("PAIEMENT", "TRANSFERT")
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .hasMessage("SASPAY_UNSUPPORTED_FLOW");
+    }
+
+    @Test
+    void providerBusinessCodesAreSanitizedWithoutPersistingUntrustedResponse() throws Exception {
+        var properties = SaspayTestConfiguration.properties();
+        try (var stub = new SaspayHttpStub()) {
+            var client =
+                    new SaspayClient(
+                            SaspayClient.builder(properties)
+                                    .baseUrl(stub.url() + "/api/v1")
+                                    .build(),
+                            json,
+                            clock);
+            stub.reply(
+                    422,
+                    "{\"success\":false,\"error\":"
+                            + "{\"code\":\"insufficient_balance\",\"message\":\"private\"}}");
+            var known = catchThrowableOfType(client::rates, SaspayException.class);
+            assertThat(known).hasMessage("SASPAY_HTTP_422").hasNoCause();
+            assertThat(known.httpStatus()).isEqualTo(422);
+            assertThat(known.providerCode()).isEqualTo("insufficient_balance");
+
+            stub.reply(403, "{\"code\":\"attacker_controlled_sensitive_value\"}");
+            var unknown = catchThrowableOfType(client::rates, SaspayException.class);
+            assertThat(unknown).hasMessage("SASPAY_HTTP_403").hasNoCause();
+            assertThat(unknown.httpStatus()).isEqualTo(403);
+            assertThat(unknown.providerCode()).isEqualTo("UNRECOGNIZED");
+
+            stub.reply(200, "{\"success\":false,\"error\":{\"code\":\"merchant_suspended\"}}");
+            var logicalFailure = catchThrowableOfType(client::rates, SaspayException.class);
+            assertThat(logicalFailure).hasMessage("SASPAY_PROVIDER_REPORTED_FAILURE");
+            assertThat(logicalFailure.providerCode()).isEqualTo("merchant_suspended");
+            assertThat(logicalFailure.httpStatus()).isEqualTo(200);
+            assertThat(stub.requests).hasSize(3);
+        }
+    }
+
+    @Test
+    void malformedSuccessfulResponsesCannotMasqueradeAsTransportUncertainty() throws Exception {
+        var properties = SaspayTestConfiguration.properties();
+        try (var stub = new SaspayHttpStub()) {
+            var client =
+                    new SaspayClient(
+                            SaspayClient.builder(properties)
+                                    .baseUrl(stub.url() + "/api/v1")
+                                    .build(),
+                            json,
+                            clock);
+            stub.reply(200, "not-json");
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_JSON").hasNoCause();
+            stub.reply(200, "null");
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_RESPONSE").hasNoCause();
+            stub.reply(200, "{\"success\":true,\"data\":null}");
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_RESPONSE").hasNoCause();
+            assertThat(stub.requests).hasSize(3);
         }
     }
 }

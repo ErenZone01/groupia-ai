@@ -533,8 +533,7 @@ class SaspayContractTests {
         var properties = SaspayTestConfiguration.properties();
         var adapter =
                 new SaspayPaymentProvider(
-                        new SaspayClient(
-                                SaspayClient.builder(properties).build(), json, clock),
+                        new SaspayClient(SaspayClient.builder(properties).build(), json, clock),
                         properties,
                         null,
                         json,
@@ -551,14 +550,18 @@ class SaspayContractTests {
         assertThat(parsed.observation().status())
                 .isEqualTo(sn.groupia.payment.api.PaymentStatus.CANCELLED);
         assertThatThrownBy(
-                        () -> adapter.parse(
-                                event.replace("transaction.cancelled", "transaction.success")
-                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                        () ->
+                                adapter.parse(
+                                        event.replace(
+                                                        "transaction.cancelled",
+                                                        "transaction.success")
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
                 .hasMessage("SASPAY_INCONSISTENT_EVENT");
         assertThatThrownBy(
-                        () -> adapter.parse(
-                                event.replace("PAIEMENT", "TRANSFERT")
-                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                        () ->
+                                adapter.parse(
+                                        event.replace("PAIEMENT", "TRANSFERT")
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
                 .hasMessage("SASPAY_UNSUPPORTED_FLOW");
     }
 
@@ -588,9 +591,7 @@ class SaspayContractTests {
             assertThat(unknown.httpStatus()).isEqualTo(403);
             assertThat(unknown.providerCode()).isEqualTo("UNRECOGNIZED");
 
-            stub.reply(
-                    200,
-                    "{\"success\":false,\"error\":{\"code\":\"merchant_suspended\"}}");
+            stub.reply(200, "{\"success\":false,\"error\":{\"code\":\"merchant_suspended\"}}");
             var logicalFailure = catchThrowableOfType(client::rates, SaspayException.class);
             assertThat(logicalFailure).hasMessage("SASPAY_PROVIDER_REPORTED_FAILURE");
             assertThat(logicalFailure.providerCode()).isEqualTo("merchant_suspended");
@@ -611,7 +612,9 @@ class SaspayContractTests {
                             json,
                             clock);
             stub.reply(200, "not-json");
-            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_JSON").hasNoCause();
+            assertThatThrownBy(client::rates)
+                    .hasMessage("SASPAY_INVALID_JSON")
+                    .hasNoCause();
             stub.reply(200, "null");
             assertThatThrownBy(client::rates)
                     .hasMessage("SASPAY_INVALID_RESPONSE")

@@ -183,9 +183,7 @@ public class MerchantPayoutTransactions {
                     || !"SASPAY".equals(payout.provider())
                     || payout.requestedAt() == null
                     || !day.equals(
-                            payout.requestedAt()
-                                    .atZone(java.time.ZoneOffset.UTC)
-                                    .toLocalDate()))
+                            payout.requestedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate()))
                 continue;
             if (payout.amount() == null || payout.amount().signum() < 0)
                 throw error(

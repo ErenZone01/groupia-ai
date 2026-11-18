@@ -598,4 +598,29 @@ class SaspayContractTests {
             assertThat(stub.requests).hasSize(3);
         }
     }
+
+    @Test
+    void malformedSuccessfulResponsesCannotMasqueradeAsTransportUncertainty() throws Exception {
+        var properties = SaspayTestConfiguration.properties();
+        try (var stub = new SaspayHttpStub()) {
+            var client =
+                    new SaspayClient(
+                            SaspayClient.builder(properties)
+                                    .baseUrl(stub.url() + "/api/v1")
+                                    .build(),
+                            json,
+                            clock);
+            stub.reply(200, "not-json");
+            assertThatThrownBy(client::rates).hasMessage("SASPAY_INVALID_JSON").hasNoCause();
+            stub.reply(200, "null");
+            assertThatThrownBy(client::rates)
+                    .hasMessage("SASPAY_INVALID_RESPONSE")
+                    .hasNoCause();
+            stub.reply(200, "{\"success\":true,\"data\":null}");
+            assertThatThrownBy(client::rates)
+                    .hasMessage("SASPAY_INVALID_RESPONSE")
+                    .hasNoCause();
+            assertThat(stub.requests).hasSize(3);
+        }
+    }
 }

@@ -163,7 +163,14 @@ final class SaspayClient {
                         byte[] body = response.getBody().readNBytes(262145);
                         if (body.length > 262144)
                             throw new SaspayException("SASPAY_RESPONSE_TOO_LARGE");
-                        var node = json.readTree(body);
+                        JsonNode node;
+                        try {
+                            node = json.readTree(body);
+                        } catch (RuntimeException ex) {
+                            throw new SaspayException("SASPAY_INVALID_JSON");
+                        }
+                        if (node == null || (!node.isObject() && !node.isArray()))
+                            throw new SaspayException("SASPAY_INVALID_RESPONSE");
                         // Documentation examples omit the envelope; accept both documented
                         // representations.
                         if (node.has("success")) {
@@ -174,7 +181,7 @@ final class SaspayClient {
                                         "SASPAY_PROVIDER_REPORTED_FAILURE",
                                         status,
                                         safeProviderCode(node));
-                            if (!node.has("data"))
+                            if (!node.path("data").isObject() && !node.path("data").isArray())
                                 throw new SaspayException("SASPAY_INVALID_RESPONSE");
                             node = node.get("data");
                         }

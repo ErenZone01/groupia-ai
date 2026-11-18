@@ -54,6 +54,7 @@ Exemple de réponse (la version doit venir de ta propre instance) :
 ```json
 {
   "payoutId": "e1ecc9ae-89ab-449f-bc91-1a7e59f03a0e",
+  "directOrderId": "<uuid-reel-dir21-renvoye-par-api>",
   "status": "REVIEW_REQUIRED",
   "reconciliationReason": "PAYOUT_MANUAL_RECOVERY_UNCERTAIN",
   "version": 2,

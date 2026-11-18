@@ -557,7 +557,11 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     public NormalizedWebhook parse(byte[] payload) {
         var root = json.readTree(payload);
         var event = text(root, "event");
-        if (!Set.of("transaction.created", "transaction.success", "transaction.failed", "transaction.cancelled")
+        if (!Set.of(
+                        "transaction.created",
+                        "transaction.success",
+                        "transaction.failed",
+                        "transaction.cancelled")
                 .contains(event == null ? "" : event))
             throw new SaspayException("SASPAY_UNSUPPORTED_EVENT");
         var data = root.path("data");

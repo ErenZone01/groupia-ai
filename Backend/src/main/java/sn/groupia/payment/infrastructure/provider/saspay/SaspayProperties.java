@@ -20,17 +20,22 @@ public record SaspayProperties(
         UUID livePilotOrganizationId,
         BigDecimal livePilotMaxChargedXof) {
     public SaspayProperties {
-        if (apiUrl == null) apiUrl = URI.create("https://api.saspay.me/api/v1");
+        // SasPay publishes isolated LIVE and SANDBOX hosts. A test key must never
+        // be transmitted to the production endpoint, even on developer machines.
+        boolean testKey = apiKey != null && apiKey.matches("sk_test_[A-Za-z0-9_-]+");
+        boolean liveKey = apiKey != null && apiKey.matches("sk_live_[A-Za-z0-9_-]+");
+        URI liveUrl = URI.create("https://api.saspay.me/api/v1");
+        URI sandboxUrl = URI.create("https://sandbox-api.saspay.me/api/v1");
+        if (apiUrl == null) apiUrl = testKey ? sandboxUrl : liveUrl;
         if (checkoutHosts == null) checkoutHosts = Set.of();
         checkoutHosts = Set.copyOf(checkoutHosts);
         if (connectTimeout == null) connectTimeout = Duration.ofSeconds(3);
         if (readTimeout == null) readTimeout = Duration.ofSeconds(10);
         if (livePilotMaxChargedXof == null) livePilotMaxChargedXof = new BigDecimal("2000");
         if (enabled) {
-            if (!apiUrl.equals(URI.create("https://api.saspay.me/api/v1")))
-                throw new IllegalArgumentException("SasPay requires its documented HTTPS API");
-            boolean testKey = apiKey != null && apiKey.matches("sk_test_[A-Za-z0-9_-]+");
-            boolean liveKey = apiKey != null && apiKey.matches("sk_live_[A-Za-z0-9_-]+");
+            if (!apiUrl.equals(liveKey ? liveUrl : sandboxUrl))
+                throw new IllegalArgumentException(
+                        "SasPay API environment must match the secret key environment");
             if ((!testKey && !liveKey)
                     || webhookSecret == null
                     || webhookSecret.isBlank()

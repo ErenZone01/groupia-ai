@@ -63,8 +63,7 @@ public record SaspayProperties(
         if (connectTimeout == null) connectTimeout = Duration.ofSeconds(3);
         if (readTimeout == null) readTimeout = Duration.ofSeconds(10);
         if (livePilotMaxChargedXof == null) livePilotMaxChargedXof = new BigDecimal("2000");
-        if (productionMaxChargedXof == null)
-            productionMaxChargedXof = new BigDecimal("1000000");
+        if (productionMaxChargedXof == null) productionMaxChargedXof = new BigDecimal("1000000");
         if (enabled) {
             if (!apiUrl.equals(liveKey ? liveUrl : sandboxUrl))
                 throw new IllegalArgumentException(

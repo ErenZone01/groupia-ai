@@ -618,8 +618,7 @@ class SaspayMerchantPayoutProviderTests {
                         .replace(
                                 "\"flow_direction\":\"OUTBOUND\"",
                                 "\"flow_direction\":\"INBOUND\"");
-        assertThatThrownBy(
-                        () -> provider.validateProof(p, json.readTree(incoming), Instant.now()))
+        assertThatThrownBy(() -> provider.validateProof(p, json.readTree(incoming), Instant.now()))
                 .hasMessage("SASPAY_PAYOUT_EVIDENCE_MISMATCH");
     }
 

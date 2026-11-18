@@ -321,13 +321,19 @@ public class PayoutAdministrationService {
      * The immutable audit says precisely which source supported the decision.
      */
     public record HistoricalUnlinkedStatus(
-            UUID payoutId, String status, String reconciliationReason, long version, boolean eligible) {}
+            UUID payoutId,
+            UUID directOrderId,
+            String status,
+            String reconciliationReason,
+            long version,
+            boolean eligible) {}
 
     public HistoricalUnlinkedStatus historicalUnlinkedStatus(UUID org, UUID id) {
         requireOperator(org);
         var payout = store.payout(org, id);
         return new HistoricalUnlinkedStatus(
                 id,
+                payout.directOrderId(),
                 payout.status(),
                 payout.reconciliationReason(),
                 payout.version(),

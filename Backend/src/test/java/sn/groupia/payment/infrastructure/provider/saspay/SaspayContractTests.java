@@ -510,8 +510,7 @@ class SaspayContractTests {
                         new BigDecimal("10000"));
         assertThat(live.productionEnabled()).isTrue();
         assertThat(live.livePilotEnabled()).isFalse();
-        assertThat(live.apiUrl())
-                .isEqualTo(java.net.URI.create("https://api.saspay.me/api/v1"));
+        assertThat(live.apiUrl()).isEqualTo(java.net.URI.create("https://api.saspay.me/api/v1"));
         try (var stub = new SaspayHttpStub()) {
             var adapter =
                     new SaspayPaymentProvider(
@@ -528,11 +527,9 @@ class SaspayContractTests {
             assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isTrue();
             assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isTrue();
             stub.reply(200, SaspayTestConfiguration.rates());
-            assertThat(adapter.quote(new BigDecimal("1000"), "XOF", "wave_sn").fee())
-                    .isPositive();
+            assertThat(adapter.quote(new BigDecimal("1000"), "XOF", "wave_sn").fee()).isPositive();
             stub.reply(200, SaspayTestConfiguration.rates());
-            assertThatThrownBy(
-                            () -> adapter.quote(new BigDecimal("10000"), "XOF", "wave_sn"))
+            assertThatThrownBy(() -> adapter.quote(new BigDecimal("10000"), "XOF", "wave_sn"))
                     .hasMessage("SASPAY_PRODUCTION_AMOUNT_LIMIT");
         }
         assertThatThrownBy(

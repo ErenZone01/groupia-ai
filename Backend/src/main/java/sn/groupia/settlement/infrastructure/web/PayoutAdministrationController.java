@@ -48,6 +48,48 @@ class PayoutAdministrationController {
         }
     }
 
+    // Admin-only declaration for the single configured unresolved historical payout.
+    // No provider request is sent by this controller.
+    record HistoricalUnlinked(
+            @PositiveOrZero long expectedVersion,
+            @NotBlank @Size(max = 120) String evidenceReference,
+            @NotBlank @Size(min = 20, max = 500) String reason,
+            boolean ownerConfirmsNeverExecuted,
+            boolean acceptsDuplicatePayoutRisk,
+            boolean confirmed) {
+        @JsonAnySetter
+        public void unknown(String key, Object value) {
+            throw new IllegalArgumentException("Unsupported historical review field");
+        }
+    }
+
+    @GetMapping("/historical-unlinked")
+    ResponseEntity<PayoutAdministrationService.HistoricalUnlinkedStatus> historicalUnlinkedStatus(
+            @PathVariable UUID organizationId, @PathVariable UUID payoutId) {
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(service.historicalUnlinkedStatus(organizationId, payoutId));
+    }
+
+    @PostMapping("/historical-unlinked")
+    ResponseEntity<PayoutAdministrationService.Result> closeHistoricalUnlinked(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID payoutId,
+            @Valid @RequestBody HistoricalUnlinked request) {
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(
+                        service.closeHistoricalUnlinked(
+                                organizationId,
+                                payoutId,
+                                request.expectedVersion(),
+                                request.evidenceReference(),
+                                request.reason(),
+                                request.ownerConfirmsNeverExecuted(),
+                                request.acceptsDuplicatePayoutRisk(),
+                                request.confirmed()));
+    }
+
     @PostMapping("/recorded-rejection")
     ResponseEntity<PayoutAdministrationService.Result> closeRecordedRejection(
             @PathVariable UUID organizationId,

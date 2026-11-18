@@ -45,6 +45,8 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: Backend/pom.xml
+      - name: Check Java formatting before expensive integration tests
+        run: ./mvnw --batch-mode --no-transfer-progress spotless:check
       - name: Verify including architecture, migration and PostgreSQL integration tests
         run: ./mvnw --batch-mode --no-transfer-progress verify
         env:

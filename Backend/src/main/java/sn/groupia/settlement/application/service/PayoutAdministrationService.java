@@ -32,6 +32,12 @@ public class PayoutAdministrationService {
     @Value("${groupia.settlement.payout-administration.operator-ids:}")
     private String operators;
 
+    @Value("${groupia.settlement.payout-administration.historical-unlinked-enabled:false}")
+    private boolean historicalUnlinkedEnabled;
+
+    @Value("${groupia.settlement.payout-administration.historical-unlinked-payout-id:}")
+    private String historicalUnlinkedPayoutId;
+
     public PayoutAdministrationService(
             MerchantFinanceStore store,
             OrganizationAccess access,
@@ -305,6 +311,153 @@ public class PayoutAdministrationService {
         UUID audit = store.recordAdministration(approval, evidenceDigest, reason, now);
         store.state(id, "NON_EXECUTE", null, null, null, false, null);
         return new Result(id, "NON_EXECUTE", audit);
+    }
+
+    /**
+     * Operator-reviewed exception for one specifically configured pre-activation payout.
+     *
+     * <p>The account owner's claim and a negative read-only list are risk acceptance, NOT
+     * definitive provider evidence. Never initiates, retries or verifies a payout. The immutable
+     * audit says precisely which source supported the decision.
+     */
+    public record HistoricalUnlinkedStatus(
+            UUID payoutId,
+            UUID directOrderId,
+            String status,
+            String reconciliationReason,
+            long version,
+            boolean eligible) {}
+
+    public HistoricalUnlinkedStatus historicalUnlinkedStatus(UUID org, UUID id) {
+        requireOperator(org);
+        var payout = store.payout(org, id);
+        return new HistoricalUnlinkedStatus(
+                id,
+                payout.directOrderId(),
+                payout.status(),
+                payout.reconciliationReason(),
+                payout.version(),
+                historicalUnlinkedEligible(id, payout));
+    }
+
+    public Result closeHistoricalUnlinked(
+            UUID org,
+            UUID id,
+            long expectedVersion,
+            String evidenceReference,
+            String reason,
+            boolean ownerConfirmsNeverExecuted,
+            boolean acceptsDuplicatePayoutRisk,
+            boolean confirmed) {
+        UUID actor = requireOperator(org);
+        if (!confirmed
+                || !ownerConfirmsNeverExecuted
+                || !acceptsDuplicatePayoutRisk
+                || expectedVersion < 0
+                || evidenceReference == null
+                || !evidenceReference.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,119}")
+                || reason == null
+                || reason.strip().length() < 20
+                || reason.length() > 500
+                || reason.codePoints().anyMatch(Character::isISOControl))
+            throw error(
+                    400,
+                    "PAYOUT_HISTORICAL_REVIEW_INCOMPLETE",
+                    "Attestation, acceptation du risque et référence de revue obligatoires.");
+        reason = reason.strip();
+        if (!historicalUnlinkedEnabled
+                || historicalUnlinkedPayoutId == null
+                || !id.toString().equals(historicalUnlinkedPayoutId))
+            throw error(
+                    403,
+                    "PAYOUT_HISTORICAL_REVIEW_DISABLED",
+                    "Exception administrative non activée pour cette intention.");
+
+        var now = clock.instant();
+        store.lockOrganization(org);
+        var p = store.payout(org, id);
+        String reference = "HISTORICAL-UNLINKED-" + id;
+        // Immutable, scoped and replayable fingerprint: no raw provider key or customer details.
+        String digest =
+                ReviewedPayoutEvidence.sha256(
+                        String.join(
+                                "|",
+                                "OWNER_ATTESTED_UNLINKED_PAYOUT",
+                                reference,
+                                evidenceReference,
+                                reason,
+                                org.toString(),
+                                id.toString(),
+                                Long.toString(expectedVersion),
+                                actor.toString(),
+                                p.providerAccountReference(),
+                                ReviewedPayoutEvidence.sha256(
+                                        p.providerIdempotencyKey().toString()),
+                                ReviewedPayoutEvidence.sha256(p.businessReference())));
+        var replay =
+                store.administrativeReplay(
+                        id,
+                        "CLOSE_NON_EXECUTED",
+                        reference,
+                        digest,
+                        reason,
+                        actor,
+                        expectedVersion);
+        if (replay.isPresent()) return new Result(id, p.status(), replay.get());
+        if (p.version() != expectedVersion || !historicalUnlinkedEligible(id, p))
+            throw error(
+                    409,
+                    "PAYOUT_HISTORICAL_REVIEW_INELIGIBLE",
+                    "État ou version incompatible : aucune réservation modifiée.");
+
+        // The evidence classification records a merchant assertion, not a SasPay attestation.
+        var approval =
+                new PayoutAdministrativeApproval(
+                        reference,
+                        "CLOSE_NON_EXECUTED",
+                        org,
+                        id,
+                        expectedVersion,
+                        actor,
+                        p.providerAccountReference(),
+                        ReviewedPayoutEvidence.sha256(p.providerIdempotencyKey().toString()),
+                        ReviewedPayoutEvidence.sha256(p.businessReference()),
+                        p.amount(),
+                        p.currency(),
+                        "OWNER_RISK_ACCEPTANCE",
+                        evidenceReference,
+                        digest,
+                        true,
+                        true,
+                        true,
+                        now,
+                        now.plus(Duration.ofHours(1)),
+                        p.directOrderId(),
+                        p.destinationId());
+        UUID audit = store.recordAdministration(approval, digest, reason, now);
+        store.state(id, "NON_EXECUTE", null, null, null, false, null);
+        return new Result(id, "NON_EXECUTE", audit);
+    }
+
+    private boolean historicalUnlinkedEligible(
+            UUID id, sn.groupia.settlement.domain.model.MerchantPayout p) {
+        return historicalUnlinkedEnabled
+                && historicalUnlinkedPayoutId != null
+                && id.toString().equals(historicalUnlinkedPayoutId)
+                && "SASPAY".equals(p.provider())
+                && "SASPAY".equals(provider.name())
+                && provider.account().equals(p.providerAccountReference())
+                && p.directSale()
+                && "WAVE".equals(p.method())
+                && p.amount().compareTo(new BigDecimal("1000")) == 0
+                && "XOF".equals(p.currency())
+                && "REVIEW_REQUIRED".equals(p.status())
+                && "PAYOUT_MANUAL_RECOVERY_UNCERTAIN".equals(p.reconciliationReason())
+                && p.reconciliationRequired()
+                && p.providerTransactionId() == null
+                && p.reserved()
+                && p.requestedAt().isBefore(Instant.parse("2026-11-17T05:53:24Z"))
+                && !store.hasResolutionIncident(p.organizationId());
     }
 
     private UUID requireOperator(UUID org) {

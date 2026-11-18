@@ -376,6 +376,33 @@ class SaspayContractTests {
     }
 
     @Test
+    void verifiedWebhookRejectsConflictingAndDuplicateEventHeaders() throws Exception {
+        byte[] body =
+                "{\"event\":\"transaction.success\",\"data\":{}}"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String stamp = Long.toString(clock.instant().getEpochSecond());
+        var headers = new HashMap<String, String>();
+        headers.put("X-Webhook-Signature", SaspayTestConfiguration.signature(body, stamp));
+        headers.put("X-Webhook-Timestamp", stamp);
+        headers.put("X-Webhook-Event", "transaction.success");
+        assertThat(
+                        SaspayWebhookAuthentication.verify(
+                                body, headers, SaspayTestConfiguration.SECRET, clock))
+                .isTrue();
+        headers.put("X-Webhook-Event", "transaction.failed");
+        assertThat(
+                        SaspayWebhookAuthentication.verify(
+                                body, headers, SaspayTestConfiguration.SECRET, clock))
+                .isFalse();
+        headers.put("X-Webhook-Event", "transaction.success");
+        headers.put("x-webhook-event", "transaction.success");
+        assertThat(
+                        SaspayWebhookAuthentication.verify(
+                                body, headers, SaspayTestConfiguration.SECRET, clock))
+                .isFalse();
+    }
+
+    @Test
     void liveKeysAndArbitraryHostsAreRejectedAndSecretsRedacted() {
         var p = SaspayTestConfiguration.properties();
         assertThat(p.toString()).doesNotContain(p.apiKey(), p.webhookSecret());
@@ -408,6 +435,57 @@ class SaspayContractTests {
                                         false,
                                         null,
                                         null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void credentialsMustNeverCrossSaspaySandboxAndProductionEnvironments() {
+        var sandbox = SaspayTestConfiguration.properties();
+        assertThat(sandbox.apiUrl())
+                .isEqualTo(java.net.URI.create("https://sandbox-api.saspay.me/api/v1"));
+        var live =
+                new SaspayProperties(
+                        true,
+                        null,
+                        "sk_live_environment_fixture",
+                        sandbox.webhookSecret(),
+                        sandbox.merchantId(),
+                        sandbox.checkoutHosts(),
+                        null,
+                        null,
+                        true,
+                        UUID.randomUUID(),
+                        new BigDecimal("2000"));
+        assertThat(live.apiUrl()).isEqualTo(java.net.URI.create("https://api.saspay.me/api/v1"));
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        java.net.URI.create("https://api.saspay.me/api/v1"),
+                                        sandbox.apiKey(),
+                                        sandbox.webhookSecret(),
+                                        sandbox.merchantId(),
+                                        sandbox.checkoutHosts(),
+                                        null,
+                                        null,
+                                        false,
+                                        null,
+                                        null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        java.net.URI.create("https://sandbox-api.saspay.me/api/v1"),
+                                        live.apiKey(),
+                                        live.webhookSecret(),
+                                        live.merchantId(),
+                                        live.checkoutHosts(),
+                                        null,
+                                        null,
+                                        true,
+                                        live.livePilotOrganizationId(),
+                                        live.livePilotMaxChargedXof()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

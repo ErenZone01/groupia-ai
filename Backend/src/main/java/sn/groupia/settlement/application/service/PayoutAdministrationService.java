@@ -316,9 +316,9 @@ public class PayoutAdministrationService {
     /**
      * Operator-reviewed exception for one specifically configured pre-activation payout.
      *
-     * The account owner's claim and a negative read-only list are risk acceptance,
-     * NOT definitive provider evidence. Never initiates, retries or verifies a payout.
-     * The immutable audit says precisely which source supported the decision.
+     * <p>The account owner's claim and a negative read-only list are risk acceptance, NOT
+     * definitive provider evidence. Never initiates, retries or verifies a payout. The immutable
+     * audit says precisely which source supported the decision.
      */
     public record HistoricalUnlinkedStatus(
             UUID payoutId,
@@ -391,11 +391,18 @@ public class PayoutAdministrationService {
                                 Long.toString(expectedVersion),
                                 actor.toString(),
                                 p.providerAccountReference(),
-                                ReviewedPayoutEvidence.sha256(p.providerIdempotencyKey().toString()),
+                                ReviewedPayoutEvidence.sha256(
+                                        p.providerIdempotencyKey().toString()),
                                 ReviewedPayoutEvidence.sha256(p.businessReference())));
         var replay =
                 store.administrativeReplay(
-                        id, "CLOSE_NON_EXECUTED", reference, digest, reason, actor, expectedVersion);
+                        id,
+                        "CLOSE_NON_EXECUTED",
+                        reference,
+                        digest,
+                        reason,
+                        actor,
+                        expectedVersion);
         if (replay.isPresent()) return new Result(id, p.status(), replay.get());
         if (p.version() != expectedVersion || !historicalUnlinkedEligible(id, p))
             throw error(
@@ -432,7 +439,8 @@ public class PayoutAdministrationService {
         return new Result(id, "NON_EXECUTE", audit);
     }
 
-    private boolean historicalUnlinkedEligible(UUID id, sn.groupia.settlement.domain.model.MerchantPayout p) {
+    private boolean historicalUnlinkedEligible(
+            UUID id, sn.groupia.settlement.domain.model.MerchantPayout p) {
         return historicalUnlinkedEnabled
                 && historicalUnlinkedPayoutId != null
                 && id.toString().equals(historicalUnlinkedPayoutId)

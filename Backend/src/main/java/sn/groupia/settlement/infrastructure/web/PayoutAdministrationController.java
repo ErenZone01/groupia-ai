@@ -48,10 +48,8 @@ class PayoutAdministrationController {
         }
     }
 
-    /**
-     * Narrow exception for a single configured historical unresolved payout. All external
-     * evidence is supplied by the operator; this API never calls the provider.
-     */
+    // Admin-only declaration for the single configured unresolved historical payout.
+    // No provider request is sent by this controller.
     record HistoricalUnlinked(
             @PositiveOrZero long expectedVersion,
             @NotBlank @Size(max = 120) String evidenceReference,

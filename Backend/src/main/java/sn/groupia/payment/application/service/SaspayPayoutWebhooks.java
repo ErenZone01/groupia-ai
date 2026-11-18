@@ -25,7 +25,9 @@ public class SaspayPayoutWebhooks {
     public boolean recognizes(String provider, byte[] payload) {
         if (!"SASPAY".equalsIgnoreCase(provider)) return false;
         try {
-            return "RETRAIT".equals(json.readTree(payload).path("data").path("type").asText());
+            // Outgoing TRANSFERT notifications are hints, not pay-in confirmations.
+            return Set.of("RETRAIT", "TRANSFERT")
+                    .contains(json.readTree(payload).path("data").path("type").asText());
         } catch (RuntimeException ex) {
             return false;
         }
@@ -70,7 +72,8 @@ public class SaspayPayoutWebhooks {
                                 "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
                         || expected.isEmpty()
                         || !expected.equals(event)
-                        || !"RETRAIT".equals(root.path("data").path("type").asText()))
+                        || !Set.of("RETRAIT", "TRANSFERT")
+                                .contains(root.path("data").path("type").asText()))
                     throw new IllegalArgumentException();
                 transaction = UUID.fromString(id);
             } catch (RuntimeException ex) {

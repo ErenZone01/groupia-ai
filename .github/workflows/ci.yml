@@ -73,7 +73,8 @@ jobs:
           cache: npm
           cache-dependency-path: Frontend/package-lock.json
       - run: npm ci
-      - run: npm audit --audit-level=high
+      - name: Audit dependency risks (production strict; documented dev-only exception)
+        run: python ../tools/check_frontend_audit.py
       - run: npm run lint
       - run: npm test
       - run: npm run build

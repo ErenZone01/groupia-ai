@@ -546,15 +546,18 @@ class SaspayMerchantPayoutProviderTests {
         }
     }
 
-
     @Test
     void liveTransferPayoutIsReconciledByTwoGetsWithoutDispatch() throws Exception {
         var source =
                 verified(null, null)
-                        .replace("\"transaction_type\":\"RETRAIT\"", "\"transaction_type\":\"TRANSFERT\"");
+                        .replace(
+                                "\"transaction_type\":\"RETRAIT\"",
+                                "\"transaction_type\":\"TRANSFERT\"");
         var detail =
                 transactionDetail("771234567", "wave_sn")
-                        .replace("\"transaction_type\":\"RETRAIT\"", "\"transaction_type\":\"TRANSFERT\"");
+                        .replace(
+                                "\"transaction_type\":\"RETRAIT\"",
+                                "\"transaction_type\":\"TRANSFERT\"");
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         var gets = new AtomicInteger();
         server.createContext(
@@ -589,7 +592,9 @@ class SaspayMerchantPayoutProviderTests {
     void classificationMismatchBetweenTwoGetsCannotConfirmPayout() throws Exception {
         assertInvalidDualGet(
                 verified(null, null)
-                        .replace("\"transaction_type\":\"RETRAIT\"", "\"transaction_type\":\"TRANSFERT\""),
+                        .replace(
+                                "\"transaction_type\":\"RETRAIT\"",
+                                "\"transaction_type\":\"TRANSFERT\""),
                 transactionDetail("771234567", "wave_sn"),
                 "SASPAY_PAYOUT_EVIDENCE_MISMATCH");
     }
@@ -601,7 +606,8 @@ class SaspayMerchantPayoutProviderTests {
         for (String type : List.of("PAIEMENT", "RECHARGE", "WALLET_TRANSFER")) {
             String source =
                     verified("771234567", "wave_sn")
-                            .replace("\"transaction_type\":\"RETRAIT\"",
+                            .replace(
+                                    "\"transaction_type\":\"RETRAIT\"",
                                     "\"transaction_type\":\"" + type + "\"");
             assertThatThrownBy(
                             () -> provider.validateProof(p, json.readTree(source), Instant.now()))
@@ -609,7 +615,9 @@ class SaspayMerchantPayoutProviderTests {
         }
         String incoming =
                 verified("771234567", "wave_sn")
-                        .replace("\"flow_direction\":\"OUTBOUND\"", "\"flow_direction\":\"INBOUND\"");
+                        .replace(
+                                "\"flow_direction\":\"OUTBOUND\"",
+                                "\"flow_direction\":\"INBOUND\"");
         assertThatThrownBy(
                         () -> provider.validateProof(p, json.readTree(incoming), Instant.now()))
                 .hasMessage("SASPAY_PAYOUT_EVIDENCE_MISMATCH");

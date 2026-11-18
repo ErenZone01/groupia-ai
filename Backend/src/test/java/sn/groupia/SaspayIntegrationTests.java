@@ -244,10 +244,10 @@ class SaspayIntegrationTests {
                 .isZero();
     }
 
-
     @Test
     void liveTransferNotificationIsDeduplicatedAndNeverAllocatedAsPayin() throws Exception {
-        String outgoing = event("SUCCESS").replace("\"type\":\"PAIEMENT\"", "\"type\":\"TRANSFERT\"");
+        String outgoing =
+                event("SUCCESS").replace("\"type\":\"PAIEMENT\"", "\"type\":\"TRANSFERT\"");
         deliver(outgoing);
         deliver(outgoing);
         await(

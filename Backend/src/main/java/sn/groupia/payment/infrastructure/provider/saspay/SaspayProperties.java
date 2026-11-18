@@ -18,7 +18,38 @@ public record SaspayProperties(
         Duration readTimeout,
         boolean livePilotEnabled,
         UUID livePilotOrganizationId,
-        BigDecimal livePilotMaxChargedXof) {
+        BigDecimal livePilotMaxChargedXof,
+        boolean productionEnabled,
+        BigDecimal productionMaxChargedXof) {
+    /** Compatibility constructor for existing pilot fixtures. */
+    public SaspayProperties(
+            boolean enabled,
+            URI apiUrl,
+            String apiKey,
+            String webhookSecret,
+            UUID merchantId,
+            Set<String> checkoutHosts,
+            Duration connectTimeout,
+            Duration readTimeout,
+            boolean livePilotEnabled,
+            UUID livePilotOrganizationId,
+            BigDecimal livePilotMaxChargedXof) {
+        this(
+                enabled,
+                apiUrl,
+                apiKey,
+                webhookSecret,
+                merchantId,
+                checkoutHosts,
+                connectTimeout,
+                readTimeout,
+                livePilotEnabled,
+                livePilotOrganizationId,
+                livePilotMaxChargedXof,
+                false,
+                null);
+    }
+
     public SaspayProperties {
         // SasPay publishes isolated LIVE and SANDBOX hosts. A test key must never
         // be transmitted to the production endpoint, even on developer machines.
@@ -32,6 +63,8 @@ public record SaspayProperties(
         if (connectTimeout == null) connectTimeout = Duration.ofSeconds(3);
         if (readTimeout == null) readTimeout = Duration.ofSeconds(10);
         if (livePilotMaxChargedXof == null) livePilotMaxChargedXof = new BigDecimal("2000");
+        if (productionMaxChargedXof == null)
+            productionMaxChargedXof = new BigDecimal("1000000");
         if (enabled) {
             if (!apiUrl.equals(liveKey ? liveUrl : sandboxUrl))
                 throw new IllegalArgumentException(
@@ -43,17 +76,29 @@ public record SaspayProperties(
                 throw new IllegalArgumentException(
                         "SasPay key, merchant ID and webhook secret required");
             if (liveKey) {
-                // Scoped pilot only. No permanent marketplace authorization is implied.
-                if (!livePilotEnabled
+                if (productionEnabled) {
+                    // Normal production is deliberately distinct from the old one-shop pilot.
+                    // Keep a finite, server-enforced cap for every checkout.
+                    if (livePilotEnabled
+                            || productionMaxChargedXof.signum() <= 0
+                            || productionMaxChargedXof.stripTrailingZeros().scale() > 0
+                            || productionMaxChargedXof.compareTo(new BigDecimal("10000000")) > 0
+                            || checkoutHosts.isEmpty())
+                        throw new IllegalArgumentException(
+                                "SasPay production requires an approved checkout host and a"
+                                        + " positive integer XOF limit <= 10000000");
+                } else if (!livePilotEnabled
                         || livePilotOrganizationId == null
                         || livePilotMaxChargedXof.signum() <= 0
                         || livePilotMaxChargedXof.stripTrailingZeros().scale() > 0
                         || livePilotMaxChargedXof.compareTo(new BigDecimal("5000")) > 0
-                        || checkoutHosts.isEmpty())
+                        || checkoutHosts.isEmpty()) {
                     throw new IllegalArgumentException(
                             "SasPay live pilot requires a single organization and a <=5000 XOF cap");
-            } else if (livePilotEnabled) {
-                throw new IllegalArgumentException("SasPay live pilot requires a live key");
+                }
+            } else if (livePilotEnabled || productionEnabled) {
+                throw new IllegalArgumentException(
+                        "SasPay live pilot or production mode requires a live key");
             }
             if (connectTimeout.isNegative()
                     || connectTimeout.isZero()

@@ -490,6 +490,40 @@ class SaspayContractTests {
     }
 
     @Test
+    void springBootBindsTheCanonicalProductionRecordConstructor() {
+        var config =
+                new org.springframework.boot.context.properties.source
+                        .MapConfigurationPropertySource(
+                        Map.of(
+                                "groupia.payment.saspay.enabled",
+                                "true",
+                                "groupia.payment.saspay.api-key",
+                                "sk_live_multishop_synthetic",
+                                "groupia.payment.saspay.webhook-secret",
+                                SaspayTestConfiguration.SECRET,
+                                "groupia.payment.saspay.merchant-id",
+                                SaspayTestConfiguration.MERCHANT,
+                                "groupia.payment.saspay.checkout-hosts",
+                                "checkout.saspay.me",
+                                "groupia.payment.saspay.production-enabled",
+                                "true",
+                                "groupia.payment.saspay.production-max-charged-xof",
+                                "100000"));
+        var binder = new org.springframework.boot.context.properties.bind.Binder(config);
+        var properties =
+                binder.bind(
+                                "groupia.payment.saspay",
+                                org.springframework.boot.context.properties.bind.Bindable.of(
+                                        SaspayProperties.class))
+                        .get();
+        assertThat(properties.productionEnabled()).isTrue();
+        assertThat(properties.livePilotEnabled()).isFalse();
+        assertThat(properties.productionMaxChargedXof())
+                .isEqualByComparingTo("100000");
+        assertThat(properties.checkoutHosts()).contains("checkout.saspay.me");
+    }
+
+    @Test
     void productionCheckoutSupportsMultipleOrganizationsButKeepsIndependentServerLimits()
             throws Exception {
         var fixture = SaspayTestConfiguration.properties();

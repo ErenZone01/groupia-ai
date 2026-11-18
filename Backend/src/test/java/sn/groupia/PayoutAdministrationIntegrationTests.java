@@ -520,6 +520,7 @@ class PayoutAdministrationIntegrationTests {
                                 + payout.id()
                                 + "/administration/historical-unlinked")));
         assertThat(preview.path("eligible").booleanValue()).isTrue();
+        assertThat(preview.path("directOrderId").asText()).isEqualTo(payout.directOrderId().toString());
         assertThat(preview.path("version").longValue()).isEqualTo(payout.version());
         int sends = provider.sends.get();
         var payload = historicalUnlinkedRequest(payout.version());

@@ -140,8 +140,7 @@ class SaspayPayoutPilotPolicyTests {
         when(prior.amount()).thenReturn(new BigDecimal("4000"));
         when(store.payouts(pilotOrganization)).thenReturn(List.of(prior));
 
-        transactions.requireGeneralDailyAllowance(
-                pilotOrganization, new BigDecimal("1000"), null);
+        transactions.requireGeneralDailyAllowance(pilotOrganization, new BigDecimal("1000"), null);
         assertThatThrownBy(
                         () ->
                                 transactions.requireGeneralDailyAllowance(

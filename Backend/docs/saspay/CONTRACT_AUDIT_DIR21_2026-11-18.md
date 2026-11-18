@@ -28,7 +28,8 @@ Commande `DIR-000000000021`, payout
 `b95a0515-1bcf-4740-8417-c594d02f211e`, 1000 XOF.
 Historique : `REVIEW_REQUIRED/PAYOUT_MANUAL_RECOVERY_UNCERTAIN`,
 `provider_transaction_id=NULL`. Des tentatives ont eu lieu les 14–15 novembre.
-L'activation des décaissements du marchand (confirmée autour du 17–18 novembre)
+L'activation des décaissements du marchand (notification fournisseur du
+17 novembre 2026 à 05:53 UTC, avant le paiement DIR-24 du 18 novembre)
 rend les refus d'autorisation historiques plausibles, **mais ne prouve pas
 qu'aucun POST de récupération n'a été transmis**.
 

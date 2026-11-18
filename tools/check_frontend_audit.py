@@ -68,7 +68,13 @@ def inspect(full_report, production_report):
         if finding["severity"] not in RISK_LEVELS:
             continue
         roots = vulnerability_roots(full, name)
-        for root in roots:
+        # An affected package can inherit both MODERATE minimatch findings and
+        # HIGH picomatch findings. Only HIGH/CRITICAL roots trigger this gate;
+        # moderate findings remain reported under the existing audit threshold.
+        high_roots = [r for r in roots if r.get("severity") in RISK_LEVELS]
+        if not high_roots:
+            raise ValueError("High risk without a high/critical root advisory: " + name)
+        for root in high_roots:
             url = root.get("url")
             advisory_match = (
                 isinstance(url, str)

@@ -17,6 +17,8 @@ class FrontendAuditTests(unittest.TestCase):
             "vulnerabilities": {
                 "picomatch": entry("high", [PICOMATCH]),
                 "@angular/build": entry("high", ["picomatch"]),
+                "@typescript-eslint/typescript-estree": entry(
+                    "high", ["picomatch", "minimatch"]),
                 "eslint": entry("moderate", ["minimatch"]),
                 "minimatch": entry("moderate", [
                     {"name": "minimatch", "severity": "moderate",
@@ -27,8 +29,10 @@ class FrontendAuditTests(unittest.TestCase):
 
     def test_known_unfixed_dev_only_issue_is_reported(self):
         waived, production, full = inspect(self.sample(), {"vulnerabilities": {}})
-        self.assertEqual(waived, ["@angular/build", "picomatch"])
-        self.assertEqual((production, full), (0, 4))
+        self.assertEqual(
+            waived,
+            ["@angular/build", "@typescript-eslint/typescript-estree", "picomatch"])
+        self.assertEqual((production, full), (0, 5))
 
     def test_any_production_high_always_fails(self):
         with self.assertRaisesRegex(ValueError, "Production high"):

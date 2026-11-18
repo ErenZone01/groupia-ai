@@ -96,7 +96,9 @@ public final class SaspayPaymentProvider implements PaymentProvider {
 
     @Override
     public boolean canQuoteForOrganization(UUID organizationId) {
-        return !properties.isLive() || properties.livePilotOrganizationId().equals(organizationId);
+        return !properties.isLive()
+                || properties.productionEnabled()
+                || properties.livePilotOrganizationId().equals(organizationId);
     }
 
     @Override
@@ -119,11 +121,21 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     }
 
     private void enforceLivePilotLimit(BigDecimal amount, BigDecimal fee) {
-        if (properties.isLive()
-                && (amount == null
-                        || fee == null
-                        || amount.add(fee).compareTo(properties.livePilotMaxChargedXof()) > 0))
-            throw new SaspayException("SASPAY_LIVE_PILOT_LIMIT");
+        if (!properties.isLive()) return;
+        BigDecimal limit =
+                properties.productionEnabled()
+                        ? properties.productionMaxChargedXof()
+                        : properties.livePilotMaxChargedXof();
+        if (amount == null
+                || fee == null
+                || amount.signum() <= 0
+                || fee.signum() < 0
+                || amount.stripTrailingZeros().scale() > 0
+                || amount.add(fee).compareTo(limit) > 0)
+            throw new SaspayException(
+                    properties.productionEnabled()
+                            ? "SASPAY_PRODUCTION_AMOUNT_LIMIT"
+                            : "SASPAY_LIVE_PILOT_LIMIT");
     }
 
     public ProviderFee quote(BigDecimal amount, String currency, String network) {

@@ -39,6 +39,13 @@ public class MerchantPayoutTransactions {
     @Value("${groupia.settlement.saspay-payout-general.enabled:false}")
     private boolean saspayGeneralPayoutsEnabled;
 
+    // Permanent server-side risk limits, independent of the removed one-order pilot.
+    @Value("${groupia.settlement.saspay-payout-general.max-per-request-xof:100000}")
+    private BigDecimal saspayPayoutGeneralMaxXof = new BigDecimal("100000");
+
+    @Value("${groupia.settlement.saspay-payout-general.daily-max-xof:500000}")
+    private BigDecimal saspayPayoutGeneralDailyMaxXof = new BigDecimal("500000");
+
     @Value("${groupia.settlement.saspay-payout-pilot.organization-id:}")
     private String saspayPayoutPilotOrganizationId;
 
@@ -119,7 +126,19 @@ public class MerchantPayoutTransactions {
     }
 
     void requireSaspayPilot(UUID org, BigDecimal gross) {
-        if (!"SASPAY".equals(provider.name()) || saspayGeneralPayoutsEnabled) return;
+        if (!"SASPAY".equals(provider.name())) return;
+        if (saspayGeneralPayoutsEnabled) {
+            if (!validGeneralRiskLimits()
+                    || gross == null
+                    || gross.signum() <= 0
+                    || gross.stripTrailingZeros().scale() > 0
+                    || gross.compareTo(saspayPayoutGeneralMaxXof) > 0)
+                throw error(
+                        409,
+                        "SASPAY_PAYOUT_PRODUCTION_LIMIT",
+                        "Le montant dépasse la limite de versement autorisée.");
+            return;
+        }
         if (!saspayPayoutPilotEnabled
                 || saspayPayoutPilotMaxXof == null
                 || saspayPayoutPilotMaxXof.signum() <= 0
@@ -135,6 +154,49 @@ public class MerchantPayoutTransactions {
                 || gross.stripTrailingZeros().scale() > 0
                 || gross.compareTo(saspayPayoutPilotMaxXof) > 0)
             throw error(409, "SASPAY_PAYOUT_PILOT_LIMIT", "Montant supérieur au plafond pilote.");
+    }
+
+    private boolean validGeneralRiskLimits() {
+        return saspayPayoutGeneralMaxXof != null
+                && saspayPayoutGeneralMaxXof.signum() > 0
+                && saspayPayoutGeneralMaxXof.stripTrailingZeros().scale() <= 0
+                && saspayPayoutGeneralMaxXof.compareTo(new BigDecimal("5000000")) <= 0
+                && saspayPayoutGeneralDailyMaxXof != null
+                && saspayPayoutGeneralDailyMaxXof.signum() > 0
+                && saspayPayoutGeneralDailyMaxXof.stripTrailingZeros().scale() <= 0
+                && saspayPayoutGeneralDailyMaxXof.compareTo(new BigDecimal("25000000")) <= 0
+                && saspayPayoutGeneralDailyMaxXof.compareTo(saspayPayoutGeneralMaxXof) >= 0;
+    }
+
+    /**
+     * Called under the organization lock in both quote and reservation flows. Every payout attempt
+     * made that day consumes capacity, even if it was later administratively closed: conservative
+     * against delayed provider execution.
+     */
+    void requireGeneralDailyAllowance(UUID org, BigDecimal gross, UUID currentPayoutId) {
+        if (!"SASPAY".equals(provider.name()) || !saspayGeneralPayoutsEnabled) return;
+        requireSaspayPilot(org, gross);
+        var day = now().atZone(java.time.ZoneOffset.UTC).toLocalDate();
+        BigDecimal committed = BigDecimal.ZERO;
+        for (var payout : store.payouts(org)) {
+            if (payout.id().equals(currentPayoutId)
+                    || !"SASPAY".equals(payout.provider())
+                    || payout.requestedAt() == null
+                    || !day.equals(
+                            payout.requestedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate()))
+                continue;
+            if (payout.amount() == null || payout.amount().signum() < 0)
+                throw error(
+                        409,
+                        "SASPAY_PAYOUT_PRODUCTION_LEDGER_INVALID",
+                        "Historique de retraits incohérent.");
+            committed = committed.add(payout.amount());
+        }
+        if (committed.add(gross).compareTo(saspayPayoutGeneralDailyMaxXof) > 0)
+            throw error(
+                    409,
+                    "SASPAY_PAYOUT_PRODUCTION_DAILY_LIMIT",
+                    "Plafond journalier atteint pour cette boutique.");
     }
 
     void checkPilotUsage(UUID org) {
@@ -267,6 +329,7 @@ public class MerchantPayoutTransactions {
                 || gross.compareTo(availableGross) > 0)
             throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Montant de retrait indisponible.");
         requireSaspayPilot(org, gross);
+        requireGeneralDailyAllowance(org, gross, null);
         var destination =
                 store.destination(org)
                         .orElseThrow(
@@ -377,6 +440,7 @@ public class MerchantPayoutTransactions {
             var accepted = requireQuoteForAmount(org, quoteId);
             requestedGross = accepted.grossAmount();
             requireSaspayPilot(org, requestedGross);
+            requireGeneralDailyAllowance(org, requestedGross, null);
             checkPilotUsage(org);
             if (requestedGross.compareTo(position.availableForPayout()) > 0)
                 throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
@@ -504,6 +568,7 @@ public class MerchantPayoutTransactions {
             var accepted = requireQuoteForAmount(org, quoteId);
             requestedGross = accepted.grossAmount();
             requireSaspayPilot(org, requestedGross);
+            requireGeneralDailyAllowance(org, requestedGross, null);
             pilotGrant = checkPilotUsage(org, directOrderId, expectedDestination, requestedGross);
             if (requestedGross.compareTo(spendable) > 0)
                 throw error(409, "PAYOUT_AMOUNT_UNAVAILABLE", "Le solde disponible a changé.");
@@ -669,6 +734,7 @@ public class MerchantPayoutTransactions {
                         "SASPAY_PAYOUT_PROVIDER_CHANGED",
                         "Le fournisseur de retrait a changé.");
             requireSaspayPilot(org, p.amount());
+            requireGeneralDailyAllowance(org, p.amount(), p.id());
             var quote = store.payoutFeeQuote(p.id());
             if (quote == null)
                 throw error(

@@ -8,6 +8,9 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import tools.jackson.databind.ObjectMapper;
 
 class SaspayContractTests {
@@ -486,6 +489,113 @@ class SaspayContractTests {
                                         true,
                                         live.livePilotOrganizationId(),
                                         live.livePilotMaxChargedXof()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void springBootBindsTheCanonicalProductionRecordConstructor() {
+        var config =
+                new MapConfigurationPropertySource(
+                        Map.of(
+                                "groupia.payment.saspay.enabled",
+                                "true",
+                                "groupia.payment.saspay.api-key",
+                                "sk_live_multishop_synthetic",
+                                "groupia.payment.saspay.webhook-secret",
+                                SaspayTestConfiguration.SECRET,
+                                "groupia.payment.saspay.merchant-id",
+                                SaspayTestConfiguration.MERCHANT,
+                                "groupia.payment.saspay.checkout-hosts",
+                                "checkout.saspay.me",
+                                "groupia.payment.saspay.production-enabled",
+                                "true",
+                                "groupia.payment.saspay.production-max-charged-xof",
+                                "100000"));
+        var binder = new Binder(config);
+        var properties =
+                binder.bind("groupia.payment.saspay", Bindable.of(SaspayProperties.class)).get();
+        assertThat(properties.productionEnabled()).isTrue();
+        assertThat(properties.livePilotEnabled()).isFalse();
+        assertThat(properties.productionMaxChargedXof()).isEqualByComparingTo("100000");
+        assertThat(properties.checkoutHosts()).contains("checkout.saspay.me");
+    }
+
+    @Test
+    void productionCheckoutSupportsMultipleOrganizationsButKeepsIndependentServerLimits()
+            throws Exception {
+        var fixture = SaspayTestConfiguration.properties();
+        var live =
+                new SaspayProperties(
+                        true,
+                        null,
+                        "sk_live_multi_organization_fixture",
+                        fixture.webhookSecret(),
+                        fixture.merchantId(),
+                        fixture.checkoutHosts(),
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        true,
+                        new BigDecimal("10000"));
+        assertThat(live.productionEnabled()).isTrue();
+        assertThat(live.livePilotEnabled()).isFalse();
+        assertThat(live.apiUrl()).isEqualTo(java.net.URI.create("https://api.saspay.me/api/v1"));
+        try (var stub = new SaspayHttpStub()) {
+            var adapter =
+                    new SaspayPaymentProvider(
+                            new SaspayClient(
+                                    SaspayClient.builder(live)
+                                            .baseUrl(stub.url() + "/api/v1")
+                                            .build(),
+                                    json,
+                                    clock),
+                            live,
+                            null,
+                            json,
+                            clock);
+            assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isTrue();
+            assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isTrue();
+            stub.reply(200, SaspayTestConfiguration.rates());
+            assertThat(adapter.quote(new BigDecimal("1000"), "XOF", "wave_sn").fee()).isPositive();
+            stub.reply(200, SaspayTestConfiguration.rates());
+            assertThatThrownBy(() -> adapter.quote(new BigDecimal("10000"), "XOF", "wave_sn"))
+                    .hasMessage("SASPAY_PRODUCTION_AMOUNT_LIMIT");
+        }
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        null,
+                                        live.apiKey(),
+                                        live.webhookSecret(),
+                                        live.merchantId(),
+                                        live.checkoutHosts(),
+                                        null,
+                                        null,
+                                        false,
+                                        null,
+                                        null,
+                                        true,
+                                        new BigDecimal("10000001")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        null,
+                                        live.apiKey(),
+                                        live.webhookSecret(),
+                                        live.merchantId(),
+                                        live.checkoutHosts(),
+                                        null,
+                                        null,
+                                        true,
+                                        UUID.randomUUID(),
+                                        new BigDecimal("2000"),
+                                        true,
+                                        new BigDecimal("10000")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

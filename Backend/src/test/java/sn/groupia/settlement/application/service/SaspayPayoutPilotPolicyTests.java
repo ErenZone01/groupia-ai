@@ -32,7 +32,9 @@ class SaspayPayoutPilotPolicyTests {
                         null,
                         null,
                         provider,
-                        Clock.systemUTC(),
+                        Clock.fixed(
+                                java.time.Instant.parse("2026-11-18T12:00:00Z"),
+                                java.time.ZoneOffset.UTC),
                         null,
                         true,
                         true);
@@ -116,6 +118,46 @@ class SaspayPayoutPilotPolicyTests {
         when(store.hasResolutionIncident(pilotOrganization)).thenReturn(true);
         assertThatThrownBy(() -> transactions.checkPilotUsage(pilotOrganization))
                 .hasMessageContaining("Preuve tardive contradictoire");
+    }
+
+    @Test
+    void productionPayoutsUseConfigurablePerRequestAndUtcDailyBudgets() {
+        ReflectionTestUtils.setField(transactions, "saspayGeneralPayoutsEnabled", true);
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutGeneralMaxXof", new BigDecimal("3000"));
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutGeneralDailyMaxXof", new BigDecimal("5000"));
+        transactions.requireSaspayPilot(pilotOrganization, new BigDecimal("2000"));
+        assertThatThrownBy(
+                        () ->
+                                transactions.requireSaspayPilot(
+                                        pilotOrganization, new BigDecimal("3001")))
+                .hasMessageContaining("limite de versement");
+
+        var prior = mock(MerchantPayout.class);
+        var previousId = UUID.randomUUID();
+        when(prior.id()).thenReturn(previousId);
+        when(prior.provider()).thenReturn("SASPAY");
+        when(prior.requestedAt()).thenReturn(java.time.Instant.parse("2026-11-18T11:00:00Z"));
+        when(prior.amount()).thenReturn(new BigDecimal("4000"));
+        when(store.payouts(pilotOrganization)).thenReturn(List.of(prior));
+
+        transactions.requireGeneralDailyAllowance(pilotOrganization, new BigDecimal("1000"), null);
+        assertThatThrownBy(
+                        () ->
+                                transactions.requireGeneralDailyAllowance(
+                                        pilotOrganization, new BigDecimal("1001"), null))
+                .hasMessageContaining("Plafond journalier");
+        // A payout already persisted in the ledger must not count twice at dispatch.
+        transactions.requireGeneralDailyAllowance(
+                pilotOrganization, new BigDecimal("1000"), previousId);
+        ReflectionTestUtils.setField(
+                transactions, "saspayPayoutGeneralDailyMaxXof", new BigDecimal("0"));
+        assertThatThrownBy(
+                        () ->
+                                transactions.requireSaspayPilot(
+                                        pilotOrganization, new BigDecimal("1000")))
+                .hasMessageContaining("limite de versement");
     }
 
     @Test

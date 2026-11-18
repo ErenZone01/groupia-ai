@@ -38,6 +38,13 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     private final boolean syntheticTransport;
     private final boolean livePilotReleased;
     private final boolean generalPayoutsEnabled;
+
+    // Independent defense at the final HTTP boundary; the reservation service
+    // additionally applies a per-shop daily ceiling under a database lock.
+    @org.springframework.beans.factory.annotation.Value(
+            "${groupia.settlement.saspay-payout-general.max-per-request-xof:100000}")
+    private BigDecimal generalMaxPerRequestXof = new BigDecimal("100000");
+
     private final UUID livePilotOrganizationId;
     private final UUID livePilotDirectOrderId;
     private final Connection payin;
@@ -595,7 +602,19 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
 
     // Last line of defense before initiation. No grouping or other order/network can be sent.
     void assertLivePilotTarget(MerchantPayout p) {
-        if (syntheticTransport || generalPayoutsEnabled) return;
+        if (syntheticTransport) return;
+        if (generalPayoutsEnabled) {
+            if (generalMaxPerRequestXof == null
+                    || generalMaxPerRequestXof.signum() <= 0
+                    || generalMaxPerRequestXof.stripTrailingZeros().scale() > 0
+                    || generalMaxPerRequestXof.compareTo(new BigDecimal("5000000")) > 0
+                    || p.amount() == null
+                    || p.amount().signum() <= 0
+                    || p.amount().stripTrailingZeros().scale() > 0
+                    || p.amount().compareTo(generalMaxPerRequestXof) > 0)
+                throw new IllegalStateException("SASPAY_PAYOUT_PRODUCTION_LIMIT");
+            return;
+        }
         if (!livePilotReleased
                 || livePilotOrganizationId == null
                 || livePilotDirectOrderId == null

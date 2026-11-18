@@ -67,6 +67,52 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void normalPayoutModeReplacesSingleOrderRestrictionButStillEnforcesProviderLimit() {
+        var env = new org.springframework.mock.env.MockEnvironment();
+        env.setProperty("groupia.payment.saspay.enabled", "true");
+        env.setProperty("groupia.payment.saspay.api-key", "sk_live_synthetic");
+        env.setProperty("groupia.payment.saspay.merchant-id", MERCHANT.toString());
+        env.setProperty("groupia.settlement.saspay-payouts.enabled", "true");
+        env.setProperty("groupia.settlement.saspay-payouts.marketplace-authorized", "true");
+        env.setProperty("groupia.settlement.saspay-payouts.beneficiary-proof-approved", "true");
+        env.setProperty("groupia.settlement.saspay-payout-general.enabled", "true");
+        var provider = new SaspayMerchantPayoutProvider(json, Clock.systemUTC(), env);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                provider, "generalMaxPerRequestXof", new BigDecimal("1500"));
+        assertThat(provider.enabled()).isTrue();
+        var order = payout(null);
+        provider.assertLivePilotTarget(order);
+
+        var tooLarge =
+                new MerchantPayout(
+                        order.id(),
+                        order.organizationId(),
+                        order.campaignId(),
+                        new BigDecimal("1501"),
+                        order.currency(),
+                        order.status(),
+                        order.destinationId(),
+                        order.method(),
+                        order.phoneE164(),
+                        order.holderName(),
+                        order.provider(),
+                        order.providerAccountReference(),
+                        order.businessReference(),
+                        order.providerIdempotencyKey(),
+                        order.providerTransactionId(),
+                        order.requestedBy(),
+                        order.requestedAt(),
+                        order.providerOccurredAt(),
+                        order.succeededAt(),
+                        order.reconciliationRequired(),
+                        order.reconciliationReason(),
+                        order.version(),
+                        order.directOrderId());
+        assertThatThrownBy(() -> provider.assertLivePilotTarget(tooLarge))
+                .hasMessage("SASPAY_PAYOUT_PRODUCTION_LIMIT");
+    }
+
+    @Test
     void disabledByDefaultNoProviderMutation() {
         var p = adapter(false, "http://127.0.0.1:1");
         assertThat(p.enabled()).isFalse();

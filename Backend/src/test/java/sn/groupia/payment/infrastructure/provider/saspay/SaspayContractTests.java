@@ -5,12 +5,12 @@ import static org.assertj.core.api.Assertions.*;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
-import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import tools.jackson.databind.ObjectMapper;
 
 class SaspayContractTests {
@@ -513,8 +513,7 @@ class SaspayContractTests {
                                 "100000"));
         var binder = new Binder(config);
         var properties =
-                binder.bind("groupia.payment.saspay", Bindable.of(SaspayProperties.class))
-                        .get();
+                binder.bind("groupia.payment.saspay", Bindable.of(SaspayProperties.class)).get();
         assertThat(properties.productionEnabled()).isTrue();
         assertThat(properties.livePilotEnabled()).isFalse();
         assertThat(properties.productionMaxChargedXof()).isEqualByComparingTo("100000");

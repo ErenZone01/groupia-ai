@@ -44,6 +44,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
     @org.springframework.beans.factory.annotation.Value(
             "${groupia.settlement.saspay-payout-general.max-per-request-xof:100000}")
     private BigDecimal generalMaxPerRequestXof = new BigDecimal("100000");
+
     private final UUID livePilotOrganizationId;
     private final UUID livePilotDirectOrderId;
     private final Connection payin;

@@ -110,8 +110,8 @@ restreint à une commande, le serveur doit cibler le
 `directOrderId` réel de DIR-21 et non celui de DIR-24 :
 
 ```dotenv
-GROUPIA_SETTLEMENT_SASPAY_PAYOUT_LIVE_PILOT_ENABLED=true
-GROUPIA_SETTLEMENT_SASPAY_PAYOUT_LIVE_PILOT_DIRECT_ORDER_ID=<uuid-reel-dir21>
+SASPAY_PAYOUT_LIVE_PILOT_ENABLED=true
+SASPAY_PAYOUT_LIVE_PILOT_DIRECT_ORDER_ID=<uuid-reel-dir21>
 ```
 
 Respecter les autres paramètres du pilote (boutique autorisée, plafond

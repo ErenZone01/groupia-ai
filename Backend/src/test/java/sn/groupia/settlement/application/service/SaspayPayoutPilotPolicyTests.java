@@ -138,8 +138,7 @@ class SaspayPayoutPilotPolicyTests {
         var previousId = UUID.randomUUID();
         when(prior.id()).thenReturn(previousId);
         when(prior.provider()).thenReturn("SASPAY");
-        when(prior.requestedAt())
-                .thenReturn(java.time.Instant.parse("2026-11-18T11:00:00Z"));
+        when(prior.requestedAt()).thenReturn(java.time.Instant.parse("2026-11-18T11:00:00Z"));
         when(prior.amount()).thenReturn(new BigDecimal("4000"));
         when(store.payouts(pilotOrganization)).thenReturn(List.of(prior));
 

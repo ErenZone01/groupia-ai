@@ -169,9 +169,9 @@ public class MerchantPayoutTransactions {
     }
 
     /**
-     * Called under the organization lock in both quote and reservation flows.
-     * Every payout attempt made that day consumes capacity, even if it was later
-     * administratively closed: conservative against delayed provider execution.
+     * Called under the organization lock in both quote and reservation flows. Every payout attempt
+     * made that day consumes capacity, even if it was later administratively closed: conservative
+     * against delayed provider execution.
      */
     void requireGeneralDailyAllowance(UUID org, BigDecimal gross, UUID currentPayoutId) {
         if (!"SASPAY".equals(provider.name()) || !saspayGeneralPayoutsEnabled) return;
@@ -182,7 +182,10 @@ public class MerchantPayoutTransactions {
             if (payout.id().equals(currentPayoutId)
                     || !"SASPAY".equals(payout.provider())
                     || payout.requestedAt() == null
-                    || !day.equals(payout.requestedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate()))
+                    || !day.equals(
+                            payout.requestedAt()
+                                    .atZone(java.time.ZoneOffset.UTC)
+                                    .toLocalDate()))
                 continue;
             if (payout.amount() == null || payout.amount().signum() < 0)
                 throw error(

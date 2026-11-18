@@ -62,3 +62,37 @@ les sorties, mais elles n'autorisent JAMAIS une confirmation directe :
 elles déclenchent seulement un GET de rapprochement lié à un identifiant
 déjà enregistré dans Groupia. Le type précis des anciens webhooks
 n'étant pas loggé, vérifier la disparition des warnings après déploiement.
+
+## Exception de sécurité du frontend, 18 novembre 2026
+
+Le job frontend de la PR #92 était bloqué sur
+\`npm audit --audit-level=high\`. La vulnérabilité
+\`GHSA-fc5q-39xc-vjpf\` (ReDoS dans picomatch jusqu'à 4.0.7)
+affecte indirectement des outils **de développement/build**
+Angular/Vite/ESLint et n'a pas de version corrigée dans l'avis
+publié. La vulnérabilité \`GHSA-g3hv-75wg-m249\` de
+\`minimatch\` est modérée et une version corrigée existe ;
+elle doit faire l'objet d'une mise à jour de maintenance distincte.
+
+La CI exécute désormais l'outil \`tools/check_frontend_audit.py\`,
+qui réalise *deux audits npm réels* :
+
+1. Audit des dépendances de production avec tolérance zéro sur
+   toute vulnérabilité haute ou critique.
+2. Audit complet, avec échec pour tout nouveau problème haut/critique.
+   La **seule** exception temporaire possible est l'avis exact
+   \`GHSA-fc5q-39xc-vjpf\` (racine picomatch) et ses dépendants
+   affectés **uniquement par cet avis**, à condition qu'aucun
+   correctif ne soit publié et que la production reste saine.
+
+Les exceptions sont affichées dans les logs CI. Un correctif
+disponible rend automatiquement le job rouge pour exiger sa mise
+à jour ; les audits JSON malformés ou indisponibles sont bloquants.
+Aucun \`npm audit --force\`, changement de version majeur à
+l'aveugle ou désactivation générique du scan n'est autorisé.
+
+Cette exception est une **acceptation de risque résiduel** pour
+les outils exécutés sur les fichiers du dépôt : éviter de
+compiler/tester des fichiers glob malveillants et suivre l'avis
+amont jusqu'à publication d'un correctif. Retirer l'exception
+lorsqu'un correctif vérifié est disponible.

@@ -489,19 +489,25 @@ class PayoutAdministrationIntegrationTests {
 
     private Map<String, Object> historicalUnlinkedRequest(long version) {
         return Map.of(
-                "expectedVersion", version,
-                "evidenceReference", "SASPAY-READONLY-SCAN-20261118",
-                "reason", "Vendeur atteste le non-envoi historique ; une seule transaction distincte a été vue.",
-                "ownerConfirmsNeverExecuted", true,
-                "acceptsDuplicatePayoutRisk", true,
-                "confirmed", true);
+                "expectedVersion",
+                version,
+                "evidenceReference",
+                "SASPAY-READONLY-SCAN-20261118",
+                "reason",
+                "Vendeur atteste le non-envoi historique ; une seule transaction distincte a été vue.",
+                "ownerConfirmsNeverExecuted",
+                true,
+                "acceptsDuplicatePayoutRisk",
+                true,
+                "confirmed",
+                true);
     }
 
     private ResultActions closeHistoricalUnlinked(MerchantPayout payout, Object body)
             throws Exception {
-        return auth(
-                post(base() + "/merchant-payouts/" + payout.id() + "/administration/historical-unlinked"),
-                body);
+        String url =
+                base() + "/merchant-payouts/" + payout.id() + "/administration/historical-unlinked";
+        return auth(post(url), body);
     }
 
     @Test
@@ -513,14 +519,12 @@ class PayoutAdministrationIntegrationTests {
         ReflectionTestUtils.setField(administration, "historicalUnlinkedEnabled", true);
         ReflectionTestUtils.setField(
                 administration, "historicalUnlinkedPayoutId", payout.id().toString());
-        var preview =
-                read(auth(
-                        get(base()
-                                + "/merchant-payouts/"
-                                + payout.id()
-                                + "/administration/historical-unlinked")));
+        String previewUrl =
+                base() + "/merchant-payouts/" + payout.id() + "/administration/historical-unlinked";
+        var preview = read(auth(get(previewUrl)));
         assertThat(preview.path("eligible").booleanValue()).isTrue();
-        assertThat(preview.path("directOrderId").asText()).isEqualTo(payout.directOrderId().toString());
+        assertThat(preview.path("directOrderId").asText())
+                .isEqualTo(payout.directOrderId().toString());
         assertThat(preview.path("version").longValue()).isEqualTo(payout.version());
         int sends = provider.sends.get();
         var payload = historicalUnlinkedRequest(payout.version());

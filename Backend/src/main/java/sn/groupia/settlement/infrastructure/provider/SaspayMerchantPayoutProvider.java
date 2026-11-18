@@ -455,6 +455,11 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         String verifiedStatus = validateFinancialState(p, verification);
         if (!"SUCCEEDED".equals(verifiedStatus))
             throw new IllegalStateException("SASPAY_PAYOUT_STATUS_CONFLICT");
+        // LIVE SasPay uses TRANSFERT for Wave payouts; legacy responses use RETRAIT.
+        // Classification must agree across both independently authenticated GETs.
+        if (!Objects.equals(
+                text(verification, "transaction_type"), text(details, "transaction_type")))
+            throw new IllegalStateException("SASPAY_PAYOUT_EVIDENCE_MISMATCH");
         Proof detailProof = validateProof(p, details, checkedAt);
         if (!"SUCCEEDED".equals(detailProof.status()))
             throw new IllegalStateException("SASPAY_PAYOUT_STATUS_CONFLICT");
@@ -527,7 +532,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         String transaction = uuid(text(data, "id"));
         if (!transaction.equals(uuid(p.providerTransactionId()))
                 || !account().equals(uuid(text(data, "merchant")))
-                || !"RETRAIT".equals(text(data, "transaction_type"))
+                || !Set.of("RETRAIT", "TRANSFERT").contains(text(data, "transaction_type"))
                 || !"OUTBOUND".equals(text(data, "flow_direction"))
                 || !"XOF".equals(text(data, "currency"))
                 || !"DEDUCTED".equals(text(data, "fee_charge_mode")))

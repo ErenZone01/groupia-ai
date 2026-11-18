@@ -557,7 +557,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     public NormalizedWebhook parse(byte[] payload) {
         var root = json.readTree(payload);
         var event = text(root, "event");
-        if (!Set.of("transaction.created", "transaction.success", "transaction.failed")
+        if (!Set.of("transaction.created", "transaction.success", "transaction.failed", "transaction.cancelled")
                 .contains(event == null ? "" : event))
             throw new SaspayException("SASPAY_UNSUPPORTED_EVENT");
         var data = root.path("data");
@@ -569,6 +569,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
                 switch (state) {
                     case SUCCEEDED -> "transaction.success";
                     case FAILED -> "transaction.failed";
+                    case CANCELLED -> "transaction.cancelled";
                     default -> "transaction.created";
                 };
         if (!expected.equals(event)) throw new SaspayException("SASPAY_INCONSISTENT_EVENT");
@@ -640,6 +641,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
             case "SUCCESS" -> PaymentStatus.SUCCEEDED;
             case "PENDING" -> PaymentStatus.PENDING;
             case "FAILED" -> PaymentStatus.FAILED;
+            case "CANCELLED" -> PaymentStatus.CANCELLED;
             default -> throw new SaspayException("SASPAY_STATUS_UNKNOWN");
         };
     }

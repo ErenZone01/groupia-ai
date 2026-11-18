@@ -490,6 +490,88 @@ class SaspayContractTests {
     }
 
     @Test
+    void productionCheckoutSupportsMultipleOrganizationsButKeepsIndependentServerLimits()
+            throws Exception {
+        var fixture = SaspayTestConfiguration.properties();
+        var live =
+                new SaspayProperties(
+                        true,
+                        null,
+                        "sk_live_multi_organization_fixture",
+                        fixture.webhookSecret(),
+                        fixture.merchantId(),
+                        fixture.checkoutHosts(),
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        true,
+                        new BigDecimal("10000"));
+        assertThat(live.productionEnabled()).isTrue();
+        assertThat(live.livePilotEnabled()).isFalse();
+        assertThat(live.apiUrl())
+                .isEqualTo(java.net.URI.create("https://api.saspay.me/api/v1"));
+        try (var stub = new SaspayHttpStub()) {
+            var adapter =
+                    new SaspayPaymentProvider(
+                            new SaspayClient(
+                                    SaspayClient.builder(live)
+                                            .baseUrl(stub.url() + "/api/v1")
+                                            .build(),
+                                    json,
+                                    clock),
+                            live,
+                            null,
+                            json,
+                            clock);
+            assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isTrue();
+            assertThat(adapter.canQuoteForOrganization(UUID.randomUUID())).isTrue();
+            stub.reply(200, SaspayTestConfiguration.rates());
+            assertThat(adapter.quote(new BigDecimal("1000"), "XOF", "wave_sn").fee())
+                    .isPositive();
+            stub.reply(200, SaspayTestConfiguration.rates());
+            assertThatThrownBy(
+                            () -> adapter.quote(new BigDecimal("10000"), "XOF", "wave_sn"))
+                    .hasMessage("SASPAY_PRODUCTION_AMOUNT_LIMIT");
+        }
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        null,
+                                        live.apiKey(),
+                                        live.webhookSecret(),
+                                        live.merchantId(),
+                                        live.checkoutHosts(),
+                                        null,
+                                        null,
+                                        false,
+                                        null,
+                                        null,
+                                        true,
+                                        new BigDecimal("10000001")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                new SaspayProperties(
+                                        true,
+                                        null,
+                                        live.apiKey(),
+                                        live.webhookSecret(),
+                                        live.merchantId(),
+                                        live.checkoutHosts(),
+                                        null,
+                                        null,
+                                        true,
+                                        UUID.randomUUID(),
+                                        new BigDecimal("2000"),
+                                        true,
+                                        new BigDecimal("10000")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void livePilotRequiresExplicitOrganizationAndCapsAndProdProfile() {
         var p = SaspayTestConfiguration.properties();
         var live =

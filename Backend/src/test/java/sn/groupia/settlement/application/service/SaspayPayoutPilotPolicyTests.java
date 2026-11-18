@@ -32,7 +32,9 @@ class SaspayPayoutPilotPolicyTests {
                         null,
                         null,
                         provider,
-                        Clock.systemUTC(),
+                        Clock.fixed(
+                                java.time.Instant.parse("2026-11-18T12:00:00Z"),
+                                java.time.ZoneOffset.UTC),
                         null,
                         true,
                         true);
@@ -136,7 +138,8 @@ class SaspayPayoutPilotPolicyTests {
         var previousId = UUID.randomUUID();
         when(prior.id()).thenReturn(previousId);
         when(prior.provider()).thenReturn("SASPAY");
-        when(prior.requestedAt()).thenReturn(Clock.systemUTC().instant());
+        when(prior.requestedAt())
+                .thenReturn(java.time.Instant.parse("2026-11-18T11:00:00Z"));
         when(prior.amount()).thenReturn(new BigDecimal("4000"));
         when(store.payouts(pilotOrganization)).thenReturn(List.of(prior));
 

@@ -103,6 +103,39 @@ final class SaspayClient {
         return UUID.fromString(canonical).toString();
     }
 
+    // Safe, closed vocabulary. No raw supplier codes or response bodies leave this adapter.
+    private static String safeProviderCode(JsonNode response) {
+        if (response == null || !response.isObject()) return "NONE";
+        JsonNode code = response.path("error").path("code");
+        if (!code.isTextual()) code = response.path("code");
+        if (!code.isTextual()) return "NONE";
+        return switch (code.asText()) {
+            case "insufficient_balance",
+                    "merchant_suspended",
+                    "ip_not_whitelisted",
+                    "payout_not_enabled",
+                    "currency_country_mismatch",
+                    "invalid_country",
+                    "invalid_customer",
+                    "invalid_method",
+                    "no_route_available",
+                    "wallet_frozen",
+                    "not_found" ->
+                    code.asText();
+            default -> "UNRECOGNIZED";
+        };
+    }
+
+    private String safeFailureCode(java.io.InputStream body) {
+        try {
+            byte[] bytes = body.readNBytes(4097);
+            if (bytes.length > 4096) return "NONE";
+            return safeProviderCode(json.readTree(bytes));
+        } catch (RuntimeException | java.io.IOException ex) {
+            return "NONE";
+        }
+    }
+
     private JsonNode execute(RestClient.RequestHeadersSpec<?> request, int expected) {
         if (clock.instant().isBefore(retryAfter)) throw new SaspayException("SASPAY_RATE_LIMITED");
         try {
@@ -123,17 +156,33 @@ final class SaspayClient {
                             }
                             retryAfter = clock.instant().plusSeconds(Math.min(seconds, 86400));
                         }
-                        if (status != expected) throw new SaspayException("SASPAY_HTTP_" + status);
+                        if (status != expected)
+                            throw new SaspayException(
+                                    "SASPAY_HTTP_" + status,
+                                    status,
+                                    safeFailureCode(response.getBody()));
                         byte[] body = response.getBody().readNBytes(262145);
                         if (body.length > 262144)
                             throw new SaspayException("SASPAY_RESPONSE_TOO_LARGE");
-                        var node = json.readTree(body);
+                        JsonNode node;
+                        try {
+                            node = json.readTree(body);
+                        } catch (RuntimeException ex) {
+                            throw new SaspayException("SASPAY_INVALID_JSON");
+                        }
+                        if (node == null || (!node.isObject() && !node.isArray()))
+                            throw new SaspayException("SASPAY_INVALID_RESPONSE");
                         // Documentation examples omit the envelope; accept both documented
                         // representations.
                         if (node.has("success")) {
-                            if (!node.path("success").isBoolean()
-                                    || !node.path("success").booleanValue()
-                                    || !node.has("data"))
+                            if (!node.path("success").isBoolean())
+                                throw new SaspayException("SASPAY_INVALID_RESPONSE");
+                            if (!node.path("success").booleanValue())
+                                throw new SaspayException(
+                                        "SASPAY_PROVIDER_REPORTED_FAILURE",
+                                        status,
+                                        safeProviderCode(node));
+                            if (!node.path("data").isObject() && !node.path("data").isArray())
                                 throw new SaspayException("SASPAY_INVALID_RESPONSE");
                             node = node.get("data");
                         }

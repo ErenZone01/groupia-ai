@@ -5,6 +5,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.*;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties("groupia.payment.saspay")
 public record SaspayProperties(
@@ -50,6 +51,7 @@ public record SaspayProperties(
                 null);
     }
 
+    @ConstructorBinding
     public SaspayProperties {
         // SasPay publishes isolated LIVE and SANDBOX hosts. A test key must never
         // be transmitted to the production endpoint, even on developer machines.

@@ -28,6 +28,21 @@ final class SaspayWebhookAuthentication {
             mac.update((timestamp + ".").getBytes(StandardCharsets.US_ASCII));
             if (!MessageDigest.isEqual(mac.doFinal(body), HexFormat.of().parseHex(signature)))
                 return reject("HMAC_MISMATCH");
+            // SasPay also supplies X-Webhook-Event. It is unsigned separately,
+            // but when present it must agree with the event in the signed body.
+            // Keep absence compatible with historic deliveries; reject ambiguous
+            // case-variant duplicates and all mismatched event headers.
+            boolean eventHeaderPresent =
+                    headers.keySet().stream().anyMatch(k -> k.equalsIgnoreCase("X-Webhook-Event"));
+            if (eventHeaderPresent) {
+                String headerEvent = header(headers, "X-Webhook-Event");
+                if (headerEvent == null || !headerEvent.matches("[a-z_]+\\.[a-z_]+"))
+                    return reject("INVALID_EVENT_HEADER");
+                var parsed = new tools.jackson.databind.ObjectMapper().readTree(body);
+                if (!parsed.path("event").isTextual()
+                        || !headerEvent.equals(parsed.path("event").asText()))
+                    return reject("EVENT_HEADER_MISMATCH");
+            }
             return true;
         } catch (Exception ex) {
             return reject("AUTHENTICATION_PROCESSING_FAILED");

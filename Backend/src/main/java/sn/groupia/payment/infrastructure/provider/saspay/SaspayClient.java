@@ -120,7 +120,8 @@ final class SaspayClient {
                     "invalid_method",
                     "no_route_available",
                     "wallet_frozen",
-                    "not_found" -> code.asText();
+                    "not_found" ->
+                    code.asText();
             default -> "UNRECOGNIZED";
         };
     }

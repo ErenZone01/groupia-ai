@@ -15,7 +15,8 @@ import sn.groupia.shared.api.ApiException;
 
 /**
  * Platform-only financial incident case management. All decisions are append-only administrative
- * observations; no provider call or mutation of payment, payout or seller balances is possible here.
+ * observations; no provider call or mutation of payment, payout or seller balances is possible
+ * here.
  */
 @Service
 public class SaspayIncidentConsoleService {
@@ -47,19 +48,35 @@ public class SaspayIncidentConsoleService {
             Instant completedUntil, Instant lastSuccessAt, String lastFailureCode) {}
 
     public record Incident(
-            UUID id, String code, String referenceHint, String status,
-            Instant firstSeenAt, Instant lastSeenAt, long occurrenceCount,
+            UUID id,
+            String code,
+            String referenceHint,
+            String status,
+            Instant firstSeenAt,
+            Instant lastSeenAt,
+            long occurrenceCount,
             Instant lastDecisionAt) {}
 
     public record Decision(
-            UUID id, String action, UUID actorId, String evidenceReference,
-            String reason, long observedOccurrenceCount, Instant recordedAt) {}
+            UUID id,
+            String action,
+            UUID actorId,
+            String evidenceReference,
+            String reason,
+            long observedOccurrenceCount,
+            Instant recordedAt) {}
 
     public record IncidentDetail(Incident incident, List<Decision> decisions) {}
 
     public record Page(
-            List<Incident> items, long total, int page, int size,
-            long open, long inReview, long closed, Checkpoint checkpoint) {}
+            List<Incident> items,
+            long total,
+            int page,
+            int size,
+            long open,
+            long inReview,
+            long closed,
+            Checkpoint checkpoint) {}
 
     public record CommandResult(UUID incidentId, UUID decisionId, String status) {}
 
@@ -72,13 +89,17 @@ public class SaspayIncidentConsoleService {
     private UUID operator() {
         UUID actor = currentUser.requireActiveUserId();
         if (!authorized(actor))
-            throw new ApiException(403, "SASPAY_INCIDENT_ADMIN_FORBIDDEN",
+            throw new ApiException(
+                    403,
+                    "SASPAY_INCIDENT_ADMIN_FORBIDDEN",
                     "Réservé aux opérateurs financiers autorisés.");
         return actor;
     }
 
     private boolean authorized(UUID actor) {
-        return enabled && actor != null && operators != null
+        return enabled
+                && actor != null
+                && operators != null
                 && Arrays.stream(operators.split(","))
                         .map(String::strip)
                         .anyMatch(actor.toString()::equals);
@@ -99,7 +120,9 @@ public class SaspayIncidentConsoleService {
                 SELECT i.id, i.incident_code, substring(i.reference_fingerprint,1,12) AS reference_hint,
                        i.first_seen_at,i.last_seen_at,i.occurrence_count,
                        d.recorded_at AS last_decision_at,
-                """ + stateExpression() + """
+                """
+                + stateExpression()
+                + """
                         AS case_status
                 FROM saspay_audit_incidents i
                 LEFT JOIN LATERAL (
@@ -114,8 +137,10 @@ public class SaspayIncidentConsoleService {
 
     private static Incident incident(ResultSet rs, int index) throws SQLException {
         return new Incident(
-                rs.getObject("id", UUID.class), rs.getString("incident_code"),
-                rs.getString("reference_hint"), rs.getString("case_status"),
+                rs.getObject("id", UUID.class),
+                rs.getString("incident_code"),
+                rs.getString("reference_hint"),
+                rs.getString("case_status"),
                 rs.getTimestamp("first_seen_at").toInstant(),
                 rs.getTimestamp("last_seen_at").toInstant(),
                 rs.getLong("occurrence_count"),
@@ -130,43 +155,68 @@ public class SaspayIncidentConsoleService {
     @Transactional(readOnly = true)
     public Page list(String status, String code, int page, int size) {
         operator();
-        if (page < 0 || page > 100000 || size < 1 || size > 50
-                || (status != null && !status.isBlank()
-                    && !Set.of("OPEN","IN_REVIEW","CLOSED").contains(status))
-                || (code != null && !code.isBlank()
-                    && !code.matches("[A-Z_]{3,64}")))
+        if (page < 0
+                || page > 100000
+                || size < 1
+                || size > 50
+                || (status != null
+                        && !status.isBlank()
+                        && !Set.of("OPEN", "IN_REVIEW", "CLOSED").contains(status))
+                || (code != null && !code.isBlank() && !code.matches("[A-Z_]{3,64}")))
             throw new ApiException(400, "SASPAY_INCIDENT_FILTER_INVALID", "Filtres incorrects.");
         status = status == null || status.isBlank() ? null : status;
         code = code == null || code.isBlank() ? null : code;
         // All server-owned predicates are parameterized; user input never alters SQL syntax.
-        String query = "SELECT * FROM (" + incidentSelect() + ") cases"
-                + " WHERE (? IS NULL OR case_status=?)"
-                + " AND (? IS NULL OR incident_code=?)";
+        String query =
+                "SELECT * FROM ("
+                        + incidentSelect()
+                        + ") cases"
+                        + " WHERE (? IS NULL OR case_status=?)"
+                        + " AND (? IS NULL OR incident_code=?)";
         Object[] args = {account, status, status, code, code};
-        long total = jdbc.queryForObject(
-                "SELECT count(*) FROM (" + query + ") filtered", Long.class, args);
-        List<Incident> rows = jdbc.query(query
-                        + " ORDER BY last_seen_at DESC,id DESC LIMIT ? OFFSET ?",
-                SaspayIncidentConsoleService::incident,
-                account, status, status, code, code, size, page * size);
+        long total =
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM (" + query + ") filtered", Long.class, args);
+        List<Incident> rows =
+                jdbc.query(
+                        query + " ORDER BY last_seen_at DESC,id DESC LIMIT ? OFFSET ?",
+                        SaspayIncidentConsoleService::incident,
+                        account,
+                        status,
+                        status,
+                        code,
+                        code,
+                        size,
+                        page * size);
         // Global statuses ignore the page filters; the numbers are operational dashboard totals.
-        String summary = "SELECT case_status, count(*) AS total FROM ("
-                + incidentSelect() + ") cases GROUP BY case_status";
+        String summary =
+                "SELECT case_status, count(*) AS total FROM ("
+                        + incidentSelect()
+                        + ") cases GROUP BY case_status";
         Map<String, Long> counts = new HashMap<>();
-        jdbc.query(summary, rs -> {
-            counts.put(rs.getString("case_status"), rs.getLong("total"));
-        }, account);
-        List<Checkpoint> checkpoints = jdbc.query(
-                """
+        jdbc.query(
+                summary,
+                rs -> {
+                    counts.put(rs.getString("case_status"), rs.getLong("total"));
+                },
+                account);
+        List<Checkpoint> checkpoints =
+                jdbc.query(
+                        """
                 SELECT completed_until,last_success_at,last_failure_code
                 FROM saspay_audit_checkpoints WHERE provider_account_reference=?
                 """,
-                (rs, row) -> new Checkpoint(
-                        nullableInstant(rs, "completed_until"),
-                        nullableInstant(rs, "last_success_at"),
-                        rs.getString("last_failure_code")),
-                account);
-        return new Page(rows, total, page, size,
+                        (rs, row) ->
+                                new Checkpoint(
+                                        nullableInstant(rs, "completed_until"),
+                                        nullableInstant(rs, "last_success_at"),
+                                        rs.getString("last_failure_code")),
+                        account);
+        return new Page(
+                rows,
+                total,
+                page,
+                size,
                 counts.getOrDefault("OPEN", 0L),
                 counts.getOrDefault("IN_REVIEW", 0L),
                 counts.getOrDefault("CLOSED", 0L),
@@ -181,9 +231,12 @@ public class SaspayIncidentConsoleService {
     }
 
     private Incident find(UUID id) {
-        List<Incident> items = jdbc.query(
-                incidentSelect() + " AND i.id=?",
-                SaspayIncidentConsoleService::incident, account, id);
+        List<Incident> items =
+                jdbc.query(
+                        incidentSelect() + " AND i.id=?",
+                        SaspayIncidentConsoleService::incident,
+                        account,
+                        id);
         if (items.isEmpty())
             throw new ApiException(404, "SASPAY_INCIDENT_NOT_FOUND", "Incident introuvable.");
         return items.getFirst();
@@ -198,46 +251,65 @@ public class SaspayIncidentConsoleService {
                 WHERE incident_id=?
                 ORDER BY decision_number DESC LIMIT 100
                 """,
-                (rs, row) -> new Decision(
-                        rs.getObject("id", UUID.class), rs.getString("action"),
-                        rs.getObject("actor_id", UUID.class), rs.getString("evidence_reference"),
-                        rs.getString("reason"), rs.getLong("observed_occurrence_count"),
-                        rs.getTimestamp("recorded_at").toInstant()),
+                (rs, row) ->
+                        new Decision(
+                                rs.getObject("id", UUID.class),
+                                rs.getString("action"),
+                                rs.getObject("actor_id", UUID.class),
+                                rs.getString("evidence_reference"),
+                                rs.getString("reason"),
+                                rs.getLong("observed_occurrence_count"),
+                                rs.getTimestamp("recorded_at").toInstant()),
                 id);
     }
 
     @Transactional
     public CommandResult decide(
-            UUID id, String action, String reference, String reason,
-            long expectedOccurrenceCount, boolean confirmed) {
+            UUID id,
+            String action,
+            String reference,
+            String reason,
+            long expectedOccurrenceCount,
+            boolean confirmed) {
         UUID actor = operator();
-        if (!confirmed || action == null
-                || !Set.of("REVIEW_STARTED","REVIEW_NOTE","CLOSED").contains(action)
+        if (!confirmed
+                || action == null
+                || !Set.of("REVIEW_STARTED", "REVIEW_NOTE", "CLOSED").contains(action)
                 || reference == null
                 || !reference.matches("[A-Za-z0-9][A-Za-z0-9._:-]{4,119}")
-                || reason == null || reason.strip().length() < 20
+                || reason == null
+                || reason.strip().length() < 20
                 || reason.length() > 500
                 || reason.codePoints().anyMatch(Character::isISOControl)
                 || expectedOccurrenceCount < 1) {
-            throw new ApiException(400, "SASPAY_INCIDENT_DECISION_INVALID",
+            throw new ApiException(
+                    400,
+                    "SASPAY_INCIDENT_DECISION_INVALID",
                     "Motif détaillé, référence justificative et confirmation exigés.");
         }
         // An update of the incident count acquires the same PostgreSQL row lock.
         // This FOR UPDATE serializes decisions with incoming scans and other admins.
-        List<Long> occurrences = jdbc.query(
-                """
+        List<Long> occurrences =
+                jdbc.query(
+                        """
                 SELECT occurrence_count FROM saspay_audit_incidents
                 WHERE id=? AND provider_account_reference=? FOR UPDATE
                 """,
-                (rs, row) -> rs.getLong(1), id, account);
+                        (rs, row) -> rs.getLong(1),
+                        id,
+                        account);
         if (occurrences.isEmpty())
             throw new ApiException(404, "SASPAY_INCIDENT_NOT_FOUND", "Incident introuvable.");
         if (occurrences.getFirst() != expectedOccurrenceCount)
-            throw new ApiException(409, "SASPAY_INCIDENT_CHANGED",
+            throw new ApiException(
+                    409,
+                    "SASPAY_INCIDENT_CHANGED",
                     "L'incident a évolué ; rechargez avant de décider.");
         Incident item = find(id);
         if ("CLOSED".equals(item.status()))
-            throw new ApiException(409, "SASPAY_INCIDENT_ALREADY_CLOSED",
+            throw new ApiException(
+                    409,
+                    "SASPAY_INCIDENT_ALREADY_CLOSED",
                     "Cet incident est déjà clôturé pour cette occurrence.");
         UUID decisionId = UUID.randomUUID();
         jdbc.update(
@@ -247,9 +319,14 @@ public class SaspayIncidentConsoleService {
                     observed_occurrence_count,recorded_at)
                 VALUES (?,?,?,?,?,?,?,?)
                 """,
-                decisionId, id, actor, action, reference, reason.strip(),
-                expectedOccurrenceCount, Timestamp.from(clock.instant()));
-        return new CommandResult(
-                id, decisionId, "CLOSED".equals(action) ? "CLOSED" : "IN_REVIEW");
+                decisionId,
+                id,
+                actor,
+                action,
+                reference,
+                reason.strip(),
+                expectedOccurrenceCount,
+                Timestamp.from(clock.instant()));
+        return new CommandResult(id, decisionId, "CLOSED".equals(action) ? "CLOSED" : "IN_REVIEW");
     }
 }

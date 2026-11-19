@@ -16,8 +16,7 @@ class SaspayHistoryAuditTests {
     private static final Instant FROM = Instant.parse("2026-11-17T20:00:00Z");
     private static final Instant UNTIL = CLOCK.instant();
 
-    private SaspayHistoryAudit audit(
-            SaspayHttpStub stub, SaspayHistoryAudit.LedgerLookup lookup) {
+    private SaspayHistoryAudit audit(SaspayHttpStub stub, SaspayHistoryAudit.LedgerLookup lookup) {
         var props = SaspayTestConfiguration.properties();
         var client =
                 new SaspayClient(
@@ -29,8 +28,13 @@ class SaspayHistoryAuditTests {
 
     private static SaspayHistoryAudit.Evidence inbound(String status, String amount) {
         return new SaspayHistoryAudit.Evidence(
-                "INBOUND", status, new BigDecimal(amount), "XOF",
-                new BigDecimal("37"), new BigDecimal("1037"), false);
+                "INBOUND",
+                status,
+                new BigDecimal(amount),
+                "XOF",
+                new BigDecimal("37"),
+                new BigDecimal("1037"),
+                false);
     }
 
     private static String transaction(String id, String status, String amount) {
@@ -56,13 +60,17 @@ class SaspayHistoryAuditTests {
     @Test
     void comparesSuccessfulPayinWithoutAnyProviderPostOrLedgerMutation() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"results\":[" + transaction(FIRST, "SUCCESS", "1000") + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"results\":[" + transaction(FIRST, "SUCCESS", "1000") + "],\"next\":null}");
             var audit =
-                    audit(stub, (account, id) -> {
-                        assertThat(account).isEqualTo(SaspayTestConfiguration.MERCHANT);
-                        assertThat(id).isEqualTo(FIRST);
-                        return List.of(inbound("SUCCEEDED", "1000"));
-                    });
+                    audit(
+                            stub,
+                            (account, id) -> {
+                                assertThat(account).isEqualTo(SaspayTestConfiguration.MERCHANT);
+                                assertThat(id).isEqualTo(FIRST);
+                                return List.of(inbound("SUCCEEDED", "1000"));
+                            });
 
             assertThat(audit.compare(FROM, UNTIL))
                     .isEqualTo(new SaspayHistoryAudit.Result(1, 1, 1, 0, 0));
@@ -78,15 +86,27 @@ class SaspayHistoryAuditTests {
     @Test
     void followsBoundedCursorAndAcceptsHistoricalTransfertPayouts() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"results\":[" + transaction(FIRST, "SUCCESS", "1000")
-                    + "],\"next\":\"https://sandbox-api.saspay.me/api/v1/transactions/?cursor=abc123\"}");
+            stub.reply(
+                    200,
+                    "{\"results\":["
+                            + transaction(FIRST, "SUCCESS", "1000")
+                            + "],\"next\":\"https://sandbox-api.saspay.me/api/v1/transactions/?cursor=abc123\"}");
             stub.reply(200, "{\"results\":[" + payout(SECOND) + "],\"next\":null}");
-            var audit = audit(stub, (account, id) -> {
-                if (id.equals(FIRST)) return List.of(inbound("SUCCEEDED", "1000"));
-                return List.of(new SaspayHistoryAudit.Evidence(
-                        "OUTBOUND", "SUCCEEDED", new BigDecimal("1000"), "XOF",
-                        null, null, false));
-            });
+            var audit =
+                    audit(
+                            stub,
+                            (account, id) -> {
+                                if (id.equals(FIRST)) return List.of(inbound("SUCCEEDED", "1000"));
+                                return List.of(
+                                        new SaspayHistoryAudit.Evidence(
+                                                "OUTBOUND",
+                                                "SUCCEEDED",
+                                                new BigDecimal("1000"),
+                                                "XOF",
+                                                null,
+                                                null,
+                                                false));
+                            });
 
             assertThat(audit.compare(FROM, UNTIL))
                     .isEqualTo(new SaspayHistoryAudit.Result(2, 2, 2, 0, 0));
@@ -97,15 +117,22 @@ class SaspayHistoryAuditTests {
     }
 
     @Test
-    void flagsMismatchAndUnmatchedProviderTransactionsWithoutChangingBalances()
-            throws Exception {
+    void flagsMismatchAndUnmatchedProviderTransactionsWithoutChangingBalances() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"results\":["
-                    + transaction(FIRST, "SUCCESS", "2000") + ","
-                    + transaction(SECOND, "SUCCESS", "1000")
-                    + "],\"next\":null}");
-            var audit = audit(stub, (account, id) ->
-                    id.equals(FIRST) ? List.of(inbound("SUCCEEDED", "1000")) : List.of());
+            stub.reply(
+                    200,
+                    "{\"results\":["
+                            + transaction(FIRST, "SUCCESS", "2000")
+                            + ","
+                            + transaction(SECOND, "SUCCESS", "1000")
+                            + "],\"next\":null}");
+            var audit =
+                    audit(
+                            stub,
+                            (account, id) ->
+                                    id.equals(FIRST)
+                                            ? List.of(inbound("SUCCEEDED", "1000"))
+                                            : List.of());
 
             assertThat(audit.compare(FROM, UNTIL))
                     .isEqualTo(new SaspayHistoryAudit.Result(1, 2, 1, 1, 1));
@@ -116,7 +143,8 @@ class SaspayHistoryAuditTests {
     @Test
     void rejectsUntrustedPaginationHostWithoutFetchingIt() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200,
+            stub.reply(
+                    200,
                     "{\"results\":[],\"next\":\"https://attacker.example/api/v1/transactions/?cursor=bad\"}");
             var audit = audit(stub, (account, id) -> List.of());
 
@@ -143,7 +171,9 @@ class SaspayHistoryAuditTests {
     @Test
     void reportsProviderSuccessThatGroupiaHasNotYetConfirmed() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"results\":[" + transaction(FIRST, "SUCCESS", "1000") + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"results\":[" + transaction(FIRST, "SUCCESS", "1000") + "],\"next\":null}");
             var audit = audit(stub, (account, id) -> List.of(inbound("PENDING", "1000")));
             assertThat(audit.compare(FROM, UNTIL).differences()).isEqualTo(1);
         }

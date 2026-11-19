@@ -38,6 +38,13 @@ class SaspayConfiguration {
                 java.net.URI.create(publicBaseUrl));
     }
 
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnProperty(
+            name = {"groupia.payment.saspay.enabled", "groupia.payment.saspay.history-audit.enabled"},
+            havingValue = "true")
+    @EnableScheduling
+    static class HistoryAuditScheduling {}
+
     static void validateProfile(SaspayProperties p, Environment environment) {
         boolean prod = environment.acceptsProfiles(Profiles.of("prod"));
         if (p.isLive() && !prod)

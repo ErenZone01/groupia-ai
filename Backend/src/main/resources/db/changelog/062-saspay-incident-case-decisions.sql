@@ -6,7 +6,10 @@ CREATE TABLE saspay_audit_incident_decisions (
     id UUID PRIMARY KEY,
     decision_number BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
     incident_id UUID NOT NULL REFERENCES saspay_audit_incidents(id),
-    actor_id UUID NOT NULL REFERENCES user_accounts(id),
+    -- The immutable actor UUID intentionally has no FK to mutable accounts: historical
+    -- evidence survives account deletion and test fixture cleanup.
+    -- The service resolves a still-ACTIVE signed-in actor before writing.
+    actor_id UUID NOT NULL,
     action VARCHAR(20) NOT NULL CHECK(action IN ('REVIEW_STARTED','REVIEW_NOTE','CLOSED')),
     evidence_reference VARCHAR(120) NOT NULL,
     reason VARCHAR(500) NOT NULL,

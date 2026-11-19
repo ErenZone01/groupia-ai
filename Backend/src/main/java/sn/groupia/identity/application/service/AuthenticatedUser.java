@@ -9,9 +9,10 @@ import sn.groupia.identity.api.CurrentUser;
 import sn.groupia.identity.domain.model.UserAccountStatus;
 import sn.groupia.identity.domain.repository.UserAccounts;
 import sn.groupia.shared.api.ApiException;
+import sn.groupia.shared.api.PlatformCurrentActor;
 
 @Service
-public class AuthenticatedUser implements CurrentUser {
+public class AuthenticatedUser implements CurrentUser, PlatformCurrentActor {
     private final UserAccounts accounts;
     public AuthenticatedUser(UserAccounts accounts) { this.accounts = accounts; }
 

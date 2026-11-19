@@ -106,7 +106,7 @@ public class SaspayIncidentConsoleService {
                   SELECT id, action, observed_occurrence_count, recorded_at
                   FROM saspay_audit_incident_decisions
                   WHERE incident_id=i.id
-                  ORDER BY recorded_at DESC,id DESC LIMIT 1
+                  ORDER BY decision_number DESC LIMIT 1
                 ) d ON true
                 WHERE i.provider_account_reference=?
                 """;
@@ -196,7 +196,7 @@ public class SaspayIncidentConsoleService {
                        observed_occurrence_count,recorded_at
                 FROM saspay_audit_incident_decisions
                 WHERE incident_id=?
-                ORDER BY recorded_at DESC,id DESC LIMIT 100
+                ORDER BY decision_number DESC LIMIT 100
                 """,
                 (rs, row) -> new Decision(
                         rs.getObject("id", UUID.class), rs.getString("action"),

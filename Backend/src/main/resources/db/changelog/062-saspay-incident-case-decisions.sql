@@ -4,6 +4,7 @@
 -- Financial tables, immutable provider observations and vendor balances are unchanged.
 CREATE TABLE saspay_audit_incident_decisions (
     id UUID PRIMARY KEY,
+    decision_number BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
     incident_id UUID NOT NULL REFERENCES saspay_audit_incidents(id),
     actor_id UUID NOT NULL REFERENCES user_accounts(id),
     action VARCHAR(20) NOT NULL CHECK(action IN ('REVIEW_STARTED','REVIEW_NOTE','CLOSED')),
@@ -17,7 +18,7 @@ CREATE TABLE saspay_audit_incident_decisions (
       CHECK(length(btrim(reason)) BETWEEN 20 AND 500)
 );
 CREATE INDEX ix_saspay_incident_decisions_history
-    ON saspay_audit_incident_decisions(incident_id, recorded_at DESC, id DESC);
+    ON saspay_audit_incident_decisions(incident_id, decision_number DESC);
 
 --changeset groupia:062-saspay-decision-immutable-fn dbms:postgresql splitStatements:false
 CREATE FUNCTION guard_saspay_incident_decision_history() RETURNS trigger LANGUAGE plpgsql AS $$

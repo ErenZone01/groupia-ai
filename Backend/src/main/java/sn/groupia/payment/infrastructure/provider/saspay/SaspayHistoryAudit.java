@@ -11,7 +11,6 @@ import org.slf4j.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -98,35 +97,19 @@ final class SaspayHistoryAudit {
                         transaction);
     }
 
-    @Scheduled(
-            fixedDelayString = "${groupia.payment.saspay.history-audit.interval-ms:900000}",
-            initialDelayString = "${groupia.payment.saspay.history-audit.initial-delay-ms:60000}")
-    void scheduled() {
-        Instant until = clock.instant();
-        try {
-            Result result = compare(until.minus(Duration.ofHours(48)), until);
-            if (result.unmatched() > 0 || result.differences() > 0)
-                log.warn(
-                        "SasPay history audit pages={} transactions={} linked={} unmatched={} differences={}",
-                        result.pages(),
-                        result.transactions(),
-                        result.linked(),
-                        result.unmatched(),
-                        result.differences());
-            else
-                log.info(
-                        "SasPay history audit pages={} transactions={} linked={} unmatched=0 differences=0",
-                        result.pages(),
-                        result.transactions(),
-                        result.linked());
-        } catch (RuntimeException failure) {
-            // Never log provider data, credentials, URLs, or personal details.
-            log.error("SasPay history audit incomplete; no financial data modified");
-        }
+    @FunctionalInterface
+    interface IssueSink {
+        void report(String code, String transaction);
+    }
+
+    /** Default log-only comparison retained for diagnostics and existing contract tests. */
+    Result compare(Instant from, Instant until) {
+        return compare(from, until, SaspayHistoryAudit::issue);
     }
 
     /** An incomplete cursor traversal is never reported as a successful audit. */
-    Result compare(Instant from, Instant until) {
+    Result compare(Instant from, Instant until, IssueSink issueSink) {
+        Objects.requireNonNull(issueSink, "issueSink");
         if (from == null
                 || until == null
                 || !from.isBefore(until)
@@ -149,17 +132,17 @@ final class SaspayHistoryAudit {
                     canonical = SaspayClient.uuid(id);
                 } catch (SaspayException invalid) {
                     differences++;
-                    issue("INVALID_TRANSACTION_ID", id);
+                    issueSink.report("INVALID_TRANSACTION_ID", id);
                     continue;
                 }
                 if (!transactions.add(canonical)) {
                     differences++;
-                    issue("DUPLICATE_TRANSACTION", canonical);
+                    issueSink.report("DUPLICATE_TRANSACTION", canonical);
                     continue;
                 }
                 if (!account.equals(string(item, "merchant"))) {
                     differences++;
-                    issue("MERCHANT_MISMATCH", canonical);
+                    issueSink.report("MERCHANT_MISMATCH", canonical);
                     continue;
                 }
                 String direction = string(item, "flow_direction");
@@ -168,29 +151,29 @@ final class SaspayHistoryAudit {
                         || ("OUTBOUND".equals(direction)
                                 && Set.of("RETRAIT", "TRANSFERT").contains(type)))) {
                     differences++;
-                    issue("UNSUPPORTED_FLOW", canonical);
+                    issueSink.report("UNSUPPORTED_FLOW", canonical);
                     continue;
                 }
                 List<Evidence> found = ledger.find(account, canonical);
                 if (found.isEmpty()) {
                     unmatched++;
-                    issue("UNMATCHED_TRANSACTION", canonical);
+                    issueSink.report("UNMATCHED_TRANSACTION", canonical);
                     continue;
                 }
                 if (found.size() != 1) {
                     differences++;
-                    issue("DUPLICATE_GROUPIA_REFERENCE", canonical);
+                    issueSink.report("DUPLICATE_GROUPIA_REFERENCE", canonical);
                     continue;
                 }
                 linked++;
                 try {
                     if (!matches(item, found.getFirst(), direction)) {
                         differences++;
-                        issue("FINANCIAL_OR_STATUS_MISMATCH", canonical);
+                        issueSink.report("FINANCIAL_OR_STATUS_MISMATCH", canonical);
                     }
                 } catch (RuntimeException malformed) {
                     differences++;
-                    issue("INVALID_FINANCIAL_FIELDS", canonical);
+                    issueSink.report("INVALID_FINANCIAL_FIELDS", canonical);
                 }
             }
             String next = nextCursor(result.path("next"));

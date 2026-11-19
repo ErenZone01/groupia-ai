@@ -119,6 +119,11 @@ final class SaspayIncidentMonitor {
                         result.transactions(), result.unmatched(), result.differences());
                 from = until;
             }
+            if (!from.isBefore(target)) {
+                // Re-read recent operations: a transaction may become terminal after its
+                // original created_at interval was checkpointed, without a new transaction.
+                history.compare(target.minus(Duration.ofHours(48)), target, this::recordIncident);
+            }
         } catch (RuntimeException failure) {
             // Never advance a failed window. Alerting is best-effort; failure stays visible in DB.
             jdbc.update(

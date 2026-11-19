@@ -12,7 +12,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
-import sn.groupia.identity.api.CurrentUser;
+import sn.groupia.shared.api.PlatformCurrentActor;
 import sn.groupia.payment.infrastructure.provider.saspay.SaspayIncidentConsoleService;
 import sn.groupia.payment.infrastructure.provider.saspay.SaspayProperties;
 import sn.groupia.shared.api.ApiException;
@@ -41,12 +41,6 @@ class SaspayIncidentConsoleIntegrationTests {
             var props = properties(merchant);
             jdbc.update(
                     """
-                    INSERT INTO user_accounts(id,phone_number,password_hash,status,created_at,updated_at)
-                    VALUES (?,'+221771234567','synthetic-hash','ACTIVE',now(),now())
-                    """,
-                    actor);
-            jdbc.update(
-                    """
                     INSERT INTO saspay_audit_incidents(
                       id,provider_account_reference,incident_code,reference_fingerprint,
                       first_seen_at,last_seen_at,occurrence_count)
@@ -55,7 +49,7 @@ class SaspayIncidentConsoleIntegrationTests {
                     incident,
                     merchant.toString());
 
-            CurrentUser identity = () -> actor;
+            PlatformCurrentActor identity = () -> actor;
             var service =
                     new SaspayIncidentConsoleService(
                             jdbc, identity, props, CLOCK, true, actor.toString());

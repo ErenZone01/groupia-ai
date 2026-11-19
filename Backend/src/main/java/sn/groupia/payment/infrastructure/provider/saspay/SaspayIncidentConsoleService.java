@@ -10,8 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sn.groupia.shared.api.PlatformCurrentActor;
 import sn.groupia.shared.api.ApiException;
+import sn.groupia.shared.api.PlatformCurrentActor;
 
 /**
  * Platform-only financial incident case management. All decisions are append-only administrative

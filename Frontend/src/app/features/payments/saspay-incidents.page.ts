@@ -144,8 +144,9 @@ export class SaspayIncidentsPage {
       if (version === this.detailVersion && session === this.auth.generation())
         this.actionError.set(apiMessage(err));
     } finally {
-      if (version === this.detailVersion && session === this.auth.generation())
-        this.saving.set(false);
+      // Successful refresh deliberately closes the dossier and increments detailVersion.
+      // Always release the submit lock for this authenticated session.
+      if (session === this.auth.generation()) this.saving.set(false);
     }
   }
 

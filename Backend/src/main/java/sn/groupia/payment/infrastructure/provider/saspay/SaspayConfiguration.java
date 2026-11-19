@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import sn.groupia.payment.domain.repository.PaymentQuoteStore;
 import tools.jackson.databind.ObjectMapper;
 

@@ -1,8 +1,8 @@
 name: SasPay audit formatting temporary
 on:
-  push:
+  pull_request:
     branches:
-      - feat/saspay-history-readonly-audit-20261118
+      - main
 jobs:
   format:
     runs-on: ubuntu-latest

@@ -37,7 +37,6 @@ export class SaspayIncidentsPage {
   confirmed = false;
   private requestVersion = 0;
   private detailVersion = 0;
-  private sessionGeneration = 0;
 
   readonly statusLabel = (status: string) =>
     ({
@@ -62,7 +61,6 @@ export class SaspayIncidentsPage {
     })[code] ?? code.replaceAll('_', ' ').toLowerCase();
 
   constructor() {
-    this.sessionGeneration = this.auth.generation();
     void this.load();
   }
 
@@ -138,8 +136,9 @@ export class SaspayIncidentsPage {
         item.occurrenceCount,
       );
       if (version !== this.detailVersion || session !== this.auth.generation()) return;
-      this.notice.set('Décision administrative enregistrée. Aucun mouvement d’argent effectué.');
       await this.load(this.data()?.page ?? 0);
+      if (session === this.auth.generation())
+        this.notice.set('Décision administrative enregistrée. Aucun mouvement d’argent effectué.');
       // The list refresh clears the detail intentionally: new observations require a fresh review.
     } catch (err) {
       if (version === this.detailVersion && session === this.auth.generation())

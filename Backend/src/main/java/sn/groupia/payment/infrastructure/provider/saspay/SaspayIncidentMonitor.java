@@ -49,8 +49,7 @@ final class SaspayIncidentMonitor {
         this.history = history;
         this.account = properties.merchantId().toString();
         this.clock = clock;
-        this.configuredStart = startAt == null || startAt.isBlank()
-                ? null : Instant.parse(startAt);
+        this.configuredStart = startAt == null || startAt.isBlank() ? null : Instant.parse(startAt);
     }
 
     @Scheduled(
@@ -71,23 +70,26 @@ final class SaspayIncidentMonitor {
         jdbc.update(
                 "INSERT INTO saspay_audit_checkpoints(provider_account_reference) VALUES (?) ON CONFLICT DO NOTHING",
                 account);
-        List<Instant> claims = jdbc.query(
-                """
+        List<Instant> claims =
+                jdbc.query(
+                        """
                 UPDATE saspay_audit_checkpoints
                 SET lease_token=?, lease_until=?
                 WHERE provider_account_reference=?
                     AND (lease_until IS NULL OR lease_until < ?)
                 RETURNING completed_until
                 """,
-                (rs, index) -> {
-                    Timestamp ts = rs.getTimestamp(1);
-                    return ts == null ? null : ts.toInstant();
-                },
-                token, Timestamp.from(now.plus(LEASE)), account, Timestamp.from(now));
+                        (rs, index) -> {
+                            Timestamp ts = rs.getTimestamp(1);
+                            return ts == null ? null : ts.toInstant();
+                        },
+                        token,
+                        Timestamp.from(now.plus(LEASE)),
+                        account,
+                        Timestamp.from(now));
         if (claims.isEmpty()) return; // Another replica has the lease.
-        Instant from = claims.getFirst() == null
-                ? bootstrap(now, configuredStart)
-                : claims.getFirst();
+        Instant from =
+                claims.getFirst() == null ? bootstrap(now, configuredStart) : claims.getFirst();
         try {
             scanLocal(now);
             Instant target = now.minus(PROVIDER_LAG);
@@ -95,7 +97,8 @@ final class SaspayIncidentMonitor {
                 // Operator-supplied bootstrap date cannot silently skip future periods.
                 if (claims.getFirst() == null) {
                     recordIncident("AUDIT_START_IN_FUTURE", "configured-start");
-                    throw new IllegalStateException("Audit start is later than stable provider horizon");
+                    throw new IllegalStateException(
+                            "Audit start is later than stable provider horizon");
                 }
                 return;
             }
@@ -104,19 +107,24 @@ final class SaspayIncidentMonitor {
                 Instant until = nextBoundary(from, target);
                 SaspayHistoryAudit.Result result =
                         history.compare(from, until, this::recordIncident);
-                int advanced = jdbc.update(
-                        """
+                int advanced =
+                        jdbc.update(
+                                """
                         UPDATE saspay_audit_checkpoints
                         SET completed_until=?, last_success_at=?, last_failure_code=NULL
                         WHERE provider_account_reference=? AND lease_token=? AND lease_until > ?
                         """,
-                        Timestamp.from(until),
-                        Timestamp.from(clock.instant()),
-                        account, token, Timestamp.from(clock.instant()));
+                                Timestamp.from(until),
+                                Timestamp.from(clock.instant()),
+                                account,
+                                token,
+                                Timestamp.from(clock.instant()));
                 if (advanced != 1) throw new IllegalStateException("SasPay monitor lost its lease");
                 log.info(
                         "SasPay monitored interval transactions={} unmatched={} differences={}",
-                        result.transactions(), result.unmatched(), result.differences());
+                        result.transactions(),
+                        result.unmatched(),
+                        result.differences());
                 from = until;
             }
             if (!from.isBefore(target)) {
@@ -131,7 +139,8 @@ final class SaspayIncidentMonitor {
                     UPDATE saspay_audit_checkpoints SET last_failure_code='AUDIT_INCOMPLETE'
                     WHERE provider_account_reference=? AND lease_token=?
                     """,
-                    account, token);
+                    account,
+                    token);
             try {
                 recordIncident("AUDIT_INCOMPLETE", "window:" + from.toString());
             } catch (RuntimeException storeFailure) {
@@ -144,7 +153,8 @@ final class SaspayIncidentMonitor {
                     UPDATE saspay_audit_checkpoints SET lease_token=NULL, lease_until=NULL
                     WHERE provider_account_reference=? AND lease_token=?
                     """,
-                    account, token);
+                    account,
+                    token);
         }
     }
 
@@ -173,7 +183,8 @@ final class SaspayIncidentMonitor {
                   )
                 ORDER BY received_at, id LIMIT 251
                 """,
-                "WEBHOOK_STUCK", now.minus(Duration.ofMinutes(15)),
+                "WEBHOOK_STUCK",
+                now.minus(Duration.ofMinutes(15)),
                 now.minus(Duration.ofMinutes(15)));
         scan(
                 """
@@ -183,7 +194,8 @@ final class SaspayIncidentMonitor {
                     OR (status IN ('CREATED','PENDING') AND initiated_at < ?))
                 ORDER BY initiated_at, id LIMIT 251
                 """,
-                "PAYMENT_REVIEW_PENDING", now.minus(Duration.ofMinutes(60)));
+                "PAYMENT_REVIEW_PENDING",
+                now.minus(Duration.ofMinutes(60)));
         scan(
                 """
                 SELECT id::text FROM merchant_payouts
@@ -192,7 +204,8 @@ final class SaspayIncidentMonitor {
                     OR (status IN ('CREATED','PENDING') AND requested_at < ?))
                 ORDER BY requested_at, id LIMIT 251
                 """,
-                "PAYOUT_REVIEW_PENDING", now.minus(Duration.ofMinutes(60)));
+                "PAYOUT_REVIEW_PENDING",
+                now.minus(Duration.ofMinutes(60)));
         scan(
                 """
                 SELECT v.payout_id::text
@@ -202,7 +215,8 @@ final class SaspayIncidentMonitor {
                   AND v.next_verification_at < ?
                 ORDER BY v.next_verification_at, v.payout_id LIMIT 251
                 """,
-                "PAYOUT_VERIFICATION_OVERDUE", now.minus(Duration.ofMinutes(30)));
+                "PAYOUT_VERIFICATION_OVERDUE",
+                now.minus(Duration.ofMinutes(30)));
     }
 
     private void scan(String sql, String issueCode, Object... filters) {
@@ -212,8 +226,7 @@ final class SaspayIncidentMonitor {
         List<String> rows = jdbc.query(sql, (rs, index) -> rs.getString(1), args);
         for (int i = 0; i < Math.min(rows.size(), LOCAL_SCAN_LIMIT); i++)
             recordIncident(issueCode, rows.get(i));
-        if (rows.size() > LOCAL_SCAN_LIMIT)
-            recordIncident("MONITORING_SCAN_OVERFLOW", issueCode);
+        if (rows.size() > LOCAL_SCAN_LIMIT) recordIncident("MONITORING_SCAN_OVERFLOW", issueCode);
     }
 
     void recordIncident(String code, String rawReference) {
@@ -233,14 +246,21 @@ final class SaspayIncidentMonitor {
                    last_seen_at=GREATEST(saspay_audit_incidents.last_seen_at, EXCLUDED.last_seen_at),
                    occurrence_count=saspay_audit_incidents.occurrence_count + 1
                 """,
-                UUID.randomUUID(), account, code, fingerprint,
-                Timestamp.from(now), Timestamp.from(now));
+                UUID.randomUUID(),
+                account,
+                code,
+                fingerprint,
+                Timestamp.from(now),
+                Timestamp.from(now));
     }
 
     static String fingerprint(String raw) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(Objects.requireNonNullElse(raw, "missing").getBytes(StandardCharsets.UTF_8));
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(
+                                    Objects.requireNonNullElse(raw, "missing")
+                                            .getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is required", impossible);

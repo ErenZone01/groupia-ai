@@ -12,10 +12,10 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
-import sn.groupia.shared.api.PlatformCurrentActor;
 import sn.groupia.payment.infrastructure.provider.saspay.SaspayIncidentConsoleService;
 import sn.groupia.payment.infrastructure.provider.saspay.SaspayProperties;
 import sn.groupia.shared.api.ApiException;
+import sn.groupia.shared.api.PlatformCurrentActor;
 
 class SaspayIncidentConsoleIntegrationTests {
     private static final Clock CLOCK =

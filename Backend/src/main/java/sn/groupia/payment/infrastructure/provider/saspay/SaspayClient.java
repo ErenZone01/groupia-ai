@@ -40,8 +40,8 @@ final class SaspayClient {
     }
 
     /**
-     * Read-only, bounded transaction history. Always construct the request URI ourselves:
-     * an untrusted provider pagination link must never become an arbitrary HTTP destination.
+     * Read-only, bounded transaction history. Always construct the request URI ourselves: an
+     * untrusted provider pagination link must never become an arbitrary HTTP destination.
      */
     JsonNode transactionHistory(Instant from, Instant until, UUID merchant, String cursor) {
         if (from == null

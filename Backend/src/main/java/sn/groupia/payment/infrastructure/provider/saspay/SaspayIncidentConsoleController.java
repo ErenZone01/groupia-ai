@@ -25,8 +25,8 @@ class SaspayIncidentConsoleController {
             boolean confirmed) {
         @JsonAnySetter
         public void reject(String key, Object value) {
-            throw new ApiException(400, "SASPAY_INCIDENT_FIELD_UNKNOWN",
-                    "Champ administratif inconnu.");
+            throw new ApiException(
+                    400, "SASPAY_INCIDENT_FIELD_UNKNOWN", "Champ administratif inconnu.");
         }
     }
 
@@ -45,16 +45,21 @@ class SaspayIncidentConsoleController {
     }
 
     @GetMapping("/{incidentId}")
-    ResponseEntity<SaspayIncidentConsoleService.IncidentDetail> get(
-            @PathVariable UUID incidentId) {
+    ResponseEntity<SaspayIncidentConsoleService.IncidentDetail> get(@PathVariable UUID incidentId) {
         return response(service.get(incidentId));
     }
 
     @PostMapping("/{incidentId}/decisions")
     ResponseEntity<SaspayIncidentConsoleService.CommandResult> decide(
             @PathVariable UUID incidentId, @Valid @RequestBody DecisionRequest body) {
-        return response(service.decide(incidentId, body.action(), body.evidenceReference(),
-                body.reason(), body.expectedOccurrenceCount(), body.confirmed()));
+        return response(
+                service.decide(
+                        incidentId,
+                        body.action(),
+                        body.evidenceReference(),
+                        body.reason(),
+                        body.expectedOccurrenceCount(),
+                        body.confirmed()));
     }
 
     private static <T> ResponseEntity<T> response(T value) {

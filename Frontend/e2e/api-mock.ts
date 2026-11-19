@@ -99,9 +99,13 @@ export async function mockApi(
       path = url.pathname,
       method = req.method(),
       body = req.postDataJSON();
-    state.calls.push({ path, method, body });
     const reply = (json: unknown, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
+    // The platform-role probe is unrelated to seller dashboard API assertions.
+    // Never include it in existing feature request counts.
+    if (path === '/api/platform/saspay/incidents/access' && method === 'GET')
+      return reply({ allowed: false });
+    state.calls.push({ path, method, body });
     if (path.endsWith('/completion') && method === 'GET')
       return reply({
         eligible: false,
@@ -191,10 +195,6 @@ export async function mockApi(
       });
     }
     expect(req.headers()['authorization']).toBe('Bearer e2e-only-token');
-    // Every authenticated manager checks platform incident access. The fixture
-    // represents a seller, never a privileged financial operator.
-    if (path === '/api/platform/saspay/incidents/access' && method === 'GET')
-      return reply({ allowed: false });
     if (path === '/api/auth/me' && method === 'GET')
       return reply({ firstName: 'Awa', lastName: 'Diop' });
     if (path === '/api/organizations') {

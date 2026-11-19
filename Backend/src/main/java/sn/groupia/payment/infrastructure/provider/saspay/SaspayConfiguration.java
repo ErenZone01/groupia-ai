@@ -40,7 +40,10 @@ class SaspayConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnProperty(
-            name = {"groupia.payment.saspay.enabled", "groupia.payment.saspay.history-audit.enabled"},
+            name = {
+                "groupia.payment.saspay.enabled",
+                "groupia.payment.saspay.history-audit.enabled"
+            },
             havingValue = "true")
     @EnableScheduling
     static class HistoryAuditScheduling {}

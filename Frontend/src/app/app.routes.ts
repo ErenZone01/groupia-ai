@@ -204,6 +204,12 @@ export const routes: Routes = [
           import('./features/payments/payment-review.page').then((m) => m.PaymentReviewPage),
       },
       {
+        path: 'admin/incidents-saspay',
+        title: 'Administration des incidents SasPay · Groupia',
+        loadComponent: () =>
+          import('./features/payments/saspay-incidents.page').then((m) => m.SaspayIncidentsPage),
+      },
+      {
         path: 'paiements',
         title: 'Paiements · Groupia',
         loadComponent: () =>

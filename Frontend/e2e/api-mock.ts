@@ -191,6 +191,10 @@ export async function mockApi(
       });
     }
     expect(req.headers()['authorization']).toBe('Bearer e2e-only-token');
+    // Every authenticated manager checks platform incident access. The fixture
+    // represents a seller, never a privileged financial operator.
+    if (path === '/api/platform/saspay/incidents/access' && method === 'GET')
+      return reply({ allowed: false });
     if (path === '/api/auth/me' && method === 'GET')
       return reply({ firstName: 'Awa', lastName: 'Diop' });
     if (path === '/api/organizations') {

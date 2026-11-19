@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sn.groupia.identity.api.CurrentUser;
+import sn.groupia.shared.api.PlatformCurrentActor;
 import sn.groupia.shared.api.ApiException;
 
 /**
@@ -21,7 +21,7 @@ import sn.groupia.shared.api.ApiException;
 @Service
 public class SaspayIncidentConsoleService {
     private final JdbcTemplate jdbc;
-    private final CurrentUser currentUser;
+    private final PlatformCurrentActor currentUser;
     private final Clock clock;
     private final String account;
     private final String operators;
@@ -29,7 +29,7 @@ public class SaspayIncidentConsoleService {
 
     public SaspayIncidentConsoleService(
             JdbcTemplate jdbc,
-            CurrentUser currentUser,
+            PlatformCurrentActor currentUser,
             SaspayProperties properties,
             Clock clock,
             @Value("${groupia.payment.saspay.incident-console.enabled:false}") boolean enabled,
@@ -171,8 +171,8 @@ public class SaspayIncidentConsoleService {
                 "SELECT * FROM ("
                         + incidentSelect()
                         + ") cases"
-                        + " WHERE (? IS NULL OR case_status=?)"
-                        + " AND (? IS NULL OR incident_code=?)";
+                        + " WHERE (CAST(? AS text) IS NULL OR case_status=?)"
+                        + " AND (CAST(? AS text) IS NULL OR incident_code=?)";
         Object[] args = {account, status, status, code, code};
         long total =
                 jdbc.queryForObject(

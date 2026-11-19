@@ -35,12 +35,17 @@ final class SaspayHistoryLegacyScheduler {
             if (result.unmatched() > 0 || result.differences() > 0)
                 log.warn(
                         "SasPay history audit pages={} transactions={} linked={} unmatched={} differences={}",
-                        result.pages(), result.transactions(), result.linked(),
-                        result.unmatched(), result.differences());
+                        result.pages(),
+                        result.transactions(),
+                        result.linked(),
+                        result.unmatched(),
+                        result.differences());
             else
                 log.info(
                         "SasPay history audit pages={} transactions={} linked={} unmatched=0 differences=0",
-                        result.pages(), result.transactions(), result.linked());
+                        result.pages(),
+                        result.transactions(),
+                        result.linked());
         } catch (RuntimeException failure) {
             log.error("SasPay history audit incomplete; no financial data modified");
         }

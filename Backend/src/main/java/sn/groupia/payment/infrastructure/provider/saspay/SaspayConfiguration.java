@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import sn.groupia.payment.domain.repository.PaymentQuoteStore;
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,6 +37,16 @@ class SaspayConfiguration {
                 allowFractionalXofFees,
                 java.net.URI.create(publicBaseUrl));
     }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnProperty(
+            name = {
+                "groupia.payment.saspay.enabled",
+                "groupia.payment.saspay.history-audit.enabled"
+            },
+            havingValue = "true")
+    @EnableScheduling
+    static class HistoryAuditScheduling {}
 
     static void validateProfile(SaspayProperties p, Environment environment) {
         boolean prod = environment.acceptsProfiles(Profiles.of("prod"));

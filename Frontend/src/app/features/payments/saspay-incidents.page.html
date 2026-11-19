@@ -1,0 +1,204 @@
+<div class="incidents-page">
+  <header class="page-head">
+    <div>
+      <p class="eyebrow">Administration financière · SasPay</p>
+      <h1>Incidents financiers</h1>
+      <p>Surveillez les écarts sans toucher aux fonds des vendeuses.</p>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/app/paiements" class="secondary-link">Retour aux paiements</a>
+      <button type="button" (click)="load(data()?.page ?? 0)" [disabled]="loading()">Actualiser</button>
+    </div>
+  </header>
+
+  <div class="safety-note" role="note">
+    <span aria-hidden="true">●</span>
+    Les décisions de ce registre sont administratives. Elles ne confirment pas un paiement,
+    ne libèrent pas de retrait et ne modifient aucun solde.
+  </div>
+
+  @if (error()) {
+    <div class="alert" role="alert">{{ error() }}</div>
+  }
+  @if (notice()) {
+    <div class="confirmation" role="status">{{ notice() }}</div>
+  }
+  @if (data(); as result) {
+    <section class="stats" aria-label="Résumé des incidents">
+      <div class="stat">
+        <span>À examiner</span>
+        <strong>{{ result.open | number }}</strong>
+      </div>
+      <div class="stat">
+        <span>En cours de revue</span>
+        <strong>{{ result.inReview | number }}</strong>
+      </div>
+      <div class="stat">
+        <span>Dossiers clôturés</span>
+        <strong>{{ result.closed | number }}</strong>
+      </div>
+    </section>
+
+    <section class="checkpoint">
+      <div>
+        <strong>Synchronisation SasPay</strong>
+        <p>
+          Dernière période vérifiée :
+          {{ result.checkpoint?.completedUntil ? (result.checkpoint?.completedUntil | date: 'dd/MM/yyyy HH:mm') : 'Non disponible' }}
+        </p>
+      </div>
+      <span class="checkpoint-status" [class.problem]="!!result.checkpoint?.lastFailureCode">
+        {{ result.checkpoint?.lastFailureCode ? 'Vérification incomplète' : 'Aucune erreur de synchronisation connue' }}
+      </span>
+    </section>
+  }
+
+  <section class="incident-list" aria-label="Liste des incidents">
+    <div class="section-header">
+      <div>
+        <h2>Historique des incidents</h2>
+        <p>Les incidents sont conservés même après clôture administrative.</p>
+      </div>
+    </div>
+
+    <div class="filters">
+      <label>
+        Statut
+        <select [(ngModel)]="statusFilter" (ngModelChange)="load()" aria-label="Filtrer par statut">
+          <option value="">Tous les statuts</option>
+          <option value="OPEN">À examiner</option>
+          <option value="IN_REVIEW">En cours</option>
+          <option value="CLOSED">Clôturés</option>
+        </select>
+      </label>
+      <label>
+        Code incident
+        <input
+          [(ngModel)]="codeFilter"
+          (keydown.enter)="load()"
+          placeholder="Ex. WEBHOOK_STUCK"
+          aria-label="Filtrer par code incident"
+        />
+      </label>
+      <button type="button" class="secondary" (click)="load()" [disabled]="loading()">Filtrer</button>
+    </div>
+
+    @if (loading()) {
+      <div class="empty" role="status">Chargement des incidents…</div>
+    } @else if (data(); as result) {
+      @if (result.items.length === 0) {
+        <div class="empty">Aucun incident pour ces critères.</div>
+      } @else {
+        <div class="incident-rows">
+          @for (item of result.items; track item.id) {
+            <article class="incident-row">
+              <div class="incident-main">
+                <span class="state" [class.closed]="item.status === 'CLOSED'" [class.review]="item.status === 'IN_REVIEW'">
+                  {{ statusLabel(item.status) }}
+                </span>
+                <h3>{{ codeLabel(item.code) }}</h3>
+                <p class="incident-meta">
+                  Réf. {{ item.referenceHint }}… ·
+                  Dernière observation {{ item.lastSeenAt | date: 'dd/MM/yyyy HH:mm' }} ·
+                  {{ item.occurrenceCount | number }} observation(s)
+                </p>
+              </div>
+              <button type="button" class="secondary" (click)="inspect(item)">
+                Examiner le dossier
+              </button>
+            </article>
+          }
+        </div>
+      }
+      <div class="pagination">
+        <span>{{ result.total | number }} résultat(s) · page {{ result.page + 1 }}</span>
+        <div>
+          <button type="button" class="secondary" (click)="previous()" [disabled]="result.page === 0">Précédent</button>
+          <button
+            type="button"
+            class="secondary"
+            (click)="next()"
+            [disabled]="(result.page + 1) * result.size >= result.total"
+          >Suivant</button>
+        </div>
+      </div>
+    }
+  </section>
+
+  @if (inspecting()) {
+    <div class="empty" role="status">Ouverture du dossier…</div>
+  }
+  @if (detail(); as dossier) {
+    <section class="case-panel" aria-label="Dossier d'incident">
+      <div class="case-header">
+        <div>
+          <p class="eyebrow">Dossier financier</p>
+          <h2>{{ codeLabel(dossier.incident.code) }}</h2>
+          <p>Référence anonymisée : {{ dossier.incident.referenceHint }}…</p>
+        </div>
+        <button type="button" class="secondary" (click)="closeDetail()">Fermer le dossier</button>
+      </div>
+      <dl class="case-facts">
+        <div><dt>Statut</dt><dd>{{ statusLabel(dossier.incident.status) }}</dd></div>
+        <div><dt>Première détection</dt><dd>{{ dossier.incident.firstSeenAt | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+        <div><dt>Dernière détection</dt><dd>{{ dossier.incident.lastSeenAt | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+        <div><dt>Observations</dt><dd>{{ dossier.incident.occurrenceCount | number }}</dd></div>
+      </dl>
+      <h3>Journal des décisions</h3>
+      @if (dossier.decisions.length === 0) {
+        <p class="muted">Aucune décision administrative enregistrée.</p>
+      } @else {
+        <ol class="history">
+          @for (decision of dossier.decisions; track decision.id) {
+            <li>
+              <strong>{{ decision.action === 'CLOSED' ? 'Clôture administrative' :
+                decision.action === 'REVIEW_STARTED' ? 'Prise en charge' : 'Note de suivi' }}</strong>
+              <span>{{ decision.recordedAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+              <p>{{ decision.reason }}</p>
+              <small>Justificatif : {{ decision.evidenceReference }}</small>
+            </li>
+          }
+        </ol>
+      }
+      @if (dossier.incident.status !== 'CLOSED') {
+        <div class="decision-form">
+          <h3>Enregistrer une décision</h3>
+          <label>
+            Action
+            <select [(ngModel)]="action">
+              <option value="REVIEW_STARTED">Prendre en charge</option>
+              <option value="REVIEW_NOTE">Ajouter une note</option>
+              <option value="CLOSED">Clôturer administrativement</option>
+            </select>
+          </label>
+          <label>
+            Référence du justificatif
+            <input [(ngModel)]="evidenceReference" maxlength="120" placeholder="Ex. DOSSIER-2026-001" />
+          </label>
+          <label>
+            Motif détaillé
+            <textarea [(ngModel)]="reason" maxlength="500" rows="4"
+              placeholder="Indiquer les contrôles réalisés et pourquoi la décision est justifiée"></textarea>
+          </label>
+          @if (action === 'CLOSED') {
+            <p class="closure-warning">
+              La clôture signifie seulement que l'enquête administrative est terminée.
+              Elle ne prouve pas à elle seule l'exécution d'un paiement ou d'un retrait.
+              Toute nouvelle observation rouvrira le dossier.
+            </p>
+          }
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="confirmed" />
+            Je confirme avoir examiné les preuves et compris qu'aucun fonds ne sera déplacé.
+          </label>
+          @if (actionError()) {
+            <div role="alert" class="alert">{{ actionError() }}</div>
+          }
+          <button type="button" [disabled]="saving() || !confirmed" (click)="decide()">
+            {{ saving() ? 'Enregistrement…' : 'Enregistrer la décision' }}
+          </button>
+        </div>
+      }
+    </section>
+  }
+</div>

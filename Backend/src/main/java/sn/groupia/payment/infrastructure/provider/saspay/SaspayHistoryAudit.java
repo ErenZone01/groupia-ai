@@ -33,8 +33,13 @@ final class SaspayHistoryAudit {
     private final Clock clock;
 
     record Evidence(
-            String direction, String status, BigDecimal amount, String currency,
-            BigDecimal fee, BigDecimal charged, boolean reviewRequired) {}
+            String direction,
+            String status,
+            BigDecimal amount,
+            String currency,
+            BigDecimal fee,
+            BigDecimal charged,
+            boolean reviewRequired) {}
 
     @FunctionalInterface
     interface LedgerLookup {
@@ -48,7 +53,9 @@ final class SaspayHistoryAudit {
             SaspayProperties properties, ObjectMapper json, Clock clock, JdbcTemplate jdbc) {
         this(
                 new SaspayClient(SaspayClient.builder(properties).build(), json, clock),
-                sqlLookup(jdbc), properties, clock);
+                sqlLookup(jdbc),
+                properties,
+                clock);
     }
 
     SaspayHistoryAudit(
@@ -78,11 +85,17 @@ final class SaspayHistoryAudit {
                         """,
                         (rs, row) ->
                                 new Evidence(
-                                        rs.getString("direction"), rs.getString("status"),
-                                        rs.getBigDecimal("amount"), rs.getString("currency"),
-                                        rs.getBigDecimal("fee"), rs.getBigDecimal("charged"),
+                                        rs.getString("direction"),
+                                        rs.getString("status"),
+                                        rs.getBigDecimal("amount"),
+                                        rs.getString("currency"),
+                                        rs.getBigDecimal("fee"),
+                                        rs.getBigDecimal("charged"),
                                         rs.getBoolean("reconciliation_required")),
-                        account, transaction, account, transaction);
+                        account,
+                        transaction,
+                        account,
+                        transaction);
     }
 
     @Scheduled(
@@ -95,12 +108,17 @@ final class SaspayHistoryAudit {
             if (result.unmatched() > 0 || result.differences() > 0)
                 log.warn(
                         "SasPay history audit pages={} transactions={} linked={} unmatched={} differences={}",
-                        result.pages(), result.transactions(), result.linked(),
-                        result.unmatched(), result.differences());
+                        result.pages(),
+                        result.transactions(),
+                        result.linked(),
+                        result.unmatched(),
+                        result.differences());
             else
                 log.info(
                         "SasPay history audit pages={} transactions={} linked={} unmatched=0 differences=0",
-                        result.pages(), result.transactions(), result.linked());
+                        result.pages(),
+                        result.transactions(),
+                        result.linked());
         } catch (RuntimeException failure) {
             // Never log provider data, credentials, URLs, or personal details.
             log.error("SasPay history audit incomplete; no financial data modified");
@@ -109,7 +127,9 @@ final class SaspayHistoryAudit {
 
     /** An incomplete cursor traversal is never reported as a successful audit. */
     Result compare(Instant from, Instant until) {
-        if (from == null || until == null || !from.isBefore(until)
+        if (from == null
+                || until == null
+                || !from.isBefore(until)
                 || Duration.between(from, until).compareTo(Duration.ofDays(7)) > 0)
             throw new SaspayException("SASPAY_HISTORY_WINDOW_INVALID");
         String cursor = null;
@@ -118,7 +138,8 @@ final class SaspayHistoryAudit {
         int linked = 0, unmatched = 0, differences = 0;
         String account = properties.merchantId().toString();
         for (int page = 1; page <= MAX_PAGES; page++) {
-            JsonNode result = client.transactionHistory(from, until, properties.merchantId(), cursor);
+            JsonNode result =
+                    client.transactionHistory(from, until, properties.merchantId(), cursor);
             if (!result.isObject() || !result.path("results").isArray())
                 throw new SaspayException("SASPAY_HISTORY_PAGE_INVALID");
             for (JsonNode item : result.path("results")) {
@@ -176,8 +197,7 @@ final class SaspayHistoryAudit {
             if (next == null)
                 return new Result(page, transactions.size(), linked, unmatched, differences);
             if (!cursors.add(next)) throw new SaspayException("SASPAY_HISTORY_CURSOR_LOOP");
-            if (page == MAX_PAGES)
-                throw new SaspayException("SASPAY_HISTORY_NOT_EXHAUSTIVE");
+            if (page == MAX_PAGES) throw new SaspayException("SASPAY_HISTORY_NOT_EXHAUSTIVE");
             cursor = next;
         }
         throw new SaspayException("SASPAY_HISTORY_NOT_EXHAUSTIVE");
@@ -193,9 +213,11 @@ final class SaspayHistoryAudit {
                     case "CANCELLED" -> "CANCELLED";
                     default -> "";
                 };
-        if (requiredStatus.isEmpty() || !direction.equals(local.direction())
+        if (requiredStatus.isEmpty()
+                || !direction.equals(local.direction())
                 || !"XOF".equals(string(item, "currency"))
-                || !"XOF".equals(local.currency()) || local.reviewRequired()
+                || !"XOF".equals(local.currency())
+                || local.reviewRequired()
                 || local.amount() == null
                 || local.amount().compareTo(money(item, "requested_amount")) != 0
                 || !requiredStatus.equals(local.status())) return false;
@@ -226,8 +248,10 @@ final class SaspayHistoryAudit {
             throw new SaspayException("SASPAY_HISTORY_NEXT_INVALID");
         }
         URI base = properties.apiUrl();
-        if (!"https".equals(url.getScheme()) || !base.getHost().equals(url.getHost())
-                || url.getPort() != -1 || url.getUserInfo() != null
+        if (!"https".equals(url.getScheme())
+                || !base.getHost().equals(url.getHost())
+                || url.getPort() != -1
+                || url.getUserInfo() != null
                 || url.getFragment() != null
                 || !(base.getPath() + "/transactions/").equals(url.getPath())
                 || url.getRawQuery() == null)
@@ -248,7 +272,8 @@ final class SaspayHistoryAudit {
         if (!raw.isTextual() && !raw.isNumber())
             throw new IllegalArgumentException("Missing amount");
         BigDecimal amount = new BigDecimal(raw.asText());
-        if (amount.signum() < 0 || amount.precision() > 18
+        if (amount.signum() < 0
+                || amount.precision() > 18
                 || amount.stripTrailingZeros().scale() > 2)
             throw new IllegalArgumentException("Invalid amount");
         return amount;
@@ -263,8 +288,9 @@ final class SaspayHistoryAudit {
         String fingerprint = "unknown";
         if (transaction != null) {
             try {
-                byte[] digest = MessageDigest.getInstance("SHA-256")
-                        .digest(transaction.getBytes(StandardCharsets.UTF_8));
+                byte[] digest =
+                        MessageDigest.getInstance("SHA-256")
+                                .digest(transaction.getBytes(StandardCharsets.UTF_8));
                 fingerprint = HexFormat.of().formatHex(digest, 0, 8);
             } catch (java.security.NoSuchAlgorithmException unavailable) {
                 // SHA-256 is always provided by supported Java runtimes.

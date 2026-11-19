@@ -39,6 +39,33 @@ final class SaspayClient {
         return execute(http.get().uri("/pricing/my-rates/"), 200);
     }
 
+    /**
+     * Read-only, bounded transaction history. Always construct the request URI ourselves:
+     * an untrusted provider pagination link must never become an arbitrary HTTP destination.
+     */
+    JsonNode transactionHistory(Instant from, Instant until, UUID merchant, String cursor) {
+        if (from == null
+                || until == null
+                || !from.isBefore(until)
+                || merchant == null
+                || (cursor != null && !cursor.matches("[A-Za-z0-9_\\-/+=]{1,512}")))
+            throw new SaspayException("SASPAY_HISTORY_QUERY_INVALID");
+        return execute(
+                http.get()
+                        .uri(
+                                builder -> {
+                                    var query =
+                                            builder.path("/transactions/")
+                                                    .queryParam("merchant", merchant.toString())
+                                                    .queryParam("created_at__gte", from.toString())
+                                                    .queryParam("created_at__lte", until.toString())
+                                                    .queryParam("page_size", 100);
+                                    if (cursor != null) query.queryParam("cursor", cursor);
+                                    return query.build();
+                                }),
+                200);
+    }
+
     JsonNode createHostedCheckout(Map<String, Object> body) {
         // This endpoint deliberately has NO Idempotency-Key support. Groupia must
         // persist a single durable attempt before calling it and must not auto-retry

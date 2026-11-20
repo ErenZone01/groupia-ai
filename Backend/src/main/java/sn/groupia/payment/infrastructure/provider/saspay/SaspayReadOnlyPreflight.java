@@ -3,6 +3,7 @@ package sn.groupia.payment.infrastructure.provider.saspay;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import sn.groupia.shared.api.ApiException;
@@ -19,6 +20,7 @@ final class SaspayReadOnlyPreflight {
     private final Clock clock;
     private final ObjectMapper json;
     private final SaspayClient injectedClient;
+    private final AtomicReference<Instant> nextAllowedCheck = new AtomicReference<>(Instant.MIN);
 
     record Snapshot(
             Instant checkedAt,
@@ -50,11 +52,19 @@ final class SaspayReadOnlyPreflight {
         if (!properties.enabled() || properties.merchantId() == null)
             throw new ApiException(
                     503, "SASPAY_PREFLIGHT_DISABLED", "Configuration SasPay non activée.");
+        Instant now = clock.instant();
+        while (true) {
+            Instant until = nextAllowedCheck.get();
+            if (now.isBefore(until))
+                throw new ApiException(
+                        429, "SASPAY_PREFLIGHT_COOLDOWN",
+                        "Patientez avant de relancer le diagnostic fournisseur.");
+            if (nextAllowedCheck.compareAndSet(until, now.plusSeconds(60))) break;
+        }
         SaspayClient client =
                 injectedClient == null
                         ? new SaspayClient(SaspayClient.builder(properties).build(), json, clock)
                         : injectedClient;
-        Instant now = clock.instant();
         JsonNode walletPage = client.merchantBalancesFirstPage();
         if (!walletPage.isObject() || !walletPage.path("results").isArray())
             throw new SaspayException("SASPAY_PREFLIGHT_BALANCES_INVALID");

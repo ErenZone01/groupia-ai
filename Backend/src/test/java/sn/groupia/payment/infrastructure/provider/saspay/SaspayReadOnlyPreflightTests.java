@@ -13,9 +13,11 @@ class SaspayReadOnlyPreflightTests {
 
     private SaspayReadOnlyPreflight service(SaspayHttpStub stub) {
         var properties = SaspayTestConfiguration.properties();
-        var client = new SaspayClient(
-                SaspayClient.builder(properties).baseUrl(stub.url() + "/api/v1").build(),
-                new ObjectMapper(), CLOCK);
+        var client =
+                new SaspayClient(
+                        SaspayClient.builder(properties).baseUrl(stub.url() + "/api/v1").build(),
+                        new ObjectMapper(),
+                        CLOCK);
         return new SaspayReadOnlyPreflight(properties, CLOCK, new ObjectMapper(), client);
     }
 
@@ -40,9 +42,11 @@ class SaspayReadOnlyPreflightTests {
     @Test
     void verifiedWalletAndHistoryReadsAreStrictlyGetOnlyAndBounded() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200,"{\"count\":1,\"results\":["
-                    + balance(SaspayTestConfiguration.MERCHANT, "2500.00", "XOF")
-                    + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"count\":1,\"results\":["
+                            + balance(SaspayTestConfiguration.MERCHANT, "2500.00", "XOF")
+                            + "],\"next\":null}");
             stub.reply(200, history());
             var snapshot = service(stub).check();
             assertThat(snapshot.status()).isEqualTo("READ_ONLY_ACCESS_OK");
@@ -52,22 +56,31 @@ class SaspayReadOnlyPreflightTests {
             assertThat(snapshot.sampledTransactions()).isEqualTo(1);
             assertThat(snapshot.noteCode()).isEqualTo("DIAGNOSTIC_NOT_ACCOUNTING_PROOF");
             assertThat(stub.requests).hasSize(2);
-            assertThat(stub.requests).allMatch(x -> x.method().equals("GET")
-                    && x.body().isEmpty() && x.idempotencyKey() == null);
+            assertThat(stub.requests)
+                    .allMatch(
+                            x ->
+                                    x.method().equals("GET")
+                                            && x.body().isEmpty()
+                                            && x.idempotencyKey() == null);
             assertThat(stub.requests.getFirst().path())
-                    .contains("/merchant-balances/").contains("page_size=100");
+                    .contains("/merchant-balances/")
+                    .contains("page_size=100");
             assertThat(stub.requests.getLast().path())
-                    .contains("/transactions/").contains("merchant=")
-                    .contains("created_at__gte=").contains("page_size=100");
+                    .contains("/transactions/")
+                    .contains("merchant=")
+                    .contains("created_at__gte=")
+                    .contains("page_size=100");
         }
     }
 
     @Test
     void aSecondManualPreflightCannotHammerTheProviderImmediately() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"count\":1,\"results\":["
-                    + balance(SaspayTestConfiguration.MERCHANT, "2500", "XOF")
-                    + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"count\":1,\"results\":["
+                            + balance(SaspayTestConfiguration.MERCHANT, "2500", "XOF")
+                            + "],\"next\":null}");
             stub.reply(200, history());
             var preflight = service(stub);
             preflight.check();
@@ -80,9 +93,11 @@ class SaspayReadOnlyPreflightTests {
     @Test
     void truncatedWalletPagesCannotBeDescribedAsComplete() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200,"{\"count\":2,\"results\":["
-                    + balance(SaspayTestConfiguration.MERCHANT, "100", "XOF")
-                    + "],\"next\":\"https://sandbox-api.saspay.me/api/v1/merchant-balances/?page=2\"}");
+            stub.reply(
+                    200,
+                    "{\"count\":2,\"results\":["
+                            + balance(SaspayTestConfiguration.MERCHANT, "100", "XOF")
+                            + "],\"next\":\"https://sandbox-api.saspay.me/api/v1/merchant-balances/?page=2\"}");
             stub.reply(200, history());
             var snapshot = service(stub).check();
             assertThat(snapshot.status()).isEqualTo("INCOMPLETE_SAMPLE");
@@ -94,9 +109,11 @@ class SaspayReadOnlyPreflightTests {
     @Test
     void wrongMerchantFailsBeforeHistoricalReadWithoutAnyTransfer() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"count\":1,\"results\":["
-                    + balance(UUID.randomUUID().toString(), "1000", "XOF")
-                    + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"count\":1,\"results\":["
+                            + balance(UUID.randomUUID().toString(), "1000", "XOF")
+                            + "],\"next\":null}");
             assertThatThrownBy(() -> service(stub).check())
                     .isInstanceOf(SaspayException.class)
                     .hasMessage("SASPAY_PREFLIGHT_MERCHANT_MISMATCH");
@@ -108,21 +125,28 @@ class SaspayReadOnlyPreflightTests {
     @Test
     void invalidMoneyOrUntrustedHistoryNeverBecomesAReadyStatus() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"count\":1,\"results\":["
-                    + balance(SaspayTestConfiguration.MERCHANT, "-1.00", "XOF")
-                    + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"count\":1,\"results\":["
+                            + balance(SaspayTestConfiguration.MERCHANT, "-1.00", "XOF")
+                            + "],\"next\":null}");
             assertThatThrownBy(() -> service(stub).check())
                     .isInstanceOf(SaspayException.class)
                     .hasMessage("SASPAY_PREFLIGHT_BALANCES_INVALID");
             assertThat(stub.requests).hasSize(1);
         }
         try (var stub = new SaspayHttpStub()) {
-            stub.reply(200, "{\"count\":1,\"results\":["
-                    + balance(SaspayTestConfiguration.MERCHANT, "1000", "XOF")
-                    + "],\"next\":null}");
-            stub.reply(200, "{\"results\":[{\"merchant\":\""
-                    + UUID.randomUUID() + "\",\"currency\":\"XOF\","
-                    + "\"flow_direction\":\"INBOUND\",\"status\":\"SUCCESS\"}],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"count\":1,\"results\":["
+                            + balance(SaspayTestConfiguration.MERCHANT, "1000", "XOF")
+                            + "],\"next\":null}");
+            stub.reply(
+                    200,
+                    "{\"results\":[{\"merchant\":\""
+                            + UUID.randomUUID()
+                            + "\",\"currency\":\"XOF\","
+                            + "\"flow_direction\":\"INBOUND\",\"status\":\"SUCCESS\"}],\"next\":null}");
             assertThatThrownBy(() -> service(stub).check())
                     .isInstanceOf(SaspayException.class)
                     .hasMessage("SASPAY_PREFLIGHT_HISTORY_INVALID");
@@ -133,11 +157,20 @@ class SaspayReadOnlyPreflightTests {
     @Test
     void disabledSaspayCannotTriggerAnyProviderNetworkRead() throws Exception {
         try (var stub = new SaspayHttpStub()) {
-            var disabled = new SaspayProperties(
-                    false, null, null, null, UUID.fromString(SaspayTestConfiguration.MERCHANT),
-                    Set.of(), null, null, false, null, null);
-            var service = new SaspayReadOnlyPreflight(disabled, CLOCK,
-                    new ObjectMapper(), null);
+            var disabled =
+                    new SaspayProperties(
+                            false,
+                            null,
+                            null,
+                            null,
+                            UUID.fromString(SaspayTestConfiguration.MERCHANT),
+                            Set.of(),
+                            null,
+                            null,
+                            false,
+                            null,
+                            null);
+            var service = new SaspayReadOnlyPreflight(disabled, CLOCK, new ObjectMapper(), null);
             assertThatThrownBy(service::check)
                     .isInstanceOf(sn.groupia.shared.api.ApiException.class);
             assertThat(stub.requests).isEmpty();

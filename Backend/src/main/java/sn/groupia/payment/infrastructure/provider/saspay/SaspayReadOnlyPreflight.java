@@ -11,8 +11,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Operator-triggered, bounded SasPay connectivity check. Its output is a diagnostic snapshot,
- * NOT proof of Groupia ledger backing, a money-movement authorization or settlement evidence.
+ * Operator-triggered, bounded SasPay connectivity check. Its output is a diagnostic snapshot, NOT
+ * proof of Groupia ledger backing, a money-movement authorization or settlement evidence.
  */
 @Component
 final class SaspayReadOnlyPreflight {
@@ -41,7 +41,10 @@ final class SaspayReadOnlyPreflight {
     }
 
     SaspayReadOnlyPreflight(
-            SaspayProperties properties, Clock clock, ObjectMapper json, SaspayClient injectedClient) {
+            SaspayProperties properties,
+            Clock clock,
+            ObjectMapper json,
+            SaspayClient injectedClient) {
         this.properties = properties;
         this.clock = clock;
         this.json = json;
@@ -57,7 +60,8 @@ final class SaspayReadOnlyPreflight {
             Instant until = nextAllowedCheck.get();
             if (now.isBefore(until))
                 throw new ApiException(
-                        429, "SASPAY_PREFLIGHT_COOLDOWN",
+                        429,
+                        "SASPAY_PREFLIGHT_COOLDOWN",
                         "Patientez avant de relancer le diagnostic fournisseur.");
             if (nextAllowedCheck.compareAndSet(until, now.plusSeconds(60))) break;
         }
@@ -69,11 +73,10 @@ final class SaspayReadOnlyPreflight {
         if (!walletPage.isObject() || !walletPage.path("results").isArray())
             throw new SaspayException("SASPAY_PREFLIGHT_BALANCES_INVALID");
         JsonNode walletRows = walletPage.path("results");
-        if (walletRows.size() > 100)
-            throw new SaspayException("SASPAY_PREFLIGHT_BALANCES_INVALID");
+        if (walletRows.size() > 100) throw new SaspayException("SASPAY_PREFLIGHT_BALANCES_INVALID");
 
-        boolean balancesComplete = walletPage.path("next").isNull()
-                || walletPage.path("next").isMissingNode();
+        boolean balancesComplete =
+                walletPage.path("next").isNull() || walletPage.path("next").isMissingNode();
         JsonNode count = walletPage.path("count");
         if (!count.isIntegralNumber() || count.intValue() < walletRows.size())
             throw new SaspayException("SASPAY_PREFLIGHT_BALANCES_INVALID");
@@ -99,12 +102,14 @@ final class SaspayReadOnlyPreflight {
 
         // Read a *single* bounded history page, excluding the most recent five minutes
         // to avoid partially committed provider transaction statuses.
-        JsonNode history = client.transactionHistory(
-                now.minus(Duration.ofHours(48)),
-                now.minus(Duration.ofMinutes(5)),
-                properties.merchantId(),
-                null);
-        if (!history.isObject() || !history.path("results").isArray()
+        JsonNode history =
+                client.transactionHistory(
+                        now.minus(Duration.ofHours(48)),
+                        now.minus(Duration.ofMinutes(5)),
+                        properties.merchantId(),
+                        null);
+        if (!history.isObject()
+                || !history.path("results").isArray()
                 || history.path("results").size() > 100)
             throw new SaspayException("SASPAY_PREFLIGHT_HISTORY_INVALID");
         for (JsonNode txn : history.path("results")) {
@@ -117,8 +122,8 @@ final class SaspayReadOnlyPreflight {
                 throw new SaspayException("SASPAY_PREFLIGHT_HISTORY_INVALID");
         }
 
-        boolean moreHistory = !history.path("next").isNull()
-                && !history.path("next").isMissingNode();
+        boolean moreHistory =
+                !history.path("next").isNull() && !history.path("next").isMissingNode();
         String status;
         if (!balancesComplete || moreHistory) status = "INCOMPLETE_SAMPLE";
         else if (senegalWallets == 0) status = "NO_SN_XOF_BALANCE";
@@ -149,7 +154,8 @@ final class SaspayReadOnlyPreflight {
             throw new SaspayException("SASPAY_PREFLIGHT_BALANCES_INVALID");
         try {
             BigDecimal amount = new BigDecimal(raw.asText());
-            if (amount.signum() < 0 || amount.precision() > 18
+            if (amount.signum() < 0
+                    || amount.precision() > 18
                     || amount.stripTrailingZeros().scale() > 2)
                 throw new NumberFormatException("Invalid monetary precision");
             return amount;

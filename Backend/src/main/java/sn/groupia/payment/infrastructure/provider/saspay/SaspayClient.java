@@ -66,6 +66,11 @@ final class SaspayClient {
                 200);
     }
 
+    /** Single bounded read-only wallet page; never used to authorize a payout. */
+    JsonNode merchantBalancesFirstPage() {
+        return execute(http.get().uri("/merchant-balances/?page=1&page_size=100"), 200);
+    }
+
     JsonNode createHostedCheckout(Map<String, Object> body) {
         // This endpoint deliberately has NO Idempotency-Key support. Groupia must
         // persist a single durable attempt before calling it and must not auto-retry

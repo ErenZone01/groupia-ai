@@ -20,6 +20,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .checkpoint p { margin: .4rem 0 0; color: var(--muted); font-size: .85rem; }
 .checkpoint-status { font-size: .78rem; color: var(--muted); text-align: right; }
 .checkpoint-status.problem { color: #ad5c23; font-weight: 700; }
+.read-only-panel { padding: clamp(1rem, 3vw, 1.6rem); background: var(--surface); border: 1px solid var(--border); border-radius: 1.1rem; display: grid; gap: 1rem; }
+.read-only-panel .section-header { align-items: center; }
+.read-only-panel .section-header h2 { margin: 0; font-size: 1.2rem; }
+.read-only-panel .section-header button { flex-shrink: 0; }
+.provider-evidence { display: grid; gap: .45rem; font-size: .9rem; overflow-wrap: anywhere; }
+.provider-evidence p { margin: 0; line-height: 1.55; }
+.evidence-warning { color: var(--muted); font-size: .82rem; border-left: 3px solid var(--border); padding: .4rem 0 .4rem .8rem; }
 .incident-list, .case-panel { padding: clamp(1rem, 3vw, 1.6rem); }
 .section-header h2, .case-header h2 { margin: 0; font-size: 1.2rem; }
 .filters { display: flex; gap: .8rem; flex-wrap: wrap; align-items: flex-end; margin: 1.35rem 0; }
@@ -65,4 +72,6 @@ input, select, textarea { font: inherit; width: 100%; padding: .7rem .85rem; bor
  .pagination > div { justify-content: space-between; }
  .filters button { width: 100%; }
  .checkpoint-status { text-align: left; }
+ .read-only-panel .section-header { flex-direction: column; align-items: stretch; }
+ .read-only-panel .section-header button { width: 100%; }
 }

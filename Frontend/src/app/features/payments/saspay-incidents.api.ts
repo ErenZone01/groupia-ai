@@ -37,6 +37,20 @@ export interface AuditCheckpoint {
   lastFailureCode: string | null;
 }
 
+export interface SaspayProviderPreflight {
+  checkedAt: string;
+  status: 'READ_ONLY_ACCESS_OK' | 'INCOMPLETE_SAMPLE' | 'NO_SN_XOF_BALANCE' | 'WALLET_FROZEN';
+  sampledTransactions: number;
+  historyHasMorePages: boolean;
+  sampledBalanceRows: number;
+  balancesComplete: boolean;
+  senegalXofWallets: number;
+  senegalAvailableXof: number;
+  senegalPendingXof: number;
+  walletFrozen: boolean;
+  noteCode: 'DIAGNOSTIC_NOT_ACCOUNTING_PROOF';
+}
+
 export interface IncidentPage {
   items: Incident[];
   total: number;
@@ -52,6 +66,14 @@ export interface IncidentPage {
 export class SaspayIncidentConsoleApi {
   private readonly http = inject(HttpClient);
   private readonly base = '/api/platform/saspay/incidents';
+
+  providerPreflight() {
+    return firstValueFrom(
+      this.http
+        .get<SaspayProviderPreflight>(`${this.base}/provider-preflight`)
+        .pipe(timeout(20000)),
+    );
+  }
 
   list(status: string, code: string, page: number, size = 20) {
     return firstValueFrom(

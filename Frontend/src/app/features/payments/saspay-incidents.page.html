@@ -47,11 +47,57 @@
           {{ result.checkpoint?.completedUntil ? (result.checkpoint?.completedUntil | date: 'dd/MM/yyyy HH:mm') : 'Non disponible' }}
         </p>
       </div>
-      <span class="checkpoint-status" [class.problem]="!!result.checkpoint?.lastFailureCode">
-        {{ result.checkpoint?.lastFailureCode ? 'Vérification incomplète' : 'Aucune erreur de synchronisation connue' }}
+      <span class="checkpoint-status"
+        [class.problem]="!result.checkpoint?.completedUntil || !!result.checkpoint?.lastFailureCode">
+        {{ !result.checkpoint?.completedUntil ? 'Aucun cycle complet constaté'
+          : result.checkpoint?.lastFailureCode ? 'Vérification incomplète'
+          : 'Dernier contrôle enregistré — vérifier aussi sa fraîcheur' }}
       </span>
     </section>
   }
+
+  <section class="read-only-panel" aria-label="Diagnostic fournisseur SasPay">
+    <div class="section-header">
+      <div>
+        <h2>Diagnostic de connexion SasPay</h2>
+        <p>Lecture manuelle de la première page des soldes et de l'historique.
+          Aucun paiement, retrait ou changement de solde.</p>
+      </div>
+      <button type="button" class="secondary" (click)="checkProviderReadOnly()"
+        [disabled]="preflightLoading()">
+        {{ preflightLoading() ? 'Vérification en cours…' : 'Tester la lecture SasPay' }}
+      </button>
+    </div>
+    @if (preflightError()) {
+      <div class="alert" role="alert">Échec de la vérification : {{ preflightError() }}</div>
+    }
+    @if (providerPreflight(); as p) {
+      <div class="provider-evidence" role="status">
+        <strong>
+          {{ p.status === 'READ_ONLY_ACCESS_OK' ? 'Accès en lecture vérifié' :
+            p.status === 'INCOMPLETE_SAMPLE' ? 'Résultat partiel : vérification à poursuivre' :
+            p.status === 'WALLET_FROZEN' ? 'Portefeuille bloqué chez SasPay' :
+            'Aucun solde sénégalais XOF trouvé sur la page' }}
+        </strong>
+        <p>Consulté le {{ p.checkedAt | date: 'dd/MM/yyyy HH:mm' }}.
+          {{ p.sampledTransactions }} opération(s) examinée(s) sur une page ;
+          {{ p.sampledBalanceRows }} compte(s) de solde sur une page.
+        </p>
+        @if (!p.balancesComplete || p.historyHasMorePages) {
+          <p>Des pages supplémentaires existent : cet aperçu est incomplet.</p>
+        }
+        @if (p.senegalXofWallets > 0) {
+          <p>Portefeuille(s) Sénégal / XOF : {{ p.senegalXofWallets }}.
+            Solde disponible affiché : {{ p.senegalAvailableXof | number: '1.0-2' }} FCFA ;
+            solde en attente : {{ p.senegalPendingXof | number: '1.0-2' }} FCFA.
+          </p>
+        }
+        <p class="evidence-warning">Ces soldes sont ceux du compte marchand SasPay :
+          ils ne prouvent pas les montants dus à chaque vendeuse et ne débloquent
+          jamais automatiquement un versement.</p>
+      </div>
+    }
+  </section>
 
   <section class="incident-list" aria-label="Liste des incidents">
     <div class="section-header">

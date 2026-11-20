@@ -12,9 +12,12 @@ import sn.groupia.shared.api.ApiException;
 @RequestMapping("/api/platform/saspay/incidents")
 class SaspayIncidentConsoleController {
     private final SaspayIncidentConsoleService service;
+    private final SaspayReadOnlyPreflight preflight;
 
-    SaspayIncidentConsoleController(SaspayIncidentConsoleService service) {
+    SaspayIncidentConsoleController(
+            SaspayIncidentConsoleService service, SaspayReadOnlyPreflight preflight) {
         this.service = service;
+        this.preflight = preflight;
     }
 
     record DecisionRequest(
@@ -42,6 +45,12 @@ class SaspayIncidentConsoleController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return response(service.list(status, code, page, size));
+    }
+
+    @GetMapping("/provider-preflight")
+    ResponseEntity<SaspayReadOnlyPreflight.Snapshot> providerPreflight() {
+        service.requireOperatorAccess();
+        return response(preflight.check());
     }
 
     @GetMapping("/{incidentId}")

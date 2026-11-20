@@ -63,6 +63,21 @@ class SaspayReadOnlyPreflightTests {
     }
 
     @Test
+    void aSecondManualPreflightCannotHammerTheProviderImmediately() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            stub.reply(200, "{\"count\":1,\"results\":["
+                    + balance(SaspayTestConfiguration.MERCHANT, "2500", "XOF")
+                    + "],\"next\":null}");
+            stub.reply(200, history());
+            var preflight = service(stub);
+            preflight.check();
+            assertThatThrownBy(preflight::check)
+                    .isInstanceOf(sn.groupia.shared.api.ApiException.class);
+            assertThat(stub.requests).hasSize(2);
+        }
+    }
+
+    @Test
     void truncatedWalletPagesCannotBeDescribedAsComplete() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             stub.reply(200,"{\"count\":2,\"results\":["

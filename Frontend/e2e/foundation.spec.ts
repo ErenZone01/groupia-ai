@@ -30,6 +30,8 @@ for (const width of [360, 768, 1024, 1440])
           (url) =>
             new URL(url).pathname === '/api/auth/refresh' ||
             new URL(url).pathname === '/api/auth/me' ||
+            // Admin rights are checked separately and denied in the seller fixture.
+            new URL(url).pathname === '/api/platform/saspay/incidents/access' ||
             new URL(url).pathname === '/api/organizations' ||
             /\/api\/organizations\/[^/]+\/analytics\/business$/.test(new URL(url).pathname) ||
             /\/api\/organizations\/[^/]+\/(?:orders|grouping-campaigns|products)$/.test(

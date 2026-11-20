@@ -99,9 +99,13 @@ export async function mockApi(
       path = url.pathname,
       method = req.method(),
       body = req.postDataJSON();
-    state.calls.push({ path, method, body });
     const reply = (json: unknown, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
+    // The platform-role probe is unrelated to seller dashboard API assertions.
+    // Never include it in existing feature request counts.
+    if (path === '/api/platform/saspay/incidents/access' && method === 'GET')
+      return reply({ allowed: false });
+    state.calls.push({ path, method, body });
     if (path.endsWith('/completion') && method === 'GET')
       return reply({
         eligible: false,

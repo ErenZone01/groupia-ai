@@ -1,4 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
+import { AuthService } from '../auth/auth.service';
+import { SaspayIncidentAccess } from '../auth/saspay-incident-access';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { sidebarNavigation } from '../config/navigation';
 import { Brand } from '../../shared/ui/brand';
@@ -26,6 +28,10 @@ import { BoutiqueContextService } from '../boutique/boutique-context.service';
             }
           </div>
         }
+        @if (incidents.allowed()) {
+          <a routerLink="/app/admin/incidents-saspay" routerLinkActive="active" ariaCurrentWhenActive="page"
+            class="incident-admin-link"><g-icon name="card" />Administration financière</a>
+        }
       </nav>
     </div>
     <a routerLink="/app/boutique" class="shop"
@@ -40,4 +46,13 @@ import { BoutiqueContextService } from '../boutique/boutique-context.service';
 export class Sidebar {
   readonly sections = sidebarNavigation;
   readonly context = inject(BoutiqueContextService);
+  readonly incidents = inject(SaspayIncidentAccess);
+  private readonly auth = inject(AuthService);
+  constructor() {
+    effect(() => {
+      this.auth.generation();
+      if (this.auth.signedIn()) void this.incidents.refresh();
+      else this.incidents.reset();
+    });
+  }
 }

@@ -9,6 +9,7 @@ import {
   IncidentDecisionAction,
   IncidentDetail,
   IncidentPage,
+  SaspayProviderPreflight,
   SaspayIncidentConsoleApi,
 } from './saspay-incidents.api';
 
@@ -29,6 +30,10 @@ export class SaspayIncidentsPage {
   readonly error = signal('');
   readonly actionError = signal('');
   readonly notice = signal('');
+  readonly providerPreflight = signal<SaspayProviderPreflight | null>(null);
+  readonly preflightLoading = signal(false);
+  readonly preflightError = signal('');
+  private preflightVersion = 0;
   statusFilter = '';
   codeFilter = '';
   action: IncidentDecisionAction = 'REVIEW_STARTED';
@@ -86,6 +91,29 @@ export class SaspayIncidentsPage {
       }
     } finally {
       if (this.current(version, session)) this.loading.set(false);
+    }
+  }
+
+  async checkProviderReadOnly() {
+    if (this.preflightLoading()) return;
+    const version = ++this.preflightVersion;
+    const session = this.auth.generation();
+    this.preflightLoading.set(true);
+    this.providerPreflight.set(null);
+    this.preflightError.set('');
+    try {
+      const snapshot = await this.api.providerPreflight();
+      if (version === this.preflightVersion && session === this.auth.generation()) {
+        this.providerPreflight.set(snapshot);
+      }
+    } catch (err) {
+      if (version === this.preflightVersion && session === this.auth.generation()) {
+        this.preflightError.set(apiMessage(err));
+      }
+    } finally {
+      if (version === this.preflightVersion && session === this.auth.generation()) {
+        this.preflightLoading.set(false);
+      }
     }
   }
 

@@ -3,6 +3,7 @@ package sn.groupia.payment.infrastructure.provider.saspay;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import sn.groupia.shared.api.ApiException;
 import tools.jackson.databind.JsonNode;
@@ -32,6 +33,7 @@ final class SaspayReadOnlyPreflight {
             boolean walletFrozen,
             String noteCode) {}
 
+    @Autowired
     SaspayReadOnlyPreflight(SaspayProperties properties, Clock clock, ObjectMapper json) {
         this(properties, clock, json, null);
     }

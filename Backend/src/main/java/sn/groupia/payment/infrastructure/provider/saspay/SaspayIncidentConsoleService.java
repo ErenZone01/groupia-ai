@@ -86,6 +86,11 @@ public class SaspayIncidentConsoleService {
         return new Access(authorized(actor));
     }
 
+    /** Authorize before any outbound provider read; platform-only access. */
+    void requireOperatorAccess() {
+        operator();
+    }
+
     private UUID operator() {
         UUID actor = currentUser.requireActiveUserId();
         if (!authorized(actor))

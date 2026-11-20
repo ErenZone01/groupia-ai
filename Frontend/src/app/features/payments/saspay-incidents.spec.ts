@@ -35,6 +35,27 @@ describe('SaspayIncidentConsoleApi', () => {
     expect((await result).items).toEqual([]);
   });
 
+  it('runs the provider preflight only on an explicit GET and never triggers a payout', async () => {
+    const pending = api.providerPreflight();
+    const request = http.expectOne('/api/platform/saspay/incidents/provider-preflight');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.body).toBeNull();
+    request.flush({
+      checkedAt: '2026-11-20T12:00:00Z',
+      status: 'READ_ONLY_ACCESS_OK',
+      sampledTransactions: 1,
+      historyHasMorePages: false,
+      sampledBalanceRows: 1,
+      balancesComplete: true,
+      senegalXofWallets: 1,
+      senegalAvailableXof: 1000,
+      senegalPendingXof: 25,
+      walletFrozen: false,
+      noteCode: 'DIAGNOSTIC_NOT_ACCOUNTING_PROOF',
+    });
+    expect((await pending).status).toBe('READ_ONLY_ACCESS_OK');
+  });
+
   it('requires an explicit acknowledgment and sends only case decision fields', async () => {
     const submitted = api.decide(
       'd799c643-2e6f-437d-96e2-5f663893a10a',

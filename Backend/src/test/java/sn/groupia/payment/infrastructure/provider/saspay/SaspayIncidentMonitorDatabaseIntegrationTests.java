@@ -124,7 +124,7 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
             // An unresolved local webhook is seen on every 15-minute cycle.
             // Identical source state MUST NOT reopen an administratively closed case.
             String sourceId = UUID.randomUUID().toString();
-            String unchanged = "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",2,5]";
+            String unchanged = "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",2]";
             monitor.recordLocalSignal("WEBHOOK_STUCK", sourceId, unchanged);
             String signalHash = SaspayIncidentMonitor.fingerprint(sourceId);
             UUID incidentId =
@@ -168,7 +168,7 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                                     incidentId))
                     .isEqualTo(1L);
 
-            // A source workflow version change is new evidence and MUST reopen the case.
+            // A changed webhook attempt count is new evidence and MUST reopen the case.
             instant.set(first.plus(Duration.ofMinutes(60)));
             monitor.recordLocalSignal(
                     "WEBHOOK_STUCK", sourceId, "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",3,6]");

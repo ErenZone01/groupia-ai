@@ -165,7 +165,8 @@ final class SaspayIncidentMonitor {
                         "AUDIT_INCOMPLETE",
                         "MONITOR_FAILED",
                         (claims.getFirst() == null ? "NO_CHECKPOINT" : from.toString())
-                                + "|" + failureCode);
+                                + "|"
+                                + failureCode);
             } catch (RuntimeException storeFailure) {
                 log.error("SasPay incident persistence unavailable; checkpoint not advanced");
             }
@@ -285,15 +286,18 @@ final class SaspayIncidentMonitor {
     }
 
     /**
-     * Atomic, idempotent incident detection for unchanged *local* workflow snapshots.
-     * Same entity state observed repeatedly does not alter immutable incident evidence
-     * or reopen a previously reviewed case. New workflow version/state does reopen it.
-     * This SQL statement is atomic even if the application dies halfway through a scan.
+     * Atomic, idempotent incident detection for unchanged *local* workflow snapshots. Same entity
+     * state observed repeatedly does not alter immutable incident evidence or reopen a previously
+     * reviewed case. New workflow version/state does reopen it. This SQL statement is atomic even
+     * if the application dies halfway through a scan.
      */
     void recordLocalSignal(String code, String rawReference, String sourceState) {
-        if (code == null || !code.matches("[A-Z_]{3,64}")
-                || rawReference == null || rawReference.isBlank()
-                || sourceState == null || sourceState.isBlank())
+        if (code == null
+                || !code.matches("[A-Z_]{3,64}")
+                || rawReference == null
+                || rawReference.isBlank()
+                || sourceState == null
+                || sourceState.isBlank())
             throw new IllegalArgumentException("Invalid SasPay monitor signal");
         String referenceHash = fingerprint(rawReference);
         String stateHash = fingerprint(sourceState);
@@ -322,8 +326,17 @@ final class SaspayIncidentMonitor {
                     last_seen_at=GREATEST(saspay_audit_incidents.last_seen_at, EXCLUDED.last_seen_at),
                     occurrence_count=saspay_audit_incidents.occurrence_count + 1
                 """,
-                account, code, referenceHash, stateHash, when,
-                UUID.randomUUID(), account, code, referenceHash, when, when);
+                account,
+                code,
+                referenceHash,
+                stateHash,
+                when,
+                UUID.randomUUID(),
+                account,
+                code,
+                referenceHash,
+                when,
+                when);
     }
 
     void recordIncident(String code, String rawReference) {

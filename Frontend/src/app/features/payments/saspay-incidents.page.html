@@ -49,8 +49,9 @@
       </div>
       <span class="checkpoint-status"
         [class.problem]="!result.checkpoint?.completedUntil || !!result.checkpoint?.lastFailureCode">
-        {{ !result.checkpoint?.completedUntil ? 'Aucun cycle complet constaté'
-          : result.checkpoint?.lastFailureCode ? 'Vérification incomplète'
+        {{ result.checkpoint?.lastFailureCode
+          ? 'Échec du dernier contrôle (' + result.checkpoint?.lastFailureCode + ')'
+          : !result.checkpoint?.completedUntil ? 'Aucun cycle complet constaté'
           : 'Dernier contrôle enregistré — vérifier aussi sa fraîcheur' }}
       </span>
     </section>

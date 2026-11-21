@@ -3,7 +3,9 @@ package sn.groupia.payment.infrastructure.provider.saspay;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import org.springframework.dao.DataAccessException;
 import java.time.*;
 import java.util.*;
 import org.slf4j.*;
@@ -90,6 +92,7 @@ final class SaspayIncidentMonitor {
         if (claims.isEmpty()) return; // Another replica has the lease.
         Instant from =
                 claims.getFirst() == null ? bootstrap(now, configuredStart) : claims.getFirst();
+        String stage = "LOCAL_SCAN";
         try {
             scanLocal(now);
             Instant target = now.minus(PROVIDER_LAG);
@@ -105,8 +108,10 @@ final class SaspayIncidentMonitor {
             int windows = 0;
             while (from.isBefore(target) && windows++ < MAX_WINDOWS) {
                 Instant until = nextBoundary(from, target);
+                stage = "HISTORY_READ";
                 SaspayHistoryAudit.Result result =
                         history.compare(from, until, this::recordIncident);
+                stage = "CHECKPOINT_WRITE";
                 int advanced =
                         jdbc.update(
                                 """
@@ -130,19 +135,32 @@ final class SaspayIncidentMonitor {
             if (!from.isBefore(target)) {
                 // Re-read recent operations: a transaction may become terminal after its
                 // original created_at interval was checkpointed, without a new transaction.
+                stage = "RECENT_RECHECK";
                 history.compare(target.minus(Duration.ofHours(48)), target, this::recordIncident);
             }
         } catch (RuntimeException failure) {
             // Never advance a failed window. Alerting is best-effort; failure stays visible in DB.
+            String failureCode = failureCode(stage, failure);
             jdbc.update(
                     """
-                    UPDATE saspay_audit_checkpoints SET last_failure_code='AUDIT_INCOMPLETE'
+                    UPDATE saspay_audit_checkpoints SET last_failure_code=?
                     WHERE provider_account_reference=? AND lease_token=?
                     """,
+                    failureCode,
                     account,
                     token);
+            log.error(
+                    "SasPay monitor failed stage={} family={} sqlState={} providerHttpStatus={}; checkpoint retained",
+                    stage,
+                    failure instanceof DataAccessException ? "DATABASE"
+                            : failure instanceof SaspayException ? "PROVIDER" : "INTERNAL",
+                    safeSqlState(failure),
+                    failure instanceof SaspayException ex ? ex.httpStatus() : 0);
             try {
-                recordIncident("AUDIT_INCOMPLETE", "window:" + from.toString());
+                // A failed bootstrap used to hash a moving timestamp on every cycle,
+                // producing a new incident every 15 minutes. One incident per account
+                // now accumulates observations, regardless of retry or bootstrap time.
+                recordIncident("AUDIT_INCOMPLETE", "MONITOR_FAILED");
             } catch (RuntimeException storeFailure) {
                 log.error("SasPay incident persistence unavailable; checkpoint not advanced");
             }
@@ -222,11 +240,34 @@ final class SaspayIncidentMonitor {
     private void scan(String sql, String issueCode, Object... filters) {
         Object[] args = new Object[filters.length + 1];
         args[0] = account;
-        System.arraycopy(filters, 0, args, 1, filters.length);
+        for (int i = 0; i < filters.length; i++) {
+            // PostgreSQL JDBC maps java.sql.Timestamp to TIMESTAMPTZ; it cannot
+            // infer the JDBC type for a raw java.time.Instant in this query.
+            args[i + 1] =
+                    filters[i] instanceof Instant instant ? Timestamp.from(instant) : filters[i];
+        }
         List<String> rows = jdbc.query(sql, (rs, index) -> rs.getString(1), args);
         for (int i = 0; i < Math.min(rows.size(), LOCAL_SCAN_LIMIT); i++)
             recordIncident(issueCode, rows.get(i));
         if (rows.size() > LOCAL_SCAN_LIMIT) recordIncident("MONITORING_SCAN_OVERFLOW", issueCode);
+    }
+
+    static String failureCode(String stage, RuntimeException failure) {
+        String family =
+                failure instanceof DataAccessException ? "DATABASE"
+                        : failure instanceof SaspayException ? "PROVIDER" : "INTERNAL";
+        return family + "_" + stage;
+    }
+
+    static String safeSqlState(Throwable failure) {
+        Throwable cause = failure;
+        for (int depth = 0; depth < 6 && cause != null; depth++, cause = cause.getCause()) {
+            if (cause instanceof SQLException sql) {
+                String state = sql.getSQLState();
+                return state != null && state.matches("[A-Za-z0-9]{5}") ? state : "NONE";
+            }
+        }
+        return "NONE";
     }
 
     void recordIncident(String code, String rawReference) {

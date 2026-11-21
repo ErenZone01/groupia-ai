@@ -161,7 +161,12 @@ final class SaspayIncidentMonitor {
                 // A failed bootstrap used to hash a moving timestamp on every cycle,
                 // producing a new incident every 15 minutes. One incident per account
                 // now accumulates observations, regardless of retry or bootstrap time.
-                recordIncident("AUDIT_INCOMPLETE", "MONITOR_FAILED");
+                recordLocalSignal(
+                        "AUDIT_INCOMPLETE",
+                        "MONITOR_FAILED",
+                        (claims.getFirst() == null ? "NO_CHECKPOINT" : from.toString())
+                                + "|"
+                                + failureCode);
             } catch (RuntimeException storeFailure) {
                 log.error("SasPay incident persistence unavailable; checkpoint not advanced");
             }
@@ -191,7 +196,7 @@ final class SaspayIncidentMonitor {
         // Existing retry workers retain sole authority to verify and update transactions.
         scan(
                 """
-                SELECT id::text FROM payment_webhook_events
+                SELECT id::text, jsonb_build_array(processing_status, last_error_code, attempt_count)::text FROM payment_webhook_events
                 WHERE provider='SASPAY' AND provider_account_reference=?
                   AND authenticity_verification_result='VALID'
                   AND (
@@ -207,7 +212,7 @@ final class SaspayIncidentMonitor {
                 now.minus(Duration.ofMinutes(15)));
         scan(
                 """
-                SELECT id::text FROM payments
+                SELECT id::text, jsonb_build_array(status, reconciliation_required, reconciliation_reason, provider_transaction_id)::text FROM payments
                 WHERE provider='SASPAY' AND provider_account_reference=?
                   AND (reconciliation_required
                     OR (status IN ('CREATED','PENDING') AND initiated_at < ?))
@@ -217,7 +222,7 @@ final class SaspayIncidentMonitor {
                 now.minus(Duration.ofMinutes(60)));
         scan(
                 """
-                SELECT id::text FROM merchant_payouts
+                SELECT id::text, jsonb_build_array(status, reconciliation_required, reconciliation_reason, provider_transaction_id)::text FROM merchant_payouts
                 WHERE provider='SASPAY' AND provider_account_reference=?
                   AND (reconciliation_required OR status='REVIEW_REQUIRED'
                     OR (status IN ('CREATED','PENDING') AND requested_at < ?))
@@ -227,7 +232,9 @@ final class SaspayIncidentMonitor {
                 now.minus(Duration.ofMinutes(60)));
         scan(
                 """
-                SELECT v.payout_id::text
+                SELECT v.payout_id::text,
+                       jsonb_build_array(p.status, p.reconciliation_reason,
+                                         p.provider_transaction_id, v.next_verification_at)::text
                 FROM merchant_payout_verifications v
                 JOIN merchant_payouts p ON p.id=v.payout_id
                 WHERE p.provider='SASPAY' AND p.provider_account_reference=?
@@ -238,6 +245,8 @@ final class SaspayIncidentMonitor {
                 now.minus(Duration.ofMinutes(30)));
     }
 
+    private record Signal(String reference, String sourceState) {}
+
     private void scan(String sql, String issueCode, Object... filters) {
         Object[] args = new Object[filters.length + 1];
         args[0] = account;
@@ -247,10 +256,14 @@ final class SaspayIncidentMonitor {
             args[i + 1] =
                     filters[i] instanceof Instant instant ? Timestamp.from(instant) : filters[i];
         }
-        List<String> rows = jdbc.query(sql, (rs, index) -> rs.getString(1), args);
-        for (int i = 0; i < Math.min(rows.size(), LOCAL_SCAN_LIMIT); i++)
-            recordIncident(issueCode, rows.get(i));
-        if (rows.size() > LOCAL_SCAN_LIMIT) recordIncident("MONITORING_SCAN_OVERFLOW", issueCode);
+        List<Signal> rows =
+                jdbc.query(sql, (rs, index) -> new Signal(rs.getString(1), rs.getString(2)), args);
+        for (int i = 0; i < Math.min(rows.size(), LOCAL_SCAN_LIMIT); i++) {
+            Signal signal = rows.get(i);
+            recordLocalSignal(issueCode, signal.reference(), signal.sourceState());
+        }
+        if (rows.size() > LOCAL_SCAN_LIMIT)
+            recordLocalSignal("MONITORING_SCAN_OVERFLOW", issueCode, "LIMIT_EXCEEDED");
     }
 
     static String failureCode(String stage, RuntimeException failure) {
@@ -270,6 +283,60 @@ final class SaspayIncidentMonitor {
             }
         }
         return "NONE";
+    }
+
+    /**
+     * Atomic, idempotent incident detection for unchanged *local* workflow snapshots. Same entity
+     * state observed repeatedly does not alter immutable incident evidence or reopen a previously
+     * reviewed case. New workflow version/state does reopen it. This SQL statement is atomic even
+     * if the application dies halfway through a scan.
+     */
+    void recordLocalSignal(String code, String rawReference, String sourceState) {
+        if (code == null
+                || !code.matches("[A-Z_]{3,64}")
+                || rawReference == null
+                || rawReference.isBlank()
+                || sourceState == null
+                || sourceState.isBlank())
+            throw new IllegalArgumentException("Invalid SasPay monitor signal");
+        String referenceHash = fingerprint(rawReference);
+        String stateHash = fingerprint(sourceState);
+        Timestamp when = Timestamp.from(clock.instant());
+        jdbc.update(
+                """
+                WITH changed AS (
+                    INSERT INTO saspay_audit_local_signal_states
+                        (provider_account_reference, incident_code, reference_fingerprint,
+                         source_state_fingerprint, last_changed_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (provider_account_reference, incident_code, reference_fingerprint)
+                    DO UPDATE SET
+                        source_state_fingerprint=EXCLUDED.source_state_fingerprint,
+                        last_changed_at=EXCLUDED.last_changed_at
+                    WHERE saspay_audit_local_signal_states.source_state_fingerprint
+                          IS DISTINCT FROM EXCLUDED.source_state_fingerprint
+                    RETURNING 1
+                )
+                INSERT INTO saspay_audit_incidents
+                    (id, provider_account_reference, incident_code, reference_fingerprint,
+                     status, first_seen_at, last_seen_at, occurrence_count)
+                SELECT ?, ?, ?, ?, 'OPEN', ?, ?, 1 FROM changed WHERE TRUE
+                ON CONFLICT (provider_account_reference, incident_code, reference_fingerprint)
+                DO UPDATE SET
+                    last_seen_at=GREATEST(saspay_audit_incidents.last_seen_at, EXCLUDED.last_seen_at),
+                    occurrence_count=saspay_audit_incidents.occurrence_count + 1
+                """,
+                account,
+                code,
+                referenceHash,
+                stateHash,
+                when,
+                UUID.randomUUID(),
+                account,
+                code,
+                referenceHash,
+                when,
+                when);
     }
 
     void recordIncident(String code, String rawReference) {

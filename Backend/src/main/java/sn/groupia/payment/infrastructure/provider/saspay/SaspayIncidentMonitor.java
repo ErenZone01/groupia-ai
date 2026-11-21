@@ -5,12 +5,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import org.springframework.dao.DataAccessException;
 import java.time.*;
 import java.util.*;
 import org.slf4j.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -152,7 +152,8 @@ final class SaspayIncidentMonitor {
             log.error(
                     "SasPay monitor failed stage={} family={} sqlState={} providerHttpStatus={}; checkpoint retained",
                     stage,
-                    failure instanceof DataAccessException ? "DATABASE"
+                    failure instanceof DataAccessException
+                            ? "DATABASE"
                             : failure instanceof SaspayException ? "PROVIDER" : "INTERNAL",
                     safeSqlState(failure),
                     failure instanceof SaspayException ex ? ex.httpStatus() : 0);
@@ -254,7 +255,8 @@ final class SaspayIncidentMonitor {
 
     static String failureCode(String stage, RuntimeException failure) {
         String family =
-                failure instanceof DataAccessException ? "DATABASE"
+                failure instanceof DataAccessException
+                        ? "DATABASE"
                         : failure instanceof SaspayException ? "PROVIDER" : "INTERNAL";
         return family + "_" + stage;
     }

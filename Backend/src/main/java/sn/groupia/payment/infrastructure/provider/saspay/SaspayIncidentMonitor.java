@@ -196,7 +196,7 @@ final class SaspayIncidentMonitor {
         // Existing retry workers retain sole authority to verify and update transactions.
         scan(
                 """
-                SELECT id::text, jsonb_build_array(processing_status, last_error_code, attempt_count, version)::text FROM payment_webhook_events
+                SELECT id::text, jsonb_build_array(processing_status, last_error_code, attempt_count)::text FROM payment_webhook_events
                 WHERE provider='SASPAY' AND provider_account_reference=?
                   AND authenticity_verification_result='VALID'
                   AND (
@@ -212,7 +212,7 @@ final class SaspayIncidentMonitor {
                 now.minus(Duration.ofMinutes(15)));
         scan(
                 """
-                SELECT id::text, jsonb_build_array(status, reconciliation_required, reconciliation_reason, version)::text FROM payments
+                SELECT id::text, jsonb_build_array(status, reconciliation_required, reconciliation_reason, provider_transaction_id)::text FROM payments
                 WHERE provider='SASPAY' AND provider_account_reference=?
                   AND (reconciliation_required
                     OR (status IN ('CREATED','PENDING') AND initiated_at < ?))
@@ -222,7 +222,7 @@ final class SaspayIncidentMonitor {
                 now.minus(Duration.ofMinutes(60)));
         scan(
                 """
-                SELECT id::text, jsonb_build_array(status, reconciliation_required, reconciliation_reason, version)::text FROM merchant_payouts
+                SELECT id::text, jsonb_build_array(status, reconciliation_required, reconciliation_reason, provider_transaction_id)::text FROM merchant_payouts
                 WHERE provider='SASPAY' AND provider_account_reference=?
                   AND (reconciliation_required OR status='REVIEW_REQUIRED'
                     OR (status IN ('CREATED','PENDING') AND requested_at < ?))
@@ -233,8 +233,8 @@ final class SaspayIncidentMonitor {
         scan(
                 """
                 SELECT v.payout_id::text,
-                       jsonb_build_array(p.status, p.reconciliation_reason, p.version,
-                                         v.claim_token, v.next_verification_at)::text
+                       jsonb_build_array(p.status, p.reconciliation_reason,
+                                         p.provider_transaction_id, v.next_verification_at)::text
                 FROM merchant_payout_verifications v
                 JOIN merchant_payouts p ON p.id=v.payout_id
                 WHERE p.provider='SASPAY' AND p.provider_account_reference=?

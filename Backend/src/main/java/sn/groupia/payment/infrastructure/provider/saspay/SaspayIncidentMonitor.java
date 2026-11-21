@@ -161,7 +161,11 @@ final class SaspayIncidentMonitor {
                 // A failed bootstrap used to hash a moving timestamp on every cycle,
                 // producing a new incident every 15 minutes. One incident per account
                 // now accumulates observations, regardless of retry or bootstrap time.
-                recordIncident("AUDIT_INCOMPLETE", "MONITOR_FAILED");
+                recordLocalSignal(
+                        "AUDIT_INCOMPLETE",
+                        "MONITOR_FAILED",
+                        (claims.getFirst() == null ? "NO_CHECKPOINT" : from.toString())
+                                + "|" + failureCode);
             } catch (RuntimeException storeFailure) {
                 log.error("SasPay incident persistence unavailable; checkpoint not advanced");
             }
@@ -257,7 +261,8 @@ final class SaspayIncidentMonitor {
             Signal signal = rows.get(i);
             recordLocalSignal(issueCode, signal.reference(), signal.sourceState());
         }
-        if (rows.size() > LOCAL_SCAN_LIMIT) recordIncident("MONITORING_SCAN_OVERFLOW", issueCode);
+        if (rows.size() > LOCAL_SCAN_LIMIT)
+            recordLocalSignal("MONITORING_SCAN_OVERFLOW", issueCode, "LIMIT_EXCEEDED");
     }
 
     static String failureCode(String stage, RuntimeException failure) {

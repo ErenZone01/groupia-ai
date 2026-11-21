@@ -97,7 +97,7 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                                     "SELECT occurrence_count FROM saspay_audit_incidents WHERE incident_code='AUDIT_INCOMPLETE' AND provider_account_reference=?",
                                     Long.class,
                                     merchant))
-                    .isEqualTo(2L);
+                    .isEqualTo(1L);
             var state =
                     jdbc.queryForMap(
                             "SELECT completed_until,last_failure_code FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
@@ -121,6 +121,61 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                                     String.class,
                                     merchant))
                     .isNull();
+            // An unresolved local webhook is seen on every 15-minute cycle.
+            // Identical source state MUST NOT reopen an administratively closed case.
+            String sourceId = UUID.randomUUID().toString();
+            String unchanged = "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",2,5]";
+            monitor.recordLocalSignal("WEBHOOK_STUCK", sourceId, unchanged);
+            String signalHash = SaspayIncidentMonitor.fingerprint(sourceId);
+            UUID incidentId =
+                    jdbc.queryForObject(
+                            """
+                            SELECT id FROM saspay_audit_incidents
+                            WHERE provider_account_reference=? AND incident_code='WEBHOOK_STUCK'
+                              AND reference_fingerprint=?
+                            """,
+                            UUID.class,
+                            merchant,
+                            signalHash);
+            assertThat(incidentId).isNotNull();
+            UUID operator = UUID.randomUUID();
+            jdbc.update(
+                    """
+                    INSERT INTO saspay_audit_incident_decisions
+                      (id,incident_id,actor_id,action,evidence_reference,reason,
+                       observed_occurrence_count,recorded_at)
+                    VALUES (?,?,?,?,?,?,?,?)
+                    """,
+                    UUID.randomUUID(), incidentId, operator, "CLOSED", "TEST-CASE-2026",
+                    "Administratively reviewed and documented for this exact source state.",
+                    1L, Timestamp.from(clock.instant()));
+            var console =
+                    new SaspayIncidentConsoleService(
+                            jdbc, () -> operator, properties, clock, true, operator.toString());
+            assertThat(console.get(incidentId).incident().status()).isEqualTo("CLOSED");
+            instant.set(first.plus(Duration.ofMinutes(45)));
+            monitor.recordLocalSignal("WEBHOOK_STUCK", sourceId, unchanged);
+            assertThat(console.get(incidentId).incident().status()).isEqualTo("CLOSED");
+            assertThat(jdbc.queryForObject(
+                            "SELECT occurrence_count FROM saspay_audit_incidents WHERE id=?",
+                            Long.class, incidentId))
+                    .isEqualTo(1L);
+
+            // A source workflow version change is new evidence and MUST reopen the case.
+            instant.set(first.plus(Duration.ofMinutes(60)));
+            monitor.recordLocalSignal(
+                    "WEBHOOK_STUCK", sourceId,
+                    "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",3,6]");
+            assertThat(console.get(incidentId).incident().status()).isEqualTo("OPEN");
+            assertThat(jdbc.queryForObject(
+                            "SELECT occurrence_count FROM saspay_audit_incidents WHERE id=?",
+                            Long.class, incidentId))
+                    .isEqualTo(2L);
+            assertThat(jdbc.queryForObject(
+                            "SELECT count(*) FROM saspay_audit_local_signal_states",
+                            Long.class))
+                    .isEqualTo(2L); // one monitor failure and one webhook
+
             assertThat(jdbc.queryForObject("SELECT count(*) FROM payments", Long.class)).isZero();
             assertThat(jdbc.queryForObject("SELECT count(*) FROM merchant_payouts", Long.class))
                     .isZero();

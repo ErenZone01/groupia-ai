@@ -146,9 +146,14 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                        observed_occurrence_count,recorded_at)
                     VALUES (?,?,?,?,?,?,?,?)
                     """,
-                    UUID.randomUUID(), incidentId, operator, "CLOSED", "TEST-CASE-2026",
+                    UUID.randomUUID(),
+                    incidentId,
+                    operator,
+                    "CLOSED",
+                    "TEST-CASE-2026",
                     "Administratively reviewed and documented for this exact source state.",
-                    1L, Timestamp.from(clock.instant()));
+                    1L,
+                    Timestamp.from(clock.instant()));
             var console =
                     new SaspayIncidentConsoleService(
                             jdbc, () -> operator, properties, clock, true, operator.toString());
@@ -156,24 +161,28 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
             instant.set(first.plus(Duration.ofMinutes(45)));
             monitor.recordLocalSignal("WEBHOOK_STUCK", sourceId, unchanged);
             assertThat(console.get(incidentId).incident().status()).isEqualTo("CLOSED");
-            assertThat(jdbc.queryForObject(
-                            "SELECT occurrence_count FROM saspay_audit_incidents WHERE id=?",
-                            Long.class, incidentId))
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT occurrence_count FROM saspay_audit_incidents WHERE id=?",
+                                    Long.class,
+                                    incidentId))
                     .isEqualTo(1L);
 
             // A source workflow version change is new evidence and MUST reopen the case.
             instant.set(first.plus(Duration.ofMinutes(60)));
             monitor.recordLocalSignal(
-                    "WEBHOOK_STUCK", sourceId,
-                    "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",3,6]");
+                    "WEBHOOK_STUCK", sourceId, "[\"REVIEW_REQUIRED\",\"UNKNOWN_REFERENCE\",3,6]");
             assertThat(console.get(incidentId).incident().status()).isEqualTo("OPEN");
-            assertThat(jdbc.queryForObject(
-                            "SELECT occurrence_count FROM saspay_audit_incidents WHERE id=?",
-                            Long.class, incidentId))
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT occurrence_count FROM saspay_audit_incidents WHERE id=?",
+                                    Long.class,
+                                    incidentId))
                     .isEqualTo(2L);
-            assertThat(jdbc.queryForObject(
-                            "SELECT count(*) FROM saspay_audit_local_signal_states",
-                            Long.class))
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM saspay_audit_local_signal_states",
+                                    Long.class))
                     .isEqualTo(2L); // one monitor failure and one webhook
 
             assertThat(jdbc.queryForObject("SELECT count(*) FROM payments", Long.class)).isZero();

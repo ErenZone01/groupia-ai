@@ -22,14 +22,16 @@ transaction connue, ni le succès de la transaction sous-jacente.
 
 Le moniteur associe à chaque anomalie locale un hash du contenu workflow
 utile à sa résolution :
-- webhook : statut de traitement, code d'erreur, nombre de tentatives, version ;
-- paiement : statut, indicateur de rapprochement, motif, version ;
-- retrait : statut, indicateur de rapprochement, motif, version ;
-- vérification de retrait : statut, motif, version et informations de planification.
+- webhook : statut de traitement, code d'erreur, nombre de tentatives ;
+- paiement : statut, indicateur de rapprochement, motif, identifiant fournisseur ;
+- retrait : statut, indicateur de rapprochement, motif, identifiant fournisseur ;
+- vérification de retrait : statut, motif, identifiant fournisseur et prochaine échéance.
+
+Les simples mises à jour techniques de version JPA ou de date de vérification
+ne constituent **pas** une nouvelle preuve financière et ne rouvrent pas le dossier.
 
 Une réobservation identique conserve le même nombre d'occurrences et ne
-réouvre plus un dossier administrativement clôturé. Un changement de version
-ou d'état local provoque une observation supplémentaire et rouvre le dossier.
+réouvre plus un dossier administrativement clôturé. Un changement de traitement, de référence fournisseur ou d'état local provoque une observation supplémentaire et rouvre le dossier.
 Cette distinction est garantie par une **seule instruction SQL atomique**,
 même après un crash ou avec plusieurs instances grâce au bail existant.
 

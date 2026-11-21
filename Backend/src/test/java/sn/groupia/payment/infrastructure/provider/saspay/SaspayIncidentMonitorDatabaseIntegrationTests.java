@@ -36,7 +36,8 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                                                         postgres.getUsername(),
                                                         postgres.getPassword())));
                 try (var liquibase =
-                        new Liquibase("db/changelog/db.changelog-master.yaml", resources, database)) {
+                        new Liquibase(
+                                "db/changelog/db.changelog-master.yaml", resources, database)) {
                     liquibase.update(new Contexts(), new LabelExpression());
                 }
             }
@@ -97,44 +98,53 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                                     Long.class,
                                     merchant))
                     .isEqualTo(2L);
-            var state = jdbc.queryForMap(
-                    "SELECT completed_until,last_failure_code FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
-                    merchant);
+            var state =
+                    jdbc.queryForMap(
+                            "SELECT completed_until,last_failure_code FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
+                            merchant);
             assertThat(state.get("completed_until")).isNull();
             assertThat(state.get("last_failure_code")).isEqualTo("PROVIDER_HISTORY_READ");
 
             instant.set(first.plus(Duration.ofMinutes(30)));
             monitor.runCycle();
 
-            Timestamp completed = jdbc.queryForObject(
-                    "SELECT completed_until FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
-                    Timestamp.class, merchant);
+            Timestamp completed =
+                    jdbc.queryForObject(
+                            "SELECT completed_until FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
+                            Timestamp.class,
+                            merchant);
             assertThat(completed).isNotNull();
             assertThat(completed.toInstant()).isAfter(first.minus(Duration.ofHours(48)));
-            assertThat(jdbc.queryForObject(
-                            "SELECT last_failure_code FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
-                            String.class, merchant))
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT last_failure_code FROM saspay_audit_checkpoints WHERE provider_account_reference=?",
+                                    String.class,
+                                    merchant))
                     .isNull();
             assertThat(jdbc.queryForObject("SELECT count(*) FROM payments", Long.class)).isZero();
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM merchant_payouts", Long.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM merchant_payouts", Long.class))
+                    .isZero();
         }
     }
 
     @Test
     void errorsAreCategorizedWithoutLoggingRawExceptionMessages() {
-        assertThat(SaspayIncidentMonitor.failureCode(
-                        "LOCAL_SCAN", new DataAccessResourceFailureException("private-db-hostname")))
+        assertThat(
+                        SaspayIncidentMonitor.failureCode(
+                                "LOCAL_SCAN",
+                                new DataAccessResourceFailureException("private-db-hostname")))
                 .isEqualTo("DATABASE_LOCAL_SCAN");
-        assertThat(SaspayIncidentMonitor.failureCode(
-                        "HISTORY_READ", new SaspayException("SASPAY_HTTP_429")))
+        assertThat(
+                        SaspayIncidentMonitor.failureCode(
+                                "HISTORY_READ", new SaspayException("SASPAY_HTTP_429")))
                 .isEqualTo("PROVIDER_HISTORY_READ");
-        assertThat(SaspayIncidentMonitor.safeSqlState(
-                        new IllegalStateException(
-                                "private connection detail",
-                                new java.sql.SQLException("sensitive", "22007"))))
+        assertThat(
+                        SaspayIncidentMonitor.safeSqlState(
+                                new IllegalStateException(
+                                        "private connection detail",
+                                        new java.sql.SQLException("sensitive", "22007"))))
                 .isEqualTo("22007");
-        assertThat(SaspayIncidentMonitor.safeSqlState(
-                        new IllegalStateException("private")))
+        assertThat(SaspayIncidentMonitor.safeSqlState(new IllegalStateException("private")))
                 .isEqualTo("NONE");
     }
 }

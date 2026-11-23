@@ -53,6 +53,7 @@ Les 14 UNKNOWN_REFERENCE clôturés, les 84 AUDIT_INCOMPLETE et toutes les déci
 
 - Expiration du devis contrôlée avant les précontrôles et juste avant le POST, y compris après les lectures de tarifs et de portefeuille. Refus classé **NOT_ATTEMPTED** : le chemin de gestion existant sait distinguer ce refus local d'un résultat fournisseur inconnu.
 - Ancien endpoint de récupération pilote retiré : réponse 410 après autorisation. Il ne peut plus réémettre un retrait incertain sous prétexte de réutiliser sa clé. Les réserves et les états historiques restent inchangés. La vérification GET et les dossiers administratifs avec preuves restent les voies autorisées.
+- Exception historique `historical-unlinked` retirée : la seule attestation du propriétaire et l'acceptation du risque ne peuvent plus libérer une réserve incertaine. GET autorisé en lecture seule avec `eligible=false`, POST 410 après autorisation. Les décisions OWNER_RISK_ACCEPTANCE déjà enregistrées restent inchangées ; les parcours exigeant une preuve indépendante restent disponibles.
 - Aucun nouveau réseau ni plafond fournisseur supposé. Les contrôles de bénéficiaire, de provenance, de solvabilité globale, de frais déduits et de double preuve sont conservés.
 
 ### Abonnements et remboursements (lot D)
@@ -123,6 +124,7 @@ COMMIT;
 - Première passe ciblée : 205 tests, un défaut de classification JSON et deux erreurs dues au même cast PostgreSQL manquant. Corrections effectuées, sans assouplir les assertions financières.
 - Revalidation des quatre suites concernées : **130 tests, zéro échec/erreur** (SasPay contracts, queue PostgreSQL, intégration financière, provider payout). Les tests historiques d'incidents ont passé la première passe ciblée. La suite d'abonnement finale passe **21 tests**, dont la régression des factures historiquement EXPIRED ; sa préparation respecte également la contrainte PostgreSQL sur expired_at.
 - La passe globale a révélé une préparation de test de reversement omettant la nouvelle table référencée : la liste explicite de nettoyage PostgreSQL a été complétée, sans supprimer la clé étrangère ni affaiblir les assertions. Revalidation : **51 tests MerchantSettlementIntegrationTests passent**.
+- La CI intermédiaire a exécuté 1 593 tests Java : seul l'ancien test de clôture par acceptation du risque échouait (date relative franchissant le cutoff historique). Ce parcours a été retiré pour respecter l'invariant de conservation des réserves. Les tests remplacés exigent désormais le refus, l'absence de mutation et le contrôle d'autorisation, avec date historique fixe. La revalidation finale des trois suites concernées passe **101 tests** (51 reversements, 29 administration, 21 abonnements), sans échec ni erreur.
 - Angular après les messages de récupération : **553 tests / 53 fichiers passent**.
 - Playwright complet : **391 scénarios passent** ; **33 scénarios financiers passent** après les derniers libellés.
 - Python : **88 tests passent** ; 22 migrations gelées conformes à leur baseline.

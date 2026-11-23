@@ -1,5 +1,14 @@
 # DIR-21 — clôture exceptionnelle supervisée, sans appel SasPay POST
 
+> **Procédure retirée le 23 novembre 2026.** Ce document conserve le contexte
+> de l'ancienne exception ; ses instructions d'activation et de clôture ne doivent
+> plus être exécutées. Le POST `historical-unlinked` renvoie désormais 410 après
+> autorisation, et sa prévisualisation indique `eligible=false`. Une attestation
+> du propriétaire ou une acceptation du risque ne prouve pas la non-exécution.
+> Les décisions historiques restent conservées ; utiliser uniquement le parcours
+> de revue avec preuve indépendante décrit dans [PAYOUT_RESOLUTION_RUNBOOK.md](PAYOUT_RESOLUTION_RUNBOOK.md).
+
+
 ## Portée
 
 Destiné à la demande d'un propriétaire/opérateur qui **atteste** que son historique

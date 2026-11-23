@@ -188,3 +188,6 @@ databaseChangeLog:
   - include:
       file: 063-saspay-stable-local-signals.sql
       relativeToChangelogFile: true
+  - include:
+      file: 064-saspay-payment-recovery.sql
+      relativeToChangelogFile: true

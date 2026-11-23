@@ -225,7 +225,11 @@ public class PaymentService implements PaymentOperations {
         try {
             result = adapter.verify(instruction);
         } catch (RuntimeException ex) {
-            return transactions.uncertain(paymentId);
+            return transactions.uncertain(
+                    paymentId,
+                    "SASPAY".equals(instruction.provider()) && ex instanceof WebhookParsingFailure
+                            ? WebhookParsingFailure.safeCode(ex)
+                            : "PROVIDER_STATE_UNCERTAIN");
         }
         // A hosted session can be PENDING without any financial transaction ID.
         // Do not mark it uncertain or invent an ID while the client is paying.

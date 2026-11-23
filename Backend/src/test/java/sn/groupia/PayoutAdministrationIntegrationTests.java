@@ -78,8 +78,6 @@ class PayoutAdministrationIntegrationTests {
         ReflectionTestUtils.setField(policy, "saspayLivePilotReleased", false);
         doReturn(new BigDecimal("37")).when(provider).payoutFeeQuote(any(), any());
         ReflectionTestUtils.setField(administration, "enabled", true);
-        ReflectionTestUtils.setField(administration, "historicalUnlinkedEnabled", false);
-        ReflectionTestUtils.setField(administration, "historicalUnlinkedPayoutId", "");
 
         actor = UUID.randomUUID();
         org = UUID.randomUUID();
@@ -511,94 +509,56 @@ class PayoutAdministrationIntegrationTests {
     }
 
     @Test
-    void historicalUnlinkedClosureIsExplicitAuditedIdempotentAndNeverResendsOldProviderKey()
-            throws Exception {
-        clock.advance(java.time.Duration.ofDays(-5));
+    void ownerRiskAcceptanceCannotReleaseEvenAHistoricalUnlinkedReserve() throws Exception {
+        clock.advance(
+                java.time.Duration.between(clock.instant(), Instant.parse("2026-11-16T12:00:00Z")));
         UUID dest = destination();
         var payout = uncertain(dest);
-        ReflectionTestUtils.setField(administration, "historicalUnlinkedEnabled", true);
-        ReflectionTestUtils.setField(
-                administration, "historicalUnlinkedPayoutId", payout.id().toString());
         String previewUrl =
                 base() + "/merchant-payouts/" + payout.id() + "/administration/historical-unlinked";
         var preview = read(auth(get(previewUrl)));
-        assertThat(preview.path("eligible").booleanValue()).isTrue();
+        assertThat(preview.path("eligible").booleanValue()).isFalse();
         assertThat(preview.path("directOrderId").asText())
                 .isEqualTo(payout.directOrderId().toString());
-        assertThat(preview.path("version").longValue()).isEqualTo(payout.version());
         int sends = provider.sends.get();
         var payload = historicalUnlinkedRequest(payout.version());
-        var result = read(closeHistoricalUnlinked(payout, payload));
-        assertThat(result.path("status").asText()).isEqualTo("NON_EXECUTE");
-        assertThat(read(closeHistoricalUnlinked(payout, payload)).path("authorizationId"))
-                .isEqualTo(result.path("authorizationId"));
-        var old = feeStore.payout(org, payout.id());
-        assertThat(old.status()).isEqualTo("NON_EXECUTE");
-        assertThat(old.providerIdempotencyKey()).isEqualTo(payout.providerIdempotencyKey());
-        assertThat(old.businessReference()).isEqualTo(payout.businessReference());
-        assertThat(balance().path("reservedForPayout").decimalValue()).isZero();
-        assertThat(balance().path("availableForPayout").decimalValue())
-                .isEqualByComparingTo("1000");
-        assertThat(provider.sends).hasValue(sends);
-        assertThat(
-                        jdbc.queryForObject(
-                                "select evidence_type from merchant_payout_administrations where payout_id=?",
-                                String.class,
-                                payout.id()))
-                .isEqualTo("OWNER_RISK_ACCEPTANCE");
-        allowSuccess();
-        UUID freshQuote = quote(orderId, dest);
-        var newPayout = read(request(orderId, dest, UUID.randomUUID(), freshQuote));
-        assertThat(newPayout.path("id").asText()).isNotEqualTo(payout.id().toString());
-        assertThat(provider.sends).hasValue(sends + 1);
-    }
-
-    @Test
-    void historicalUnlinkedClosureRejectsDisabledScopeMissingAttestationAndChangedState()
-            throws Exception {
-        clock.advance(java.time.Duration.ofDays(-5));
-        UUID dest = destination();
-        var old = uncertain(dest);
-        var payload = historicalUnlinkedRequest(old.version());
-        closeHistoricalUnlinked(old, payload).andExpect(status().isForbidden());
-        ReflectionTestUtils.setField(administration, "historicalUnlinkedEnabled", true);
-        ReflectionTestUtils.setField(
-                administration, "historicalUnlinkedPayoutId", UUID.randomUUID().toString());
-        closeHistoricalUnlinked(old, payload).andExpect(status().isForbidden());
-        ReflectionTestUtils.setField(
-                administration, "historicalUnlinkedPayoutId", old.id().toString());
-        var incomplete = new LinkedHashMap<>(payload);
-        incomplete.put("acceptsDuplicatePayoutRisk", false);
-        closeHistoricalUnlinked(old, incomplete).andExpect(status().isBadRequest());
-        incomplete.put("acceptsDuplicatePayoutRisk", true);
-        incomplete.put("ownerConfirmsNeverExecuted", false);
-        closeHistoricalUnlinked(old, incomplete).andExpect(status().isBadRequest());
-        ReflectionTestUtils.setField(administration, "operators", UUID.randomUUID().toString());
-        closeHistoricalUnlinked(old, payload).andExpect(status().isForbidden());
-        ReflectionTestUtils.setField(administration, "operators", actor.toString());
-        var changedVersion = new LinkedHashMap<>(payload);
-        changedVersion.put("expectedVersion", old.version() + 1);
-        closeHistoricalUnlinked(old, changedVersion).andExpect(status().isConflict());
-        assertThat(feeStore.payout(org, old.id()).reserved()).isTrue();
+        for (int n = 0; n < 2; n++) {
+            closeHistoricalUnlinked(payout, payload)
+                    .andExpect(status().isGone())
+                    .andExpect(jsonPath("code").value("PAYOUT_HISTORICAL_REVIEW_RETIRED"));
+        }
+        assertThat(feeStore.payout(org, payout.id())).isEqualTo(payout);
+        assertThat(balance().path("reservedForPayout").decimalValue()).isEqualByComparingTo("1000");
+        assertThat(balance().path("availableForPayout").decimalValue()).isZero();
         assertThat(
                         jdbc.queryForObject(
                                 "select count(*) from merchant_payout_administrations",
                                 Integer.class))
                 .isZero();
+        assertThat(provider.sends).hasValue(sends);
     }
 
     @Test
-    void historicalUnlinkedClosureRefusesNewerPayoutOrUnrelatedReconciliationReason()
-            throws Exception {
-        UUID dest = destination();
-        var afterActivation = uncertain(dest);
-        ReflectionTestUtils.setField(administration, "historicalUnlinkedEnabled", true);
-        ReflectionTestUtils.setField(
-                administration, "historicalUnlinkedPayoutId", afterActivation.id().toString());
-        closeHistoricalUnlinked(
-                        afterActivation, historicalUnlinkedRequest(afterActivation.version()))
-                .andExpect(status().isConflict());
-        assertThat(feeStore.payout(org, afterActivation.id()).reserved()).isTrue();
+    void retiredHistoricalClosureStillEnforcesOperatorAuthorization() throws Exception {
+        var payout = uncertain(destination());
+        ReflectionTestUtils.setField(administration, "operators", UUID.randomUUID().toString());
+        closeHistoricalUnlinked(payout, historicalUnlinkedRequest(payout.version()))
+                .andExpect(status().isForbidden());
+        auth(get(
+                        base()
+                                + "/merchant-payouts/"
+                                + payout.id()
+                                + "/administration/historical-unlinked"))
+                .andExpect(status().isForbidden());
+        assertThat(feeStore.payout(org, payout.id())).isEqualTo(payout);
+    }
+
+    @Test
+    void retiredHistoricalClosureAlsoPreservesNewerUncertainReserves() throws Exception {
+        var payout = uncertain(destination());
+        closeHistoricalUnlinked(payout, historicalUnlinkedRequest(payout.version()))
+                .andExpect(status().isGone());
+        assertThat(feeStore.payout(org, payout.id())).isEqualTo(payout);
         assertThat(
                         jdbc.queryForObject(
                                 "select count(*) from merchant_payout_administrations",

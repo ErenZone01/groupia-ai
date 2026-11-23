@@ -58,17 +58,6 @@ public class MerchantPayoutTransactions {
     @Value("${groupia.settlement.saspay-payout-live-pilot.direct-order-id:}")
     private String saspayLivePilotDirectOrderId;
 
-    // One-time manual recovery of a specific already-reserved payout.
-    // The original provider idempotency key and the immutable beneficiary are reused.
-    @Value("${groupia.settlement.saspay-payout-recovery.enabled:false}")
-    private boolean saspayPayoutRecoveryEnabled;
-
-    @Value("${groupia.settlement.saspay-payout-recovery.payout-id:}")
-    private String saspayPayoutRecoveryId;
-
-    @Value("${groupia.settlement.saspay-payout-recovery.original-provider-key:}")
-    private String saspayPayoutRecoveryOriginalKey;
-
     MerchantPayoutTransactions(
             MerchantFinanceStore s,
             MerchantBalances b,
@@ -773,9 +762,8 @@ public class MerchantPayoutTransactions {
     }
 
     /**
-     * Claims the one existing pilot payout for a SINGLE manual replay of the exact original
-     * provider intention. The claim is committed before any HTTP call; a crash or timeout cannot
-     * make it automatically eligible for another attempt.
+     * Retired pilot replay. An uncertain external execution must be investigated independently; a
+     * feature flag and a reused idempotency key are not sufficient evidence for another POST.
      */
     public MerchantPayout claimRecovery(UUID org, UUID id, boolean confirmed) {
         access.requireActorPermission(org, OrganizationPermission.EXECUTE_PAYOUTS);
@@ -783,76 +771,12 @@ public class MerchantPayoutTransactions {
         if (!confirmed)
             throw error(
                     400, "PAYOUT_CONFIRMATION_REQUIRED", "Confirmez la récupération du retrait.");
-        if (!saspayPayoutRecoveryEnabled
-                || id == null
-                || !id.toString().equals(saspayPayoutRecoveryId)
-                || !saspayLivePilotReleased)
-            throw error(403, "SASPAY_PAYOUT_RECOVERY_LOCKED", "Récupération pilote désactivée.");
-        store.lockOrganization(org);
-        var p = store.payout(org, id);
-        if (!"SASPAY".equals(provider.name())
-                || !"SASPAY".equals(p.provider())
-                || !p.directSale()
-                || !p.status().equals("REVIEW_REQUIRED")
-                || !p.reconciliationRequired()
-                || !"PAYOUT_REFERENCE_UNAVAILABLE".equals(p.reconciliationReason())
-                || p.providerTransactionId() != null
-                || p.providerIdempotencyKey() == null
-                || !p.providerIdempotencyKey().toString().equals(saspayPayoutRecoveryOriginalKey)
-                || p.businessReference() == null
-                || !p.businessReference().startsWith("MERCHANT_PAYOUT:" + org + ":")
-                || !Objects.equals(p.providerAccountReference(), provider.account()))
-            throw error(409, "SASPAY_PAYOUT_RECOVERY_INELIGIBLE", "Retrait non récupérable.");
-        requireLivePilotTarget(p.directOrderId(), p.method());
-        requireSaspayPilot(org, p.amount());
-        if (!available() || !directPayoutsEnabled)
-            throw error(503, "MERCHANT_PAYOUT_DISABLED", "Retraits désactivés.");
-        if (store.payouts(org).stream().filter(row -> "SASPAY".equals(row.provider())).count() != 1)
-            throw error(409, "SASPAY_PAYOUT_RECOVERY_INELIGIBLE", "Plusieurs retraits SasPay.");
-        var destination =
-                store.destination(org)
-                        .orElseThrow(
-                                () ->
-                                        error(
-                                                409,
-                                                "PAYOUT_DESTINATION_REQUIRED",
-                                                "Destination absente."));
-        if (!p.destinationId().equals(destination.id())
-                || !p.method().equals(destination.method())
-                || !p.phoneE164().equals(destination.phoneE164())
-                || !p.holderName().equals(destination.holderName()))
-            throw error(409, "PAYOUT_DESTINATION_CHANGED", "La destination a changé.");
-        var quote = store.payoutFeeQuote(id);
-        if (quote == null
-                || !org.equals(quote.organizationId())
-                || !p.directOrderId().equals(quote.directOrderId())
-                || !p.destinationId().equals(quote.destinationId())
-                || !p.method().equals(quote.method())
-                || !p.phoneE164().equals(quote.phoneE164())
-                || !p.providerAccountReference().equals(quote.providerAccountReference())
-                || !"SASPAY".equals(quote.provider())
-                || p.amount().compareTo(quote.grossAmount()) != 0
-                || quote.providerFee().signum() < 0
-                || quote.netAmount().signum() <= 0
-                || quote.netAmount().compareTo(quote.grossAmount().subtract(quote.providerFee()))
-                        != 0)
-            throw error(409, "PAYOUT_FEE_QUOTE_MISMATCH", "Devis initial non fiable.");
-        // The original quote was accepted during initial reservation; its expiration is
-        // intentionally not renewed. initiate() rechecks today's exact fee before POST.
-        direct.lock(org, p.directOrderId());
-        var position =
-                direct.calculate(org).stream()
-                        .filter(row -> p.directOrderId().equals(row.directOrderId()))
-                        .findFirst()
-                        .orElseThrow(
-                                () -> error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Fonds absents."));
-        if (position.eligibleBalance().compareTo(position.reservedForPayout()) < 0
-                || position.reservedForPayout().compareTo(p.amount()) < 0
-                || position.deficit().signum() != 0)
-            throw error(409, "MERCHANT_FUNDS_NOT_AVAILABLE", "Fonds réservés non vérifiés.");
-        requireOrganizationReservation(org);
-        store.state(id, "PENDING", null, null, null, true, "PAYOUT_MANUAL_RECOVERY_IN_PROGRESS");
-        return p;
+        // Reusing a key is not proof of non-execution or of indefinite provider deduplication.
+        // Retain the reservation and use GET verification / reviewed administrative evidence.
+        throw error(
+                410,
+                "SASPAY_PAYOUT_RECOVERY_RETIRED",
+                "La réémission d'un retrait incertain est désactivée. Utilisez la vérification et la revue administrative avec justificatifs.");
     }
 
     /** No fresh key is ever minted on a failed recovery; it remains reserved. */

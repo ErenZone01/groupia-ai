@@ -32,6 +32,20 @@ const labels: Record<string, string> = {
   DUPLICATE_PROVIDER_SUCCESS: 'Paiement supplémentaire',
   PROVIDER_REVERSAL: 'Annulation de fonds signalée',
   PROVIDER_STATE_UNCERTAIN: 'Statut du prestataire incertain',
+  SASPAY_LEGACY_REFERENCE_UNAVAILABLE:
+    'Référence du paiement indisponible. Revue financière nécessaire avant toute nouvelle tentative.',
+  SASPAY_HOSTED_SESSION_NOT_FOUND:
+    'Session non retrouvée. Le paiement reste à vérifier ; ne lancez pas un nouveau paiement.',
+  SASPAY_HOSTED_RECOVERY_NOT_EXHAUSTIVE:
+    'Recherche de session incomplète. Une revue financière est nécessaire.',
+  SASPAY_HOSTED_DUPLICATE_SESSIONS: 'Plusieurs sessions détectées. Revue financière nécessaire.',
+  SASPAY_RATE_LIMITED: 'Vérification différée par le prestataire. Elle reprendra automatiquement.',
+  SASPAY_TRANSPORT_UNCERTAIN: 'Réponse du prestataire indisponible. Vérification en cours.',
+  SASPAY_PROVIDER_READ_FAILED: 'Le prestataire ne permet pas encore de vérifier ce paiement.',
+  SASPAY_FINANCIAL_MISMATCH:
+    'Les montants du prestataire ne correspondent pas au paiement attendu.',
+  SASPAY_TRANSACTION_MISMATCH:
+    'Les références du prestataire ne correspondent pas au paiement attendu.',
   TRANSACTION_MISMATCH: 'Transaction incohérente',
 };
 export function paymentLabel(value?: string | null) {

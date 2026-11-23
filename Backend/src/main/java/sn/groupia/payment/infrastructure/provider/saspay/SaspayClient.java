@@ -198,7 +198,9 @@ final class SaspayClient {
                             throw new SaspayException("SASPAY_RESPONSE_TOO_LARGE");
                         JsonNode node;
                         try {
-                            node = json.readTree(body);
+                            node = SaspayWebhookJson.read(body);
+                        } catch (SaspayException ex) {
+                            throw ex;
                         } catch (RuntimeException ex) {
                             throw new SaspayException("SASPAY_INVALID_JSON");
                         }

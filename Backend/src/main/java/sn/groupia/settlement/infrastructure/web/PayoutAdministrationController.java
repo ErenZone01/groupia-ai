@@ -48,8 +48,8 @@ class PayoutAdministrationController {
         }
     }
 
-    // Admin-only declaration for the single configured unresolved historical payout.
-    // No provider request is sent by this controller.
+    // Compatibility request for the retired historical exception (410 after authorization).
+    // Owner risk acceptance cannot release an uncertain reserve.
     record HistoricalUnlinked(
             @PositiveOrZero long expectedVersion,
             @NotBlank @Size(max = 120) String evidenceReference,

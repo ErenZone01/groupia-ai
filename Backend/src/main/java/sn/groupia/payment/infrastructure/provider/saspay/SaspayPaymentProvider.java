@@ -330,10 +330,15 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     }
 
     public ProviderObservation verify(ProviderInstruction i) {
+        if (!name().equals(i.provider())
+                || !accountReference().equals(i.providerAccountReference()))
+            throw new SaspayException("SASPAY_TRANSACTION_MISMATCH");
         if (i.providerSessionId() == null) {
             if (i.providerTransactionId() == null
                     && i.checkout() != null
                     && i.checkout().feeQuoteId() == null) return recoverHostedCheckout(i);
+            if (i.providerTransactionId() == null)
+                throw new SaspayException("SASPAY_LEGACY_REFERENCE_UNAVAILABLE");
             // Legacy Softpay payments may still be pending during migration. Keep
             // verification (not new initiation) available for old financial records.
             return verifyLegacySoftpay(i);
@@ -567,7 +572,7 @@ public final class SaspayPaymentProvider implements PaymentProvider {
     }
 
     public NormalizedWebhook parse(byte[] payload) {
-        var root = json.readTree(payload);
+        var root = SaspayWebhookJson.parse(payload);
         var event = text(root, "event");
         if (!Set.of(
                         "transaction.created",

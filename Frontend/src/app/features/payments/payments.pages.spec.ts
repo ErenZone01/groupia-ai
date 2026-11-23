@@ -10,6 +10,16 @@ import { paymentPage, paymentDetail, paymentReview } from '../../testing/payment
 import { paymentLabel } from './payment-display';
 
 describe('Payments pages', () => {
+  it('explains missing references without suggesting another financial initiation', () => {
+    expect(paymentLabel('SASPAY_LEGACY_REFERENCE_UNAVAILABLE')).toContain(
+      'avant toute nouvelle tentative',
+    );
+    expect(paymentLabel('SASPAY_HOSTED_SESSION_NOT_FOUND')).toContain(
+      'ne lancez pas un nouveau paiement',
+    );
+    expect(paymentLabel('SASPAY_RATE_LIMITED')).toContain('reprendra automatiquement');
+    expect(paymentLabel('untrusted-provider-message')).toBe('À examiner avec l’équipe');
+  });
   const initial: ReturnType<PaymentsStore['vm']> = {
     requests: paymentPage,
     detail: paymentDetail,

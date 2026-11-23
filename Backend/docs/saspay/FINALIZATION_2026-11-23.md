@@ -122,6 +122,7 @@ COMMIT;
 
 - Première passe ciblée : 205 tests, un défaut de classification JSON et deux erreurs dues au même cast PostgreSQL manquant. Corrections effectuées, sans assouplir les assertions financières.
 - Revalidation des quatre suites concernées : **130 tests, zéro échec/erreur** (SasPay contracts, queue PostgreSQL, intégration financière, provider payout). Les tests historiques d'incidents ont passé la première passe ciblée. La suite d'abonnement finale passe **21 tests**, dont la régression des factures historiquement EXPIRED ; sa préparation respecte également la contrainte PostgreSQL sur expired_at.
+- La passe globale a révélé une préparation de test de reversement omettant la nouvelle table référencée : la liste explicite de nettoyage PostgreSQL a été complétée, sans supprimer la clé étrangère ni affaiblir les assertions. Revalidation : **51 tests MerchantSettlementIntegrationTests passent**.
 - Angular après les messages de récupération : **553 tests / 53 fichiers passent**.
 - Playwright complet : **391 scénarios passent** ; **33 scénarios financiers passent** après les derniers libellés.
 - Python : **88 tests passent** ; 22 migrations gelées conformes à leur baseline.

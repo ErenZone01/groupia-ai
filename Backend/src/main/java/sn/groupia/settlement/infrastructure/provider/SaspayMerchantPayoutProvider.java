@@ -33,6 +33,11 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @ConditionalOnProperty(name = "groupia.settlement.payout-provider", havingValue = "SASPAY")
 public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
+    private static final tools.jackson.databind.json.JsonMapper STRICT_JSON =
+            tools.jackson.databind.json.JsonMapper.builder()
+                    .enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .build();
     // No general LIVE payouts. Only a separately opted-in one-order, one-shop
     // pilot can use production transport; synthetic tests remain isolated.
     private final boolean syntheticTransport;
@@ -309,6 +314,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                     || !account().equals(accepted.providerAccountReference()))
                 throw new IllegalStateException("SASPAY_PAYOUT_FEE_QUOTE_MISMATCH");
         }
+        requireUnexpiredQuote(accepted);
         String payoutNetwork = network(p.method());
         MerchantPayoutFeeQuote quote = accepted;
         BigDecimal quotedFee =
@@ -345,6 +351,9 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                     return null;
                 });
         // Complete serialization before a POST can be transmitted.
+        // Pricing and wallet reads can outlive the accepted quote. Recheck at the mutation
+        // boundary.
+        requireUnexpiredQuote(accepted);
         byte[] serialized;
         try {
             serialized = json.writeValueAsBytes(body);
@@ -354,6 +363,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
         return at(
                 Stage.INITIALIZE,
                 () -> {
+                    requireUnexpiredQuote(quote);
                     JsonNode ack =
                             exchange(
                                     http.post()
@@ -375,6 +385,11 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                                 Reason.IDENTIFIER_INVALID);
                     }
                 });
+    }
+
+    void requireUnexpiredQuote(MerchantPayoutFeeQuote quote) {
+        if (quote != null && !clock.instant().isBefore(quote.expiresAt()))
+            throw failure(Stage.INTENT, 0, Category.VALIDATION, Reason.FEE_QUOTE_EXPIRED);
     }
 
     private List<JsonNode> merchantWalletPages() {
@@ -723,7 +738,7 @@ public class SaspayMerchantPayoutProvider implements MerchantPayoutProvider {
                                     stage, status, Category.CONTRACT, Reason.RESPONSE_TOO_LARGE);
                         JsonNode root;
                         try {
-                            root = json.readTree(bytes);
+                            root = STRICT_JSON.readTree(bytes);
                         } catch (RuntimeException ex) {
                             throw failure(stage, status, Category.CONTRACT, Reason.INVALID_JSON);
                         }

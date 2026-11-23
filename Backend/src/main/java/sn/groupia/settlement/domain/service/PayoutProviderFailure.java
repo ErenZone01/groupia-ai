@@ -65,6 +65,7 @@ public final class PayoutProviderFailure extends IllegalStateException {
         LIVE_PILOT_TARGET_MISMATCH,
         FEE_QUOTE_MISSING,
         FEE_QUOTE_MISMATCH,
+        FEE_QUOTE_EXPIRED,
         PREFLIGHT_UNAVAILABLE,
         QUOTE_CHANGED,
         NETWORK_UNAVAILABLE,

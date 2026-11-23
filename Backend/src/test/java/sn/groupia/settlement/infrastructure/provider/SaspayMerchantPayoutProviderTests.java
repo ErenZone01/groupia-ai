@@ -67,6 +67,145 @@ class SaspayMerchantPayoutProviderTests {
     }
 
     @Test
+    void quoteExpirationAtTransmissionBoundaryIsProvenNotAttempted() {
+        var now = Instant.parse("2026-11-23T12:00:00Z");
+        var time = new java.util.concurrent.atomic.AtomicReference<>(now);
+        Clock clock =
+                new Clock() {
+                    public ZoneId getZone() {
+                        return ZoneOffset.UTC;
+                    }
+
+                    public Clock withZone(ZoneId zone) {
+                        return Clock.fixed(time.get(), zone);
+                    }
+
+                    public Instant instant() {
+                        return time.get();
+                    }
+                };
+        var provider =
+                new SaspayMerchantPayoutProvider(
+                        settings(),
+                        json,
+                        clock,
+                        true,
+                        true,
+                        true,
+                        SaspayMerchantPayoutProvider.makeHttp(settings()));
+        var p = payout(null);
+        var quote =
+                new sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote(
+                        UUID.randomUUID(),
+                        p.organizationId(),
+                        p.campaignId(),
+                        null,
+                        p.destinationId(),
+                        p.method(),
+                        p.phoneE164(),
+                        "SASPAY",
+                        MERCHANT.toString(),
+                        p.amount(),
+                        new BigDecimal("37"),
+                        new BigDecimal("963"),
+                        now.plusSeconds(1));
+        provider.requireUnexpiredQuote(quote);
+        time.set(now.plusSeconds(1));
+        assertThatThrownBy(() -> provider.requireUnexpiredQuote(quote))
+                .isInstanceOfSatisfying(
+                        PayoutProviderFailure.class,
+                        failure -> {
+                            assertThat(failure.getMessage())
+                                    .isEqualTo("SASPAY_PAYOUT_FEE_QUOTE_EXPIRED");
+                            assertThat(failure.submission()).isEqualTo(Submission.NOT_ATTEMPTED);
+                        });
+    }
+
+    @Test
+    void quoteThatExpiresDuringWalletReadNeverReachesPayoutPost() throws Exception {
+        var now = Instant.parse("2026-11-23T12:00:00Z");
+        var time = new java.util.concurrent.atomic.AtomicReference<>(now);
+        Clock clock =
+                new Clock() {
+                    public ZoneId getZone() {
+                        return ZoneOffset.UTC;
+                    }
+
+                    public Clock withZone(ZoneId zone) {
+                        return Clock.fixed(time.get(), zone);
+                    }
+
+                    public Instant instant() {
+                        return time.get();
+                    }
+                };
+        var p = payout(null);
+        var accepted =
+                new sn.groupia.settlement.domain.model.MerchantPayoutFeeQuote(
+                        UUID.randomUUID(),
+                        p.organizationId(),
+                        p.campaignId(),
+                        null,
+                        p.destinationId(),
+                        p.method(),
+                        p.phoneE164(),
+                        "SASPAY",
+                        MERCHANT.toString(),
+                        p.amount(),
+                        new BigDecimal("20"),
+                        new BigDecimal("980"),
+                        now.plusSeconds(1));
+        var store =
+                org.mockito.Mockito.mock(
+                        sn.groupia.settlement.domain.repository.MerchantFinanceStore.class);
+        org.mockito.Mockito.when(store.payoutFeeQuote(p.id())).thenReturn(accepted);
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var posts = new AtomicInteger();
+        server.createContext("/api/v1/pricing/my-rates/", e -> respond(e, payoutRates("DEDUCTED")));
+        server.createContext(
+                "/api/v1/merchant-balances/",
+                e -> {
+                    time.set(now.plusSeconds(1));
+                    respond(e, walletBalance("1500.00", false));
+                });
+        server.createContext(
+                "/api/v1/payouts/initialize/",
+                e -> {
+                    posts.incrementAndGet();
+                    respond(e, "{}");
+                });
+        server.start();
+        try {
+            var http =
+                    SaspayMerchantPayoutProvider.makeHttp(settings())
+                            .mutate()
+                            .baseUrl(
+                                    "http://127.0.0.1:" + server.getAddress().getPort() + "/api/v1")
+                            .build();
+            var provider =
+                    new SaspayMerchantPayoutProvider(
+                            settings(), json, clock, true, true, true, http);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    provider, "syntheticTransport", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    provider, "generalPayoutsEnabled", true);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    provider, "financeStore", store);
+            assertThatThrownBy(() -> provider.initiate(p))
+                    .isInstanceOfSatisfying(
+                            PayoutProviderFailure.class,
+                            ex -> {
+                                assertThat(ex.getMessage())
+                                        .isEqualTo("SASPAY_PAYOUT_FEE_QUOTE_EXPIRED");
+                                assertThat(ex.submission()).isEqualTo(Submission.NOT_ATTEMPTED);
+                            });
+            assertThat(posts).hasValue(0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void normalPayoutModeReplacesSingleOrderRestrictionButStillEnforcesProviderLimit() {
         var env = new org.springframework.mock.env.MockEnvironment();
         env.setProperty("groupia.payment.saspay.enabled", "true");

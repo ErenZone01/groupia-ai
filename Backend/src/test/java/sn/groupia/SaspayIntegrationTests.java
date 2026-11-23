@@ -217,6 +217,63 @@ class SaspayIntegrationTests {
     }
 
     @Test
+    void legacyPendingWithQuoteAndTransactionOnlyIsRecoveredByGetWithoutNewCharge()
+            throws Exception {
+        quote();
+        queueInitiation();
+        var receipt = read(initiate(key()).andExpect(status().isOk()).andReturn());
+        UUID id = UUID.fromString(receipt.path("id").asText());
+        clock.advance(Duration.ofSeconds(61));
+        var queue =
+                new sn.groupia.payment.infrastructure.provider.saspay.SaspayPaymentRecoveryQueue(
+                        jdbc, clock);
+        var work =
+                queue.claim(
+                        sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration
+                                .MERCHANT);
+        assertThat(work)
+                .extracting(
+                        sn.groupia.payment.infrastructure.provider.saspay.SaspayPaymentRecoveryQueue
+                                        .Work
+                                ::paymentId)
+                .containsExactly(id);
+        int requestsBefore = http.requests.size();
+        http.reply(200, verification("SUCCESS"));
+        assertThat(payments.reconcile(id).status()).isEqualTo(PaymentStatus.SUCCEEDED);
+        queue.complete(work.getFirst());
+        assertThat(http.requests).hasSize(requestsBefore + 1);
+        assertThat(http.requests.getLast().method()).isEqualTo("GET");
+        assertThat(http.requests.getLast().path())
+                .isEqualTo("/api/v1/payments/" + providerId + "/verify/");
+        assertThat(
+                        queue.claim(
+                                sn.groupia.payment.infrastructure.provider.saspay
+                                        .SaspayTestConfiguration.MERCHANT))
+                .isEmpty();
+    }
+
+    @Test
+    void missingLegacyReferenceStaysInReviewAndCannotBeReinitiated() throws Exception {
+        quote();
+        http.reply(
+                200,
+                sn.groupia.payment.infrastructure.provider.saspay.SaspayTestConfiguration.rates());
+        http.reply(503, "{}");
+        var receipt = read(initiate(key()).andExpect(status().isOk()).andReturn());
+        UUID id = UUID.fromString(receipt.path("id").asText());
+        int requestsBefore = http.requests.size();
+        assertThat(payments.reconcile(id).status()).isEqualTo(PaymentStatus.CREATED);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select reconciliation_reason from payments where id=?",
+                                String.class,
+                                id))
+                .isEqualTo("SASPAY_LEGACY_REFERENCE_UNAVAILABLE");
+        initiate(key()).andExpect(status().isConflict());
+        assertThat(http.requests).hasSize(requestsBefore);
+    }
+
+    @Test
     void payoutWebhooksAreDurableDeduplicatedHintsAndNeverAllocatePayins() throws Exception {
         String outgoing = event("SUCCESS").replace("PAIEMENT", "RETRAIT");
         deliver(outgoing);

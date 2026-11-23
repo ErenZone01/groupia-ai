@@ -96,6 +96,19 @@ class SaspayHostedContractTests {
     }
 
     @Test
+    void legacyQuoteWithoutTransactionRemainsExplicitlyUncertainAndNeverCallsProvider()
+            throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var i = instruction(null);
+            i = i.withCheckout(i.checkout().withFeeQuote(UUID.randomUUID()));
+            var lost = i;
+            assertThatThrownBy(() -> provider(stub).verify(lost))
+                    .hasMessage("SASPAY_LEGACY_REFERENCE_UNAVAILABLE");
+            assertThat(stub.requests).isEmpty();
+        }
+    }
+
+    @Test
     void createsHostedSessionOnlyAndPreservesSessionSeparatelyFromTransaction() throws Exception {
         try (var stub = new SaspayHttpStub()) {
             var i = instruction(null);

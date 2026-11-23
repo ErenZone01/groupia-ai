@@ -347,12 +347,16 @@ public class PaymentTransactions {
     }
 
     public PaymentAttemptView uncertain(UUID paymentId) {
+        return uncertain(paymentId, "PROVIDER_STATE_UNCERTAIN");
+    }
+
+    public PaymentAttemptView uncertain(UUID paymentId, String reason) {
         var p0 = store.payment(paymentId).orElseThrow();
         store.lockRequest(p0.getPaymentRequestId());
         var p = store.lockPayment(paymentId);
         p.checked(clock.instant());
         if (p.getStatus() != PaymentStatus.SUCCEEDED) {
-            p.review("PROVIDER_STATE_UNCERTAIN");
+            p.review(reason);
         }
         return p.view();
     }

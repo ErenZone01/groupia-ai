@@ -29,7 +29,12 @@ class PaymentController {
                     .debug("SasPay webhook reached Spring payment controller");
         }
         var authenticationHeaders = new HashMap<>(headers.toSingleValueMap());
-        for (String name : List.of("X-Secret-Key", "X-Webhook-Signature", "X-Webhook-Timestamp")) {
+        for (String name :
+                List.of(
+                        "X-Secret-Key",
+                        "X-Webhook-Signature",
+                        "X-Webhook-Timestamp",
+                        "X-Webhook-Event")) {
             var values = headers.get(name);
             // Empty sentinel is deliberately invalid and preserves receipt persistence on
             // rejection.

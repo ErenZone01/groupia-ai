@@ -27,7 +27,12 @@ public class SaspayPayoutWebhooks {
         try {
             // Outgoing TRANSFERT notifications are hints, not pay-in confirmations.
             return Set.of("RETRAIT", "TRANSFERT")
-                    .contains(json.readTree(payload).path("data").path("type").asText());
+                    .contains(
+                            sn.groupia.payment.infrastructure.provider.saspay.SaspayWebhookJson
+                                    .parse(payload)
+                                    .path("data")
+                                    .path("type")
+                                    .asText());
         } catch (RuntimeException ex) {
             return false;
         }
@@ -45,7 +50,9 @@ public class SaspayPayoutWebhooks {
         String error = authentic ? null : "PAYMENT_AUTHENTICITY_FAILED";
         if (authentic) {
             try {
-                JsonNode root = json.readTree(payload);
+                JsonNode root =
+                        sn.groupia.payment.infrastructure.provider.saspay.SaspayWebhookJson.parse(
+                                payload);
                 String event = root.path("event").asText();
                 String status = root.path("data").path("status").asText();
                 String expected =

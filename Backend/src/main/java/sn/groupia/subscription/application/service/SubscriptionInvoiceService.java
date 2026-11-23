@@ -57,14 +57,17 @@ public class SubscriptionInvoiceService {
         if (existing.isPresent()) return view(existing.get());
         Instant now = now();
         for (var invoice : invoices.list(org)) {
-            if (!invoice.status().equals("OPEN")) continue;
+            if (!invoice.status().equals("OPEN") && !invoice.status().equals("EXPIRED")) continue;
             var state = payments.lockRequestState(org, invoice.paymentRequestId());
+            // Older releases could expire an invoice before resolving its payment.
+            // Preserve that historical state, but do not let it hide a live financial attempt.
+            if (state.attemptInProgress() || state.reconciliationRequired())
+                throw existingInvoice(invoice.id());
+            if (invoice.status().equals("EXPIRED")) continue;
             // A settlement accepted before expiry remains attributable even if its durable listener
             // runs later.
-            if (state.request().settledPaymentId() != null
-                    || now.isBefore(invoice.periodEnd())
-                    || state.attemptInProgress()
-                    || state.reconciliationRequired()) throw existingInvoice(invoice.id());
+            if (state.request().settledPaymentId() != null || now.isBefore(invoice.periodEnd()))
+                throw existingInvoice(invoice.id());
             invoices.expire(invoice.id(), now);
         }
         // Do not sell a second future period before the first starts.

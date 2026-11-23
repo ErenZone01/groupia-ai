@@ -57,7 +57,7 @@ Les 14 UNKNOWN_REFERENCE clôturés, les 84 AUDIT_INCOMPLETE et toutes les déci
 
 ### Abonnements et remboursements (lot D)
 
-- Une échéance expirée ne peut plus être remplacée tant que sa tentative est en cours ou qu'une anomalie financière demeure. Un succès tardif sans droit attribuable bloque également un nouveau paiement jusqu'à sa revue. Une échéance expirée sans tentative peut toujours être remplacée.
+- Une échéance expirée ne peut plus être remplacée tant que sa tentative est en cours ou qu'une anomalie financière demeure, y compris lorsqu'une version précédente a déjà enregistré son statut EXPIRED. Un succès tardif sans droit attribuable bloque également un nouveau paiement jusqu'à sa revue. Une échéance expirée sans tentative peut toujours être remplacée.
 - Factures et périodes restent des snapshots du plan **STANDARD_MONTHLY**, au prix configuré ; aucun nouveau prix, prorata ou abonnement automatique ajouté.
 - Les remboursements conservent leur parcours existant : REFUND_DUE, justificatif de remboursement externe et événement idempotent EXTERNALLY_RECORDED. Ce dernier est une déclaration auditée, **pas une confirmation API SasPay**. Aucune route de remboursement native n'a été inventée.
 
@@ -121,11 +121,11 @@ COMMIT;
 ## Validation
 
 - Première passe ciblée : 205 tests, un défaut de classification JSON et deux erreurs dues au même cast PostgreSQL manquant. Corrections effectuées, sans assouplir les assertions financières.
-- Revalidation des quatre suites concernées : **130 tests, zéro échec/erreur** (SasPay contracts, queue PostgreSQL, intégration financière, provider payout). Les 20 tests d'abonnement et les tests historiques d'incidents ont passé la première passe ciblée.
+- Revalidation des quatre suites concernées : **130 tests, zéro échec/erreur** (SasPay contracts, queue PostgreSQL, intégration financière, provider payout). Les tests historiques d'incidents ont passé la première passe ciblée. La suite d'abonnement finale passe **21 tests**, dont la régression des factures historiquement EXPIRED ; sa préparation respecte également la contrainte PostgreSQL sur expired_at.
 - Angular après les messages de récupération : **553 tests / 53 fichiers passent**.
-- Playwright complet : **391 scénarios passent** ; nouvelle passe financière après les derniers libellés en cours.
+- Playwright complet : **391 scénarios passent** ; **33 scénarios financiers passent** après les derniers libellés.
 - Python : **88 tests passent** ; 22 migrations gelées conformes à leur baseline.
 - Audit npm : **0 vulnérabilité production**, 9 signalements modérés dans l'arbre de développement, aucun high/critical. Le seuil CI passe ; ces neuf signalements ne sont pas présentés comme inexistants.
-- Scan de secrets initial : zéro résultat ; scan final, `mvnw verify` global et GitHub Actions à renseigner à leur terminaison. La première suite globale de référence a été interrompue volontairement pour prioriser les corrections ; elle n'est pas comptabilisée comme validation complète.
+- Scan final de secrets : **zéro résultat** ; lint Angular et `git diff --check` passent. Les résultats du `mvnw verify` global et de GitHub Actions sont centralisés dans la [PR #106](https://github.com/ErenZone01/groupia-ai/pull/106), afin de les rattacher au commit effectivement validé. La première suite globale de référence a été interrompue volontairement pour prioriser les corrections ; elle n'est pas comptabilisée comme validation complète.
 
 Aucun succès LIVE supplémentaire revendiqué. Les deux retraits de 1 000 XOF (963 nets / 37 frais) sont des preuves rapportées par l'utilisateur, limitées au parcours Wave concerné. La seule vérification réelle supplémentaire du paiement historique est une lecture GET, sans mouvement de fonds.

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -527,6 +528,38 @@ class SubscriptionIntegrationTests {
                                 organizationId))
                 .isEqualTo(1);
         assertThat(subscriptions.history(organizationId)).isEmpty();
+    }
+
+    @Test
+    void alreadyExpiredHistoricalInvoiceCannotHideAnUnresolvedPayment() throws Exception {
+        expireTrial();
+        completeBillingContact();
+        var old = create(UUID.randomUUID().toString());
+        pay(old);
+        clock.at(old.periodEnd().plusSeconds(1));
+        // Fixture reproduces the state persisted by previous releases, not a production repair.
+        jdbc.update(
+                "update subscription_invoices set status='EXPIRED',expired_at=?,version=version+1 where id=?",
+                Timestamp.from(clock.instant()),
+                old.id());
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("SUBSCRIPTION_INVOICE_EXISTS"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from subscription_invoices where id=?",
+                                String.class,
+                                old.id()))
+                .isEqualTo("EXPIRED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from subscription_invoices where organization_id=?",
+                                Integer.class,
+                                organizationId))
+                .isEqualTo(1);
     }
 
     @Test

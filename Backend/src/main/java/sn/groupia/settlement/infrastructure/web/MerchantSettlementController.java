@@ -162,8 +162,8 @@ class MerchantSettlementController {
     @PostMapping("/merchant-payouts/{payoutId}/recover-pilot")
     @Operation(
             operationId = "recoverPilotMerchantPayout",
-            summary =
-                    "Opération exceptionnelle : un seul rejeu de la clé SasPay du retrait existant")
+            summary = "Opération retirée : aucun rejeu d'un retrait incertain (410)",
+            deprecated = true)
     ResponseEntity<MerchantPayoutView> recoverPilot(
             @PathVariable UUID organizationId,
             @PathVariable UUID payoutId,

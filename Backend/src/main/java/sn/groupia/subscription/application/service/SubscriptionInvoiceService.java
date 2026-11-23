@@ -61,8 +61,10 @@ public class SubscriptionInvoiceService {
             var state = payments.lockRequestState(org, invoice.paymentRequestId());
             // A settlement accepted before expiry remains attributable even if its durable listener
             // runs later.
-            if (state.request().settledPaymentId() != null || now.isBefore(invoice.periodEnd()))
-                throw existingInvoice(invoice.id());
+            if (state.request().settledPaymentId() != null
+                    || now.isBefore(invoice.periodEnd())
+                    || state.attemptInProgress()
+                    || state.reconciliationRequired()) throw existingInvoice(invoice.id());
             invoices.expire(invoice.id(), now);
         }
         // Do not sell a second future period before the first starts.

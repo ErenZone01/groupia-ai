@@ -507,16 +507,34 @@ class SubscriptionIntegrationTests {
     }
 
     @Test
-    void expiredInvoiceCannotGrantHistoryAndLongLapseRestartsNow() throws Exception {
+    void expiredInvoiceWithPendingAttemptBlocksAnotherInvoiceAndPreservesHistory()
+            throws Exception {
         expireTrial();
         completeBillingContact();
         var old = create(UUID.randomUUID().toString());
-        var attempt = pay(old);
-        clock.at(old.periodEnd().plus(Duration.ofDays(40)));
-        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        pay(old);
+        clock.at(old.periodEnd().plusSeconds(1));
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("code").value("SUBSCRIPTION_INVOICE_EXISTS"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from subscription_invoices where organization_id=?",
+                                Integer.class,
+                                organizationId))
+                .isEqualTo(1);
         assertThat(subscriptions.history(organizationId)).isEmpty();
-        assertThat(operations.request(organizationId, old.paymentRequestId()).settledPaymentId())
-                .isNull();
+    }
+
+    @Test
+    void expiredUnpaidInvoiceWithoutAttemptAllowsFreshPeriod() throws Exception {
+        expireTrial();
+        completeBillingContact();
+        var old = create(UUID.randomUUID().toString());
+        clock.at(old.periodEnd().plus(Duration.ofDays(40)));
         var current = create(UUID.randomUUID().toString());
         assertThat(current.periodStart()).isEqualTo(clock.instant());
         assertThat(current.periodEnd())
@@ -531,6 +549,32 @@ class SubscriptionIntegrationTests {
                                 String.class,
                                 old.id()))
                 .isEqualTo("EXPIRED");
+    }
+
+    @Test
+    void expiredInvoiceCannotGrantHistoryAndLongLapseRestartsNow() throws Exception {
+        expireTrial();
+        completeBillingContact();
+        var old = create(UUID.randomUUID().toString());
+        var attempt = pay(old);
+        clock.at(old.periodEnd().plus(Duration.ofDays(40)));
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        assertThat(subscriptions.history(organizationId)).isEmpty();
+        assertThat(operations.request(organizationId, old.paymentRequestId()).settledPaymentId())
+                .isNull();
+        // A late collected payment remains a financial incident. Do not sell another
+        // period until that incident is resolved, even though it grants no entitlement.
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict());
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from subscription_invoices where id=?",
+                                String.class,
+                                old.id()))
+                .isEqualTo("OPEN");
     }
 
     @Test

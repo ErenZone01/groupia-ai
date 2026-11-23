@@ -9,6 +9,7 @@ reports that a picomatch fix is available.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 
@@ -95,7 +96,7 @@ def inspect(full_report, production_report):
 
 def get_report(arguments):
     proc = subprocess.run(
-        ["npm", "audit", "--json", *arguments],
+        ["npm.cmd" if os.name == "nt" else "npm", "audit", "--json", *arguments],
         capture_output=True, text=True, check=False, timeout=120,
     )
     if proc.returncode not in (0, 1):

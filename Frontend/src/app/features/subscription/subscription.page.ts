@@ -166,7 +166,7 @@ const statusLabels: Record<string, string> = {
               [disabled]="store.loading() || store.busy()"
               (click)="store.refresh()"
             >
-              Actualiser mon abonnement
+              {{ paymentRefreshLabel() }}
             </button>
             <p class="help">
               Renouvellement manuel : chaque période est payée à votre initiative, sans prélèvement
@@ -321,6 +321,17 @@ export class SubscriptionPage {
   readonly date = (value?: string) => (value ? dateLabel(value) : '—');
   readonly statusLabel = (value?: SubscriptionAccessView['status']) =>
     statusLabels[value ?? ''] ?? 'Indisponible';
+
+  paymentRefreshLabel(): string {
+    const invoice = this.store.currentInvoice();
+    return invoice?.attemptInProgress ||
+      invoice?.reconciliationRequired ||
+      invoice?.paymentStatus === 'REVIEW_REQUIRED' ||
+      invoice?.paymentStatus === 'SETTLED' ||
+      this.store.checkoutUrl()
+      ? 'Vérifier le paiement'
+      : 'Actualiser mon abonnement';
+  }
 
   constructor() {
     effect(() => {

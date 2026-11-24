@@ -52,6 +52,14 @@ const statusLabels: Record<string, string> = {
                 restent accessibles.
               </p>
             }
+            @if (!store.renewalWindowOpen()) {
+              <p class="notice" role="status">
+                Votre abonnement est à jour : aucun nouveau paiement n'est nécessaire.
+                @if (store.renewalOpensAt(); as opensAt) {
+                  Le renouvellement sera disponible à partir du {{ date(opensAt) }}.
+                }
+              </p>
+            }
             @if (!details.billingProviderAvailable) {
               <p class="notice">
                 Le paiement d'abonnement n'est pas disponible pour le moment. Aucun nouveau paiement
@@ -82,6 +90,7 @@ const statusLabels: Record<string, string> = {
               @if (
                 details.canManageSubscription &&
                 invoice.canPay &&
+                store.renewalWindowOpen() &&
                 (details.availableProviders ?? ['BICTORYS']).includes('BICTORYS')
               ) {
                 <button
@@ -102,6 +111,7 @@ const statusLabels: Record<string, string> = {
               }
               @if (
                 details.canManageSubscription &&
+                store.renewalWindowOpen() &&
                 (details.availableProviders ?? ['BICTORYS']).includes('BICTORYS')
               ) {
                 <button
@@ -128,6 +138,7 @@ const statusLabels: Record<string, string> = {
             @if (
               details.canManageSubscription &&
               store.hasProvider('SASPAY') &&
+              store.renewalWindowOpen() &&
               !store.futurePaid() &&
               (!store.currentInvoice() || store.currentInvoice()?.canPay)
             ) {
@@ -155,7 +166,7 @@ const statusLabels: Record<string, string> = {
               [disabled]="store.loading() || store.busy()"
               (click)="store.refresh()"
             >
-              Vérifier le paiement
+              Actualiser mon abonnement
             </button>
             <p class="help">
               Renouvellement manuel : chaque période est payée à votre initiative, sans prélèvement

@@ -152,6 +152,67 @@ test('OWNER trial crée puis paie une facture, confirmation serveur seule active
   await expect(page.getByRole('button', { name: 'Payer maintenant' })).toHaveCount(0);
   expect(state.posts).toHaveLength(2);
 });
+test('renouvellement prématuré bloqué mais vérification du paiement existant accessible', async ({
+  page,
+}) => {
+  const state = await billing(page, 'ACTIVE');
+  state.providers = ['BICTORYS', 'SASPAY'];
+  const day = 86400000;
+  const nextStart = new Date(Date.now() + 8 * day).toISOString();
+  const nextEnd = new Date(Date.now() + 38 * day).toISOString();
+  await page.route('**/api/organizations/*/subscription/history', (route) =>
+    route.fulfill({
+      json: [
+        {
+          periodStart: new Date(Date.now() - 22 * day).toISOString(),
+          periodEnd: nextStart,
+          amount: 10000,
+          currency: 'XOF',
+          planCode: 'STANDARD_MONTHLY',
+          status: 'PAID',
+        },
+      ],
+    }),
+  );
+  await page.route('**/api/organizations/*/subscription/invoice-preview', (route) =>
+    route.fulfill({
+      json: { periodStart: nextStart, periodEnd: nextEnd, amount: 10000, currency: 'XOF' },
+    }),
+  );
+  await page.goto('/app/abonnement');
+  await expect(page.getByText(/Votre abonnement est à jour/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Payer/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Actualiser mon abonnement' })).toBeVisible();
+  expect(state.posts).toEqual([]);
+
+  // A historical attempt may still need verification outside the renewal window.
+  state.invoice = {
+    id: 'invoice',
+    periodStart: nextStart,
+    periodEnd: nextEnd,
+    amount: 10000,
+    currency: 'XOF',
+    status: 'OPEN',
+    canPay: false,
+    paymentStatus: 'PENDING',
+    attemptInProgress: true,
+  };
+  await page.getByRole('button', { name: 'Actualiser mon abonnement' }).click();
+  await expect(page.getByText('Paiement en attente de confirmation.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Payer/ })).toHaveCount(0);
+  const verify = page.getByRole('button', { name: 'Vérifier le paiement' });
+  await expect(verify).toBeEnabled();
+  const refreshed = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname.endsWith('/subscription/invoices') &&
+      response.ok(),
+  );
+  await verify.click();
+  await refreshed;
+  await expect(verify).toBeEnabled();
+  expect(state.posts).toEqual([]);
+});
 test('reprise après expiration affiche un nouveau mois courant', async ({ page }) => {
   const state = await billing(page, 'PAST_DUE');
   await page.goto('/app/abonnement');

@@ -295,6 +295,49 @@ class SubscriptionIntegrationTests {
     }
 
     @Test
+    void paidSubscriptionCannotRenewBeforeTheFinalSevenDays() throws Exception {
+        expireTrial();
+        completeBillingContact();
+        var initial = create(UUID.randomUUID().toString());
+        var attempt = pay(initial);
+        receive(provider.success(attempt.id(), "TX-" + UUID.randomUUID()));
+        awaitPaid(initial);
+        assertThat(entitlements.access(organizationId).status())
+                .isEqualTo(SubscriptionStatus.ACTIVE);
+
+        var premature =
+                post(subscriptionPath() + "/invoices")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString());
+        mvc.perform(premature)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUBSCRIPTION_RENEWAL_NOT_DUE"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from subscription_invoices where organization_id=?",
+                                Integer.class,
+                                organizationId))
+                .isEqualTo(1);
+        clock.at(initial.periodEnd().minus(Duration.ofDays(7)).minusSeconds(1));
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUBSCRIPTION_RENEWAL_NOT_DUE"));
+        clock.at(initial.periodEnd().minus(Duration.ofDays(7)));
+        var renewal = create(UUID.randomUUID().toString());
+        assertThat(renewal.periodStart()).isEqualTo(initial.periodEnd());
+        assertThat(renewal.canPay()).isTrue();
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUBSCRIPTION_INVOICE_EXISTS"));
+    }
+
+    @Test
     void standardMonthlyPaymentUsesOneCalendarMonthEvenWithTwoMonthTrialAtMonthEnd()
             throws Exception {
         expireTrial();
@@ -411,7 +454,7 @@ class SubscriptionIntegrationTests {
                                 .header("Authorization", "Bearer " + ownerToken)
                                 .header("Idempotency-Key", UUID.randomUUID().toString()))
                 .andExpect(status().isConflict());
-        clock.at(invoice.periodStart().plusSeconds(1));
+        clock.at(invoice.periodEnd().minus(Duration.ofDays(7)));
         assertThat(entitlements.access(organizationId).status())
                 .isEqualTo(SubscriptionStatus.ACTIVE);
         var next = create(UUID.randomUUID().toString());

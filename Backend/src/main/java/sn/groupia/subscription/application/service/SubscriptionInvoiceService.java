@@ -17,6 +17,8 @@ import sn.groupia.subscription.domain.service.SubscriptionBillingCalendar;
 
 @Service
 public class SubscriptionInvoiceService {
+    private static final Duration RENEWAL_WINDOW = Duration.ofDays(7);
+
     private final SubscriptionProvisioning provisioning;
     private final SubscriptionStore subscriptions;
     private final SubscriptionInvoices invoices;
@@ -78,6 +80,7 @@ public class SubscriptionInvoiceService {
         if (prepaid.isPresent())
             throw new ApiException(
                     409, "SUBSCRIPTION_NEXT_PERIOD_PAID", "La prochaine période est déjà réglée.");
+        requireRenewalWindow(subscription, now);
         var period = period(subscription, now);
         var contact =
                 subscriptions
@@ -162,6 +165,22 @@ public class SubscriptionInvoiceService {
                 p.start(), p.end(), subscription.billingTimezone(), price, "XOF");
     }
 
+    /** Initial purchase remains available; only subsequent paid periods use the renewal window. */
+    private boolean renewalWindowOpen(OrganizationSubscription subscription, Instant now) {
+        if (subscriptions.history(subscription.organizationId()).isEmpty()) return true;
+        return !now.plus(RENEWAL_WINDOW).isBefore(period(subscription, now).start());
+    }
+
+    private void requireRenewalWindow(OrganizationSubscription subscription, Instant now) {
+        if (renewalWindowOpen(subscription, now)) return;
+        Instant opensAt = period(subscription, now).start().minus(RENEWAL_WINDOW);
+        throw new ApiException(
+                409,
+                "SUBSCRIPTION_RENEWAL_NOT_DUE",
+                "Votre abonnement est à jour. Renouvelez au plus tôt sept jours avant l'échéance.",
+                Map.of("renewalOpensAt", opensAt.toString()));
+    }
+
     private SubscriptionBillingCalendar.Period period(OrganizationSubscription s, Instant now) {
         Instant coverage = s.trialEndsAt().isAfter(now) ? s.trialEndsAt() : null;
         for (var p : subscriptions.history(s.organizationId())) {
@@ -190,6 +209,8 @@ public class SubscriptionInvoiceService {
                     409,
                     "SUBSCRIPTION_INVOICE_NOT_PAYABLE",
                     "Cette échéance ne peut plus être payée.");
+        // An old OPEN invoice cannot bypass a newly confirmed paid period.
+        requireRenewalWindow(subscriptions.find(org).orElseThrow(), now());
         // The issued invoice retains its billing snapshot. A payer may update her server-owned
         // contact before a new SasPay attempt; no financial invoice value is rewritten.
         if (currentPayer) {
@@ -241,7 +262,8 @@ public class SubscriptionInvoiceService {
                         && state.request().settledPaymentId() == null
                         && !state.attemptInProgress()
                         && !state.reconciliationRequired()
-                        && state.operationalStatus() == PaymentOperationalStatus.PENDING;
+                        && state.operationalStatus() == PaymentOperationalStatus.PENDING
+                && renewalWindowOpen(subscriptions.find(i.organizationId()).orElseThrow(), now());
         return new SubscriptionInvoiceView(
                 i.id(),
                 i.organizationId(),

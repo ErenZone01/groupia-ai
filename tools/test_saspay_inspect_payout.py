@@ -98,6 +98,38 @@ class SasPayPayoutEvidenceTests(unittest.TestCase):
         self.assertTrue(calls[0][1].endswith("/payouts/" + PAYOUT + "/verify/"))
         self.assertTrue(calls[1][1].endswith("/transactions/" + PAYOUT + "/"))
         self.assertTrue(all(x[2] == 15 for x in calls))
+        self.assertTrue(all(x[1].startswith("https://sandbox-api.saspay.me/") for x in calls))
+
+    def test_cli_uses_current_transfert_contract_and_test_environment(self):
+        import contextlib
+        import io
+        import runpy
+        from pathlib import Path
+        calls = []
+        payload = fixture()
+        payload["transaction_type"] = "TRANSFERT"
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+            def read(self, count): return json.dumps(payload).encode()
+        class Transport:
+            def open(self, request, timeout):
+                calls.append((request.get_method(), request.full_url))
+                return Response()
+        output = io.StringIO()
+        with patch.dict("os.environ", {"SASPAY_API_KEY": "sk_test_private", "SASPAY_MERCHANT_ID": MERCHANT}, clear=True), \
+                patch("saspay_diagnostics.load_env_file", return_value={}), \
+                patch("sys.argv", ["diagnostic", "--payout-id", PAYOUT]), \
+                patch("urllib.request.build_opener", return_value=Transport()), \
+                contextlib.redirect_stdout(output):
+            with self.assertRaises(SystemExit) as exited:
+                runpy.run_path(str(Path(__file__).with_name("saspay_inspect_payout.py")), run_name="__main__")
+        self.assertEqual(exited.exception.code, 0)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(method == "GET" and url.startswith("https://sandbox-api.saspay.me/api/v1/") for method, url in calls))
+        self.assertNotIn("ECHEC", output.getvalue())
+        self.assertNotIn("sk_test_private", output.getvalue())
 
     def test_bad_id_never_reaches_network(self):
         with patch("saspay_inspect_payout.build_opener") as open_transport:

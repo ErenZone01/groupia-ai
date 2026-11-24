@@ -45,7 +45,7 @@ export class PublicDirectPage {
 
   addToCart(offerId: string) {
     const id = this.store()?.publicIdentifier;
-    if (!id) return;
+    if (!id || this.store()?.offers.find(o => o.id === offerId)?.stockAvailable === 0) return;
     this.cart.add(id, offerId);
     this.notice.set('Article ajouté au panier.');
   }

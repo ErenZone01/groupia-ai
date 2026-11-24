@@ -191,3 +191,6 @@ databaseChangeLog:
   - include:
       file: 064-saspay-payment-recovery.sql
       relativeToChangelogFile: true
+  - include:
+      file: 065-direct-stock.sql
+      relativeToChangelogFile: true

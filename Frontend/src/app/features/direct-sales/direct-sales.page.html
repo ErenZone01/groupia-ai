@@ -17,8 +17,7 @@
     <div class="section-head">
       <div>
         <h2 id="direct-orders-heading">Commandes directes</h2>
-        <p>Retrouvez les brouillons de commande et leurs coordonnées, indépendamment des groupages.
-          Aucun paiement direct n'est encore activé.</p>
+        <p>Retrouvez vos commandes, leur règlement et leur préparation, indépendamment des groupages.</p>
       </div>
       <a gButton variant="secondary" routerLink="/app/vente-directe/commandes">
         Consulter les commandes
@@ -120,8 +119,7 @@
               </label>
             }
           </div>
-          <p class="note">Ces montants sont indicatifs avant confirmation de la commande.
-            Aucun paiement n'est encore déclenché.</p>
+          <p class="note">Ces frais sont vérifiés et acceptés par le client avant la création de sa commande.</p>
           <button gButton type="submit" [disabled]="busy()">Enregistrer les frais</button>
         </form>
       }
@@ -189,6 +187,14 @@
               [value]="prices()[offer.id]"
               (input)="setPrice(offer.id, $any($event.target).value)" />
           </div>
+          <form class="price-cell" (ngSubmit)="saveStock(offer)">
+            <label [for]="'direct-stock-' + offer.id">Stock encore disponible</label>
+            <input [id]="'direct-stock-' + offer.id" [name]="'stock-' + offer.id" type="number"
+              min="0" max="1000000000" step="1" [(ngModel)]="stockInputs[offer.id]" [disabled]="busy()"
+              placeholder="Sans limite" />
+            <small>Quantité hors commandes déjà réservées. Vide : sans limite. Zéro : épuisé.</small>
+            <button gButton variant="secondary" type="submit" [disabled]="busy()">Enregistrer le stock</button>
+          </form>
           <div class="offer-actions">
             <button type="button" gButton variant="secondary" [disabled]="busy()"
               (click)="update(offer, offer.published)">Enregistrer</button>

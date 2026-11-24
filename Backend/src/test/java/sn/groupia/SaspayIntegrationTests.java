@@ -979,6 +979,37 @@ class SaspayIntegrationTests {
         assertThat(jdbc.queryForObject("select count(*) from provider_collections", Long.class))
                 .isZero();
 
+        var props =
+                new sn.groupia.payment.infrastructure.provider.saspay.SaspayProperties(
+                        true,
+                        null,
+                        "sk_test_synthetic",
+                        "synthetic-secret",
+                        UUID.fromString(
+                                sn.groupia.payment.infrastructure.provider.saspay
+                                        .SaspayTestConfiguration.MERCHANT),
+                        Set.of("pay.saspay.me"),
+                        Duration.ofSeconds(1),
+                        Duration.ofSeconds(2),
+                        false,
+                        null,
+                        null);
+        var operatorAccess =
+                new sn.groupia.payment.infrastructure.provider.saspay.SaspayIncidentConsoleService(
+                        jdbc, () -> actor, props, clock, true, actor.toString());
+        var accounting =
+                new sn.groupia.payment.infrastructure.provider.saspay.SaspayAccountingDiagnostic(
+                                jdbc, props, operatorAccess, clock)
+                        .snapshot();
+        assertThat(accounting.subscriptionRevenue())
+                .isEqualByComparingTo(invoice.path("amount").asText());
+        assertThat(accounting.retainedMerchantPrincipal()).isZero();
+        assertThat(accounting.unallocatedCollections()).isZero();
+        assertThat(accounting.reservedPayouts()).isZero();
+        // J-7 blocks a new sale, not the existing settled invoice or its proof.
+        auth(get(subscriptionBase() + "/invoices/" + invoice.path("id").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"));
         paySubscription(invoice, quote, key()).andExpect(status().isConflict());
     }
 

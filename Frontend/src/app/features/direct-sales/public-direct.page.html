@@ -67,7 +67,10 @@
             <span class="attributes">{{ variantLabel(offer.attributes) }}</span>
             @if (offer.description) { <p>{{ offer.description }}</p> }
             <strong class="price">{{ money(offer.priceXof, 'XOF') }}</strong>
-            <button type="button" class="add-to-cart" (click)="addToCart(offer.id)" [disabled]="cart.count() >= 2000">
+            @if (offer.stockAvailable != null) {
+              <span>{{ offer.stockAvailable === 0 ? 'Épuisé' : offer.stockAvailable + ' disponible(s)' }}</span>
+            }
+            <button type="button" class="add-to-cart" (click)="addToCart(offer.id)" [disabled]="cart.count() >= 2000 || offer.stockAvailable === 0">
               Ajouter au panier
             </button>
           </div>

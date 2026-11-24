@@ -7,14 +7,14 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Receipt } from '../../models/receipt';
+import { DirectCancellationReceipt } from '../../models/direct-cancellation-receipt';
 
 export interface CancelDirectUnpaidOrder$Params {
   organizationId: string;
   orderId: string;
 }
 
-export function cancelDirectUnpaidOrder(http: HttpClient, rootUrl: string, params: CancelDirectUnpaidOrder$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+export function cancelDirectUnpaidOrder(http: HttpClient, rootUrl: string, params: CancelDirectUnpaidOrder$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectCancellationReceipt>> {
   const rb = new RequestBuilder(rootUrl, cancelDirectUnpaidOrder.PATH, 'post');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
@@ -26,7 +26,7 @@ export function cancelDirectUnpaidOrder(http: HttpClient, rootUrl: string, param
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Receipt>;
+      return r as StrictHttpResponse<DirectCancellationReceipt>;
     })
   );
 }

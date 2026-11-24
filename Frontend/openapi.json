@@ -1935,6 +1935,114 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/direct-store/offers/{offerId}/stock" : {
+      "put" : {
+        "tags" : [ "direct-storefront-controller" ],
+        "operationId" : "stock",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StockInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Storefront"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/direct-store/delivery-policy" : {
       "get" : {
         "tags" : [ "direct-storefront-controller" ],
@@ -2751,7 +2859,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/Command"
+                "$ref" : "#/components/schemas/DirectCheckoutCommand"
               }
             }
           },
@@ -2763,7 +2871,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Receipt"
+                  "$ref" : "#/components/schemas/DirectCheckoutReceipt"
                 }
               }
             }
@@ -2773,7 +2881,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Receipt"
+                  "$ref" : "#/components/schemas/DirectCheckoutReceipt"
                 }
               }
             }
@@ -2932,7 +3040,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Status"
+                  "$ref" : "#/components/schemas/DirectCustomerFinancialStatus"
                 }
               }
             }
@@ -4106,6 +4214,84 @@
         "security" : [ {
           "CustomerCsrf" : [ ]
         } ]
+      }
+    },
+    "/api/platform/saspay/incidents/{incidentId}/decisions" : {
+      "post" : {
+        "tags" : [ "saspay-incident-console-controller" ],
+        "operationId" : "decide",
+        "parameters" : [ {
+          "name" : "incidentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommandResult"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
       }
     },
     "/api/payment/webhooks/{provider}" : {
@@ -6825,6 +7011,116 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/merchant-payouts/{payoutId}/recover-pilot" : {
+      "post" : {
+        "tags" : [ "merchant-settlement-controller" ],
+        "summary" : "Opération retirée : aucun rejeu d'un retrait incertain (410)",
+        "operationId" : "recoverPilotMerchantPayout",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "payoutId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PayoutRecoveryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MerchantPayoutView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : true,
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/merchant-payouts/{payoutId}/reconcile" : {
       "post" : {
         "tags" : [ "merchant-settlement-controller" ],
@@ -6854,6 +7150,426 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MerchantPayoutView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/merchant-payouts/{payoutId}/administration" : {
+      "post" : {
+        "tags" : [ "payout-administration-controller" ],
+        "operationId" : "decide_1",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "payoutId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PayoutAdministrativeDecision"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Result"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/merchant-payouts/{payoutId}/administration/recorded-rejection" : {
+      "post" : {
+        "tags" : [ "payout-administration-controller" ],
+        "operationId" : "closeRecordedRejection",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "payoutId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecordedRejection"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Result"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/merchant-payouts/{payoutId}/administration/historical-unlinked" : {
+      "get" : {
+        "tags" : [ "payout-administration-controller" ],
+        "operationId" : "historicalUnlinkedStatus",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "payoutId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HistoricalUnlinkedStatus"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "payout-administration-controller" ],
+        "operationId" : "closeHistoricalUnlinked",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "payoutId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/HistoricalUnlinked"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Result"
                 }
               }
             }
@@ -8828,7 +9544,7 @@
     "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/merchant-payouts" : {
       "post" : {
         "tags" : [ "merchant-settlement-controller" ],
-        "summary" : "Demander tout le disponible du groupage",
+        "summary" : "Demander le montant du devis accepté pour un groupage",
         "operationId" : "requestMerchantPayout",
         "parameters" : [ {
           "name" : "organizationId",
@@ -9505,7 +10221,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Receipt"
+                  "$ref" : "#/components/schemas/DirectPreparationReceipt"
                 }
               }
             }
@@ -9817,7 +10533,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Receipt"
+                  "$ref" : "#/components/schemas/DirectReadinessReceipt"
                 }
               }
             }
@@ -9923,7 +10639,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/Command"
+                "$ref" : "#/components/schemas/DirectFulfillmentCommand"
               }
             }
           },
@@ -10033,7 +10749,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Receipt"
+                  "$ref" : "#/components/schemas/DirectCancellationReceipt"
                 }
               }
             }
@@ -10107,7 +10823,7 @@
     "/api/organizations/{organizationId}/direct-orders/{directOrderId}/merchant-payouts" : {
       "post" : {
         "tags" : [ "merchant-settlement-controller" ],
-        "summary" : "Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties",
+        "summary" : "Demander le montant du devis accepté d'une vente directe, avec vérification des fonds",
         "operationId" : "requestDirectMerchantPayout",
         "parameters" : [ {
           "name" : "organizationId",
@@ -11563,7 +12279,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Page"
+                  "$ref" : "#/components/schemas/DirectOrderRecoveryPage"
                 }
               }
             }
@@ -11751,10 +12467,347 @@
         "security" : [ ]
       }
     },
+    "/api/platform/saspay/incidents" : {
+      "get" : {
+        "tags" : [ "saspay-incident-console-controller" ],
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SaspayIncidentPage"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/platform/saspay/incidents/{incidentId}" : {
+      "get" : {
+        "tags" : [ "saspay-incident-console-controller" ],
+        "operationId" : "get_3",
+        "parameters" : [ {
+          "name" : "incidentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IncidentDetail"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/platform/saspay/incidents/provider-preflight" : {
+      "get" : {
+        "tags" : [ "saspay-incident-console-controller" ],
+        "operationId" : "providerPreflight",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/platform/saspay/incidents/accounting" : {
+      "get" : {
+        "tags" : [ "saspay-incident-console-controller" ],
+        "operationId" : "accounting",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SaspayAccountingSnapshot"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/platform/saspay/incidents/access" : {
+      "get" : {
+        "tags" : [ "saspay-incident-console-controller" ],
+        "operationId" : "access",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Access"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
     "/api/organizations/{organizationId}" : {
       "get" : {
         "tags" : [ "organization-controller" ],
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "parameters" : [ {
           "name" : "organizationId",
           "in" : "path",
@@ -14068,6 +15121,120 @@
         } ]
       }
     },
+    "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/merchant-payout-quote" : {
+      "get" : {
+        "tags" : [ "merchant-settlement-controller" ],
+        "summary" : "Devis frais retrait, réseau et montant net, sans transfert",
+        "operationId" : "quoteMerchantPayout",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "destinationId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "amount",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "number"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PayoutFeeQuoteView"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
     "/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/fulfillment" : {
       "get" : {
         "tags" : [ "order-fulfillment-controller" ],
@@ -14303,7 +15470,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Page"
+                  "$ref" : "#/components/schemas/DirectOrderPage"
                 }
               }
             }
@@ -14499,7 +15666,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Status"
+                  "$ref" : "#/components/schemas/DirectMerchantFinancialStatus"
                 }
               }
             }
@@ -14601,6 +15768,120 @@
                   "items" : {
                     "$ref" : "#/components/schemas/Event"
                   }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid JSON, fields or business input",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource or private tracking access unavailable",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Version, idempotency or business state conflict",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal failure without sensitive details",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Organization membership or permission denied",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GroupiaProblem"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "BearerJWT" : [ ]
+        } ]
+      }
+    },
+    "/api/organizations/{organizationId}/direct-orders/{directOrderId}/merchant-payout-quote" : {
+      "get" : {
+        "tags" : [ "merchant-settlement-controller" ],
+        "summary" : "Devis net du retrait d'une vente directe, sans transfert",
+        "operationId" : "quoteDirectMerchantPayout",
+        "parameters" : [ {
+          "name" : "organizationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "directOrderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "destinationId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "amount",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "number"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PayoutFeeQuoteView"
                 }
               }
             }
@@ -15807,6 +17088,14 @@
           },
           "imageUrl" : {
             "type" : "string"
+          },
+          "stockAvailable" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "stockVersion" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -15864,6 +17153,23 @@
           },
           "published" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "StockInput" : {
+        "required" : [ "stockVersion" ],
+        "type" : "object",
+        "properties" : {
+          "stockVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "available" : {
+            "maximum" : 1000000000,
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -15973,33 +17279,13 @@
         "type" : "object",
         "properties" : {
           "contact" : {
-            "$ref" : "#/components/schemas/Contact"
+            "$ref" : "#/components/schemas/GroupingCheckoutContact"
           },
           "lines" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Line"
+              "$ref" : "#/components/schemas/GroupingCheckoutLine"
             }
-          }
-        }
-      },
-      "Contact" : {
-        "type" : "object",
-        "properties" : {
-          "firstName" : {
-            "type" : "string"
-          },
-          "lastName" : {
-            "type" : "string"
-          },
-          "phone" : {
-            "type" : "string"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "deliveryAddress" : {
-            "$ref" : "#/components/schemas/DeliveryAddress"
           }
         }
       },
@@ -16026,7 +17312,27 @@
           }
         }
       },
-      "Line" : {
+      "GroupingCheckoutContact" : {
+        "type" : "object",
+        "properties" : {
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "deliveryAddress" : {
+            "$ref" : "#/components/schemas/DeliveryAddress"
+          }
+        }
+      },
+      "GroupingCheckoutLine" : {
         "type" : "object",
         "properties" : {
           "offerId" : {
@@ -16369,7 +17675,20 @@
           }
         }
       },
-      "Address" : {
+      "DeliveryPoint" : {
+        "type" : "object",
+        "properties" : {
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "DirectCheckoutAddress" : {
         "type" : "object",
         "properties" : {
           "country" : {
@@ -16392,11 +17711,11 @@
           }
         }
       },
-      "Command" : {
+      "DirectCheckoutCommand" : {
         "type" : "object",
         "properties" : {
           "contact" : {
-            "$ref" : "#/components/schemas/Contact"
+            "$ref" : "#/components/schemas/DirectCheckoutContact"
           },
           "fulfillmentMethod" : {
             "type" : "string"
@@ -16404,7 +17723,7 @@
           "lines" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Line"
+              "$ref" : "#/components/schemas/DirectCheckoutLine"
             }
           },
           "deliveryPoint" : {
@@ -16419,20 +17738,48 @@
           }
         }
       },
-      "DeliveryPoint" : {
+      "DirectCheckoutContact" : {
         "type" : "object",
         "properties" : {
-          "latitude" : {
-            "type" : "number",
-            "format" : "double"
+          "firstName" : {
+            "type" : "string"
           },
-          "longitude" : {
-            "type" : "number",
-            "format" : "double"
+          "lastName" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "deliveryAddress" : {
+            "$ref" : "#/components/schemas/DirectCheckoutAddress"
           }
         }
       },
-      "Receipt" : {
+      "DirectCheckoutLine" : {
+        "type" : "object",
+        "properties" : {
+          "offerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expectedUnitPriceXof" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expectedPriceRevision" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DirectCheckoutReceipt" : {
         "type" : "object",
         "properties" : {
           "orderNumber" : {
@@ -16505,25 +17852,7 @@
           }
         }
       },
-      "PaymentAttemptRecoveryView" : {
-        "type" : "object",
-        "properties" : {
-          "provider" : {
-            "type" : "string"
-          },
-          "feeQuoteId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "attempt" : {
-            "$ref" : "#/components/schemas/PaymentAttemptView"
-          },
-          "quote" : {
-            "$ref" : "#/components/schemas/PaymentFeeQuoteView"
-          }
-        }
-      },
-      "Status" : {
+      "DirectCustomerFinancialStatus" : {
         "type" : "object",
         "properties" : {
           "orderNumber" : {
@@ -16553,6 +17882,24 @@
           },
           "latestAttempt" : {
             "$ref" : "#/components/schemas/PaymentAttemptRecoveryView"
+          }
+        }
+      },
+      "PaymentAttemptRecoveryView" : {
+        "type" : "object",
+        "properties" : {
+          "provider" : {
+            "type" : "string"
+          },
+          "feeQuoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "attempt" : {
+            "$ref" : "#/components/schemas/PaymentAttemptView"
+          },
+          "quote" : {
+            "$ref" : "#/components/schemas/PaymentFeeQuoteView"
           }
         }
       },
@@ -16781,6 +18128,51 @@
           }
         }
       },
+      "DecisionRequest" : {
+        "required" : [ "action", "evidenceReference", "reason" ],
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "evidenceReference" : {
+            "maxLength" : 120,
+            "minLength" : 5,
+            "type" : "string"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 20,
+            "type" : "string"
+          },
+          "expectedOccurrenceCount" : {
+            "minimum" : 0,
+            "exclusiveMinimum" : true,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "confirmed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CommandResult" : {
+        "type" : "object",
+        "properties" : {
+          "incidentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "decisionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
       "ContentDisposition" : {
         "type" : "object",
         "properties" : {
@@ -16796,13 +18188,13 @@
           "charset" : {
             "type" : "string"
           },
-          "attachment" : {
-            "type" : "boolean"
-          },
           "inline" : {
             "type" : "boolean"
           },
           "formData" : {
+            "type" : "boolean"
+          },
+          "attachment" : {
             "type" : "boolean"
           }
         }
@@ -16810,16 +18202,29 @@
       "HttpHeaders" : {
         "type" : "object",
         "properties" : {
-          "empty" : {
-            "type" : "boolean"
+          "connection" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
-          "location" : {
-            "type" : "string",
-            "format" : "uri"
+          "ifModifiedSince" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "contentType" : {
+            "$ref" : "#/components/schemas/MediaType"
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "host" : {
             "type" : "object",
             "properties" : {
+              "hostString" : {
+                "type" : "string"
+              },
               "address" : {
                 "type" : "object",
                 "properties" : {
@@ -16877,11 +18282,15 @@
               },
               "hostName" : {
                 "type" : "string"
-              },
-              "hostString" : {
-                "type" : "string"
               }
             }
+          },
+          "empty" : {
+            "type" : "boolean"
+          },
+          "location" : {
+            "type" : "string",
+            "format" : "uri"
           },
           "all" : {
             "type" : "object",
@@ -16895,10 +18304,6 @@
             "format" : "int64"
           },
           "date" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "contentLength" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -16926,6 +18331,9 @@
               "type" : "string"
             }
           },
+          "cacheControl" : {
+            "type" : "string"
+          },
           "range" : {
             "type" : "array",
             "items" : {
@@ -16935,17 +18343,40 @@
           "origin" : {
             "type" : "string"
           },
-          "cacheControl" : {
+          "allow" : {
+            "uniqueItems" : true,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HttpMethod"
+            }
+          },
+          "etag" : {
             "type" : "string"
           },
-          "contentDisposition" : {
-            "$ref" : "#/components/schemas/ContentDisposition"
+          "expires" : {
+            "type" : "integer",
+            "format" : "int64"
           },
-          "connection" : {
+          "upgrade" : {
+            "type" : "string"
+          },
+          "vary" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
+          },
+          "ifMatch" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "pragma" : {
+            "type" : "string"
+          },
+          "contentDisposition" : {
+            "$ref" : "#/components/schemas/ContentDisposition"
           },
           "acceptPatch" : {
             "type" : "array",
@@ -16979,6 +18410,14 @@
             "type" : "string",
             "writeOnly" : true
           },
+          "accessControlMaxAge" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ifUnmodifiedSince" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "accessControlAllowCredentials" : {
             "type" : "boolean"
           },
@@ -16994,70 +18433,23 @@
               "$ref" : "#/components/schemas/HttpMethod"
             }
           },
+          "accessControlAllowOrigin" : {
+            "type" : "string"
+          },
+          "accessControlRequestMethod" : {
+            "$ref" : "#/components/schemas/HttpMethod"
+          },
           "accessControlExposeHeaders" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
           },
-          "accessControlRequestMethod" : {
-            "$ref" : "#/components/schemas/HttpMethod"
-          },
-          "accessControlAllowOrigin" : {
-            "type" : "string"
-          },
           "accessControlRequestHeaders" : {
             "type" : "array",
             "items" : {
               "type" : "string"
             }
-          },
-          "accessControlMaxAge" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "ifUnmodifiedSince" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "expires" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "vary" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "etag" : {
-            "type" : "string"
-          },
-          "pragma" : {
-            "type" : "string"
-          },
-          "allow" : {
-            "uniqueItems" : true,
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HttpMethod"
-            }
-          },
-          "upgrade" : {
-            "type" : "string"
-          },
-          "ifMatch" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "ifModifiedSince" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "contentType" : {
-            "$ref" : "#/components/schemas/MediaType"
           }
         }
       },
@@ -17089,16 +18481,16 @@
           "charset" : {
             "type" : "string"
           },
-          "concrete" : {
+          "wildcardType" : {
+            "type" : "boolean"
+          },
+          "wildcardSubtype" : {
             "type" : "boolean"
           },
           "subtypeSuffix" : {
             "type" : "string"
           },
-          "wildcardType" : {
-            "type" : "boolean"
-          },
-          "wildcardSubtype" : {
+          "concrete" : {
             "type" : "boolean"
           }
         }
@@ -17784,6 +19176,14 @@
           }
         }
       },
+      "PayoutRecoveryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmed" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "MerchantPayoutView" : {
         "type" : "object",
         "properties" : {
@@ -17830,6 +19230,126 @@
           "directOrderId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "providerFee" : {
+            "type" : "number"
+          },
+          "netAmount" : {
+            "type" : "number"
+          },
+          "feeChargeMode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PayoutAdministrativeDecision" : {
+        "required" : [ "action", "approvalReference", "reason" ],
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "approvalReference" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "expectedVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 10,
+            "type" : "string"
+          },
+          "confirmed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Result" : {
+        "type" : "object",
+        "properties" : {
+          "payoutId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "authorizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "RecordedRejection" : {
+        "required" : [ "evidenceReference", "providerCode", "reason" ],
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "providerCode" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "evidenceReference" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 20,
+            "type" : "string"
+          },
+          "allAttemptsReviewed" : {
+            "type" : "boolean"
+          },
+          "definitiveNonExecution" : {
+            "type" : "boolean"
+          },
+          "futureExecutionImpossible" : {
+            "type" : "boolean"
+          },
+          "confirmed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "HistoricalUnlinked" : {
+        "required" : [ "evidenceReference", "reason" ],
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "evidenceReference" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 20,
+            "type" : "string"
+          },
+          "ownerConfirmsNeverExecuted" : {
+            "type" : "boolean"
+          },
+          "acceptsDuplicatePayoutRisk" : {
+            "type" : "boolean"
+          },
+          "confirmed" : {
+            "type" : "boolean"
           }
         }
       },
@@ -18584,6 +20104,10 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "feeQuoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
           "confirmed" : {
             "type" : "boolean"
           }
@@ -18721,6 +20245,54 @@
           }
         }
       },
+      "DirectPreparationReceipt" : {
+        "type" : "object",
+        "properties" : {
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "preparingAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "DirectReadinessReceipt" : {
+        "type" : "object",
+        "properties" : {
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "fulfillmentMethod" : {
+            "type" : "string"
+          },
+          "readyAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "DirectFulfillmentCommand" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "confirmed" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "Event" : {
         "type" : "object",
         "properties" : {
@@ -18735,6 +20307,21 @@
             "type" : "string"
           },
           "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "DirectCancellationReceipt" : {
+        "type" : "object",
+        "properties" : {
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "cancelledAt" : {
             "type" : "string",
             "format" : "date-time"
           }
@@ -19227,6 +20814,29 @@
           }
         }
       },
+      "DirectOrderRecoveryPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Entry"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "Entry" : {
         "type" : "object",
         "properties" : {
@@ -19256,13 +20866,71 @@
           }
         }
       },
-      "Page" : {
+      "CsrfView" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Checkpoint" : {
+        "type" : "object",
+        "properties" : {
+          "completedUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastSuccessAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastFailureCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Incident" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "referenceHint" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "firstSeenAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastSeenAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "occurrenceCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastDecisionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SaspayIncidentPage" : {
         "type" : "object",
         "properties" : {
           "items" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Entry"
+              "$ref" : "#/components/schemas/Incident"
             }
           },
           "total" : {
@@ -19276,14 +20944,211 @@
           "size" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "open" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inReview" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "closed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "checkpoint" : {
+            "$ref" : "#/components/schemas/Checkpoint"
           }
         }
       },
-      "CsrfView" : {
+      "IncidentDetail" : {
         "type" : "object",
         "properties" : {
-          "token" : {
+          "incident" : {
+            "$ref" : "#/components/schemas/Incident"
+          },
+          "decisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SaspayIncidentDecision"
+            }
+          }
+        }
+      },
+      "SaspayIncidentDecision" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "action" : {
             "type" : "string"
+          },
+          "actorId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "evidenceReference" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "observedOccurrenceCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recordedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Snapshot" : {
+        "type" : "object",
+        "properties" : {
+          "checkedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "sampledTransactions" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "historyHasMorePages" : {
+            "type" : "boolean"
+          },
+          "sampledBalanceRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "balancesComplete" : {
+            "type" : "boolean"
+          },
+          "senegalXofWallets" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "senegalAvailableXof" : {
+            "type" : "number"
+          },
+          "senegalPendingXof" : {
+            "type" : "number"
+          },
+          "walletFrozen" : {
+            "type" : "boolean"
+          },
+          "noteCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OrganizationPosition" : {
+        "type" : "object",
+        "properties" : {
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "collectedPrincipal" : {
+            "type" : "number"
+          },
+          "merchantPrincipal" : {
+            "type" : "number"
+          },
+          "subscriptionRevenue" : {
+            "type" : "number"
+          },
+          "unallocatedCollections" : {
+            "type" : "number"
+          },
+          "legacyPlatformFees" : {
+            "type" : "number"
+          },
+          "collectionFees" : {
+            "type" : "number"
+          },
+          "paidPayouts" : {
+            "type" : "number"
+          },
+          "reservedPayouts" : {
+            "type" : "number"
+          },
+          "payoutFees" : {
+            "type" : "number"
+          },
+          "additionalWalletFees" : {
+            "type" : "number"
+          },
+          "refundsDue" : {
+            "type" : "number"
+          },
+          "externallyDeclaredRefunds" : {
+            "type" : "number"
+          },
+          "mixedAccountRefundCases" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "missingFeeProofs" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SaspayAccountingSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "checkedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "organizations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrganizationPosition"
+            }
+          },
+          "knownNetWalletFlows" : {
+            "type" : "number"
+          },
+          "retainedMerchantPrincipal" : {
+            "type" : "number"
+          },
+          "merchantDeficits" : {
+            "type" : "number"
+          },
+          "unallocatedCollections" : {
+            "type" : "number"
+          },
+          "subscriptionRevenue" : {
+            "type" : "number"
+          },
+          "reservedPayouts" : {
+            "type" : "number"
+          },
+          "missingFeeProofs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "noteCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Access" : {
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
           }
         }
       },
@@ -19977,6 +21842,32 @@
           }
         }
       },
+      "HistoricalUnlinkedStatus" : {
+        "type" : "object",
+        "properties" : {
+          "payoutId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "directOrderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "reconciliationReason" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "eligible" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "CampaignSettlement" : {
         "type" : "object",
         "properties" : {
@@ -20120,6 +22011,9 @@
             "items" : {
               "$ref" : "#/components/schemas/DirectSettlement"
             }
+          },
+          "payoutFeePolicy" : {
+            "type" : "string"
           }
         }
       },
@@ -20237,6 +22131,67 @@
           }
         }
       },
+      "PayoutFeeQuoteView" : {
+        "type" : "object",
+        "properties" : {
+          "quoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "destinationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "maskedPhone" : {
+            "type" : "string"
+          },
+          "grossAmount" : {
+            "type" : "number"
+          },
+          "providerFee" : {
+            "type" : "number"
+          },
+          "netAmount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "feeChargeMode" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "DirectOrderPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Summary"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "Summary" : {
         "type" : "object",
         "properties" : {
@@ -20300,10 +22255,10 @@
             "$ref" : "#/components/schemas/Summary"
           },
           "contact" : {
-            "$ref" : "#/components/schemas/Contact"
+            "$ref" : "#/components/schemas/DirectOrderContact"
           },
           "deliveryAddress" : {
-            "$ref" : "#/components/schemas/Address"
+            "$ref" : "#/components/schemas/DirectOrderAddress"
           },
           "platformFeeRule" : {
             "type" : "object",
@@ -20320,6 +22275,60 @@
           "version" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DirectOrderAddress" : {
+        "type" : "object",
+        "properties" : {
+          "country" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "city" : {
+            "type" : "string"
+          },
+          "commune" : {
+            "type" : "string"
+          },
+          "neighborhood" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "string"
+          },
+          "locationMethod" : {
+            "type" : "string"
+          },
+          "coverageStatus" : {
+            "type" : "string"
+          },
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "DirectOrderContact" : {
+        "type" : "object",
+        "properties" : {
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "phoneE164" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
           }
         }
       },
@@ -20372,6 +22381,24 @@
           "priceRevision" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DirectMerchantFinancialStatus" : {
+        "type" : "object",
+        "properties" : {
+          "orderNumber" : {
+            "type" : "string"
+          },
+          "acceptedTotalXof" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "financialStatus" : {
+            "type" : "string"
+          },
+          "fulfillmentAllowed" : {
+            "type" : "boolean"
           }
         }
       },

@@ -9,12 +9,12 @@ import { RequestBuilder } from '../../request-builder';
 
 import { OrganizationView } from '../../models/organization-view';
 
-export interface Get3$Params {
+export interface Get4$Params {
   organizationId: string;
 }
 
-export function get3(http: HttpClient, rootUrl: string, params: Get3$Params, context?: HttpContext): Observable<StrictHttpResponse<OrganizationView>> {
-  const rb = new RequestBuilder(rootUrl, get3.PATH, 'get');
+export function get4(http: HttpClient, rootUrl: string, params: Get4$Params, context?: HttpContext): Observable<StrictHttpResponse<OrganizationView>> {
+  const rb = new RequestBuilder(rootUrl, get4.PATH, 'get');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
   }
@@ -29,4 +29,4 @@ export function get3(http: HttpClient, rootUrl: string, params: Get3$Params, con
   );
 }
 
-get3.PATH = '/api/organizations/{organizationId}';
+get4.PATH = '/api/organizations/{organizationId}';

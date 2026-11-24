@@ -41,6 +41,7 @@ public class DirectOrderPreparation {
             String transactionId,
             Instant confirmedAt) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectPreparationReceipt")
     public record Receipt(String orderNumber, String status, Instant preparingAt) {}
 
     private final JdbcTemplate jdbc;

@@ -43,6 +43,7 @@ public class DirectOrderReadiness {
             String transactionId,
             Instant confirmedAt) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectReadinessReceipt")
     public record Receipt(
             String orderNumber, String status, String fulfillmentMethod, Instant readyAt) {}
 

@@ -17,6 +17,7 @@ export { DirectCustomerPaymentInitiationControllerService } from './services/dir
 export { DirectCustomerPaymentStatusControllerService } from './services/direct-customer-payment-status-controller.service';
 export { DirectOrderTrackingControllerService } from './services/direct-order-tracking-controller.service';
 export { CustomerAccessControllerService } from './services/customer-access-controller.service';
+export { SaspayIncidentConsoleControllerService } from './services/saspay-incident-console-controller.service';
 export { PaymentControllerService } from './services/payment-controller.service';
 export { OrganizationControllerService } from './services/organization-controller.service';
 export { RefundControllerService } from './services/refund-controller.service';
@@ -25,6 +26,7 @@ export { ProviderCollectionControllerService } from './services/provider-collect
 export { PaymentReviewControllerService } from './services/payment-review-controller.service';
 export { OrderCreditControllerService } from './services/order-credit-controller.service';
 export { OrderCancellationControllerService } from './services/order-cancellation-controller.service';
+export { PayoutAdministrationControllerService } from './services/payout-administration-controller.service';
 export { SupplierOrderControllerService } from './services/supplier-order-controller.service';
 export { OrderShippingControllerService } from './services/order-shipping-controller.service';
 export { OrderFulfillmentControllerService } from './services/order-fulfillment-controller.service';

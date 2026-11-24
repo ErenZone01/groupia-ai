@@ -40,9 +40,15 @@ final class SaspayHistoryAudit {
             BigDecimal charged,
             boolean reviewRequired) {}
 
+    record Reference(String transaction, String state) {}
+
     @FunctionalInterface
     interface LedgerLookup {
         List<Evidence> find(String providerAccount, String transaction);
+
+        default List<Reference> references(String account, Instant from, Instant until) {
+            return List.of();
+        }
     }
 
     record Result(int pages, int transactions, int linked, int unmatched, int differences) {}
@@ -65,9 +71,11 @@ final class SaspayHistoryAudit {
         this.clock = clock;
     }
 
-    private static LedgerLookup sqlLookup(JdbcTemplate jdbc) {
-        return (account, transaction) ->
-                jdbc.query(
+    static LedgerLookup sqlLookup(JdbcTemplate jdbc) {
+        return new LedgerLookup() {
+            @Override
+            public List<Evidence> find(String account, String transaction) {
+                return jdbc.query(
                         """
                         SELECT 'INBOUND' AS direction, status, expected_amount AS amount, currency,
                             provider_collection_fee AS fee, provider_customer_charged AS charged,
@@ -95,11 +103,43 @@ final class SaspayHistoryAudit {
                         transaction,
                         account,
                         transaction);
+            }
+
+            @Override
+            public List<Reference> references(String account, Instant from, Instant until) {
+                // The local initiation window is not a provider creation-time proof.
+                // Absence is an investigation signal, never evidence of non-execution.
+                return jdbc.query(
+                        """
+                        SELECT provider_transaction_id, concat_ws(':',status,expected_amount,currency,
+                            reconciliation_required,reconciliation_reason) AS state
+                        FROM payments WHERE provider='SASPAY' AND provider_account_reference=?
+                            AND provider_transaction_id IS NOT NULL AND initiated_at>=? AND initiated_at<?
+                        UNION ALL
+                        SELECT provider_transaction_id, concat_ws(':',status,amount,currency,
+                            reconciliation_required,reconciliation_reason)
+                        FROM merchant_payouts WHERE provider='SASPAY' AND provider_account_reference=?
+                            AND provider_transaction_id IS NOT NULL AND requested_at>=? AND requested_at<?
+                        LIMIT 3001
+                        """,
+                        (rs, row) -> new Reference(rs.getString(1), rs.getString(2)),
+                        account,
+                        java.sql.Timestamp.from(from),
+                        java.sql.Timestamp.from(until),
+                        account,
+                        java.sql.Timestamp.from(from),
+                        java.sql.Timestamp.from(until));
+            }
+        };
     }
 
     @FunctionalInterface
     interface IssueSink {
         void report(String code, String transaction);
+
+        default void missing(Reference reference) {
+            report("INTERNAL_REFERENCE_NOT_OBSERVED", reference.transaction());
+        }
     }
 
     /** Default log-only comparison retained for diagnostics and existing contract tests. */
@@ -120,6 +160,10 @@ final class SaspayHistoryAudit {
         Set<String> transactions = new HashSet<>();
         int linked = 0, unmatched = 0, differences = 0;
         String account = properties.merchantId().toString();
+        // Capture before GETs so concurrent new initiations cannot become false misses.
+        List<Reference> expected = ledger.references(account, from, until);
+        if (expected.size() > 3000)
+            throw new SaspayException("SASPAY_INTERNAL_HISTORY_NOT_EXHAUSTIVE");
         for (int page = 1; page <= MAX_PAGES; page++) {
             JsonNode result =
                     client.transactionHistory(from, until, properties.merchantId(), cursor);
@@ -177,8 +221,24 @@ final class SaspayHistoryAudit {
                 }
             }
             String next = nextCursor(result.path("next"));
-            if (next == null)
+            if (next == null) {
+                for (Reference reference : expected) {
+                    String canonical;
+                    try {
+                        canonical = SaspayClient.uuid(reference.transaction());
+                    } catch (SaspayException invalid) {
+                        differences++;
+                        issueSink.report(
+                                "INVALID_INTERNAL_TRANSACTION_ID", reference.transaction());
+                        continue;
+                    }
+                    if (!transactions.contains(canonical)) {
+                        differences++;
+                        issueSink.missing(reference);
+                    }
+                }
                 return new Result(page, transactions.size(), linked, unmatched, differences);
+            }
             if (!cursors.add(next)) throw new SaspayException("SASPAY_HISTORY_CURSOR_LOOP");
             if (page == MAX_PAGES) throw new SaspayException("SASPAY_HISTORY_NOT_EXHAUSTIVE");
             cursor = next;

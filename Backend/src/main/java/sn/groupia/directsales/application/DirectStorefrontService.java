@@ -56,14 +56,23 @@ public class DirectStorefrontService implements DirectSalesAvailability {
             Map<String, String> attributes,
             String saleUnit,
             boolean usable,
-            String imageUrl) {}
+            String imageUrl,
+            Long stockAvailable,
+            long stockVersion) {}
 
     public record Storefront(
             UUID publicIdentifier, String displayName, String currency, List<Offer> offers) {}
 
     private record Store(UUID id, UUID organizationId, UUID publicIdentifier, String name) {}
 
-    private record OfferRow(UUID id, UUID variantId, long price, boolean published, long version) {}
+    private record OfferRow(
+            UUID id,
+            UUID variantId,
+            long price,
+            boolean published,
+            long version,
+            Long stockAvailable,
+            long stockVersion) {}
 
     private final org.springframework.jdbc.core.RowMapper<Store> storeMapper =
             (rs, rowNum) ->
@@ -80,7 +89,9 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                             rs.getObject("product_variant_id", UUID.class),
                             rs.getLong("price_xof"),
                             rs.getBoolean("published"),
-                            rs.getLong("version"));
+                            rs.getLong("version"),
+                            rs.getObject("stock_available", Long.class),
+                            rs.getLong("stock_version"));
 
     private List<Store> findByOrganization(UUID organizationId) {
         return jdbc.query(
@@ -175,7 +186,7 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         var store = requireStore(organizationId, true);
         var existing =
                 jdbc.query(
-                        "select id,product_variant_id,price_xof,published,version"
+                        "select id,product_variant_id,price_xof,published,version,stock_limit-stock_committed AS stock_available,stock_version"
                                 + " from direct_offers where storefront_id = ? and id = ?",
                         offerMapper,
                         store.id(),
@@ -212,6 +223,37 @@ public class DirectStorefrontService implements DirectSalesAvailability {
         return manager(organizationId);
     }
 
+    @Transactional
+    public Storefront stock(UUID organizationId, UUID offerId, long stockVersion, Long available) {
+        access.requirePermission(organizationId, OrganizationPermission.MANAGE_CATALOG);
+        if (stockVersion < 0 || (available != null && (available < 0 || available > 1000000000L)))
+            throw new ApiException(400, "INVALID_DIRECT_STOCK", "Quantité disponible invalide.");
+        var store = requireStore(organizationId, true);
+        var versions =
+                jdbc.queryForList(
+                        "select stock_version from direct_offers where storefront_id=? and id=?",
+                        Long.class,
+                        store.id(),
+                        offerId);
+        if (versions.isEmpty())
+            throw new ApiException(404, "DIRECT_OFFER_NOT_FOUND", "Offre introuvable.");
+        int changed =
+                jdbc.update(
+                        "update direct_offers set stock_limit=stock_committed+cast(? as bigint),"
+                                + " stock_version=stock_version+1,updated_at=? where storefront_id=? and id=? and stock_version=?",
+                        available,
+                        java.sql.Timestamp.from(clock.instant()),
+                        store.id(),
+                        offerId,
+                        stockVersion);
+        if (changed != 1)
+            throw new ApiException(
+                    409,
+                    "DIRECT_STOCK_CHANGED",
+                    "Le stock a changé. Rechargez la page avant de le corriger.");
+        return manager(organizationId);
+    }
+
     public Storefront publicStore(UUID identifier) {
         var stores =
                 jdbc.query(
@@ -230,7 +272,7 @@ public class DirectStorefrontService implements DirectSalesAvailability {
     private Storefront project(Store store, boolean publicOnly) {
         var all =
                 jdbc.query(
-                        "select id,product_variant_id,price_xof,published,version"
+                        "select id,product_variant_id,price_xof,published,version,stock_limit-stock_committed AS stock_available,stock_version"
                                 + " from direct_offers where storefront_id = ?"
                                 + (publicOnly ? " and published = true" : "")
                                 + " order by created_at desc, id limit 100",
@@ -266,7 +308,9 @@ public class DirectStorefrontService implements DirectSalesAvailability {
                             variant == null ? Map.of() : variant.attributes(),
                             variant == null ? null : variant.saleUnit(),
                             variant != null && variant.usable(),
-                            image));
+                            image,
+                            row.stockAvailable(),
+                            row.stockVersion()));
         }
         return new Storefront(store.publicIdentifier(), store.name(), "XOF", List.copyOf(views));
     }

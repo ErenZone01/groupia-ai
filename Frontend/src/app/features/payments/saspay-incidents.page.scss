@@ -75,3 +75,7 @@ input, select, textarea { font: inherit; width: 100%; padding: .7rem .85rem; bor
  .read-only-panel .section-header { flex-direction: column; align-items: stretch; }
  .read-only-panel .section-header button { width: 100%; }
 }
+
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.read-only-panel { min-width: 0; }
+.table-scroll th, .table-scroll td { padding: .6rem; vertical-align: top; }

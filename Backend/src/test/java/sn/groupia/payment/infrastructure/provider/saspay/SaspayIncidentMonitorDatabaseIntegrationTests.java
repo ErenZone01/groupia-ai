@@ -47,6 +47,15 @@ class SaspayIncidentMonitorDatabaseIntegrationTests {
                                     postgres.getJdbcUrl(),
                                     postgres.getUsername(),
                                     postgres.getPassword()));
+            var lookup = SaspayHistoryAudit.sqlLookup(jdbc);
+            assertThat(
+                            lookup.references(
+                                    SaspayTestConfiguration.MERCHANT,
+                                    Instant.parse("2026-11-20T00:00:00Z"),
+                                    Instant.parse("2026-11-21T00:00:00Z")))
+                    .isEmpty();
+            assertThat(lookup.find(SaspayTestConfiguration.MERCHANT, UUID.randomUUID().toString()))
+                    .isEmpty();
             var properties = SaspayTestConfiguration.properties();
             String merchant = properties.merchantId().toString();
             AtomicReference<Instant> instant =

@@ -17,6 +17,7 @@ class PayoutAdministrationController {
         this.service = service;
     }
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "PayoutAdministrativeDecision")
     record Decision(
             @NotBlank String action,
             @NotBlank @Size(max = 120) String approvalReference,

@@ -7,7 +7,7 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Page } from '../../models/page';
+import { DirectOrderPage } from '../../models/direct-order-page';
 
 export interface ListDirectOrders$Params {
   organizationId: string;
@@ -15,7 +15,7 @@ export interface ListDirectOrders$Params {
   size?: number;
 }
 
-export function listDirectOrders(http: HttpClient, rootUrl: string, params: ListDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<Page>> {
+export function listDirectOrders(http: HttpClient, rootUrl: string, params: ListDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectOrderPage>> {
   const rb = new RequestBuilder(rootUrl, listDirectOrders.PATH, 'get');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
@@ -28,7 +28,7 @@ export function listDirectOrders(http: HttpClient, rootUrl: string, params: List
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Page>;
+      return r as StrictHttpResponse<DirectOrderPage>;
     })
   );
 }

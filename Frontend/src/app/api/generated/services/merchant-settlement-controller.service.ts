@@ -23,8 +23,15 @@ import { merchantPayoutHistory } from '../fn/merchant-settlement-controller/merc
 import { MerchantPayoutHistory$Params } from '../fn/merchant-settlement-controller/merchant-payout-history';
 import { MerchantPayoutView } from '../models/merchant-payout-view';
 import { PayoutDestinationView } from '../models/payout-destination-view';
+import { PayoutFeeQuoteView } from '../models/payout-fee-quote-view';
+import { quoteDirectMerchantPayout } from '../fn/merchant-settlement-controller/quote-direct-merchant-payout';
+import { QuoteDirectMerchantPayout$Params } from '../fn/merchant-settlement-controller/quote-direct-merchant-payout';
+import { quoteMerchantPayout } from '../fn/merchant-settlement-controller/quote-merchant-payout';
+import { QuoteMerchantPayout$Params } from '../fn/merchant-settlement-controller/quote-merchant-payout';
 import { reconcileMerchantPayout } from '../fn/merchant-settlement-controller/reconcile-merchant-payout';
 import { ReconcileMerchantPayout$Params } from '../fn/merchant-settlement-controller/reconcile-merchant-payout';
+import { recoverPilotMerchantPayout } from '../fn/merchant-settlement-controller/recover-pilot-merchant-payout';
+import { RecoverPilotMerchantPayout$Params } from '../fn/merchant-settlement-controller/recover-pilot-merchant-payout';
 import { requestDirectMerchantPayout } from '../fn/merchant-settlement-controller/request-direct-merchant-payout';
 import { RequestDirectMerchantPayout$Params } from '../fn/merchant-settlement-controller/request-direct-merchant-payout';
 import { requestMerchantPayout } from '../fn/merchant-settlement-controller/request-merchant-payout';
@@ -106,6 +113,45 @@ export class MerchantSettlementControllerService extends BaseService {
     );
   }
 
+  /** Path part for operation `recoverPilotMerchantPayout()` */
+  static readonly RecoverPilotMerchantPayoutPath = '/api/organizations/{organizationId}/merchant-payouts/{payoutId}/recover-pilot';
+
+  /**
+   * Opération retirée : aucun rejeu d'un retrait incertain (410).
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `recoverPilotMerchantPayout()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   *
+   * @deprecated
+   */
+  recoverPilotMerchantPayout$Response(params: RecoverPilotMerchantPayout$Params, context?: HttpContext): Observable<StrictHttpResponse<MerchantPayoutView>> {
+    const obs = recoverPilotMerchantPayout(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Opération retirée : aucun rejeu d'un retrait incertain (410).
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `recoverPilotMerchantPayout$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   *
+   * @deprecated
+   */
+  recoverPilotMerchantPayout(params: RecoverPilotMerchantPayout$Params, context?: HttpContext): Observable<MerchantPayoutView> {
+    const resp = this.recoverPilotMerchantPayout$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<MerchantPayoutView>): MerchantPayoutView => r.body)
+    );
+  }
+
   /** Path part for operation `reconcileMerchantPayout()` */
   static readonly ReconcileMerchantPayoutPath = '/api/organizations/{organizationId}/merchant-payouts/{payoutId}/reconcile';
 
@@ -145,7 +191,7 @@ export class MerchantSettlementControllerService extends BaseService {
   static readonly RequestMerchantPayoutPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/merchant-payouts';
 
   /**
-   * Demander tout le disponible du groupage.
+   * Demander le montant du devis accepté pour un groupage.
    *
    *
    *
@@ -160,7 +206,7 @@ export class MerchantSettlementControllerService extends BaseService {
   }
 
   /**
-   * Demander tout le disponible du groupage.
+   * Demander le montant du devis accepté pour un groupage.
    *
    *
    *
@@ -180,7 +226,7 @@ export class MerchantSettlementControllerService extends BaseService {
   static readonly RequestDirectMerchantPayoutPath = '/api/organizations/{organizationId}/direct-orders/{directOrderId}/merchant-payouts';
 
   /**
-   * Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties.
+   * Demander le montant du devis accepté d'une vente directe, avec vérification des fonds.
    *
    *
    *
@@ -195,7 +241,7 @@ export class MerchantSettlementControllerService extends BaseService {
   }
 
   /**
-   * Demander le solde vérifié d'une vente directe, avec la même destination et les mêmes garanties.
+   * Demander le montant du devis accepté d'une vente directe, avec vérification des fonds.
    *
    *
    *
@@ -313,6 +359,76 @@ export class MerchantSettlementControllerService extends BaseService {
     const resp = this.campaignMerchantSettlement$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<MerchantBalance>): MerchantBalance => r.body)
+    );
+  }
+
+  /** Path part for operation `quoteMerchantPayout()` */
+  static readonly QuoteMerchantPayoutPath = '/api/organizations/{organizationId}/grouping-campaigns/{campaignId}/merchant-payout-quote';
+
+  /**
+   * Devis frais retrait, réseau et montant net, sans transfert.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteMerchantPayout()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteMerchantPayout$Response(params: QuoteMerchantPayout$Params, context?: HttpContext): Observable<StrictHttpResponse<PayoutFeeQuoteView>> {
+    const obs = quoteMerchantPayout(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Devis frais retrait, réseau et montant net, sans transfert.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteMerchantPayout$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteMerchantPayout(params: QuoteMerchantPayout$Params, context?: HttpContext): Observable<PayoutFeeQuoteView> {
+    const resp = this.quoteMerchantPayout$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<PayoutFeeQuoteView>): PayoutFeeQuoteView => r.body)
+    );
+  }
+
+  /** Path part for operation `quoteDirectMerchantPayout()` */
+  static readonly QuoteDirectMerchantPayoutPath = '/api/organizations/{organizationId}/direct-orders/{directOrderId}/merchant-payout-quote';
+
+  /**
+   * Devis net du retrait d'une vente directe, sans transfert.
+   *
+   *
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `quoteDirectMerchantPayout()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteDirectMerchantPayout$Response(params: QuoteDirectMerchantPayout$Params, context?: HttpContext): Observable<StrictHttpResponse<PayoutFeeQuoteView>> {
+    const obs = quoteDirectMerchantPayout(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * Devis net du retrait d'une vente directe, sans transfert.
+   *
+   *
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `quoteDirectMerchantPayout$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  quoteDirectMerchantPayout(params: QuoteDirectMerchantPayout$Params, context?: HttpContext): Observable<PayoutFeeQuoteView> {
+    const resp = this.quoteDirectMerchantPayout$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<PayoutFeeQuoteView>): PayoutFeeQuoteView => r.body)
     );
   }
 

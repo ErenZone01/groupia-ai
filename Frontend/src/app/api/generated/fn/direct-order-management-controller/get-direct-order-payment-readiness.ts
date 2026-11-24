@@ -7,14 +7,14 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Status } from '../../models/status';
+import { DirectMerchantFinancialStatus } from '../../models/direct-merchant-financial-status';
 
 export interface GetDirectOrderPaymentReadiness$Params {
   organizationId: string;
   orderId: string;
 }
 
-export function getDirectOrderPaymentReadiness(http: HttpClient, rootUrl: string, params: GetDirectOrderPaymentReadiness$Params, context?: HttpContext): Observable<StrictHttpResponse<Status>> {
+export function getDirectOrderPaymentReadiness(http: HttpClient, rootUrl: string, params: GetDirectOrderPaymentReadiness$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectMerchantFinancialStatus>> {
   const rb = new RequestBuilder(rootUrl, getDirectOrderPaymentReadiness.PATH, 'get');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
@@ -26,7 +26,7 @@ export function getDirectOrderPaymentReadiness(http: HttpClient, rootUrl: string
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Status>;
+      return r as StrictHttpResponse<DirectMerchantFinancialStatus>;
     })
   );
 }

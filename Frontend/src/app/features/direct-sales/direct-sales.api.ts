@@ -47,6 +47,8 @@ export interface DirectDeliveryCoverage {
 }
 
 export interface DirectOffer {
+  stockAvailable?: number | null;
+  stockVersion?: number;
   id: string;
   variantId: string;
   priceXof: number;
@@ -195,6 +197,12 @@ export class DirectSalesApi {
         priceXof,
       }),
     );
+  }
+  stock(organizationId: string, offerId: string, stockVersion: number, available: number | null) {
+    return firstValueFrom(this.http.put<DirectStorefront>(
+      this.privatePath(organizationId) + '/offers/' + encodeURIComponent(offerId) + '/stock',
+      { stockVersion, available },
+    ).pipe(timeout(15000)));
   }
   update(
     organizationId: string,

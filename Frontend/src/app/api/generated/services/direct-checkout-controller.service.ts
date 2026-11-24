@@ -12,7 +12,7 @@ import { StrictHttpResponse } from '../strict-http-response';
 
 import { checkout1 } from '../fn/direct-checkout-controller/checkout-1';
 import { Checkout1$Params } from '../fn/direct-checkout-controller/checkout-1';
-import { Receipt } from '../models/receipt';
+import { DirectCheckoutReceipt } from '../models/direct-checkout-receipt';
 
 @Injectable({ providedIn: 'root' })
 export class DirectCheckoutControllerService extends BaseService {
@@ -29,7 +29,7 @@ export class DirectCheckoutControllerService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  checkout1$Response(params: Checkout1$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+  checkout1$Response(params: Checkout1$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectCheckoutReceipt>> {
     const obs = checkout1(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -40,10 +40,10 @@ export class DirectCheckoutControllerService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  checkout1(params: Checkout1$Params, context?: HttpContext): Observable<Receipt> {
+  checkout1(params: Checkout1$Params, context?: HttpContext): Observable<DirectCheckoutReceipt> {
     const resp = this.checkout1$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Receipt>): Receipt => r.body)
+      map((r: StrictHttpResponse<DirectCheckoutReceipt>): DirectCheckoutReceipt => r.body)
     );
   }
 

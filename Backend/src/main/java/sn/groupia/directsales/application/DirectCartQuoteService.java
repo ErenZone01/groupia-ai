@@ -11,7 +11,7 @@ import sn.groupia.shared.api.ApiException;
 
 /**
  * Anonymous direct-cart price check. This quote is an instant snapshot, not an order, reservation
- * or guaranteed price. A future checkout must revalidate under its own lock.
+ * or guaranteed price. Checkout revalidates under the storefront lock.
  */
 @Service
 @Transactional(readOnly = true)
@@ -54,7 +54,7 @@ public class DirectCartQuoteService {
 
     private record Shop(UUID id, UUID organizationId, String displayName) {}
 
-    private record Offer(UUID id, UUID variantId, long priceXof, long revision) {}
+    private record Offer(UUID id, UUID variantId, long priceXof, long revision, Long available) {}
 
     public Quote quote(UUID publicIdentifier, List<RequestedLine> requested) {
         if (requested == null || requested.isEmpty() || requested.size() > 20) {
@@ -90,7 +90,7 @@ public class DirectCartQuoteService {
         params.addAll(quantities.keySet());
         var offers =
                 jdbc.query(
-                        "select id,product_variant_id,price_xof,version from direct_offers"
+                        "select id,product_variant_id,price_xof,version,stock_limit-stock_committed AS stock_available from direct_offers"
                                 + " where storefront_id=? and published=true and id in ("
                                 + placeholders
                                 + ")",
@@ -99,7 +99,8 @@ public class DirectCartQuoteService {
                                         rs.getObject("id", UUID.class),
                                         rs.getObject("product_variant_id", UUID.class),
                                         rs.getLong("price_xof"),
-                                        rs.getLong("version")),
+                                        rs.getLong("version"),
+                                        rs.getObject("stock_available", Long.class)),
                         params.toArray());
         if (offers.size() != quantities.size()) {
             throw stale();
@@ -117,6 +118,11 @@ public class DirectCartQuoteService {
             var offer = offerById.get(selection.getKey());
             var variant = variants.get(offer.variantId());
             if (variant == null || !variant.usable()) throw stale();
+            if (offer.available() != null && selection.getValue() > offer.available())
+                throw new ApiException(
+                        409,
+                        "DIRECT_STOCK_UNAVAILABLE",
+                        "La quantité demandée dépasse le stock disponible.");
             long lineTotal;
             try {
                 lineTotal = Math.multiplyExact(offer.priceXof(), selection.getValue());
@@ -136,8 +142,7 @@ public class DirectCartQuoteService {
                             variant.productName(),
                             variant.attributes()));
         }
-        // No checkout operation exists in this tranche: a quote never requests money.
-        // Payment is a separate feature and remains disabled even for enabled draft creation.
+        // The quote itself never initiates payment; eligibility is checked on the order.
         return new Quote(
                 "XOF",
                 store.displayName(),

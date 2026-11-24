@@ -17,6 +17,7 @@ import sn.groupia.shared.api.ApiException;
  */
 @Service
 public class DirectOrderFulfillment {
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectFulfillmentCommand")
     public record Command(String action, Long version, boolean confirmed) {}
 
     public record Event(UUID id, String fromStatus, String toStatus, Instant occurredAt) {}

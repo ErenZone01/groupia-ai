@@ -13,11 +13,20 @@ import sn.groupia.shared.api.ApiException;
 class SaspayIncidentConsoleController {
     private final SaspayIncidentConsoleService service;
     private final SaspayReadOnlyPreflight preflight;
+    private final SaspayAccountingDiagnostic accounting;
 
     SaspayIncidentConsoleController(
-            SaspayIncidentConsoleService service, SaspayReadOnlyPreflight preflight) {
+            SaspayIncidentConsoleService service,
+            SaspayReadOnlyPreflight preflight,
+            SaspayAccountingDiagnostic accounting) {
         this.service = service;
         this.preflight = preflight;
+        this.accounting = accounting;
+    }
+
+    @GetMapping("/accounting")
+    ResponseEntity<SaspayAccountingDiagnostic.Snapshot> accounting() {
+        return response(accounting.snapshot());
     }
 
     record DecisionRequest(

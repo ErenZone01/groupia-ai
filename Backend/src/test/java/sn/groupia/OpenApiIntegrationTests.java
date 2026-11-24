@@ -37,6 +37,68 @@ class OpenApiIntegrationTests {
     }
 
     @Test
+    void accountingAndProviderWalletHaveDistinctSchemasAndRequireAuthentication() throws Exception {
+        var doc = spec();
+        var response =
+                doc.at(
+                        "/paths/~1api~1platform~1saspay~1incidents~1accounting/get/responses/200/content/*~1*/schema/$ref");
+        assertThat(response.asText()).isEqualTo("#/components/schemas/SaspayAccountingSnapshot");
+        var fields = doc.at("/components/schemas/SaspayAccountingSnapshot/properties");
+        assertThat(fields.has("subscriptionRevenue")).isTrue();
+        assertThat(fields.has("retainedMerchantPrincipal")).isTrue();
+        assertThat(fields.has("senegalAvailableXof")).isFalse();
+        assertThat(doc.at("/components/schemas/SaspayIncidentPage/properties").has("checkpoint"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/SaspayIncidentPage/properties/items/items/$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/Incident");
+        assertThat(
+                        doc.at("/components/schemas/DirectOrderPage/properties/items/items/$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/Summary");
+        assertThat(
+                        doc.at(
+                                        "/components/schemas/DirectOrderRecoveryPage/properties/items/items/$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/Entry");
+        assertThat(
+                        doc.at("/components/schemas/SaspayIncidentDecision/properties")
+                                .has("evidenceReference"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/PayoutAdministrativeDecision/properties")
+                                .has("evidenceReference"))
+                .isFalse();
+        assertThat(
+                        doc.at("/components/schemas/DirectCheckoutLine/properties")
+                                .has("expectedUnitPriceXof"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/GroupingCheckoutLine/properties")
+                                .has("expectedUnitPrice"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/DirectCancellationReceipt/properties")
+                                .has("cancelledAt"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/DirectCheckoutReceipt/properties")
+                                .has("goodsSubtotalXof"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/DirectCustomerFinancialStatus/properties")
+                                .has("latestAttempt"))
+                .isTrue();
+        assertThat(
+                        doc.at("/components/schemas/DirectMerchantFinancialStatus/properties")
+                                .has("fulfillmentAllowed"))
+                .isTrue();
+        mvc.perform(get("/api/platform/saspay/incidents/accounting"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void specificationCoversEveryBusinessRestOperationAndResolvesSchemas() throws Exception {
         var doc = spec();
         assertThat(doc.path("openapi").asText()).startsWith("3.");

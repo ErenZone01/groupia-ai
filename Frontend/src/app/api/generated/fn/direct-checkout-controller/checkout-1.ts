@@ -7,8 +7,8 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Command } from '../../models/command';
-import { Receipt } from '../../models/receipt';
+import { DirectCheckoutCommand } from '../../models/direct-checkout-command';
+import { DirectCheckoutReceipt } from '../../models/direct-checkout-receipt';
 
 export interface Checkout1$Params {
   publicIdentifier: string;
@@ -17,10 +17,10 @@ export interface Checkout1$Params {
  * Unique logical-operation key; reuse unchanged on retry. Changed request content with the same key returns 409.
  */
   'Idempotency-Key': string;
-      body: Command
+      body: DirectCheckoutCommand
 }
 
-export function checkout1(http: HttpClient, rootUrl: string, params: Checkout1$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+export function checkout1(http: HttpClient, rootUrl: string, params: Checkout1$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectCheckoutReceipt>> {
   const rb = new RequestBuilder(rootUrl, checkout1.PATH, 'post');
   if (params) {
     rb.path('publicIdentifier', params.publicIdentifier, {});
@@ -33,7 +33,7 @@ export function checkout1(http: HttpClient, rootUrl: string, params: Checkout1$P
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Receipt>;
+      return r as StrictHttpResponse<DirectCheckoutReceipt>;
     })
   );
 }

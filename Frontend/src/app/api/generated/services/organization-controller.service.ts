@@ -12,8 +12,8 @@ import { StrictHttpResponse } from '../strict-http-response';
 
 import { create } from '../fn/organization-controller/create';
 import { Create$Params } from '../fn/organization-controller/create';
-import { get3 } from '../fn/organization-controller/get-3';
-import { Get3$Params } from '../fn/organization-controller/get-3';
+import { get4 } from '../fn/organization-controller/get-4';
+import { Get4$Params } from '../fn/organization-controller/get-4';
 import { list } from '../fn/organization-controller/list';
 import { List$Params } from '../fn/organization-controller/list';
 import { OrganizationView } from '../models/organization-view';
@@ -78,28 +78,28 @@ export class OrganizationControllerService extends BaseService {
     );
   }
 
-  /** Path part for operation `get3()` */
-  static readonly Get3Path = '/api/organizations/{organizationId}';
+  /** Path part for operation `get4()` */
+  static readonly Get4Path = '/api/organizations/{organizationId}';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `get3()` instead.
+   * To access only the response body, use `get4()` instead.
    *
    * This method doesn't expect any request body.
    */
-  get3$Response(params: Get3$Params, context?: HttpContext): Observable<StrictHttpResponse<OrganizationView>> {
-    const obs = get3(this.http, this.rootUrl, params, context);
+  get4$Response(params: Get4$Params, context?: HttpContext): Observable<StrictHttpResponse<OrganizationView>> {
+    const obs = get4(this.http, this.rootUrl, params, context);
     return obs;
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `get3$Response()` instead.
+   * To access the full response (for headers, for example), `get4$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  get3(params: Get3$Params, context?: HttpContext): Observable<OrganizationView> {
-    const resp = this.get3$Response(params, context);
+  get4(params: Get4$Params, context?: HttpContext): Observable<OrganizationView> {
+    const resp = this.get4$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<OrganizationView>): OrganizationView => r.body)
     );

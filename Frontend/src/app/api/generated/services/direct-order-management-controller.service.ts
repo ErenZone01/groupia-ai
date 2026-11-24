@@ -13,6 +13,11 @@ import { StrictHttpResponse } from '../strict-http-response';
 import { cancelDirectUnpaidOrder } from '../fn/direct-order-management-controller/cancel-direct-unpaid-order';
 import { CancelDirectUnpaidOrder$Params } from '../fn/direct-order-management-controller/cancel-direct-unpaid-order';
 import { Detail } from '../models/detail';
+import { DirectCancellationReceipt } from '../models/direct-cancellation-receipt';
+import { DirectMerchantFinancialStatus } from '../models/direct-merchant-financial-status';
+import { DirectOrderPage } from '../models/direct-order-page';
+import { DirectPreparationReceipt } from '../models/direct-preparation-receipt';
+import { DirectReadinessReceipt } from '../models/direct-readiness-receipt';
 import { Event } from '../models/event';
 import { fulfill } from '../fn/direct-order-management-controller/fulfill';
 import { Fulfill$Params } from '../fn/direct-order-management-controller/fulfill';
@@ -26,11 +31,8 @@ import { listDirectOrders } from '../fn/direct-order-management-controller/list-
 import { ListDirectOrders$Params } from '../fn/direct-order-management-controller/list-direct-orders';
 import { markDirectOrderReady } from '../fn/direct-order-management-controller/mark-direct-order-ready';
 import { MarkDirectOrderReady$Params } from '../fn/direct-order-management-controller/mark-direct-order-ready';
-import { Page } from '../models/page';
-import { Receipt } from '../models/receipt';
 import { startDirectOrderPreparation } from '../fn/direct-order-management-controller/start-direct-order-preparation';
 import { StartDirectOrderPreparation$Params } from '../fn/direct-order-management-controller/start-direct-order-preparation';
-import { Status } from '../models/status';
 
 @Injectable({ providedIn: 'root' })
 export class DirectOrderManagementControllerService extends BaseService {
@@ -47,7 +49,7 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  startDirectOrderPreparation$Response(params: StartDirectOrderPreparation$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+  startDirectOrderPreparation$Response(params: StartDirectOrderPreparation$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectPreparationReceipt>> {
     const obs = startDirectOrderPreparation(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -58,10 +60,10 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  startDirectOrderPreparation(params: StartDirectOrderPreparation$Params, context?: HttpContext): Observable<Receipt> {
+  startDirectOrderPreparation(params: StartDirectOrderPreparation$Params, context?: HttpContext): Observable<DirectPreparationReceipt> {
     const resp = this.startDirectOrderPreparation$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Receipt>): Receipt => r.body)
+      map((r: StrictHttpResponse<DirectPreparationReceipt>): DirectPreparationReceipt => r.body)
     );
   }
 
@@ -74,7 +76,7 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  markDirectOrderReady$Response(params: MarkDirectOrderReady$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+  markDirectOrderReady$Response(params: MarkDirectOrderReady$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectReadinessReceipt>> {
     const obs = markDirectOrderReady(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -85,10 +87,10 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  markDirectOrderReady(params: MarkDirectOrderReady$Params, context?: HttpContext): Observable<Receipt> {
+  markDirectOrderReady(params: MarkDirectOrderReady$Params, context?: HttpContext): Observable<DirectReadinessReceipt> {
     const resp = this.markDirectOrderReady$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Receipt>): Receipt => r.body)
+      map((r: StrictHttpResponse<DirectReadinessReceipt>): DirectReadinessReceipt => r.body)
     );
   }
 
@@ -128,7 +130,7 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  cancelDirectUnpaidOrder$Response(params: CancelDirectUnpaidOrder$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+  cancelDirectUnpaidOrder$Response(params: CancelDirectUnpaidOrder$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectCancellationReceipt>> {
     const obs = cancelDirectUnpaidOrder(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -139,10 +141,10 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  cancelDirectUnpaidOrder(params: CancelDirectUnpaidOrder$Params, context?: HttpContext): Observable<Receipt> {
+  cancelDirectUnpaidOrder(params: CancelDirectUnpaidOrder$Params, context?: HttpContext): Observable<DirectCancellationReceipt> {
     const resp = this.cancelDirectUnpaidOrder$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Receipt>): Receipt => r.body)
+      map((r: StrictHttpResponse<DirectCancellationReceipt>): DirectCancellationReceipt => r.body)
     );
   }
 
@@ -155,7 +157,7 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  listDirectOrders$Response(params: ListDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<Page>> {
+  listDirectOrders$Response(params: ListDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectOrderPage>> {
     const obs = listDirectOrders(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -166,10 +168,10 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  listDirectOrders(params: ListDirectOrders$Params, context?: HttpContext): Observable<Page> {
+  listDirectOrders(params: ListDirectOrders$Params, context?: HttpContext): Observable<DirectOrderPage> {
     const resp = this.listDirectOrders$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Page>): Page => r.body)
+      map((r: StrictHttpResponse<DirectOrderPage>): DirectOrderPage => r.body)
     );
   }
 
@@ -209,7 +211,7 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  getDirectOrderPaymentReadiness$Response(params: GetDirectOrderPaymentReadiness$Params, context?: HttpContext): Observable<StrictHttpResponse<Status>> {
+  getDirectOrderPaymentReadiness$Response(params: GetDirectOrderPaymentReadiness$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectMerchantFinancialStatus>> {
     const obs = getDirectOrderPaymentReadiness(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -220,10 +222,10 @@ export class DirectOrderManagementControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  getDirectOrderPaymentReadiness(params: GetDirectOrderPaymentReadiness$Params, context?: HttpContext): Observable<Status> {
+  getDirectOrderPaymentReadiness(params: GetDirectOrderPaymentReadiness$Params, context?: HttpContext): Observable<DirectMerchantFinancialStatus> {
     const resp = this.getDirectOrderPaymentReadiness$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Status>): Status => r.body)
+      map((r: StrictHttpResponse<DirectMerchantFinancialStatus>): DirectMerchantFinancialStatus => r.body)
     );
   }
 

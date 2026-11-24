@@ -6,13 +6,13 @@ export interface MerchantPayoutView {
   campaignId?: string;
   currency?: string;
   directOrderId?: string;
+  feeChargeMode?: string;
   holderName?: string;
   id?: string;
   maskedPhone?: string;
-  providerFee?: number;
-  netAmount?: number;
-  feeChargeMode?: string;
   method?: string;
+  netAmount?: number;
+  providerFee?: number;
   reconciliationReason?: string;
   reconciliationRequired?: boolean;
   requestedAt?: string;

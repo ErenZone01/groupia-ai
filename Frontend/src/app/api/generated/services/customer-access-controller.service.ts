@@ -28,6 +28,7 @@ import { CustomerSession$Params } from '../fn/customer-access-controller/custome
 import { CustomerSessionView } from '../models/customer-session-view';
 import { customerShippingPaymentOptions } from '../fn/customer-access-controller/customer-shipping-payment-options';
 import { CustomerShippingPaymentOptions$Params } from '../fn/customer-access-controller/customer-shipping-payment-options';
+import { DirectOrderRecoveryPage } from '../models/direct-order-recovery-page';
 import { exchangeCustomerLink } from '../fn/customer-access-controller/exchange-customer-link';
 import { ExchangeCustomerLink$Params } from '../fn/customer-access-controller/exchange-customer-link';
 import { initiateCustomerShippingPayment } from '../fn/customer-access-controller/initiate-customer-shipping-payment';
@@ -37,7 +38,6 @@ import { LogoutCustomer$Params } from '../fn/customer-access-controller/logout-c
 import { MyOrdersPage } from '../models/my-orders-page';
 import { OrderTrackingView } from '../models/order-tracking-view';
 import { OtpRequested } from '../models/otp-requested';
-import { Page } from '../models/page';
 import { quoteCustomerShippingPayment } from '../fn/customer-access-controller/quote-customer-shipping-payment';
 import { QuoteCustomerShippingPayment$Params } from '../fn/customer-access-controller/quote-customer-shipping-payment';
 import { requestCustomerOtp } from '../fn/customer-access-controller/request-customer-otp';
@@ -447,7 +447,7 @@ export class CustomerAccessControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  verifiedDirectOrders$Response(params?: VerifiedDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<Page>> {
+  verifiedDirectOrders$Response(params?: VerifiedDirectOrders$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectOrderRecoveryPage>> {
     const obs = verifiedDirectOrders(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -458,10 +458,10 @@ export class CustomerAccessControllerService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  verifiedDirectOrders(params?: VerifiedDirectOrders$Params, context?: HttpContext): Observable<Page> {
+  verifiedDirectOrders(params?: VerifiedDirectOrders$Params, context?: HttpContext): Observable<DirectOrderRecoveryPage> {
     const resp = this.verifiedDirectOrders$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Page>): Page => r.body)
+      map((r: StrictHttpResponse<DirectOrderRecoveryPage>): DirectOrderRecoveryPage => r.body)
     );
   }
 

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Contact, CheckoutCommand } from '../../api/generated/models';
+import { GroupingCheckoutContact, CheckoutCommand } from '../../api/generated/models';
 import { GroupiaApi } from '../../api/groupia-api';
 import { apiCode } from '../../core/http/api-error';
 import { CartStore } from './cart.store';
@@ -16,7 +16,7 @@ export interface CustomerLocation {
   details: string;
 }
 
-export type CheckoutContact = Contact & { deliveryAddress?: CustomerLocation };
+export type CheckoutContact = GroupingCheckoutContact & { deliveryAddress?: CustomerLocation };
 
 export function normalizeContact(c: CheckoutContact): CheckoutContact {
   return {

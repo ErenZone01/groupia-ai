@@ -26,6 +26,8 @@ import { PublicStore$Params } from '../fn/direct-storefront-controller/public-st
 import { quote } from '../fn/direct-storefront-controller/quote';
 import { Quote } from '../models/quote';
 import { Quote$Params } from '../fn/direct-storefront-controller/quote';
+import { stock } from '../fn/direct-storefront-controller/stock';
+import { Stock$Params } from '../fn/direct-storefront-controller/stock';
 import { Storefront } from '../models/storefront';
 import { update2 } from '../fn/direct-storefront-controller/update-2';
 import { Update2$Params } from '../fn/direct-storefront-controller/update-2';
@@ -114,6 +116,33 @@ export class DirectStorefrontControllerService extends BaseService {
    */
   update2(params: Update2$Params, context?: HttpContext): Observable<Storefront> {
     const resp = this.update2$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<Storefront>): Storefront => r.body)
+    );
+  }
+
+  /** Path part for operation `stock()` */
+  static readonly StockPath = '/api/organizations/{organizationId}/direct-store/offers/{offerId}/stock';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `stock()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  stock$Response(params: Stock$Params, context?: HttpContext): Observable<StrictHttpResponse<Storefront>> {
+    const obs = stock(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `stock$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  stock(params: Stock$Params, context?: HttpContext): Observable<Storefront> {
+    const resp = this.stock$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<Storefront>): Storefront => r.body)
     );

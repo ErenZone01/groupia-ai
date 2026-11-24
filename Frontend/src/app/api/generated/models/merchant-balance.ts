@@ -15,6 +15,7 @@ export interface MerchantBalance {
   eligibleBalance?: number;
   grossMerchantCollections?: number;
   merchantPayouts?: number;
+  payoutFeePolicy?: string;
   platformFees?: number;
   platformFundedRefunds?: number;
   providerAvailable?: boolean;

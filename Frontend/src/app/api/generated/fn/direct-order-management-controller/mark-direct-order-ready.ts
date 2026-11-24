@@ -7,14 +7,14 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Receipt } from '../../models/receipt';
+import { DirectReadinessReceipt } from '../../models/direct-readiness-receipt';
 
 export interface MarkDirectOrderReady$Params {
   organizationId: string;
   orderId: string;
 }
 
-export function markDirectOrderReady(http: HttpClient, rootUrl: string, params: MarkDirectOrderReady$Params, context?: HttpContext): Observable<StrictHttpResponse<Receipt>> {
+export function markDirectOrderReady(http: HttpClient, rootUrl: string, params: MarkDirectOrderReady$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectReadinessReceipt>> {
   const rb = new RequestBuilder(rootUrl, markDirectOrderReady.PATH, 'post');
   if (params) {
     rb.path('organizationId', params.organizationId, {});
@@ -26,7 +26,7 @@ export function markDirectOrderReady(http: HttpClient, rootUrl: string, params: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Receipt>;
+      return r as StrictHttpResponse<DirectReadinessReceipt>;
     })
   );
 }

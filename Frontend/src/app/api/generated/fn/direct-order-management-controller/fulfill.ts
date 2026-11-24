@@ -7,7 +7,7 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Command } from '../../models/command';
+import { DirectFulfillmentCommand } from '../../models/direct-fulfillment-command';
 import { Event } from '../../models/event';
 
 export interface Fulfill$Params {
@@ -18,7 +18,7 @@ export interface Fulfill$Params {
  * Unique logical-operation key; reuse unchanged on retry. Changed request content with the same key returns 409.
  */
   'Idempotency-Key': string;
-      body: Command
+      body: DirectFulfillmentCommand
 }
 
 export function fulfill(http: HttpClient, rootUrl: string, params: Fulfill$Params, context?: HttpContext): Observable<StrictHttpResponse<Event>> {

@@ -10,9 +10,9 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { DirectCustomerFinancialStatus } from '../models/direct-customer-financial-status';
 import { readDirectPaymentPreparationByToken } from '../fn/direct-customer-payment-status-controller/read-direct-payment-preparation-by-token';
 import { ReadDirectPaymentPreparationByToken$Params } from '../fn/direct-customer-payment-status-controller/read-direct-payment-preparation-by-token';
-import { Status } from '../models/status';
 
 @Injectable({ providedIn: 'root' })
 export class DirectCustomerPaymentStatusControllerService extends BaseService {
@@ -29,7 +29,7 @@ export class DirectCustomerPaymentStatusControllerService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  readDirectPaymentPreparationByToken$Response(params: ReadDirectPaymentPreparationByToken$Params, context?: HttpContext): Observable<StrictHttpResponse<Status>> {
+  readDirectPaymentPreparationByToken$Response(params: ReadDirectPaymentPreparationByToken$Params, context?: HttpContext): Observable<StrictHttpResponse<DirectCustomerFinancialStatus>> {
     const obs = readDirectPaymentPreparationByToken(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -40,10 +40,10 @@ export class DirectCustomerPaymentStatusControllerService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  readDirectPaymentPreparationByToken(params: ReadDirectPaymentPreparationByToken$Params, context?: HttpContext): Observable<Status> {
+  readDirectPaymentPreparationByToken(params: ReadDirectPaymentPreparationByToken$Params, context?: HttpContext): Observable<DirectCustomerFinancialStatus> {
     const resp = this.readDirectPaymentPreparationByToken$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Status>): Status => r.body)
+      map((r: StrictHttpResponse<DirectCustomerFinancialStatus>): DirectCustomerFinancialStatus => r.body)
     );
   }
 

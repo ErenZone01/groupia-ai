@@ -12,6 +12,8 @@ export interface Offer {
   productName?: string;
   published?: boolean;
   saleUnit?: string;
+  stockAvailable?: number;
+  stockVersion?: number;
   usable?: boolean;
   variantId?: string;
   version?: number;

@@ -59,6 +59,19 @@ export class SubscriptionStore {
         (i) => i.status === 'PAID' && Date.parse(i.periodStart ?? '') > Date.now(),
       ) ?? null,
   );
+  readonly renewalOpensAt = computed(() => {
+    // First subscription purchase is permitted during trial. Only renewals are limited.
+    if (!this.history().length) return null;
+    const nextStart = Date.parse(this.preview()?.periodStart ?? '');
+    return Number.isFinite(nextStart)
+      ? new Date(nextStart - 7 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+  });
+  renewalWindowOpen(): boolean {
+    if (!this.history().length) return true;
+    const opensAt = this.renewalOpensAt();
+    return opensAt !== null && Date.now() >= Date.parse(opensAt);
+  }
   private org = '';
   private session = -1;
   private generation = 0;
@@ -243,7 +256,8 @@ export class SubscriptionStore {
       !details?.canManageSubscription ||
       !this.hasProvider('SASPAY') ||
       !details.planConfigured ||
-      this.futurePaid()
+      this.futurePaid() ||
+      !this.renewalWindowOpen()
     )
       return;
     const existing = this.currentInvoice();
@@ -311,7 +325,8 @@ export class SubscriptionStore {
       !this.hasProvider(provider) ||
       !details.planConfigured ||
       !details.billingContact?.phoneE164 ||
-      this.futurePaid()
+      this.futurePaid() ||
+      !this.renewalWindowOpen()
     )
       return;
     const org = this.org,

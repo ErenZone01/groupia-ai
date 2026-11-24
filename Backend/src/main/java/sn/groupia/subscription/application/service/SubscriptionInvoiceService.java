@@ -263,7 +263,8 @@ public class SubscriptionInvoiceService {
                         && !state.attemptInProgress()
                         && !state.reconciliationRequired()
                         && state.operationalStatus() == PaymentOperationalStatus.PENDING
-                && renewalWindowOpen(subscriptions.find(i.organizationId()).orElseThrow(), now());
+                        && renewalWindowOpen(
+                                subscriptions.find(i.organizationId()).orElseThrow(), now());
         return new SubscriptionInvoiceView(
                 i.id(),
                 i.organizationId(),

@@ -65,6 +65,17 @@ class DirectStorefrontController {
                 request.published());
     }
 
+    record StockInput(
+            @NotNull @Min(0) Long stockVersion, @Min(0) @Max(1000000000L) Long available) {}
+
+    @PutMapping("/api/organizations/{organizationId}/direct-store/offers/{offerId}/stock")
+    DirectStorefrontService.Storefront stock(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID offerId,
+            @Valid @RequestBody StockInput request) {
+        return direct.stock(organizationId, offerId, request.stockVersion(), request.available());
+    }
+
     @GetMapping("/api/organizations/{organizationId}/direct-store/delivery-policy")
     @io.swagger.v3.oas.annotations.Operation(operationId = "getDirectDeliveryPolicy")
     ResponseEntity<DirectDeliveryPolicyService.Policy> deliveryPolicy(

@@ -115,6 +115,18 @@ public class DirectOrderCancellation {
         if (updated != 1) {
             throw blocked();
         }
+        // Only this first, financially authorized transition releases stock.
+        // Paid cancellations/refunds do not imply that goods were returned.
+        jdbc.update(
+                """
+                update direct_offers o set stock_committed=o.stock_committed-i.quantity,
+                    stock_version=o.stock_version+1
+                from direct_order_items i
+                where i.order_id=? and i.organization_id=? and i.stock_committed=true
+                    and o.id=i.offer_id_snapshot and o.organization_id=i.organization_id
+                """,
+                orderId,
+                organizationId);
         return new Receipt(order.number(), "CANCELLED", now);
     }
 

@@ -31,6 +31,19 @@ describe('Vitrine publique : transparence des zones de livraison', () => {
     });
   });
 
+  it('ne permet pas d’ajouter une offre épuisée au panier', async () => {
+    const page = TestBed.runInInjectionContext(() => new PublicDirectPage());
+    await vi.waitFor(() => expect(page.loading()).toBe(false));
+    page.store.set({ publicIdentifier: shopA, displayName: 'Stock', currency: 'XOF', offers: [{
+      id: 'stock-empty', variantId: 'variant', priceXof: 1000, published: true, version: 1,
+      productName: 'Article', description: null, attributes: {}, saleUnit: 'UNIT', usable: true,
+      imageUrl: null, stockAvailable: 0, stockVersion: 3,
+    }] });
+    const add = vi.spyOn(page.cart, 'add');
+    page.addToCart('stock-empty');
+    expect(add).not.toHaveBeenCalled();
+  });
+
   it('charge les régions choisies par la gérante sur la vitrine, avant le panier', async () => {
     const page = TestBed.runInInjectionContext(() => new PublicDirectPage());
     await vi.waitFor(() => expect(page.deliveryPolicy()?.mode).toBe('SELECTED'));

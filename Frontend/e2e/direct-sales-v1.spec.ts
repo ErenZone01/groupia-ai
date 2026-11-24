@@ -116,3 +116,20 @@ test('vente directe : publication, prix fixe et lien stable dans le contexte de 
   await expect(page.getByText('Publiée', { exact: true })).toBeVisible();
   await noOverflow(page);
 });
+
+
+test('vente directe : stock épuisé visible et ajout au panier bloqué', async ({ page }) => {
+  await mockApi(page);
+  await page.route((url) => url.pathname === '/api/public/direct-stores/' + publicIdentifier, route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      publicIdentifier, displayName: 'Stock limité', currency: 'XOF', offers: [{
+        id: offerId, variantId, priceXof: 1000, published: true, version: 1,
+        productName: 'Dernier article', description: null, attributes: {}, saleUnit: 'UNIT',
+        usable: true, imageUrl: null, stockAvailable: 0, stockVersion: 3,
+      }],
+    }) }));
+  await page.goto('/v/' + publicIdentifier);
+  await expect(page.getByText('Épuisé', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ajouter au panier' })).toBeDisabled();
+  await noOverflow(page);
+});

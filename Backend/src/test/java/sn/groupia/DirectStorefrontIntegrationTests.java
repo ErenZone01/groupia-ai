@@ -1563,6 +1563,224 @@ class DirectStorefrontIntegrationTests {
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
 
+    @Test
+    void stockAdjustmentRequiresCatalogManagementPermission() throws Exception {
+        var store = stockFixture(3);
+        String endpoint = path() + "/offers/" + store.at("/offers/0/id").asText() + "/stock";
+        mvc.perform(
+                        put(endpoint)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"stockVersion\":1,\"available\":1}"))
+                .andExpect(status().isUnauthorized());
+        for (String role : List.of("VIEWER", "OPERATOR")) {
+            jdbc.update(
+                    "update organization_members set role=? where organization_id=?",
+                    role,
+                    organizationId);
+            authorized(
+                            put(endpoint)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"stockVersion\":1,\"available\":1}"))
+                    .andExpect(status().isForbidden());
+        }
+        jdbc.update(
+                "update organization_members set role='MANAGER' where organization_id=?",
+                organizationId);
+        authorized(
+                        put(endpoint)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"stockVersion\":1,\"available\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offers[0].stockAvailable").value(0));
+    }
+
+    private JsonNode stockFixture(long quantity) throws Exception {
+        String variant =
+                product(organizationId, bearer, "Stock limité").at("/variants/0/id").asText();
+        authorized(
+                        put(path())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsString(Map.of("displayName", "Stock"))))
+                .andExpect(status().isOk());
+        var added =
+                body(
+                        authorized(
+                                        post(path() + "/offers")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        json.writeValueAsString(
+                                                                Map.of(
+                                                                        "variantId",
+                                                                        variant,
+                                                                        "priceXof",
+                                                                        8500))))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        String offer = added.at("/offers/0/id").asText();
+        authorized(
+                        put(path() + "/offers/" + offer)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "version",
+                                                        0,
+                                                        "priceXof",
+                                                        8500,
+                                                        "published",
+                                                        true))))
+                .andExpect(status().isOk());
+        return body(
+                authorized(
+                                put(path() + "/offers/" + offer + "/stock")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                json.writeValueAsString(
+                                                        Map.of(
+                                                                "stockVersion",
+                                                                0,
+                                                                "available",
+                                                                quantity))))
+                        .andExpect(status().isOk())
+                        .andReturn());
+    }
+
+    private MvcResult stockCheckout(JsonNode store, String key, int quantity) throws Exception {
+        return mvc.perform(
+                        post(publicPath(store.path("publicIdentifier").asText()) + "/checkout")
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                Map.of(
+                                                        "contact",
+                                                        Map.of(
+                                                                "firstName",
+                                                                "Awa",
+                                                                "lastName",
+                                                                "Diop",
+                                                                "phone",
+                                                                "+221771234567"),
+                                                        "fulfillmentMethod",
+                                                        "PICKUP",
+                                                        "lines",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "offerId",
+                                                                        store.at("/offers/0/id")
+                                                                                .asText(),
+                                                                        "quantity",
+                                                                        quantity,
+                                                                        "expectedUnitPriceXof",
+                                                                        8500,
+                                                                        "expectedPriceRevision",
+                                                                        1))))))
+                .andReturn();
+    }
+
+    @Test
+    void lastStockUnitIsReservedAtomicallyAcrossConcurrentCheckouts() throws Exception {
+        var store = stockFixture(1);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var workers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first =
+                    workers.submit(
+                            () -> {
+                                start.await();
+                                return stockCheckout(store, "stock-concurrency-first", 1);
+                            });
+            var second =
+                    workers.submit(
+                            () -> {
+                                start.await();
+                                return stockCheckout(store, "stock-concurrency-second", 1);
+                            });
+            start.countDown();
+            var results =
+                    List.of(
+                            first.get(30, java.util.concurrent.TimeUnit.SECONDS),
+                            second.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            assertThat(results.stream().map(r -> r.getResponse().getStatus()))
+                    .containsExactlyInAnyOrder(201, 409);
+            assertThat(jdbc.queryForObject("select stock_committed from direct_offers", Long.class))
+                    .isEqualTo(1);
+            assertThat(jdbc.queryForObject("select count(*) from direct_orders", Long.class))
+                    .isEqualTo(1);
+            var rejected =
+                    results.stream()
+                            .filter(r -> r.getResponse().getStatus() == 409)
+                            .findFirst()
+                            .orElseThrow();
+            assertThat(body(rejected).path("code").asText()).isEqualTo("DIRECT_STOCK_UNAVAILABLE");
+        }
+    }
+
+    @Test
+    void stockReplayCancellationAndStaleAdjustmentCannotCreateExtraUnits() throws Exception {
+        var store = stockFixture(2);
+        assertThat(stockCheckout(store, "stock-idempotent-checkout", 2).getResponse().getStatus())
+                .isEqualTo(201);
+        assertThat(stockCheckout(store, "stock-idempotent-checkout", 2).getResponse().getStatus())
+                .isEqualTo(200);
+        String offer = store.at("/offers/0/id").asText();
+        authorized(
+                        put(path() + "/offers/" + offer + "/stock")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"stockVersion\":1,\"available\":2}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DIRECT_STOCK_CHANGED"));
+        UUID order = jdbc.queryForObject("select id from direct_orders", UUID.class);
+        String cancel =
+                "/api/organizations/" + organizationId + "/direct-orders/" + order + "/cancel";
+        authorized(post(cancel)).andExpect(status().isOk());
+        authorized(post(cancel)).andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("select stock_committed from direct_offers", Long.class))
+                .isZero();
+        assertThat(stockCheckout(store, "stock-checkout-after-cancel", 2).getResponse().getStatus())
+                .isEqualTo(201);
+        assertThat(jdbc.queryForObject("select stock_committed from direct_offers", Long.class))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void anotherShopCannotChangeStockAndItsOwnOrdersDoNotConsumeThisStock() throws Exception {
+        var firstStore = stockFixture(1);
+        String firstBearer = bearer;
+        UUID firstOrg = organizationId;
+        String firstPath = path();
+        bearer = token(account("+221781234567"));
+        organizationId = organization(bearer, "Stock B");
+        var secondStore = stockFixture(3);
+        authorized(
+                        put(firstPath
+                                        + "/offers/"
+                                        + firstStore.at("/offers/0/id").asText()
+                                        + "/stock")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"stockVersion\":1,\"available\":99}"))
+                .andExpect(status().isForbidden());
+        authorized(
+                        put(path() + "/offers/" + firstStore.at("/offers/0/id").asText() + "/stock")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"stockVersion\":1,\"available\":99}"))
+                .andExpect(status().isNotFound());
+        assertThat(
+                        stockCheckout(secondStore, "stock-second-shop-order", 2)
+                                .getResponse()
+                                .getStatus())
+                .isEqualTo(201);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select stock_committed from direct_offers where organization_id=?",
+                                Long.class,
+                                firstOrg))
+                .isZero();
+        bearer = firstBearer;
+        organizationId = firstOrg;
+        assertThat(stockCheckout(firstStore, "stock-first-shop-order", 1).getResponse().getStatus())
+                .isEqualTo(201);
+    }
+
     private JsonNode product(UUID organization, String authorization, String name)
             throws Exception {
         return body(

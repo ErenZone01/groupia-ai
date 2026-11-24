@@ -25,6 +25,15 @@ describe('Vente directe : contrats HTTP', () => {
     offers: [],
   } as const;
 
+  it('enregistre un stock épuisé sans le convertir en stock illimité', async () => {
+    const pending = api.stock(org, 'offer-1', 8, 0);
+    const req = http.expectOne(`/api/organizations/${org}/direct-store/offers/offer-1/stock`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ stockVersion: 8, available: 0 });
+    req.flush(storefront);
+    await pending;
+  });
+
   it('lit le magasin dans le contexte de la boutique', async () => {
     const pending = api.manager(org);
     const request = http.expectOne(`/api/organizations/${org}/direct-store`);

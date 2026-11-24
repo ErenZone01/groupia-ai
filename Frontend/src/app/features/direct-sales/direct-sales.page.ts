@@ -31,6 +31,7 @@ export class DirectSalesPage {
   readonly deliveryPolicy = signal<DirectDeliveryPolicy | null>(null);
   readonly shippingSettings = signal<DirectShippingSettings | null>(null);
   shippingInputs: Record<string, string> = {};
+  stockInputs: Record<string, string> = {};
   readonly deliveryRegions = SENEGAL_REGIONS.map((region) => region.name);
   deliveryMode: DirectDeliveryMode = 'ALL';
   deliverySelected: string[] = [];
@@ -67,6 +68,7 @@ export class DirectSalesPage {
         this.deliveryPolicy.set(null);
         this.shippingSettings.set(null);
         this.shippingInputs = {};
+        this.stockInputs = {};
         this.deliveryMode = 'ALL';
         this.deliverySelected = [];
         this.name = '';
@@ -89,6 +91,7 @@ export class DirectSalesPage {
 
   private setStore(next: DirectStorefront) {
     this.store.set(next);
+    this.stockInputs = Object.fromEntries(next.offers.map(o => [o.id, o.stockAvailable == null ? '' : String(o.stockAvailable)]));
     this.name = next.displayName ?? this.context.selected()?.name ?? '';
     this.prices.set(Object.fromEntries(next.offers.map((offer) => [offer.id, offer.priceXof])));
   }
@@ -175,6 +178,20 @@ export class DirectSalesPage {
     } finally {
       if (this.current(id, seq, generation)) this.busy.set(false);
     }
+  }
+
+  async saveStock(offer: DirectOffer) {
+    const raw = this.stockInputs[offer.id]?.trim() ?? '';
+    const available = raw === '' ? null : Number(raw);
+    if (available !== null && (!/^\d+$/.test(raw) || !Number.isSafeInteger(available) || available > 1000000000)) {
+      this.error.set('Saisissez une quantité entière positive ou zéro.');
+      return;
+    }
+    if (offer.stockVersion == null) {
+      this.error.set('Rechargez la boutique avant de modifier le stock.');
+      return;
+    }
+    await this.mutate(id => this.api.stock(id, offer.id, offer.stockVersion!, available), 'Stock disponible enregistré.');
   }
 
   private setDeliveryPolicy(policy: DirectDeliveryPolicy) {

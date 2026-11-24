@@ -450,6 +450,25 @@ public class DirectCheckoutService {
                 fingerprint,
                 java.sql.Timestamp.from(now),
                 recoveryHash);
+        // All checkouts and stock adjustments hold the storefront lock. The SQL
+        // predicate remains a second guard; any failed line rolls back the order.
+        for (var line : quote.lines()) {
+            int reserved =
+                    jdbc.update(
+                            "update direct_offers set stock_committed=stock_committed+?,stock_version=stock_version+1"
+                                    + " where organization_id=? and storefront_id=? and id=?"
+                                    + " and (stock_limit is null or stock_limit-stock_committed>=?)",
+                            line.quantity(),
+                            store.organizationId(),
+                            store.id(),
+                            line.offerId(),
+                            line.quantity());
+            if (reserved != 1)
+                throw new ApiException(
+                        409,
+                        "DIRECT_STOCK_UNAVAILABLE",
+                        "Stock insuffisant. Actualisez votre panier.");
+        }
         int position = 0;
         for (var line : quote.lines()) {
             var snapshot = snapshots.get(line.variantId());
@@ -461,8 +480,8 @@ public class DirectCheckoutService {
                             + " (id,organization_id,order_id,offer_id_snapshot,product_id_snapshot,"
                             + "product_variant_id_snapshot,product_name_snapshot,"
                             + "variant_attributes_snapshot,sku_snapshot,sale_unit_snapshot,"
-                            + "line_number,quantity,unit_price_xof,line_total_xof,price_revision_snapshot)"
-                            + " values (?,?,?,?,?,?,?,cast(? as jsonb),?,?,?,?,?,?,?)",
+                            + "line_number,quantity,unit_price_xof,line_total_xof,price_revision_snapshot,stock_committed)"
+                            + " values (?,?,?,?,?,?,?,cast(? as jsonb),?,?,?,?,?,?,?,true)",
                     UUID.randomUUID(),
                     store.organizationId(),
                     orderId,

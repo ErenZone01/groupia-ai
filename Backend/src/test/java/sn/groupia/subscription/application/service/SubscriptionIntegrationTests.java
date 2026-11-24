@@ -305,28 +305,34 @@ class SubscriptionIntegrationTests {
         assertThat(entitlements.access(organizationId).status())
                 .isEqualTo(SubscriptionStatus.ACTIVE);
 
-        var premature = post(subscriptionPath() + "/invoices")
-                .header("Authorization", "Bearer " + ownerToken)
-                .header("Idempotency-Key", UUID.randomUUID().toString());
+        var premature =
+                post(subscriptionPath() + "/invoices")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString());
         mvc.perform(premature)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUBSCRIPTION_RENEWAL_NOT_DUE"));
-        assertThat(jdbc.queryForObject(
-                "select count(*) from subscription_invoices where organization_id=?",
-                Integer.class, organizationId)).isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from subscription_invoices where organization_id=?",
+                                Integer.class,
+                                organizationId))
+                .isEqualTo(1);
         clock.at(initial.periodEnd().minus(Duration.ofDays(7)).minusSeconds(1));
-        mvc.perform(post(subscriptionPath() + "/invoices")
-                        .header("Authorization", "Bearer " + ownerToken)
-                        .header("Idempotency-Key", UUID.randomUUID().toString()))
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUBSCRIPTION_RENEWAL_NOT_DUE"));
         clock.at(initial.periodEnd().minus(Duration.ofDays(7)));
         var renewal = create(UUID.randomUUID().toString());
         assertThat(renewal.periodStart()).isEqualTo(initial.periodEnd());
         assertThat(renewal.canPay()).isTrue();
-        mvc.perform(post(subscriptionPath() + "/invoices")
-                        .header("Authorization", "Bearer " + ownerToken)
-                        .header("Idempotency-Key", UUID.randomUUID().toString()))
+        mvc.perform(
+                        post(subscriptionPath() + "/invoices")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .header("Idempotency-Key", UUID.randomUUID().toString()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUBSCRIPTION_INVOICE_EXISTS"));
     }

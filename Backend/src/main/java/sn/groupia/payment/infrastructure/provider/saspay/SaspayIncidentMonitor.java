@@ -109,8 +109,7 @@ final class SaspayIncidentMonitor {
             while (from.isBefore(target) && windows++ < MAX_WINDOWS) {
                 Instant until = nextBoundary(from, target);
                 stage = "HISTORY_READ";
-                SaspayHistoryAudit.Result result =
-                        history.compare(from, until, this::recordIncident);
+                SaspayHistoryAudit.Result result = history.compare(from, until, historyIssues());
                 stage = "CHECKPOINT_WRITE";
                 int advanced =
                         jdbc.update(
@@ -136,7 +135,7 @@ final class SaspayIncidentMonitor {
                 // Re-read recent operations: a transaction may become terminal after its
                 // original created_at interval was checkpointed, without a new transaction.
                 stage = "RECENT_RECHECK";
-                history.compare(target.minus(Duration.ofHours(48)), target, this::recordIncident);
+                history.compare(target.minus(Duration.ofHours(48)), target, historyIssues());
             }
         } catch (RuntimeException failure) {
             // Never advance a failed window. Alerting is best-effort; failure stays visible in DB.
@@ -291,6 +290,23 @@ final class SaspayIncidentMonitor {
      * reviewed case. New workflow version/state does reopen it. This SQL statement is atomic even
      * if the application dies halfway through a scan.
      */
+    private SaspayHistoryAudit.IssueSink historyIssues() {
+        return new SaspayHistoryAudit.IssueSink() {
+            @Override
+            public void report(String code, String transaction) {
+                recordIncident(code, transaction);
+            }
+
+            @Override
+            public void missing(SaspayHistoryAudit.Reference reference) {
+                recordLocalSignal(
+                        "INTERNAL_REFERENCE_NOT_OBSERVED",
+                        reference.transaction(),
+                        reference.state());
+            }
+        };
+    }
+
     void recordLocalSignal(String code, String rawReference, String sourceState) {
         if (code == null
                 || !code.matches("[A-Z_]{3,64}")

@@ -32,6 +32,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class DirectCheckoutService {
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCheckoutAddress")
     public record Address(
             String country,
             String region,
@@ -40,6 +41,7 @@ public class DirectCheckoutService {
             String neighborhood,
             String details) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCheckoutContact")
     public record Contact(
             String firstName,
             String lastName,
@@ -47,6 +49,7 @@ public class DirectCheckoutService {
             String email,
             Address deliveryAddress) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCheckoutLine")
     public record Line(
             UUID offerId,
             Integer quantity,
@@ -56,6 +59,7 @@ public class DirectCheckoutService {
     /** Optional GPS destination; manual delivery requests remain possible without GPS. */
     public record DeliveryPoint(Double latitude, Double longitude) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCheckoutCommand")
     public record Command(
             Contact contact,
             String fulfillmentMethod,
@@ -81,6 +85,7 @@ public class DirectCheckoutService {
             String regionSource,
             String coverageStatus) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCheckoutReceipt")
     public record Receipt(
             String orderNumber,
             String status,

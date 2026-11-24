@@ -18,6 +18,7 @@ import sn.groupia.shared.api.ApiException;
 public class DirectOrderCancellation {
     record Order(String number, String status, Instant cancelledAt) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCancellationReceipt")
     public record Receipt(String orderNumber, String status, Instant cancelledAt) {}
 
     private final JdbcTemplate jdbc;

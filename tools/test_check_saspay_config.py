@@ -54,6 +54,33 @@ class SaspayConfigurationTests(unittest.TestCase):
         env["SASPAY_ALLOW_FRACTIONAL_XOF_FEES"] = "false"
         self.assertEqual(check(env), [])
 
+    def test_production_accepts_multiple_shops_without_pilot_configuration(self):
+        env = self.config()
+        env.update(SASPAY_API_KEY="sk_live_synthetic", SASPAY_PRODUCTION_ENABLED="true",
+                   SPRING_PROFILES_ACTIVE="prod", SASPAY_PRODUCTION_MAX_CHARGED_XOF="1000000")
+        self.assertEqual(check(env), [])
+        for value in ("0", "10000001", "-1", "invalid"):
+            with self.subTest(value=value):
+                env["SASPAY_PRODUCTION_MAX_CHARGED_XOF"] = value
+                self.assertTrue(check(env))
+        env["SASPAY_PRODUCTION_MAX_CHARGED_XOF"] = "1000000"
+        env["SASPAY_LIVE_PILOT_ENABLED"] = "true"
+        self.assertTrue(check(env))
+
+    def test_environment_mismatch_never_passes_offline_validation(self):
+        env = self.config()
+        env["SASPAY_API_URL"] = "https://api.saspay.me/api/v1"
+        self.assertTrue(check(env))
+        env["SASPAY_API_URL"] = "https://sandbox-api.saspay.me/api/v1"
+        self.assertEqual(check(env), [])
+        env["SPRING_PROFILES_ACTIVE"] = "prod"
+        self.assertTrue(check(env))
+        env.pop("SPRING_PROFILES_ACTIVE")
+        env["SASPAY_PRODUCTION_ENABLED"] = "true"
+        self.assertTrue(check(env))
+        env["SASPAY_PRODUCTION_ENABLED"] = "sometimes"
+        self.assertTrue(check(env))
+
     def test_wildcard_redirect_domain_is_refused(self):
         env = self.config()
         env["SASPAY_CHECKOUT_HOSTS"] = "*.example.test"

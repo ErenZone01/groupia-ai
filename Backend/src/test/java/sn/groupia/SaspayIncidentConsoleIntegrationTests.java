@@ -187,6 +187,140 @@ class SaspayIncidentConsoleIntegrationTests {
         }
     }
 
+    @Test
+    void accountingSeparatesOrganizationsAndUnallocatedCashWithoutOffsettingDeficits()
+            throws Exception {
+        try (var db = new PostgreSQLContainer(DockerImageName.parse("postgres:18.6"))) {
+            db.start();
+            try (var resources = new ClassLoaderResourceAccessor()) {
+                new DistributionMigrationTests().migrate(db, resources);
+            }
+            var jdbc =
+                    new JdbcTemplate(
+                            new DriverManagerDataSource(
+                                    db.getJdbcUrl(), db.getUsername(), db.getPassword()));
+            UUID merchant = UUID.randomUUID(), operator = UUID.randomUUID();
+            var props = properties(merchant);
+            var allowed =
+                    new SaspayIncidentConsoleService(
+                            jdbc, () -> operator, props, CLOCK, true, operator.toString());
+            var diagnostic =
+                    new sn.groupia.payment.infrastructure.provider.saspay
+                            .SaspayAccountingDiagnostic(jdbc, props, allowed, CLOCK);
+            var a = MerchantSettlementFixtures.seed(jdbc);
+            var b = MerchantSettlementFixtures.seed(jdbc);
+            var unallocated = MerchantSettlementFixtures.seed(jdbc);
+            var otherAccount = MerchantSettlementFixtures.seed(jdbc);
+            for (var fixture : List.of(a, b)) {
+                UUID request =
+                        MerchantSettlementFixtures.settled(
+                                jdbc, fixture, "INITIAL_ORDER", "SASPAY", merchant.toString());
+                jdbc.update(
+                        """
+                    INSERT INTO provider_collections(id,organization_id,payment_request_id,payment_id,
+                        target_type,target_id,purpose,provider,provider_account,provider_transaction_id,
+                        currency,principal,seller_principal,platform_fee,confirmed_at)
+                    SELECT gen_random_uuid(),p.organization_id,p.payment_request_id,p.id,'ORDER',r.order_id,
+                        r.purpose,p.provider,p.provider_account_reference,p.provider_transaction_id,'XOF',25300,25000,300,now()
+                    FROM payments p JOIN payment_requests r ON r.id=p.payment_request_id WHERE r.id=?
+                    """,
+                        request);
+            }
+            MerchantSettlementFixtures.settled(
+                    jdbc, unallocated, "INITIAL_ORDER", "SASPAY", merchant.toString());
+            MerchantSettlementFixtures.settled(
+                    jdbc, otherAccount, "INITIAL_ORDER", "SASPAY", UUID.randomUUID().toString());
+            payout(jdbc, a, merchant, 1000, "SUCCEEDED", true);
+            payout(jdbc, a, merchant, 200, "PENDING", false);
+            payout(jdbc, b, merchant, 26000, "SUCCEEDED", false);
+            var before = jdbc.queryForList("select * from payments order by id");
+            var snapshot = diagnostic.snapshot();
+            assertThat(snapshot.organizations()).hasSize(3);
+            assertThat(snapshot.organizations())
+                    .noneMatch(row -> row.organizationId().equals(otherAccount.org()));
+            assertThat(snapshot.retainedMerchantPrincipal()).isEqualByComparingTo("24000");
+            assertThat(snapshot.merchantDeficits()).isEqualByComparingTo("1000");
+            assertThat(snapshot.unallocatedCollections()).isEqualByComparingTo("25300");
+            assertThat(snapshot.subscriptionRevenue()).isZero();
+            assertThat(snapshot.reservedPayouts()).isEqualByComparingTo("200");
+            assertThat(snapshot.knownNetWalletFlows()).isEqualByComparingTo("48900");
+            assertThat(snapshot.missingFeeProofs()).isEqualTo(4);
+            assertThat(
+                            snapshot.organizations().stream()
+                                    .filter(row -> row.organizationId().equals(a.org()))
+                                    .findFirst()
+                                    .orElseThrow()
+                                    .payoutFees())
+                    .isEqualByComparingTo("37");
+            assertThat(jdbc.queryForList("select * from payments order by id")).isEqualTo(before);
+            var denied =
+                    new SaspayIncidentConsoleService(
+                            jdbc, () -> a.actor(), props, CLOCK, true, operator.toString());
+            assertThatThrownBy(
+                            () ->
+                                    new sn.groupia.payment.infrastructure.provider.saspay
+                                                    .SaspayAccountingDiagnostic(
+                                                    jdbc, props, denied, CLOCK)
+                                            .snapshot())
+                    .isInstanceOf(ApiException.class);
+        }
+    }
+
+    private static void payout(
+            JdbcTemplate j,
+            MerchantSettlementFixtures.Fixture fixture,
+            UUID account,
+            long amount,
+            String status,
+            boolean feeProof) {
+        var destinations =
+                j.queryForList(
+                        "select id from merchant_payout_destinations where organization_id=?",
+                        UUID.class,
+                        fixture.org());
+        UUID destination = destinations.isEmpty() ? UUID.randomUUID() : destinations.getFirst();
+        if (destinations.isEmpty())
+            j.update(
+                    """
+            insert into merchant_payout_destinations(id,organization_id,method,phone_e164,holder_name,status,created_at,updated_at,created_by,updated_by)
+            values (?,?,'WAVE','+221771234567','Fixture','ACTIVE',now(),now(),?,?)
+            """,
+                    destination,
+                    fixture.org(),
+                    fixture.actor(),
+                    fixture.actor());
+        UUID id = UUID.randomUUID();
+        j.update(
+                """
+            insert into merchant_payouts(id,organization_id,campaign_id,amount,currency,status,destination_id,
+                method,phone_e164,holder_name,provider,provider_account_reference,business_reference,
+                provider_idempotency_key,provider_transaction_id,requested_by,requested_at,succeeded_at,reconciliation_required)
+            values (?,?,?,?,'XOF',?,?,'WAVE','+221771234567','Fixture','SASPAY',?,?,?,?,?,now(),
+                CASE WHEN ?='SUCCEEDED' THEN now() ELSE NULL END,false)
+            """,
+                id,
+                fixture.org(),
+                fixture.campaign(),
+                amount,
+                status,
+                destination,
+                account.toString(),
+                "TEST:" + id,
+                UUID.randomUUID(),
+                UUID.randomUUID().toString(),
+                fixture.actor(),
+                status);
+        if (feeProof)
+            j.update(
+                    """
+            insert into merchant_payout_provider_fees(payout_id,principal_xof,provider_fee_xof,wallet_debited_xof,fee_charge_mode)
+            values (?,?,37,?,'DEDUCTED')
+            """,
+                    id,
+                    amount,
+                    amount);
+    }
+
     private static SaspayProperties properties(UUID merchant) {
         return new SaspayProperties(
                 true,

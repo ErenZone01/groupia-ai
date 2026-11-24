@@ -5,6 +5,7 @@ import java.util.*;
 import sn.groupia.ordering.api.dto.DeliveryAddress;
 
 public record CheckoutCommand(Contact contact, List<Line> lines) {
+    @io.swagger.v3.oas.annotations.media.Schema(name = "GroupingCheckoutContact")
     public record Contact(
             String firstName,
             String lastName,
@@ -16,6 +17,7 @@ public record CheckoutCommand(Contact contact, List<Line> lines) {
         }
     }
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "GroupingCheckoutLine")
     public record Line(
             UUID offerId,
             Integer quantity,

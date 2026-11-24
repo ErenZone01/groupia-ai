@@ -29,6 +29,7 @@ import sn.groupia.shared.api.ApiException;
 @Service
 @Transactional(readOnly = true)
 public class DirectCustomerPaymentStatus {
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectCustomerFinancialStatus")
     public record Status(
             String orderNumber,
             String currency,

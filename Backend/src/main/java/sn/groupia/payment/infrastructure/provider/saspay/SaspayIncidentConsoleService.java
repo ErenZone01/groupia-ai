@@ -57,6 +57,7 @@ public class SaspayIncidentConsoleService {
             long occurrenceCount,
             Instant lastDecisionAt) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "SaspayIncidentDecision")
     public record Decision(
             UUID id,
             String action,
@@ -68,6 +69,7 @@ public class SaspayIncidentConsoleService {
 
     public record IncidentDetail(Incident incident, List<Decision> decisions) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "SaspayIncidentPage")
     public record Page(
             List<Incident> items,
             long total,

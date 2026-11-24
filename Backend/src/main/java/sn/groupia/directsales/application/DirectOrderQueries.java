@@ -37,10 +37,13 @@ public class DirectOrderQueries {
             Instant placedAt,
             int itemCount) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectOrderPage")
     public record Page(List<Summary> items, long total, int page, int size) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectOrderContact")
     public record Contact(String firstName, String lastName, String phoneE164, String email) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectOrderAddress")
     public record Address(
             String country,
             String region,

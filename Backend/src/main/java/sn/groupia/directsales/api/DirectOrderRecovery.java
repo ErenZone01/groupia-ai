@@ -15,6 +15,7 @@ public interface DirectOrderRecovery {
             Long acceptedTotalXof,
             Instant placedAt) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectOrderRecoveryPage")
     record Page(List<Entry> items, long total, int page, int size) {}
 
     /** Issued token is a bearer secret: never log or retain it in another service. */

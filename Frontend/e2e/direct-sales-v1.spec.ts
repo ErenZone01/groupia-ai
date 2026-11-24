@@ -120,6 +120,11 @@ test('vente directe : publication, prix fixe et lien stable dans le contexte de 
 
 test('vente directe : stock épuisé visible et ajout au panier bloqué', async ({ page }) => {
   await mockApi(page);
+  await page.route('**/api/public/direct-stores/*/delivery-policy', route => {
+    expect(route.request().headers()['authorization']).toBeUndefined();
+    return route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ mode: 'DISABLED', allowedRegions: [], version: 0 }) });
+  });
   await page.route((url) => url.pathname === '/api/public/direct-stores/' + publicIdentifier, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
       publicIdentifier, displayName: 'Stock limité', currency: 'XOF', offers: [{

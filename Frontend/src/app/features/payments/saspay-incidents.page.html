@@ -100,6 +100,61 @@
     }
   </section>
 
+  <section class="read-only-panel" aria-label="Rapprochement des fonds enregistrés">
+    <div class="section-header">
+      <div><h2>Fonds enregistrés par boutique</h2>
+        <p>Compte SasPay configuré uniquement. Les abonnements appartiennent à Groupia.
+          Les réservations de retrait sont déjà comprises dans les fonds marchands conservés.</p></div>
+      <button type="button" (click)="loadAccounting()" [disabled]="accountingLoading()">
+        {{ accountingLoading() ? 'Lecture en cours…' : 'Lire les écritures Groupia' }}
+      </button>
+    </div>
+    @if (accountingError()) { <p role="alert">{{ accountingError() }}</p> }
+    @if (accounting(); as a) {
+      <p>Écritures lues le {{ a.checkedAt | date: 'dd/MM/yyyy HH:mm:ss' }}.</p>
+      <dl>
+        <dt>Principal marchand conservé (hors déficits des autres boutiques)</dt><dd>{{ a.retainedMerchantPrincipal | number }} FCFA</dd>
+        <dt>Dont retraits réservés</dt><dd>{{ a.reservedPayouts | number }} FCFA</dd>
+        <dt>Déficits marchands à examiner séparément</dt><dd>{{ a.merchantDeficits | number }} FCFA</dd>
+        <dt>Encaissements non affectés — à examiner, pas des revenus</dt><dd>{{ a.unallocatedCollections | number }} FCFA</dd>
+        <dt>Abonnements réglés et affectés à Groupia</dt><dd>{{ a.subscriptionRevenue | number }} FCFA</dd>
+        <dt>Flux nets connus du portefeuille (sans solde initial)</dt><dd>{{ a.knownNetWalletFlows | number: '1.0-2' }} FCFA</dd>
+        <dt>Opérations sans preuve de frais complète</dt><dd>{{ a.missingFeeProofs }}</dd>
+      </dl>
+      @if (walletGap() !== null) {
+        <p>Écart non expliqué : portefeuille disponible + en attente − flux nets connus =
+          {{ walletGap() | number: '1.0-2' }} FCFA.</p>
+      } @else {
+        <p>Pour comparer, lire également les soldes SasPay complets à moins d'une minute d'intervalle.</p>
+      }
+      @if (potentialCoverageGap() !== null) {
+        <p>Insuffisance potentielle du solde disponible face aux fonds marchands conservés et non affectés :
+          {{ potentialCoverageGap() | number: '1.0-2' }} FCFA. Les débits en cours restent à vérifier.</p>
+      }
+      <p class="evidence-warning">Un écart nul ne prouve pas la solvabilité. Solde initial, opérations externes,
+        virements en cours et autres portefeuilles nécessitent des relevés fournisseur.
+        Ces montants ne donnent aucun droit de retrait. Les remboursements ci-dessous sont un suivi distinct :
+        ils ne sont ni ajoutés aux réserves ni soustraits du portefeuille sur simple déclaration.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Boutique</th><th>Principal marchand</th><th>Déjà reversé</th><th>Réservé</th>
+            <th>Abonnements</th><th>Non affecté</th><th>Remboursements dus</th><th>Déclarés externes</th>
+            <th>Frais historiques Groupia</th><th>Frais encaissement / retrait</th><th>Sources mixtes</th></tr></thead>
+          <tbody>@for (row of a.organizations; track row.organizationId) {
+            <tr><td>{{ row.organizationId }}</td><td>{{ row.merchantPrincipal | number }}</td>
+              <td>{{ row.paidPayouts | number }}</td><td>{{ row.reservedPayouts | number }}</td>
+              <td>{{ row.subscriptionRevenue | number }}</td><td>{{ row.unallocatedCollections | number }}</td>
+              <td>{{ row.refundsDue | number }}</td><td>{{ row.externallyDeclaredRefunds | number }}</td>
+              <td>{{ row.legacyPlatformFees | number }}</td>
+              <td>{{ row.collectionFees | number: '1.0-2' }} / {{ row.payoutFees | number: '1.0-2' }}</td>
+              <td>{{ row.mixedAccountRefundCases }}</td></tr>
+          } @empty { <tr><td colspan="11">Aucune écriture pour ce compte.</td></tr> }</tbody>
+        </table>
+      </div>
+      <p>Les dossiers de remboursement à sources mixtes sont comptés, sans inventer une allocation de leur montant à ce compte.</p>
+    }
+  </section>
+
   <section class="incident-list" aria-label="Liste des incidents">
     <div class="section-header">
       <div>

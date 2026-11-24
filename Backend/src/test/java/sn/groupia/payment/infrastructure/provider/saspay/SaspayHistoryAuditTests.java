@@ -140,6 +140,85 @@ class SaspayHistoryAuditTests {
         }
     }
 
+    private SaspayHistoryAudit.LedgerLookup references(
+            List<SaspayHistoryAudit.Reference> references) {
+        return new SaspayHistoryAudit.LedgerLookup() {
+            public List<SaspayHistoryAudit.Evidence> find(String account, String transaction) {
+                return List.of(inbound("SUCCEEDED", "1000"));
+            }
+
+            public List<SaspayHistoryAudit.Reference> references(
+                    String account, Instant from, Instant until) {
+                assertThat(account).isEqualTo(SaspayTestConfiguration.MERCHANT);
+                assertThat(from).isEqualTo(FROM);
+                assertThat(until).isEqualTo(UNTIL);
+                return references;
+            }
+        };
+    }
+
+    @Test
+    void detectsInternalReferenceMissingFromFullyTraversedProviderWindow() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            stub.reply(
+                    200,
+                    "{\"results\":[],\"next\":\"https://sandbox-api.saspay.me/api/v1/transactions/?cursor=next\"}");
+            stub.reply(
+                    200,
+                    "{\"results\":[" + transaction(SECOND, "SUCCESS", "1000") + "],\"next\":null}");
+            var reported = new ArrayList<String>();
+            var audit =
+                    audit(
+                            stub,
+                            references(
+                                    List.of(
+                                            new SaspayHistoryAudit.Reference(FIRST, "PENDING"),
+                                            new SaspayHistoryAudit.Reference(
+                                                    SECOND, "SUCCEEDED"))));
+            assertThat(
+                            audit.compare(
+                                            FROM,
+                                            UNTIL,
+                                            (code, ref) -> reported.add(code + ":" + ref))
+                                    .differences())
+                    .isEqualTo(1);
+            assertThat(reported).containsExactly("INTERNAL_REFERENCE_NOT_OBSERVED:" + FIRST);
+            assertThat(stub.requests).allMatch(r -> r.method().equals("GET"));
+        }
+    }
+
+    @Test
+    void incompleteProviderWindowNeverClaimsAnInternalReferenceIsMissing() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            stub.reply(200, "{\"results\":[],\"next\":\"https://untrusted.invalid/?cursor=next\"}");
+            var reported = new ArrayList<String>();
+            var audit =
+                    audit(
+                            stub,
+                            references(
+                                    List.of(new SaspayHistoryAudit.Reference(FIRST, "PENDING"))));
+            assertThatThrownBy(() -> audit.compare(FROM, UNTIL, (code, ref) -> reported.add(code)))
+                    .hasMessage("SASPAY_HISTORY_NEXT_INVALID");
+            assertThat(reported).isEmpty();
+        }
+    }
+
+    @Test
+    void internalScanOverflowCannotAdvanceAsACompleteAudit() throws Exception {
+        try (var stub = new SaspayHttpStub()) {
+            var audit =
+                    audit(
+                            stub,
+                            references(
+                                    Collections.nCopies(
+                                            3001,
+                                            new SaspayHistoryAudit.Reference(FIRST, "PENDING"))));
+            assertThatThrownBy(() -> audit.compare(FROM, UNTIL))
+                    .hasMessage("SASPAY_INTERNAL_HISTORY_NOT_EXHAUSTIVE");
+            assertThat(stub.requests).isEmpty();
+        }
+    }
+
     @Test
     void rejectsUntrustedPaginationHostWithoutFetchingIt() throws Exception {
         try (var stub = new SaspayHttpStub()) {

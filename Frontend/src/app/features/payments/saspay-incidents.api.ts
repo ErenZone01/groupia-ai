@@ -51,6 +51,38 @@ export interface SaspayProviderPreflight {
   noteCode: 'DIAGNOSTIC_NOT_ACCOUNTING_PROOF';
 }
 
+export interface SaspayAccountingPosition {
+  organizationId: string;
+  collectedPrincipal: number;
+  merchantPrincipal: number;
+  subscriptionRevenue: number;
+  unallocatedCollections: number;
+  legacyPlatformFees: number;
+  collectionFees: number;
+  paidPayouts: number;
+  reservedPayouts: number;
+  payoutFees: number;
+  additionalWalletFees: number;
+  refundsDue: number;
+  externallyDeclaredRefunds: number;
+  mixedAccountRefundCases: number;
+  missingFeeProofs: number;
+}
+
+export interface SaspayAccountingSnapshot {
+  checkedAt: string;
+  currency: 'XOF';
+  organizations: SaspayAccountingPosition[];
+  knownNetWalletFlows: number;
+  retainedMerchantPrincipal: number;
+  merchantDeficits: number;
+  unallocatedCollections: number;
+  subscriptionRevenue: number;
+  reservedPayouts: number;
+  missingFeeProofs: number;
+  noteCode: 'DIAGNOSTIC_NOT_ACCOUNTING_PROOF';
+}
+
 export interface IncidentPage {
   items: Incident[];
   total: number;
@@ -66,6 +98,10 @@ export interface IncidentPage {
 export class SaspayIncidentConsoleApi {
   private readonly http = inject(HttpClient);
   private readonly base = '/api/platform/saspay/incidents';
+
+  accounting() {
+    return firstValueFrom(this.http.get<SaspayAccountingSnapshot>(`${this.base}/accounting`).pipe(timeout(20000)));
+  }
 
   providerPreflight() {
     return firstValueFrom(

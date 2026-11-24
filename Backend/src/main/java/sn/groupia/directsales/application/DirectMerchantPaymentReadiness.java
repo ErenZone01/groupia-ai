@@ -32,6 +32,7 @@ public class DirectMerchantPaymentReadiness {
             UUID receiptPaymentId,
             BigDecimal receiptAmount) {}
 
+    @io.swagger.v3.oas.annotations.media.Schema(name = "DirectMerchantFinancialStatus")
     public record Status(
             String orderNumber,
             Long acceptedTotalXof,

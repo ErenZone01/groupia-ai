@@ -1,5 +1,6 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { DatePipe, DecimalPipe, registerLocaleData } from '@angular/common';
+import localeFr from '@angular/common/locales/fr';
+import { Component, LOCALE_ID, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -10,11 +11,15 @@ import {
   IncidentDetail,
   IncidentPage,
   SaspayProviderPreflight,
+  SaspayAccountingSnapshot,
   SaspayIncidentConsoleApi,
 } from './saspay-incidents.api';
 
+registerLocaleData(localeFr);
+
 @Component({
   selector: 'g-saspay-incidents-page',
+  providers: [{ provide: LOCALE_ID, useValue: 'fr-FR' }],
   imports: [FormsModule, DatePipe, DecimalPipe, RouterLink],
   templateUrl: './saspay-incidents.page.html',
   styleUrl: './saspay-incidents.page.scss',
@@ -34,6 +39,39 @@ export class SaspayIncidentsPage {
   readonly preflightLoading = signal(false);
   readonly preflightError = signal('');
   private preflightVersion = 0;
+  readonly accounting = signal<SaspayAccountingSnapshot | null>(null);
+  readonly accountingLoading = signal(false);
+  readonly accountingError = signal('');
+
+  async loadAccounting() {
+    if (this.accountingLoading()) return;
+    const session = this.auth.generation();
+    this.accountingLoading.set(true);
+    this.accounting.set(null);
+    this.accountingError.set('');
+    try {
+      const snapshot = await this.api.accounting();
+      if (session === this.auth.generation()) this.accounting.set(snapshot);
+    } catch (err) {
+      if (session === this.auth.generation()) this.accountingError.set(apiMessage(err));
+    } finally {
+      if (session === this.auth.generation()) this.accountingLoading.set(false);
+    }
+  }
+
+  walletGap(): number | null {
+    const p = this.providerPreflight(), a = this.accounting();
+    if (!p || !a || !p.balancesComplete || !p.senegalXofWallets ||
+      Math.abs(Date.parse(p.checkedAt) - Date.parse(a.checkedAt)) > 60000) return null;
+    return p.senegalAvailableXof + p.senegalPendingXof - a.knownNetWalletFlows;
+  }
+
+  potentialCoverageGap(): number | null {
+    const p = this.providerPreflight(), a = this.accounting();
+    if (!p || !a || this.walletGap() === null || p.walletFrozen) return null;
+    return Math.max(0, a.retainedMerchantPrincipal + a.unallocatedCollections - p.senegalAvailableXof);
+  }
+
   statusFilter = '';
   codeFilter = '';
   action: IncidentDecisionAction = 'REVIEW_STARTED';
@@ -53,6 +91,8 @@ export class SaspayIncidentsPage {
   readonly codeLabel = (code: string) =>
     ({
       UNMATCHED_TRANSACTION: 'Transaction inconnue',
+      INTERNAL_REFERENCE_NOT_OBSERVED: 'Référence interne absente de la fenêtre fournisseur',
+      INVALID_INTERNAL_TRANSACTION_ID: 'Référence fournisseur interne invalide',
       FINANCIAL_OR_STATUS_MISMATCH: 'Montant ou statut incohérent',
       INVALID_FINANCIAL_FIELDS: 'Données financières invalides',
       WEBHOOK_STUCK: 'Webhook à examiner',

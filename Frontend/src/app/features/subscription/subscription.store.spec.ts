@@ -61,6 +61,39 @@ describe('SubscriptionStore', () => {
     store.details.set({ ...details, availableProviders: ['SASPAY', 'BICTORYS'] });
     store.invoices.set([invoice]);
   }
+  it('bloque le renouvellement juste après paiement puis l’autorise à J-7', async () => {
+    await load();
+    store.details.set({ ...details, availableProviders: ['SASPAY'] });
+    store.history.set([{ status: 'PAID', planCode: 'STANDARD_MONTHLY' }]);
+    const day = 24 * 60 * 60 * 1000;
+    store.preview.set({
+      periodStart: new Date(Date.now() + 8 * day).toISOString(),
+      amount: 10000,
+      currency: 'XOF',
+    });
+    expect(store.renewalWindowOpen()).toBe(false);
+    expect(store.renewalOpensAt()).not.toBeNull();
+    await store.pay(undefined, true);
+    await store.prepareSaspay();
+    http.expectNone((req) => req.method === 'POST');
+
+    store.preview.set({
+      periodStart: new Date(Date.now() + 6 * day).toISOString(),
+      amount: 10000,
+      currency: 'XOF',
+    });
+    expect(store.renewalWindowOpen()).toBe(true);
+    const action = store.pay(undefined, true);
+    http.expectOne(base + '/invoices').flush({ id: 'next-invoice' });
+    await Promise.resolve();
+    http.expectOne(base + '/invoices/next-invoice/payment').flush({
+      status: 'PENDING',
+      checkoutUrl: null,
+    });
+    await vi.waitFor(() => flush());
+    await action;
+  });
+
   it('SasPay hébergé initie sans devis opérateur ni deuxième session', async () => {
     await saspay();
     await store.pay(quote);
